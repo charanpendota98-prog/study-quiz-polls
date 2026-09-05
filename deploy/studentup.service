@@ -1,0 +1,21 @@
+[Unit]
+Description=StudentUp Master Service — 24/7 Quiz + CA + Jobs Bot (TS & AP)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Adjust User/paths to your server (default: ubuntu, /home/ubuntu/studentup)
+User=ubuntu
+WorkingDirectory=/home/ubuntu/studentup
+ExecStart=/usr/bin/python3 /home/ubuntu/studentup/scripts/watch.py
+Restart=always
+RestartSec=10
+StandardOutput=append:/home/ubuntu/studentup/logs/watch.log
+StandardError=append:/home/ubuntu/studentup/logs/watch.log
+Environment=PYTHONUNBUFFERED=1
+
+# Optional: interactive bot (separate service) runs scripts/bot.py — see deploy/studentup-bot.service
+
+[Install]
+WantedBy=multi-user.target

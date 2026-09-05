@@ -1,0 +1,26 @@
+{
+  "note": "Verified-style TS/AP + Central job notifications used as fallback when live feeds are unreachable (bot never silent). The live aggregator overrides these with fresh items.",
+  "items": [
+    {"en": "TSPSC Group-IV recruitment notification released — check eligibility & apply online at the official TSPSC portal.",
+     "te": "TSPSC గ్రూప్-IV నియామక నోటిఫికేషన్ విడుదల — అర్హతలు చెక్ చేసి అధికారిక TSPSC పోర్టల్‌లో ఆన్‌లైన్‌లో దరఖాస్తు చేయండి.",
+     "link": "https://www.tspsc.gov.in", "source": "TSPSC"},
+    {"en": "IBPS Clerk 2026 recruitment — apply online before the last date; prelims & mains pattern for bank jobs.",
+     "te": "IBPS క్లర్క్ 2026 నియామకం — చివరి తేదీలోపు ఆన్‌లైన్‌లో దరఖాస్తు; బ్యాంక్ ఉద్యోగాలకు ప్రిలిమ్స్, మెయిన్స్ ప్యాటర్న్.",
+     "link": "https://www.ibps.in", "source": "IBPS"},
+    {"en": "RRB NTPC graduate & under-graduate posts notification — CBT-1 exam dates and admit cards to follow.",
+     "te": "RRB NTPC గ్రాడ్యుయేట్, అండర్-గ్రాడ్యుయేట్ పోస్టుల నోటిఫికేషన్ — CBT-1 పరీక్ష తేదీలు, అడ్మిట్ కార్డులు త్వరలో.",
+     "link": "https://www.rrbcdg.gov.in", "source": "RRB"},
+    {"en": "APPSC Group-II & Group-III notifications — aspirants should watch psc.ap.gov.in for apply dates.",
+     "te": "APPSC గ్రూప్-II, గ్రూప్-III నోటిఫికేషన్లు — దరఖాస్తు తేదీల కోసం psc.ap.gov.in చూడండి.",
+     "link": "https://psc.ap.gov.in", "source": "APPSC"},
+    {"en": "Telangana & AP Police Constable / SI recruitment — physical test and written exam pattern updated; check eligibility.",
+     "te": "తెలంగాణ, AP పోలీస్ కానిస్టేబుల్ / SI నియామకం — ఫిజికల్ టెస్ట్, రాత పరీక్ష ప్యాటర్న్ అప్‌డేట్; అర్హతలు చెక్ చేయండి.",
+     "link": "", "source": "Police"},
+    {"en": "SBI Clerk (Junior Associate) recruitment 2026 — apply online; state-wise vacancies for Telangana & Andhra Pradesh.",
+     "te": "SBI క్లర్క్ (జూనియర్ అసోసియేట్) 2026 నియామకం — ఆన్‌లైన్‌లో దరఖాస్తు; తెలంగాణ, ఆంధ్రప్రదేశ్‌లో రాష్ట్రాల వారీగా ఖాళీలు.",
+     "link": "https://sbi.co.in/careers", "source": "SBI"},
+    {"en": "Indian Army Agniveer and NDA/CDS aspirants — check joinindianarmy & UPSC portals for the latest notifications.",
+     "te": "ఇండియన్ ఆర్మీ అగ్నివీర్, NDA/CDS అభ్యర్థులు — తాజా నోటిఫికేషన్ల కోసం joinindianarmy, UPSC పోర్టల్స్ చూడండి.",
+     "link": "https://www.joinindianarmy.nic.in", "source": "Defence"}
+  ]
+}

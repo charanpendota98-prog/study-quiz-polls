@@ -1,0 +1,7 @@
+# STUDENTUP — ARCHIVE / BACKUP SOURCE DATABASE (89 Items — Re-scan Monthly)
+# Full list referenced from source_database_100plus.md
+# Status: ARCHIVE_BACKUP | Not queried by default | Only queried during monthly re-scan (test_feeds.py)
+# Categories: STATE_REGIONAL (20) | INTERNATIONAL (15) | EXAM_PREP (25) | GOVERNMENT (15) | JOB_BACKUP (14)
+# Note: Any source in this archive that comes back live (verified via test_feeds.py) is promoted to ACTIVE in source_database_100plus.md.
+# All sources here are excluded from the default aggregator pipeline to avoid stale/dead feed errors.
+# See full database: sources/source_database_100plus.md (100+ total entries with full URLs, status, last check date, filter result, and notes).

@@ -1,0 +1,161 @@
+{
+  "project": "STUDENTUP — FULL ADVANCED QUIZ ENGINE V2.0",
+  "version": "2.0 — 2026-09-05",
+  "location": "Hyderabad, Telangana | Oracle Free Tier Mumbai 80.225.205.135",
+  "developer": "StudentUp Team",
+  "language_policy": "English → Telugu (U+0C00–0C7F) | Zero other Indic scripts",
+  "block_policy": "Zero cricket, IPL, sports, Bollywood, Telugu film/movie, celebrity, actor, singer, box office, web series, weather forecast, foreign politics (US/UK/EU/China non-exam), crime, drama, music album, song, director, concert, viral video, job cuts, layoffs, jobless",
+  "channel_rules": {
+    "public_7": ["TSPSC", "APPSC", "BANKING", "RAILWAY", "POLICE", "DEFENCE", "CURRENT"],
+    "private_1": "JOBS",
+    "public_format": "{emoji} {subject} • {CHANNEL} → EN → ⤷ TE → 4 EN options / 4 TE options → Source: StudentUp | No links",
+    "jobs_format": "Links allowed | Max 5 items/post | Every 30 min (:00/:30)"
+  },
+  "banks": {
+    "TSPSC": {"channel": "StudentUp TSPSC Quiz (TS & AP)", "audience": "TSPSC Gr II/III/IV", "q_count": 10, "slots": 5, "exam_pattern": "Previous-paper discipline — syllogism, coding, seating, number series, analogy, direction, statement-assumption, figure count, logical order, blood relation"},
+    "APPSC": {"channel": "StudentUp APPSC Quiz (TS & AP)", "audience": "APPSC Gr II/III/IV", "q_count": 10, "slots": 5, "exam_pattern": "Previous-paper discipline — arithmetic series, alphabetical logic, data interpretation, non-verbal, critical reasoning, family tree, seating, direction, puzzle, statement-conclusion"},
+    "BANKING": {"channel": "StudentUp Banking Quiz (TS & AP)", "audience": "IBPS PO/Clerk | SBI | RRB NTPC/Clerk/ALP", "q_count": 10, "slots": 5, "exam_pattern": "Aptitude + Banking Awareness — percentage, ratio, profit-loss, time-work, compound/simple interest, mixture, data interpretation, series, average, RBI/current banking GK"},
+    "RAILWAY": {"channel": "StudentUp Railway RRB Quiz (TS & AP)", "audience": "RRB NTPC | Group D | ALP", "q_count": 10, "slots": 5, "exam_pattern": "General Intelligence + Quantitative — series, analogy, classification, syllogism, direction sense, logical sequence, clock, symbol logic (operator substitution), number series, non-verbal figure count"},
+    "POLICE": {"channel": "StudentUp Police Exams Quiz (TS & AP)", "audience": "TS/AP Police | Constable | SI | Sub-Inspector", "q_count": 10, "slots": 5, "exam_pattern": "Verbal reasoning + Non-verbal + Quantitative — opposite words, coding-decoding, blood relation, direction-distance, figure count, statement-conclusion, missing letter series, syllogism, analogy, number series (cubes/primes)"},
+    "DEFENCE": {"channel": "StudentUp Defence Exams Quiz (TS & AP)", "audience": "NDA | CDS | Agniveer | CISF | Indian Army/Navy/Air Force", "q_count": 10, "slots": 5, "exam_pattern": "Defence GK + Logical + Numerical — defence schemes/weapons/carriers, prime/cube series, direction, coding-decoding (+1 shift), analogy (instrument/defence/prevention), missing number (×2−1), non-verbal squares, statement-conclusion (necessary/sufficient), logical career order"},
+    "CURRENT": {"channel": "StudentUp Current Affairs GK Quiz (TS & AP)", "audience": "All exam aspirants — UPSC Prelims | TSPSC/APPSC Bank | SSC | IBPS", "q_count": 10, "slots": 5, "exam_pattern": "Exam-relevant CA only — government schemes (Indiramma, PM-KISAN, Ayushman Bharat), ISRO (Aditya-L1), RBI (repo rate), Constitution (Articles 12-35), Defence (DRDO, INS Vikrant), Central Budget (fiscal deficit), Elections (2024 Lok Sabha), Railway/Infrastructure (Bogibeel bridge), Health schemes"},
+    "JOBS": {"channel": "Telugu Jobs Updates StudentUp (PRIVATE)", "audience": "All students — TS/AP + Central only", "post_interval": "Every 30 min (:00/:30)", "max_items": 5, "links": "Allowed", "sources": ["FreeJobAlert", "SarkariYojana (Telugu)", "AffairsCloud", "The Hindu National", "The Hindu Business", "ET RSS", "TOI RSS"]}
+  },
+  "schedule_ist": {
+    "06:00": "Bank top-up (filler_gen; trigger: unused < 20 → Groq → Gemini key1 → key2)",
+    "07:00": "Morning greeting + today's schedule (7 public channels)",
+    "07:30 / 10:30 / 13:30 / 16:30 / 19:30": "Quiz slots — 10 polls/channel, 2.2–3.2s gap, completion message with 🎌",
+    "10/5/1 min before slot": "Reminders (EN + Telugu line) — 15 reminders/day",
+    "14:30": "Study tip (EN + Telugu, rotates 15 verified tips) — 7 public channels",
+    "21:30": "Current Affairs digest — 6 exam-relevant items, EN + ⤷ Telugu, NO links — 7 public channels",
+    ":00 / :30": "Jobs & Exams Update — max 5 items with links + source — PRIVATE channel"
+  },
+  "daily_volume": "~72 messages/channel/day (healthy, non-spam for Telegram limits)",
+  "poll_volume_per_slot": 10,
+  "poll_gap_seconds": "2.2–3.2 (never faster — avoids Telegram spam flag)",
+  "poll_type": "quiz with correct_option_index → instant right/wrong feedback",
+  "completion_message": "Includes 🎌 + schedule reminder + streak note",
+  "filler_trigger": "bank's unused pool < 20 → generate 10 new questions",
+  "filler_model_chain": "Groq openai/gpt-oss-120b → Gemini gemini-2.5-flash (key1) → Gemini gemini-2.5-flash (key2) — first success wins",
+  "filler_prompt_rules": "Previous-paper ONLY (TSPSC/APPSC/RRB/SSC/IBPS/SBI/NDA/CISF/UPSC Prelims); ≥4 of 10 questions TS/AP-specific; HARD BLOCK: cricket, IPL, sports, movies, actors, singers, box office, web series, weather, foreign politics, crime, celebrity",
+  "filler_validation_gate": "Same as all questions — Telugu script, length caps, blocked-word scan, exactly 4 EN + 4 TE options, index 0-3, no extra keys",
+  "dedup_engine": {
+    "layer_1_fingerprint": "lowercase → strip punctuation → drop stop-words (\"a, the, of, new, update, today, latest...\")",
+    "layer_2_similarity": "similar(A,B) = Jaccard(tokens) ≥ 0.55 OR shingle3(char-3grams) ≥ 0.55 OR (Jaccard ≥ 0.45 AND shingle3 ≥ 0.30)",
+    "layer_3_stores": {
+      "ca_seen_json": {"ttl_hours": 48, "purpose": "CA never repeats within 2 days"},
+      "personal_seen_json": {"ttl_hours": 12, "purpose": "Jobs retry after 12h — if Telegram post failed, item NOT marked → auto-retry next 30min run"},
+      "global_seen_json": {"ttl_hours": 6, "purpose": "Cross-pipeline — CA story can't reappear in Jobs (and vice versa)"}
+    },
+    "layer_4_in_batch_dedup": "Within single post, similarity ≥ threshold → collapse to one item",
+    "store_format": "Pure JSON — no database (1GB RAM friendly)",
+    "store_write": "Atomic (write temp → rename) — safe on crash",
+    "store_migration": "Legacy formats auto-migrate; stores safe to delete (worst case = one story repeats once)"
+  },
+  "filter_strategy": {
+    "ca_filter_keep": "exam-relevant vocabulary — government, scheme, mission, ISRO, RBI, GDP, inflation, constitution, parliament, supreme/high court, election, PM/President, minister, budget, GST, defence, army, missile, nuclear, railway, metro, scholarship, university, health, agriculture, cyclone/flood/earthquake, space, AI, recruitment, vacancy, notification, admit card, result, selection",
+    "ca_filter_block": "cricket, IPL, football, Bollywood, Telugu film/movie, celebrity, actor/actress, singer, box office, web series, viral video, drama, film festival, music album, movies, films, songs, composers, soundtracks, directors, concerts, albums, job cuts, layoffs, jobless",
+    "jobs_filter_tier_1_action": "recruit, vacancy, notification, admit card, hall ticket, apply online/offline/before, eligibility, scholarship, stipend, job(s), exam(s), mains, prelims, result(s), selection, shortlist, interview, answer key, cutoff, walk-in, appointment notification, posts out/for/open, openings, list released/out, pension yojana/scheme, name list, status check/online/report, check status, search name, download pdf",
+    "jobs_filter_tier_2_context": "telangana/ts, andhra/ap, TSPSC, APPSC, TSGENCO, TSSPDCL, TDPDCL, Hyderabad, Vijayawada, Visakhapatnam, Guntur, Nellore, Kurnool, Warangal, bank, IBPS, SBI, RRB, railway, police, constable, army, NDA, CDS, Agniveer, defence, central, union, India(n), nationwide, government, sarkari, group II/III/IV, SSC, UPSC, ISRO, PSU, IIT, yojana, scheme + roles (clerk, officer, engineer, assistant, manager, steno, technical, fellow, scientist, lecturer, professor, research, doctor, nurse, peon, patwari, trainee, executive)",
+    "jobs_other_state_hard_block": "Karnataka, Maharashtra, Tamil Nadu, Kerala, Punjab, Rajasthan, Gujarat, MP, Chhattisgarh, Odisha, Bihar, UP, West Bengal, Assam, Goa, Himachal, Jammu, Kashmir, Andaman, Ladakh, Northeast states, Sikkim, Haryana, Delhi, Jharkhand, Puducherry, Chandigarh — UNLESS central/pan-India",
+    "regex_lessons_fixed": "mission → (?<![cm])mission (so \"commissioners\" isn't kept); ai → \\bai\\b (so \"Chennai\" isn't kept); actor/drama → word-bounded (so \"factory\"/\"dramatic\" aren't blocked); mains → \\bmains\\b (so \"remains\" isn't matched); appointment → \"appointment notification/list/open\" (so \"reappointment\" isn't matched)"
+  },
+  "api_strategy": {
+    "ca_translation": {"primary": "Groq openai/gpt-oss-120b", "fallback_1": "Gemini gemini-2.5-flash (key1)", "fallback_2": "Gemini gemini-2.5-flash (key2)", "contract": "JSON array: exactly N Telugu strings; validated for Telugu script + no forbidden Indic scripts", "failure_behavior": "If ALL fail → CA posts EN-only (logged) — never silent, never crashes"},
+    "filler_quiz_gen": {"primary": "Groq", "fallback_1": "Gemini key1", "fallback_2": "Gemini key2", "validation": "Pass validation gate before appending", "trigger": "Bank unused pool < 20"},
+    "quota_reality": "Gemini free keys = daily RPD (429 when exhausted, resets ~24h rolling). Groq is workhorse. Both Gemini keys are cold spares.",
+    "key_rotation": "5 keys total in .env (BOT_TOKEN, ADMIN_ID, 2× Gemini, Groq). 12-hour headroom habit: if Groq degrades, next 48h fully functional on Gemini.",
+    "sandbox_caveat": "Groq 403s from dev sandbox (IP policy) but works from server (verified 25 Aug). Don't misdiagnose server health from sandbox tests."
+  },
+  "reliability_operations": {
+    "deploy_steps_7": ["Backup old setup → /home/ubuntu/studentup_backup_<ts>.tar.gz", "pkill old manual processes (watch/quiz_engine/personal_news/filler_gen + legacy names) → sleep 2 → no double-posting", "Extract zip → copy to /home/ubuntu/studentup → purge stale data files (used_questions, pyq_seen, ai_question_bank, real_facts/pyq banks, used_quizzes, personal_seen, ca_seen, global_seen) → chown ubuntu", "venv + pip install -r requirements.txt (requests, feedparser, python-dotenv)", "systemd studentup.service (Restart=always, RestartSec=10, log → watch.log) → daemon-reload → enable → restart", "Strip legacy studentup crontab lines (double-post insurance)", "Auto-verify: check.py (bot + 8 channels + banks + APIs + feed health) + quiz_engine.py test (sample poll to PRIVATE jobs channel) → prints ================ DEPLOY DONE ================"],
+    "service_name": "studentup.service",
+    "log_files": ["watch.log (master)", "quiz.log (posting)", "personal.log (jobs)"],
+    "monitoring_commands": {
+      "service_health": "sudo systemctl status studentup --no-pager",
+      "master_log": "tail -f /home/ubuntu/studentup/watch.log",
+      "quiz_log": "tail -100 /home/ubuntu/studentup/quiz.log",
+      "full_diagnostic": "cd /home/ubuntu/studentup && venv/bin/python3 check.py",
+      "ca_dry_run": "cd /home/ubuntu/studentup && venv/bin/python3 quiz_engine.py evening --dry",
+      "jobs_dry_run": "cd /home/ubuntu/studentup && venv/bin/python3 personal_news.py --dry"
+    },
+    "restore_command": "sudo tar -xzf /home/ubuntu/studentup_backup_<ts>.tar.gz -C /home/ubuntu"
+  },
+  "growth_90_day_plan": {
+    "phase_1_day_1_30": {
+      "focus": "STABILITY + TRUST",
+      "actions": ["Keep 5-slot + CA + jobs cadence flawless for 30 straight days (consistency IS the product)", "Site studentup.in: landing page with all 8 channel join buttons + daily CA archive + \"today's quiz\" embed (SEO keywords: \"TSPSC Group 4 previous papers in Telugu\", \"APPSC Group 2 quiz Telugu\", \"RRB NTPC Telugu quiz daily\")", "Community: after each slot, \"10/10 correct → comment 👇\" → reply to early commenters to seed habit", "Cross-post: 1×/week best quiz screenshot to each channel's \"results\" post (FOMO for non-members)"],
+      "targets": "5,000 total members across 8 channels; ≥30% poll participation; 0 duplicate posts; 0 missed slots",
+      "kpis": ["members/ch", "poll votes ÷ members", "10/10 comment count", "CA post view count", "jobs CTR (approx via channel growth spikes)"]
+    },
+    "phase_2_day_31_90": {
+      "focus": "ENGAGEMENT DEPTH",
+      "actions": ["Telegram Mini-App (same bot, sendMiniApp): per-student streak, weekly leaderboard, score history, \"my weak subjects\" — bot knows everyone who taps", "Streak system: 7-day streak badge → pinned leaderboard post Sunday 21:00 (public channels, usernames only)", "Exam-day war room: 24h before notified exam → dedicated channel pin + 3 micro-quiz slots (15 Q rapid) + previous-year summary post", "WhatsApp broadcast mirror of CA digest + jobs (same dedup pipeline, separate seen store)", "YouTube Shorts: 15s \"Daily GK\" clip of 3 CA lines (Telugu VO) — 1/day, ends with channel CTA", "Referral for material: \"Share quiz post → get full previous-paper PDF\" (site-gated)"],
+      "targets": "20,000 members; 40%+ poll participation; mini-app 30% DAU of members; site 5,000 visits/day"
+    },
+    "phase_3_month_3_6": {
+      "focus": "MOAT + REVENUE",
+      "actions": ["Premium material (site): previous-paper compilations with answer keys (TS-specific), subject-wise one-pagers — ₹99–299 tiers", "State bots: separate @StudentUpTSPSCbot, @StudentUpAPPSCbot (same engine, per-state banks) for SEO + shareability", "Coaching tie-ups: daily quiz as their \"homework feed\" (white-label, per-coaching channels) → B2B revenue", "Mock test portal: full 100-Q timed papers, OMR-style, percentile report → freemium", "Paid amplification: ₹500/day meta ads → landing page → channel join (track CPA per channel, kill losers weekly)"]
+    }
+  },
+  "risk_register": {
+    "gemini_quota_429": {"likelihood": "High (daily)", "impact": "Medium", "mitigation": "Groq primary; 2 Gemini keys; English-only fallback (never silent)"},
+    "news_source_dies": {"likelihood": "Medium", "impact": "Low", "mitigation": "11 CA + 7 jobs sources; graceful skip; check.py feed health; monthly re-scan (test_feeds.py kept in workspace)"},
+    "telegram_ban_spam": {"likelihood": "Low", "impact": "High", "mitigation": "72 msg/day/ch (well under Telegram limits); no links in public; no mass-add; 2.2s+ poll gaps; never post same content twice (dedup)"},
+    "oracle_free_tier_reclaim": {"likelihood": "Low (bot runs 24/7)", "impact": "High", "mitigation": "24/7 heartbeat (watch.py sleep-loop) keeps instance active; backup tars weekly (studentup_backup_*.tar.gz)"},
+    "1gb_ram_ceiling": {"likelihood": "Low", "impact": "Medium", "mitigation": "Zero-DB JSON design; single Python process; feeds fetched sequentially; no heavy libraries (requests + feedparser only)"},
+    "wrong_answer_in_bank": {"likelihood": "Low", "impact": "Medium", "mitigation": "Machine validation gate (§5.2) + human line review; community correction loop (comments) → 48h fix SLA; deploy.sh purges stale banks"},
+    "telugu_quality_slip_ai": {"likelihood": "Medium", "impact": "High", "mitigation": "Script validation (Telugu-only U+0C00–0C7F); length caps; latin-allow-list; translation output re-validated before post; blocked-word scan catches transliteration garbage"},
+    "duplicate_after_store_wipe": {"likelihood": "Very low", "impact": "Low", "mitigation": "Wipe only on deploy; TTL auto-prune (48h/12h/6h); global store covers cross-pipeline gap"},
+    "key_leak_env": {"likelihood": "Low", "impact": "High", "mitigation": ".env 600 permissions; single user (ubuntu); no repo; rotate via BotFather if ever exposed"},
+    "site_studentup_in_down": {"likelihood": "Low", "impact": "Medium", "mitigation": "Site is link target only — bot is fully independent; host on static (Vercel/Cloudflare) if needed"}
+  },
+  "weekly_rhythm": {
+    "every_day": ["Morning: glance watch.log (0 errors). Evening: verify 21:30 CA landed in all 7 channels (1 min check)"],
+    "monday": "Review jobs CTR spike pattern; note any repeated item (should be zero due to dedup)",
+    "wednesday": "check.py full run; verify feed health table; any DEAD feed → 5-min re-scan (test_feeds.py)",
+    "friday": "10 new questions per bank (manual or AI+review) → run finalize.py → deploy (10 min)",
+    "sunday": "KPI snapshot (members, votes, streaks) → next week's content plan; backup tar verified"
+  },
+  "scaling_path_10x": {
+    "10k_members": "Still single server (1GB fine). Add 2nd Gemini key budget upgrade ($10/mo) for translation headroom.",
+    "50k_members": "Migrate scheduler to APScheduler+Redis (or keep watch.py, move posting to worker pool); split quiz banks per-state; introduce Postgres for seen-stores.",
+    "state_level": "Independent bots per state (content isolation + trust), shared engine, per-state KPIs.",
+    "regional_language": "Same pipeline template for Kannada/Malayalam (script validation already parameterized by codepoint ranges: 0C80–0DFF for Kannada, etc.).",
+    "team": "1 content editor (10 Q/day review), 1 community manager, engineer on call — content quality is the product, protect it."
+  },
+  "all_links_reference": {
+    "platform": {"site": "https://studentup.in", "bot": "@DailyQuizPosterbot", "channel_matrix": ["TSPSC / APPSC / BANKING / RAILWAY / POLICE / DEFENCE / CURRENT / JOBS (PRIVATE)"], "server": "ubuntu@80.225.205.135 (Oracle Free Tier, Mumbai) — SSH key: C:\\Users\\Charan\\Downloads\\ssh-key-2026-08-23.key"},
+    "app_dir": "/home/ubuntu/studentup | venv: /home/ubuntu/studentup/venv | logs: watch.log, quiz.log, personal.log",
+    "service": "sudo systemctl status studentup | Backups: /home/ubuntu/studentup_backup_*.tar.gz",
+    "apis": {
+      "telegram_bot_api": "https://api.telegram.org/bot<TOKEN>",
+      "groq": "https://api.groq.com/openai/v1/chat/completions (model: openai/gpt-oss-120b)",
+      "gemini": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent (2 keys in .env)"
+    },
+    "live_sources_18": [
+      {"name": "AffairsCloud", "url": "https://affairscloud.com/feed", "status": "Verified OK (30 Aug) — 15 entries daily digest", "use": "CA + Jobs"},
+      {"name": "The Hindu — National", "url": "https://www.thehindu.com/news/national/feeder/default.rss", "status": "Verified OK — 60 entries", "use": "CA + Jobs"},
+      {"name": "India Today", "url": "https://www.indiatoday.in/rss/india", "status": "Verified OK — 20 entries", "use": "CA"},
+      {"name": "TOI — Top Stories", "url": "https://timesofindia.indiatimes.com/rssfeedstopstories.cms", "status": "Verified OK — 47 entries", "use": "CA + Jobs"},
+      {"name": "ET — Top Stories", "url": "https://economictimes.indiatimes.com/rssfeedstopstories.cms", "status": "Verified OK — 52 entries", "use": "CA + Jobs"},
+      {"name": "The Hindu — Business", "url": "https://www.thehindu.com/business/feeder/default.rss", "status": "Verified OK — 60 entries", "use": "CA + Jobs"},
+      {"name": "Insights on India", "url": "https://www.insightsonindia.com/feed", "status": "Verified OK — 5 entries daily", "use": "CA"},
+      {"name": "NDTV", "url": "https://www.ndtv.com/feeds/rss/news", "status": "⚠️ 403 from sandbox — verified via check.py on server — depth backup", "use": "CA backup"},
+      {"name": "Zee News", "url": "https://zeenews.india.com/rss/india-national-news.xml", "status": "⚠️ 403 from sandbox — depth backup", "use": "CA backup"},
+      {"name": "Indian Express", "url": "https://indianexpress.com/feed/", "status": "⚠️ 403 from sandbox — depth backup", "use": "CA backup"},
+      {"name": "Hindustan Times", "url": "https://www.hindustantimes.com/feeds/rss/india-news", "status": "⚠️ 403 from sandbox — depth backup", "use": "CA backup"},
+      {"name": "FreeJobAlert", "url": "https://www.freejobalert.com/feed", "status": "Verified OK — 100 entries fresh", "use": "Jobs"},
+      {"name": "SarkariYojana (Telugu)", "url": "https://www.sarkariyojana.com/feed", "status": "Verified OK — 20 entries, <1h old", "use": "Jobs"},
+      {"name": "BBC India", "url": "https://feeds.bbci.co.uk/news/world/india/rss.xml", "status": "DEAD — 404 (do NOT reuse)", "use": "None — removed"},
+      {"name": "Deccan Herald", "url": "https://www.deccanherald.com/rss", "status": "DEAD — 404 (do NOT reuse)", "use": "None — removed"},
+      {"name": "TOI Hyderabad", "url": "https://timesofindia.indiatimes.com/rssfeeds/2223817529.cms", "status": "DEAD — 404 (do NOT reuse)", "use": "None — removed"},
+      {"name": "TOI Vijayawada", "url": "https://timesofindia.indiatimes.com/rssfeeds/1224655363.cms", "status": "DEAD — 200 but 0 entries (do NOT reuse)", "use": "None — removed"},
+      {"name": "IBPS Guide", "url": "https://www.ibpsguide.com/feed", "status": "STALE — 179 days old (do NOT reuse)", "use": "None — removed"},
+      {"name": "GovtJobs.com", "url": "https://www.govtjobs.com/feed", "status": "STALE — 170+ days old (do NOT reuse)", "use": "None — removed"},
+      {"name": "APJobs.in", "url": "https://www.apjobs.in/feed", "status": "JUNK CONTENT — removed (do NOT reuse)", "use": "None — removed"}
+    ],
+    "dead_sources_13_rejected": ["BBC India (404)", "Deccan Herald (404)", "TOI Hyderabad (404)", "TOI Vijayawada (0 entries)", "IBPS Guide (stale 179d)", "GovtJobs.com (stale 170+d)", "APJobs.in (junk)", "Deccan Chronicle/deccanchronus (TLS dead)", "Firstpost (403)", "Livemint (HTML only)", "Business Standard old URL (HTML)", "The Quint (404)", "Frontline (HTML), Telegraph (403), DNK (TLS dead), Saapranthi (TLS dead), 10MinuteTelugu (TLS dead), IASbaba (TLS dead), Samayam Telugu (TLS dead), Sakshi (403), Smartkeeda (404), GKTODAY (500), Civilstoday (500), News On Air (timeout), ABP Live (HTML), PRS India (404), The Week (403), Adda247 (403), BankersAdda (403), Naukigazette (dead), Testbook (404), RailBiz (dead), RecruitmentIndia (HTML), Jagran Josh (404), TSJobs.in (404), BankingJobs.net (404), Freshersworld (403), Sainikam (TLS dead), TheBridge24 (HTML, no XML), PIB (no real RSS)"],
+    "re_scan_cadence": "Monthly — script test_feeds.py kept in workspace. If dead source comes back, add to list — pipeline tolerates it automatically."
+  }
+}

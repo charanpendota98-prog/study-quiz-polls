@@ -1,0 +1,6 @@
+# STUDENTUP — core runs on Python 3.10+ STANDARD LIBRARY (no install needed).
+# These packages are OPTIONAL — the engine auto-uses them if present and
+# falls back to stdlib (urllib / xml.etree) if they are absent:
+requests>=2.28.0     # faster HTTP (Telegram + LLM + feeds)
+feedparser>=6.0.0    # tolerant RSS/Atom parsing
+python-dotenv>=1.0.0 # optional .env loader (core has its own)
