@@ -19,6 +19,8 @@ from core.store import load_json
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--feeds", action="store_true", help="also probe RSS feed reachability")
+    ap.add_argument("--sources", action="store_true",
+                    help="show central source registry + health summary")
     args = ap.parse_args()
 
     ok = True
@@ -101,12 +103,30 @@ def main():
     # feeds
     if args.feeds:
         print("\n[5] Feed reachability")
-        from core.feeds import FEEDS, fetch_feed
-        for scope, feeds in FEEDS.items():
+        from core.feeds import load_feed_sources, fetch_feed
+        for scope, feeds in load_feed_sources().items():
             for name, url in feeds:
                 entries = fetch_feed(name, url, timeout=10)
                 status = f"{len(entries)} entries" if entries else "DEAD/empty"
                 print(f"  [{status:12s}] {name}")
+
+    # central source registry + health
+    if args.sources:
+        print("\n[6] Central source registry (deep-quiz scraping)")
+        from core import collector
+        reg = collector.load_registry()
+        srcs = reg.get("sources", [])
+        en = [s for s in srcs if s.get("enabled")]
+        cand = [s for s in srcs if not s.get("enabled") and s.get("auto_enable_if_live")]
+        print(f"  Total: {len(srcs)} | enabled: {len(en)} | "
+              f"candidates (auto-audit): {len(cand)}")
+        h = collector.health_summary()
+        print(f"  Health: ok={h['ok']} paused={h['paused']} failing={h['failing']}")
+        for s in en:
+            a = s.get("audit", {})
+            print(f"    ✓ {s['name'][:38]:38s} {s.get('type','?'):6s} "
+                  f"{a.get('status','?')}")
+        print("  (full detail: python3 audit_sources.py)")
 
     print("\n" + "=" * 64)
     print("HEALTH:", "ALL CORE CHECKS PASS ✅" if ok else "ISSUES FOUND ⚠️ (see above)")

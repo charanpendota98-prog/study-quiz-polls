@@ -56,9 +56,16 @@ from .question_bank import q_signature
 USER_AGENT = ("Mozilla/5.0 (compatible; StudentUpBot/4.0; "
               "+https://studentup.in; exam-quiz collector; respectful)")
 
+# Jina Reader — automatic fallback when a page blocks plain fetches.
+# Set JINA_API_KEY=... in env/.env (optional; collector keeps working without).
+JINA_API = "https://r.jina.ai/"
+FEED_URL_RE = re.compile(r"(?:/feed/?$|\.xml(?:\?|$)|/rss(?:\?|$)|\.rss(?:\?|$))", re.I)
+
 SCRAPED_BANK = config.DATA / "scraped_bank.json"
 PENDING = config.DATA / "scraped_pending.json"
 SEEN_URLS = config.DATA / "collector_seen.json"
+REGISTRY = config.DATA / "collector_sources.json"     # central source registry
+HEALTH = config.DATA / "collector_health.json"        # per-source health store
 
 # Title filters shared by most quiz feeds.
 _QUIZ_MUST = r"quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\bgk\b|previous year"
@@ -151,11 +158,100 @@ DEFAULT_SOURCES = [
 
 # Polite throughput per run. Collection runs many times a day, so each run is
 # small; the seen-URL store makes successive runs page forward to NEW content.
+# These are FALLBACKS — the central registry (data/collector_sources.json)
+# carries per-source limits and its "defaults" block overrides these live.
 MAX_ARTICLES_PER_SOURCE = 2
 MAX_LINKS_PER_INDEX = 3
+MAX_PAGES_PER_INDEX = 2
 MAX_QUESTIONS_PER_RUN = 160
 POLITE_DELAY_SEC = 2.0          # min seconds between hits on the same host
 FETCH_TIMEOUT = 20
+AUTO_PAUSE_AFTER_FAILURES = 3   # pause a source after N consecutive bad runs
+
+
+def _registry_defaults() -> dict:
+    data = load_json(REGISTRY, {})
+    return data.get("defaults", {}) if isinstance(data, dict) else {}
+
+
+def load_registry() -> dict:
+    """The single, central source registry (data/collector_sources.json)."""
+    return load_json(REGISTRY, {"sources": [], "defaults": {}})
+
+
+def registry_sources() -> list[dict]:
+    """Enabled sources from the central registry, minus health-paused ones.
+
+    When the registry is absent (fresh checkout) the built-in DEFAULT_SOURCES
+    are used instead, so the engine never breaks.
+    """
+    data = load_registry()
+    srcs = data.get("sources") or []
+    if not srcs:
+        return []
+    health = load_json(HEALTH, {"sources": {}}).get("sources", {})
+    out = []
+    for s in srcs:
+        if not s.get("enabled", True):
+            continue
+        name = s.get("name", "?")
+        h = health.get(name, {})
+        if h.get("paused"):
+            print(f"   [collect] {name} PAUSED "
+                  f"({h.get('consecutive_failures', 0)} consecutive failures)")
+            continue
+        out.append(dict(s))
+    return out
+
+
+def record_health(source_name: str, ok: bool, detail: str = "",
+                  path=None) -> None:
+    """Append one run result to the per-source health store (atomic JSON).
+
+    After AUTO_PAUSE_AFTER_FAILURES consecutive failures the source is paused
+    automatically; `core.auditor.audit_all()` re-checks paused sources and
+    unpauses them when they come back live.
+    """
+    data = load_json(path or HEALTH, {"sources": {}})
+    if not isinstance(data, dict) or "sources" not in data:
+        data = {"sources": {}}
+    h = data["sources"].setdefault(source_name, {
+        "ok_runs": 0, "fail_runs": 0, "consecutive_failures": 0, "paused": False,
+    })
+    now = datetime.now(config.IST).strftime("%Y-%m-%d %H:%M:%S")
+    if ok:
+        h["ok_runs"] = h.get("ok_runs", 0) + 1
+        h["consecutive_failures"] = 0
+        h["paused"] = False
+        h["last_ok"] = now
+        h.pop("last_error", None)
+        h.pop("last_fail", None)
+        if detail:
+            h["last_note"] = detail
+    else:
+        h["fail_runs"] = h.get("fail_runs", 0) + 1
+        h["consecutive_failures"] = h.get("consecutive_failures", 0) + 1
+        h["last_fail"] = now
+        h["last_error"] = detail[:200] if detail else "unknown"
+        if h["consecutive_failures"] >= AUTO_PAUSE_AFTER_FAILURES:
+            h["paused"] = True
+    try:
+        save_json_atomic(path or HEALTH, data)
+    except Exception as e:
+        print(f"   [collect] health write note: {e}")
+
+
+def health_summary() -> dict:
+    data = load_json(HEALTH, {"sources": {}})
+    srcs = data.get("sources", {})
+    return {
+        "sources": srcs,
+        "ok": sum(1 for h in srcs.values() if not h.get("paused")
+                  and h.get("consecutive_failures", 0) == 0),
+        "paused": sum(1 for h in srcs.values() if h.get("paused")),
+        "failing": sum(1 for h in srcs.values() if not h.get("paused")
+                       and h.get("consecutive_failures", 0) > 0),
+    }
 
 # ---------------------------------------------------------------------------
 # Channel / topic inference
@@ -310,8 +406,33 @@ def robots_allowed(url: str) -> bool:
     return allowed
 
 
+def _jina_fetch(url: str, timeout=FETCH_TIMEOUT):
+    """Jina Reader fallback (r.jina.ai) — bypasses bot-blocking / anti-scrape
+    walls on sites that refuse plain requests. Returns text or None."""
+    key = config.env("JINA_API_KEY", "")
+    if not key:
+        return None
+    jurl = JINA_API + url
+    headers = {"Authorization": f"Bearer {key}", "Accept": "text/plain"}
+    try:
+        req = urllib.request.Request(jurl, headers=headers)
+        with urllib.request.urlopen(req, timeout=timeout + 10) as resp:
+            return resp.read().decode("utf-8", errors="replace")
+    except Exception as e:
+        print(f"   [collect] jina fallback note {url}: {e}")
+        return None
+
+
+def is_feed_url(url: str) -> bool:
+    """True for RSS/Atom feed URLs (Jina fallback is useless there — it
+    returns rendered markdown, not XML)."""
+    return bool(FEED_URL_RE.search(url or ""))
+
+
 def http_get(url: str, timeout=FETCH_TIMEOUT, retries=2, respect_robots=True):
-    """GET with browser headers, backoff, robots check. Returns text or None."""
+    """GET with browser headers, backoff, robots check. Returns text or None.
+    If the direct fetch fails AND the URL is an HTML page (not a feed), tries
+    the Jina Reader as an optional second path (when JINA_API_KEY is set)."""
     if respect_robots and not robots_allowed(url):
         print(f"   [collect] robots.txt disallows: {url}")
         return None
@@ -343,6 +464,12 @@ def http_get(url: str, timeout=FETCH_TIMEOUT, retries=2, respect_robots=True):
                 time.sleep(1.5 * (attempt + 1))
                 continue
             print(f"   [collect] fetch failed {url}: {e}")
+            # anti-scrape walls often 403 the plain GET -> Jina Reader fallback
+            if not is_feed_url(url):
+                via_jina = _jina_fetch(url, timeout)
+                if via_jina and len(via_jina) > 400:
+                    print(f"   [collect] recovered via Jina Reader: {url}")
+                    return via_jina
             return None
         except Exception as e:  # never crash the collector on a bad page
             print(f"   [collect] parse/fetch error {url}: {e}")
@@ -559,7 +686,8 @@ def _feed_entries(feed_url):
         link = (item.findtext("link", "") or "").strip()
         if title and link:
             out.append({"title": html.unescape(re.sub(r"\s+", " ", title)).strip(),
-                        "link": link})
+                        "link": link,
+                        "published": (item.findtext("pubDate", "") or "").strip()})
     ns = {"a": "http://www.w3.org/2005/Atom"}
     for e in root.findall(".//a:entry", ns):
         title = e.findtext("a:title", "", ns)
@@ -567,21 +695,29 @@ def _feed_entries(feed_url):
         link = link_el.get("href", "") if link_el is not None else ""
         if title and link:
             out.append({"title": html.unescape(re.sub(r"\s+", " ", title)).strip(),
-                        "link": link})
+                        "link": link,
+                        "published": (e.findtext("a:updated", "", ns)
+                                      or e.findtext("a:published", "", ns) or "").strip()})
     return out
 
 
-def quiz_articles_for_source(src):
-    """Return [{title, link}] quiz articles for one configured RSS source."""
-    entries = _feed_entries(src["feed"])
+def quiz_articles_for_source(src, entries=None):
+    """Return [{title, link}] quiz articles for one configured RSS source.
+
+    `entries` is optional so the discovery loop can fetch the feed once and
+    reuse it (single fetch per run, then record health).
+    """
+    if entries is None:
+        entries = _feed_entries(src["feed"])
     must = re.compile(src.get("title_must", r"quiz|questions|mcq"), re.I)
-    notp = re.compile(src.get("title_not", r"(?!)"), re.I)
+    notp = re.compile(src.get("title_not", r"(?!)\Z"), re.I)
+    limit = int(src.get("max_articles", MAX_ARTICLES_PER_SOURCE))
     picked = []
     for e in entries:
         t = e["title"]
         if must.search(t) and not notp.search(t):
             picked.append(e)
-        if len(picked) >= MAX_ARTICLES_PER_SOURCE:
+        if len(picked) >= limit:
             break
     return picked
 
@@ -773,12 +909,11 @@ def normalize_raw(raw, source_name, idx, llm=None):
 # Collection driver
 # ---------------------------------------------------------------------------
 def _sources():
-    srcs = [dict(s) for s in DEFAULT_SOURCES if s.get("enabled", True)]
-    override = load_json(config.DATA / "collector_sources.json", {"sources": []})
-    for s in override.get("sources", []):
-        if s.get("enabled", True):
-            srcs.append(s)
-    return srcs
+    """Sources to collect from — central registry first, built-ins as fallback."""
+    srcs = registry_sources()
+    if srcs:
+        return srcs
+    return [dict(s) for s in DEFAULT_SOURCES if s.get("enabled", True)]
 
 
 def collect_daily(dry=False, llm=None, max_questions=MAX_QUESTIONS_PER_RUN,
@@ -827,21 +962,25 @@ def collect_daily(dry=False, llm=None, max_questions=MAX_QUESTIONS_PER_RUN,
         jobs.append(({"name": "fixture", "adapter": None}, ftitle, furl, fhtml))
     else:
         for src in _sources():
+            name = src["name"]
             stats["sources"] += 1
-            stats["per_source"][src["name"]] = {"articles": 0, "kept": 0}
+            stats["per_source"][name] = {"articles": 0, "kept": 0}
             try:
                 if src.get("type") == "index":
                     # Deep crawl: the section page may itself contain MCQs AND
-                    # links to per-topic pages; queue NEW links only.
+                    # links to per-topic pages; queue NEW links only. Paginated
+                    # topic pages (page_re + max_pages) are crawled too.
                     page = http_get(src["url"])
                     if not page:
+                        record_health(name, False, "index page fetch failed")
                         continue
-                    jobs.append((src, src["name"], src["url"], page))
+                    record_health(name, True)
+                    jobs.append((src, name, src["url"], page))
                     self_url = src["url"].split("#")[0].rstrip("/")
                     seen_urls.add(self_url)
                     links = extract_links(page, src["url"],
                                           src.get("link_re", r"(?!)"))
-                    limit = src.get("max_links", MAX_LINKS_PER_INDEX)
+                    limit = int(src.get("max_links", MAX_LINKS_PER_INDEX))
                     added = 0
                     for lk in links:
                         if added >= limit:
@@ -855,9 +994,34 @@ def collect_daily(dry=False, llm=None, max_questions=MAX_QUESTIONS_PER_RUN,
                             jobs.append((src, lk["title"], lk["link"], sub))
                             added += 1
                             stats["articles"] += 1
-                            stats["per_source"][src["name"]]["articles"] += 1
+                            stats["per_source"][name]["articles"] += 1
+                    # numbered/query pagination pages (one level deeper)
+                    page_re = src.get("page_re")
+                    max_pages = int(src.get("max_pages", MAX_PAGES_PER_INDEX))
+                    if page_re and max_pages > 0:
+                        p_added = 0
+                        for lk in extract_links(page, src["url"], page_re):
+                            if p_added >= max_pages:
+                                break
+                            if lk["link"] in seen_urls:
+                                continue
+                            seen_urls.add(lk["link"])
+                            sub = http_get(lk["link"])
+                            if sub:
+                                jobs.append((src, lk["title"] or "page",
+                                             lk["link"], sub))
+                                p_added += 1
+                                stats["articles"] += 1
+                                stats["per_source"][name]["articles"] += 1
                 else:
-                    arts = quiz_articles_for_source(src)
+                    entries = _feed_entries(src["feed"])
+                    if not entries:
+                        # feed unreachable/empty -> health fail (auto-pause)
+                        record_health(name, False,
+                                      f"feed returned 0 entries (dead/empty)")
+                        continue
+                    record_health(name, True, f"{len(entries)} feed entries")
+                    arts = quiz_articles_for_source(src, entries=entries)
                     for a in arts:
                         if a["link"] in seen_urls:
                             continue
@@ -867,9 +1031,10 @@ def collect_daily(dry=False, llm=None, max_questions=MAX_QUESTIONS_PER_RUN,
                             continue
                         jobs.append((src, a["title"], a["link"], page))
                         stats["articles"] += 1
-                        stats["per_source"][src["name"]]["articles"] += 1
+                        stats["per_source"][name]["articles"] += 1
             except Exception as e:
-                print(f"   [collect] {src['name']} discovery error: {e}")
+                print(f"   [collect] {name} discovery error: {e}")
+                record_health(name, False, f"discovery error: {str(e)[:120]}")
                 continue
 
     for src, title, url, page in jobs:

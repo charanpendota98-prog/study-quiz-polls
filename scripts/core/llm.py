@@ -27,6 +27,7 @@ GROQ_MODEL = "openai/gpt-oss-120b"
 DEEPSEEK_MODEL = "deepseek-chat"
 OPENAI_MODEL = "gpt-4o-mini"
 GEMINI_MODEL = "gemini-2.5-flash"
+DIFY_API = "https://api.dify.ai/v1/chat-messages"
 
 
 def _collect(prefixes, single=()):
@@ -46,14 +47,22 @@ class LLM:
     def __init__(self):
         config.load_env()
         e = os.environ
-        self.groq = _collect(("GROQ_KEY_",), ("GROQ_KEY",))
-        self.deepseek = _collect(("DEEPSEEK_KEY_",), ("DEEPSEEK_KEY",))
-        self.openai = _collect(("OPENAI_KEY_",), ("OPENAI_KEY",))
-        self.gemini = _collect(("GEMINI_KEY_",), ("GEMINI_KEY", "GEMINI_KEY_1", "GEMINI_KEY_2"))
+        # Every key family is accepted; collection de-duplicates, so
+        # GEMINI_KEY_1 and GEMINI_API_KEY_1 holding the same value count once.
+        self.groq = _collect(("GROQ_KEY_", "GROQ_API_KEY_"),
+                             ("GROQ_KEY", "GROQ_API_KEY"))
+        self.deepseek = _collect(("DEEPSEEK_KEY_", "DEEPSEEK_API_KEY_"),
+                                 ("DEEPSEEK_KEY", "DEEPSEEK_API_KEY"))
+        self.openai = _collect(("OPENAI_KEY_", "OPENAI_API_KEY_"),
+                               ("OPENAI_KEY", "OPENAI_API_KEY"))
+        self.gemini = _collect(("GEMINI_KEY_", "GEMINI_API_KEY_"),
+                               ("GEMINI_KEY", "GEMINI_API_KEY"))
+        self.dify = _collect(("DIFY_",), ("DIFY_APP_TOKEN", "DIFY_TOKEN",))
         self.health = {}
 
     def available(self) -> bool:
-        return bool(self.groq or self.deepseek or self.openai or self.gemini)
+        return bool(self.groq or self.deepseek or self.openai
+                    or self.gemini or self.dify)
 
     # ------------------------------------------------------------- HTTP post
     def _post_json(self, url: str, headers: dict, body: dict, timeout: int = 45):
@@ -116,13 +125,26 @@ class LLM:
             return d["candidates"][0]["content"]["parts"][0]["text"]
         raise RuntimeError(f"gemini {code}: {text[:160]}")
 
+    def _dify(self, key, system, user):
+        """Dify app token — blocking chat-messages endpoint (extra provider)."""
+        code, text = self._post_json(DIFY_API, {"Authorization": f"Bearer {key}",
+                                                "Content-Type": "application/json"},
+                                     {"inputs": {}, "query": system + "\n\n" + user,
+                                      "response_mode": "blocking",
+                                      "conversation_id": "",
+                                      "user": "studentup-bot"})
+        if code == 200:
+            return json.loads(text).get("answer", "")
+        raise RuntimeError(f"dify {code}: {text[:160]}")
+
     # ------------------------------------------------------------- public chat
     def chat(self, system: str, user: str, retries_per_key: int = 1):
         """Try every provider/key in order. Return text, or None if all fail."""
         chain = ([("groq", k, self._groq) for k in self.groq] +
                  [("deepseek", k, self._deepseek) for k in self.deepseek] +
                  [("openai", k, self._openai) for k in self.openai] +
-                 [("gemini", k, self._gemini) for k in self.gemini])
+                 [("gemini", k, self._gemini) for k in self.gemini] +
+                 [("dify", k, self._dify) for k in self.dify])
         last_err = None
         for name, key, fn in chain:
             tag = f"{name}:{key[-6:]}"
@@ -141,7 +163,8 @@ class LLM:
 
     def health_report(self) -> str:
         lines = [f"LLM keys — Groq:{len(self.groq)} DeepSeek:{len(self.deepseek)} "
-                 f"OpenAI:{len(self.openai)} Gemini:{len(self.gemini)}"]
+                 f"OpenAI:{len(self.openai)} Gemini:{len(self.gemini)} "
+                 f"Dify:{len(self.dify)}"]
         for tag, h in sorted(self.health.items()):
             status = "OK" if h["ok"] and not h["fail"] else ("DEGRADED" if h["fail"] else "idle")
             lines.append(f"  {tag} {status} ok={h['ok']} fail={h['fail']} {h['err']}")

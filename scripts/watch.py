@@ -4,9 +4,11 @@ STUDENTUP — MASTER WATCH SERVICE (systemd: studentup.service)
 24/7 IST-aware scheduler. Single Python process, stdlib only.
 
 Schedule (IST):
+  04:45  deep source audit (content-gated; auto-pause/enable sources)
+  05:30 / 07:40 / 08:15 / 11:00 / 16:00 / 19:40 / 20:15 / 22:30  collector
   06:00  filler top-up
   07:00  morning greeting
-  07:30 / 10:30 / 13:30 / 16:30 / 19:30  quiz slots (10 polls x 7 channels)
+  07:30 / 19:30  quiz slots (10 polls x 7 channels)
   14:30  study tip
   21:30  CA digest
   every :00 / :30   jobs update (private channel)
@@ -92,6 +94,18 @@ def tick(eng, now, dry=False):
                 ran.append("collect")
             except Exception as e:
                 log(f"collect error: {e}")
+        elif task == "audit":
+            # Daily deep, content-gated source audit: dead sources auto-pause,
+            # verified-clean candidates auto-enable. Never crashes the loop.
+            try:
+                from core.auditor import audit_all
+                res = audit_all()
+                log(f"audit: checked={res['checked']} live={res['live']} "
+                    f"warn={res.get('warn', 0)} dead={res['dead']} "
+                    f"changes={res['enabled_changed']}")
+                ran.append("audit")
+            except Exception as e:
+                log(f"audit error: {e}")
         elif task == "filler":
             try:
                 from core.generator import top_up

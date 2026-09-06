@@ -13,6 +13,7 @@ data/question_bank.json
 data/question_bank_extra.json
 data/shown_signatures.json
 data/ca_digest_curated.json
+data/collector_health.json
 logs/*.log
 
 # Python
@@ -28,3 +29,4 @@ extracted/
 data/scraped_bank.json
 data/scraped_pending.json
 data/collector_seen.json
+studentup_deploy_v3.zip
