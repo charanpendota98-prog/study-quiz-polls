@@ -21,7 +21,7 @@ Defence (NDA/CDS/Agniveer), and Current Affairs GK** — plus a private
 | 🎯 **Exam-paper sources only** | Quiz questions come **only** from exam-aligned sources (`pyq`, `curated`, `llm-gen`, `offline-gen`). **Newspapers and articles never become quiz questions** — news feeds feed the Current-Affairs *digest* only, and soft headlines (opinion/blog/sports/lifestyle/etc.) are filtered out even there. |
 | **Previous-Year Questions first** | Authentic PYQ banks (`data/pyq_bank.json` + `data/pyq_bank_2.json`, TSPSC/APPSC/RRB/IBPS/SBI/Police/NDA/CDS/UPSC patterns, **60+ verified bilingual PYQs**) are **prioritised in every round**, then curated, then generated. |
 | 🧑‍🏫 **Daily expert coach lesson** | A friendly, professional expert posts a **reasoning/aptitude shortcut with a worked example** at **12:30 IST** to every channel (`data/coach_lessons.json`, 16 lessons EN+Telugu) — plus `/coach` any time in the bot DM. |
-| 🕷️ **Multi-source exam scraper** | A daily collector (`core/collector.py`, **05:30 IST**) pulls fresh exam **quiz/MCQ content from many websites, apps & APIs** (AffairsCloud, GKToday, Insights, BankersAdda, SSCAdda, Testbook…) with browser-style fetching, retries, **robots.txt respect**, polite rate-limiting, RSS quiz-page discovery, a tolerant WordPress quiz parser, and **LLM-API translation** into Telugu. Results merge into the same validated, no-repeat bank. |
+| 🕷️ **Deep multi-source scraper** | `core/collector.py` pulls fresh exam **quiz/MCQ content from 15+ websites across all day (6 runs, incl. right after each quiz)** — AffairsCloud, GKToday, Insights, Testbook, BankersAdda, Guidely, Oliveboard, SSCAdda, CareerPower, RailwayAdda, plus **deep-crawled static MCQ banks (IndiaBIX)** via a dedicated adapter. Browser fetching, retries, **robots.txt**, polite pacing, seen-URL paging, per-site parsers & **LLM-API Telugu translation**. Everything merges into the same validated, no-repeat bank. |
 | **Member registration** | `/register` guided sign-up (name → exam target → language), +25 bonus points. Members stored in `data/members.json`. |
 | **Points, levels & ranks** | +10 per correct answer, +5 daily activity, streak bonuses (3/7/15/30/100 days), levels 🆕→🥉→🥈→🥇→💎→👑 Champion, weekly + all-time leaderboards. |
 | **Native quiz polls** | `sendPoll` type `quiz` with `correct_option_id` → instant right/wrong feedback + **explanation**. Bot quizzes are non-anonymous so they earn points. |
@@ -88,7 +88,7 @@ the bot (matched by Telegram @username) — no duplicate accounts.
 
 | Time (IST) | What |
 |---|---|
-| 🕷️ **05:30** | **Multi-website/app exam-content scraping** — fresh quizzes collected, translated, validated |
+| 🕷️ **05:30 / 08:15 / 11:00 / 16:00 / 20:15 / 22:30** | **Deep multi-source scraping (6× daily)** — fresh quizzes from websites/apps/APIs, translated & validated; runs right after both quiz rounds too |
 | 06:00 | Auto top-up question bank if any pool runs low |
 | 07:00 | Morning greeting + today's schedule (all 7 public channels) |
 | **⛅ 07:30** | **Morning quiz round** — 10 bilingual PYQ-first polls per channel |
@@ -225,29 +225,44 @@ The validation gate (`finalize.py`) and the test suite (`tests/test_bot.py`)
 
 ## 🕷️ Advanced exam-content collector (daily scraping)
 
-`core/collector.py` neatly gathers **fresh exam quiz content every day from many
-websites, apps and APIs** and turns it into validated bilingual questions:
+`core/collector.py` neatly gathers **fresh exam quiz content all day from many
+websites, apps and APIs**, with **careful per-site handling so nothing breaks**,
+and turns it into validated bilingual questions:
 
-- **Sources registry** — exam-prep sites only (AffairsCloud, GKToday, Insights on
-  India, BankersAdda, SSCAdda, Testbook). RSS feeds are scanned for *quiz* pages
-  (title regex `must`/`not` filters skip notifications, results, editorials).
-  Add more sources/keys via `data/collector_sources.json` without touching code.
-- **Advanced fetching** — browser-like `User-Agent`, retries with exponential
-  backoff, per-host polite delay + jitter, `robots.txt` enforcement
-  (`urllib.robotparser`), optional proxy; `feedparser` used when installed.
-- **Tolerant quiz parser** — extracts `<article>` text, then a state-machine
-  parser reads `Q.. A) B) C) D) Correct Answer: B / Explanation:` blocks
-  (separate lines **or** inline), with answer-key and explanation capture.
+- **Deep source registry (15+ sources, central exams weighted)** — two kinds:
+  - `type: rss` — AffairsCloud, GKToday, Insights on India, Testbook, BankersAdda,
+    Guidely, Oliveboard (banking); SSCAdda, CareerPower (SSC/UPSC); RailwayAdda
+    (RRB). Feeds are scanned for *quiz* pages (title `must`/`not` regexes skip
+    notifications, results, editorials, recruitment posts).
+  - `type: index` — **deep HTML crawl** of big static MCQ banks: IndiaBIX
+    Aptitude, Verbal Reasoning, Logical Reasoning, Non-Verbal Reasoning and
+    General Knowledge. The section page is parsed directly AND its per-topic
+    links are discovered (`link_re`) and crawled one level deep.
+  Add or tune any source without code via `data/collector_sources.json`.
+- **Per-site adapters** — the WordPress quiz parser handles most blogs; sites
+  with non-standard markup get a **dedicated adapter** (`ADAPTERS` registry,
+  e.g. `indiabix` reads `bix-div-container` / `bix-td-qtxt` / option cells /
+  `Answer: Option X` / Explanation blocks), so each source is parsed correctly.
+- **Advanced, polite fetching** — browser `User-Agent`, retries with exponential
+  backoff, per-host delay + jitter, **`robots.txt` enforcement** (robotparser),
+  optional proxy, `feedparser` if installed.
+- **Tolerant generic parser** — article-aware text extraction, then a
+  state-machine reads `Q.. A) B) C) D) Correct Answer: B / Explanation:` blocks
+  (separate lines **or** inline).
+- **All-day collection** — scheduled at **05:30, 08:15, 11:00, 16:00, 20:15 and
+  22:30 IST** (including right after both quiz rounds). A **seen-URL store**
+  (`collector_seen.json`) makes successive small runs page forward to NEW
+  content instead of refetching.
 - **Bilingual** — worded questions/options are translated by the multi-key LLM
   rotator (Groq→DeepSeek→OpenAI→Gemini). Numeric/aptitude stems get an **offline
-  Telugu template** so quant questions work even with no key. Worded questions
-  that can't be translated yet **park in `scraped_pending.json`** and are retried
-  automatically when a key is present.
-- **No-repeat + validation** — a stable content fingerprint (SHA1 of normalized
-  question+options) blocks re-scraped duplicates, and the content-signature gate
-  blocks dupes against the whole bank/history. Every question passes the same
-  `validate_question` gate; saved to `data/scraped_bank.json` (`source: scraped`)
-  and merged into the canonical bank.
+  Telugu template** so quant works with no key. Worded items that can't be
+  translated yet **park in `scraped_pending.json`** and auto-retry when a key
+  exists.
+- **No-repeat + validation** — a stable SHA1 fingerprint (normalized
+  question+options) blocks re-scraped duplicates; the content-signature gate
+  blocks dupes against the whole bank/history. Every question passes
+  `validate_question`; saved to `data/scraped_bank.json` (`source: scraped`) and
+  merged into the canonical bank.
 
 ```bash
 python3 -m core.collector --collect          # live run (writes scraped_bank.json)

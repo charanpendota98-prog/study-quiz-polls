@@ -58,43 +58,102 @@ USER_AGENT = ("Mozilla/5.0 (compatible; StudentUpBot/4.0; "
 
 SCRAPED_BANK = config.DATA / "scraped_bank.json"
 PENDING = config.DATA / "scraped_pending.json"
+SEEN_URLS = config.DATA / "collector_seen.json"
+
+# Title filters shared by most quiz feeds.
+_QUIZ_MUST = r"quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\bgk\b|previous year"
+_QUIZ_NOT = (r"notification|admit card|hall ticket|result|cut[\s-]?off|syllabus|"
+             r"editorial|interview|recruitment|vacancy|salary|eligibility|exam date|"
+             r"exam analysis|answer key|apply online|registration|motivation|topper|"
+             r"schedule|mindmap|test series launch|webinar|course")
 
 # ---------------------------------------------------------------------------
-# Source registry — exam-prep sites/apps only. RSS indexes point at quiz
-# articles; title filters guarantee we only fetch quiz/MCQ pages (never news).
-# A site can be disabled here; data/collector_sources.json (same shape) is
-# merged on top so sources/keys can be tuned without touching code.
+# SOURCE REGISTRY — exam-prep sources only (NEVER news). Two kinds:
+#   type "rss"   : an RSS/Atom feed; quiz articles discovered by title filter.
+#   type "index" : an HTML listing/section page; quiz links discovered by
+#                  link_re (regex on href), optionally crawled one level deep
+#                  (section -> topic pages). An optional "adapter" names a
+#                  dedicated parser for sites whose markup is not WordPress.
+# Central exams (SSC/UPSC/Railway/Banking/Defence/Police) are weighted heavily.
+# A source can be disabled with "enabled": false; data/collector_sources.json
+# (same shape, key "sources") is merged on top to tune without code changes.
 # ---------------------------------------------------------------------------
 DEFAULT_SOURCES = [
-    {"name": "AffairsCloud Quizzes", "enabled": True, "type": "rss",
+    # ---- Current-affairs + all-exam daily quizzes --------------------------------
+    {"name": "AffairsCloud", "enabled": True, "type": "rss", "exam": "all",
      "feed": "https://affairscloud.com/feed",
-     "title_must": r"quiz|mcq|questions|practice set|reasoning|quant|aptitude",
-     "title_not": r"notification|admit card|result|cut[\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary"},
-    {"name": "GKToday Quiz", "enabled": True, "type": "rss",
+     "title_must": _QUIZ_MUST, "title_not": _QUIZ_NOT},
+    {"name": "GKToday Quiz", "enabled": True, "type": "rss", "exam": "ssc-upsc",
      "feed": "https://www.gktoday.in/feed/",
-     "title_must": r"quiz|gk questions|mcq|current affairs|practice",
-     "title_not": r"notification|admit card|result|syllabus|essay|article|economy basics"},
-    {"name": "InsightsIndia Quiz", "enabled": True, "type": "rss",
+     "title_must": r"quiz|gk questions?|mcq|current affairs [0-9]|practice",
+     "title_not": _QUIZ_NOT},
+    {"name": "InsightsIndia Quiz", "enabled": True, "type": "rss", "exam": "upsc",
      "feed": "https://www.insightsonindia.com/feed",
-     "title_must": r"quiz",
-     "title_not": r"editorial|motivation|schedule|topper|test series|mindmap"},
-    {"name": "BankersAdda Quiz", "enabled": True, "type": "rss",
-     "feed": "https://www.bankersadda.com/feed",
-     "title_must": r"quiz|questions|reasoning|quant|aptitude|practice",
-     "title_not": r"notification|admit card|result|cut[\s-]?off|syllabus|recruitment|vacancy|exam analysis"},
-    {"name": "SSCAdda Quiz", "enabled": True, "type": "rss",
-     "feed": "https://www.sscadda.com/feed",
-     "title_must": r"quiz|questions|reasoning|general awareness|practice|gs set",
-     "title_not": r"notification|admit card|result|syllabus|recruitment|vacancy"},
-    {"name": "Testbook Quizzes", "enabled": True, "type": "rss",
+     "title_must": r"quiz", "title_not": _QUIZ_NOT},
+    {"name": "Testbook Quizzes", "enabled": True, "type": "rss", "exam": "all",
      "feed": "https://testbook.com/blog/feed/",
-     "title_must": r"quiz|mcq|questions|practice set",
-     "title_not": r"notification|admit card|result|syllabus|recruitment|salary|eligibility"},
+     "title_must": r"quiz|mcq|questions?|practice set", "title_not": _QUIZ_NOT},
+
+    # ---- Banking / Insurance (IBPS, SBI, RRB, RBI, LIC) ---------------------------
+    {"name": "BankersAdda Quiz", "enabled": True, "type": "rss", "exam": "banking",
+     "feed": "https://www.bankersadda.com/feed",
+     "title_must": r"quiz|questions?|reasoning|quant|aptitude|practice",
+     "title_not": _QUIZ_NOT},
+    {"name": "Guidely Quiz", "enabled": True, "type": "rss", "exam": "banking",
+     "feed": "https://guidely.in/blog/feed",
+     "title_must": r"quiz|questions?|practice set|mcq", "title_not": _QUIZ_NOT},
+    {"name": "Oliveboard Quiz", "enabled": True, "type": "rss", "exam": "banking",
+     "feed": "https://www.oliveboard.in/blog/feed/",
+     "title_must": r"quiz|questions?|practice|mcq", "title_not": _QUIZ_NOT},
+
+    # ---- SSC / UPSC / central -----------------------------------------------------
+    {"name": "SSCAdda Quiz", "enabled": True, "type": "rss", "exam": "ssc",
+     "feed": "https://www.sscadda.com/feed",
+     "title_must": r"quiz|questions?|reasoning|general awareness|practice|gs set|gk",
+     "title_not": _QUIZ_NOT},
+    {"name": "CareerPower SSC", "enabled": True, "type": "rss", "exam": "ssc",
+     "feed": "https://www.careerpower.in/blog/feed",
+     "title_must": r"quiz|questions?|practice set|mcq|ssc", "title_not": _QUIZ_NOT},
+
+    # ---- Railway (RRB NTPC / Group-D / ALP) ---------------------------------------
+    {"name": "RailwayAdda Quiz", "enabled": True, "type": "rss", "exam": "railway",
+     "feed": "https://www.rrbadda.com/feed",
+     "title_must": r"quiz|questions?|practice|reasoning|gs set|general awareness",
+     "title_not": _QUIZ_NOT},
+
+    # ---- Deep static MCQ banks (HTML index/section pages, dedicated adapter) ------
+    {"name": "IndiaBIX Aptitude", "enabled": True, "type": "index",
+     "exam": "banking-ssc-railway", "adapter": "indiabix",
+     "url": "https://www.indiabix.com/aptitude/questions-and-answers/",
+     "link_re": r"^https://www\.indiabix\.com/aptitude/[a-z0-9\-]+/?$",
+     "max_links": 3},
+    {"name": "IndiaBIX Verbal Reasoning", "enabled": True, "type": "index",
+     "exam": "all", "adapter": "indiabix",
+     "url": "https://www.indiabix.com/verbal-reasoning/questions-and-answers/",
+     "link_re": r"^https://www\.indiabix\.com/verbal-reasoning/[a-z0-9\-]+/?$",
+     "max_links": 3},
+    {"name": "IndiaBIX Logical Reasoning", "enabled": True, "type": "index",
+     "exam": "all", "adapter": "indiabix",
+     "url": "https://www.indiabix.com/logical-reasoning/questions-and-answers/",
+     "link_re": r"^https://www\.indiabix\.com/logical-reasoning/[a-z0-9\-]+/?$",
+     "max_links": 3},
+    {"name": "IndiaBIX Non-Verbal Reasoning", "enabled": True, "type": "index",
+     "exam": "all", "adapter": "indiabix",
+     "url": "https://www.indiabix.com/non-verbal-reasoning/questions-and-answers/",
+     "link_re": r"^https://www\.indiabix\.com/non-verbal-reasoning/[a-z0-9\-]+/?$",
+     "max_links": 2},
+    {"name": "IndiaBIX General Knowledge", "enabled": True, "type": "index",
+     "exam": "ssc-upsc-railway", "adapter": "indiabix",
+     "url": "https://www.indiabix.com/general-knowledge/questions-and-answers/",
+     "link_re": r"^https://www\.indiabix\.com/general-knowledge/[a-z0-9\-]+/?$",
+     "max_links": 3},
 ]
 
-# How many fresh quiz articles to parse per source per run (polite + fast).
+# Polite throughput per run. Collection runs many times a day, so each run is
+# small; the seen-URL store makes successive runs page forward to NEW content.
 MAX_ARTICLES_PER_SOURCE = 2
-MAX_QUESTIONS_PER_RUN = 120
+MAX_LINKS_PER_INDEX = 3
+MAX_QUESTIONS_PER_RUN = 160
 POLITE_DELAY_SEC = 2.0          # min seconds between hits on the same host
 FETCH_TIMEOUT = 20
 
@@ -513,7 +572,7 @@ def _feed_entries(feed_url):
 
 
 def quiz_articles_for_source(src):
-    """Return [{title, link}] quiz articles for one configured source."""
+    """Return [{title, link}] quiz articles for one configured RSS source."""
     entries = _feed_entries(src["feed"])
     must = re.compile(src.get("title_must", r"quiz|questions|mcq"), re.I)
     notp = re.compile(src.get("title_not", r"(?!)"), re.I)
@@ -525,6 +584,137 @@ def quiz_articles_for_source(src):
         if len(picked) >= MAX_ARTICLES_PER_SOURCE:
             break
     return picked
+
+
+# ---------------------------------------------------------------------------
+# HTML index / section crawling (deep sources without usable RSS)
+# ---------------------------------------------------------------------------
+class _LinkExtractor(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.links = []
+        self._href = None
+        self._txt = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "a":
+            ad = dict(attrs)
+            self._href = ad.get("href")
+            self._txt = []
+
+    def handle_data(self, data):
+        if self._href is not None:
+            self._txt.append(data)
+
+    def handle_endtag(self, tag):
+        if tag == "a" and self._href is not None:
+            title = re.sub(r"\s+", " ", "".join(self._txt)).strip()
+            self.links.append((self._href, title))
+            self._href = None
+            self._txt = []
+
+
+def extract_links(page_html, base_url, link_re):
+    """Return [{title, link}] anchors whose absolute href matches link_re."""
+    p = _LinkExtractor()
+    try:
+        p.feed(page_html)
+    except Exception:
+        return []
+    rx = re.compile(link_re) if isinstance(link_re, str) else link_re
+    # section landing/index pages are not per-topic quiz pages
+    landing = re.compile(r"/(?:questions-and-answers|feed|forum|login|register)"
+                         r"(?:[/?#].*)?$", re.I)
+    out, seen = [], set()
+    for href, title in p.links:
+        if not href:
+            continue
+        link = urljoin(base_url, href)
+        link = link.split("#")[0]
+        if landing.search(link):
+            continue
+        if rx.search(link) and link not in seen:
+            seen.add(link)
+            out.append({"title": title or link, "link": link})
+    return out
+
+
+def _strip_tags(chunk):
+    t = re.sub(r"<[^>]+>", " ", chunk or "")
+    return re.sub(r"\s+", " ", html.unescape(t)).strip()
+
+
+# ---------------------------------------------------------------------------
+# Per-site adapters — sites whose markup is NOT the standard WordPress quiz
+# layout get a dedicated, carefully-tested extractor.
+# ---------------------------------------------------------------------------
+def parse_indiabix(page_html, article_title="", url=""):
+    """IndiaBIX classic Q&A pages: bix-div-container blocks with bix-td-qtxt,
+    bix-td-option-val cells, 'Answer: Option X' and an Explanation block."""
+    raws = []
+    # Each question lives in its own .bix-div-container block.
+    blocks = re.split(r'class="bix-div-container"', page_html)
+    for blk in blocks[1:]:
+        mq = re.search(r'bix-td-qtxt[^>]*>(.*?)</(?:div|td)>', blk, re.S)
+        if not mq:
+            continue
+        q = _strip_tags(mq.group(1))
+        q = re.sub(r"^\s*\d{1,3}[\)\.:\-]\s*", "", q)
+        opts = [_strip_tags(x) for x in
+                re.findall(r'bix-td-option-val[^>]*>(.*?)</td>', blk, re.S)]
+        opts = [re.sub(r"^[A-D][\)\.:]\s*", "", o).strip() for o in opts if o]
+        if len(opts) < 4:
+            continue
+        opts = opts[:4]
+        ma = (re.search(r"Answer\s*:?\s*(?:Option)?\s*<[^>]*>?\s*([A-D])", blk, re.I)
+              or re.search(r"Answer\s*:?\s*(?:Option)?\s*([A-D])\b", blk, re.I))
+        if not ma:
+            continue
+        ans = _ans_index(ma.group(1))
+        me = re.search(r"Explanation\s*:?(.*?)(?:<div class=\"bix-|<input|</body)",
+                       blk, re.S | re.I)
+        expl = _strip_tags(me.group(1))[:280] if me else ""
+        if (q and len(opts) == 4 and ans is not None and len(q) <= 300
+                and len({o.lower() for o in opts}) == 4
+                and all(0 < len(o) <= 90 for o in opts)):
+            blocked, _ = is_blocked(q + " " + " ".join(opts))
+            if not blocked:
+                raws.append({"q_en": q, "options_en": opts, "answer_index": ans,
+                             "explanation_en": expl, "title": article_title,
+                             "url": url})
+    return raws
+
+
+ADAPTERS = {"indiabix": parse_indiabix}
+
+
+def parse_page(src, page_html, title, url):
+    """Dispatch to the source's dedicated adapter, else the generic parser."""
+    adapter = src.get("adapter")
+    if adapter and adapter in ADAPTERS:
+        try:
+            return ADAPTERS[adapter](page_html, title, url)
+        except Exception as e:
+            print(f"   [collect] adapter {adapter} error: {e}")
+            return []
+    lines = html_to_lines(page_html)
+    return parse_quiz_lines(lines, article_title=title, url=url)
+
+
+# ---------------------------------------------------------------------------
+# Seen-URL store — so many small daily runs keep paging forward to NEW
+# articles/sections instead of refetching the same pages.
+# ---------------------------------------------------------------------------
+SEEN_URLS_CAP = 4000
+
+
+def load_seen_urls():
+    return set(load_json(SEEN_URLS, {"urls": []}).get("urls", []))
+
+
+def save_seen_urls(urls):
+    urls = sorted(urls)[-SEEN_URLS_CAP:]
+    save_json_atomic(SEEN_URLS, {"urls": urls})
 
 
 # ---------------------------------------------------------------------------
@@ -629,32 +819,64 @@ def collect_daily(dry=False, llm=None, max_questions=MAX_QUESTIONS_PER_RUN,
              "duplicates": 0, "rejected": 0, "parked": 0, "per_source": {}}
     next_id = max([int(q["id"][1:]) for q in accepted if q.get("id", "").startswith("S")]
                   + [0]) + 1
+    seen_urls = load_seen_urls() if not fixture else set()
 
-    jobs = []  # (source_name, title, url, html)
+    jobs = []  # (source_dict, title, url, html)
     if fixture:
         fhtml, ftitle, furl = fixture
-        jobs.append(("fixture", ftitle, furl, fhtml))
+        jobs.append(({"name": "fixture", "adapter": None}, ftitle, furl, fhtml))
     else:
         for src in _sources():
-            try:
-                arts = quiz_articles_for_source(src)
-            except Exception as e:
-                print(f"   [collect] {src['name']} feed error: {e}")
-                continue
             stats["sources"] += 1
             stats["per_source"][src["name"]] = {"articles": 0, "kept": 0}
-            for a in arts:
-                page = http_get(a["link"])
-                if not page:
-                    continue
-                jobs.append((src["name"], a["title"], a["link"], page))
-                stats["articles"] += 1
-                stats["per_source"][src["name"]]["articles"] += 1
+            try:
+                if src.get("type") == "index":
+                    # Deep crawl: the section page may itself contain MCQs AND
+                    # links to per-topic pages; queue NEW links only.
+                    page = http_get(src["url"])
+                    if not page:
+                        continue
+                    jobs.append((src, src["name"], src["url"], page))
+                    self_url = src["url"].split("#")[0].rstrip("/")
+                    seen_urls.add(self_url)
+                    links = extract_links(page, src["url"],
+                                          src.get("link_re", r"(?!)"))
+                    limit = src.get("max_links", MAX_LINKS_PER_INDEX)
+                    added = 0
+                    for lk in links:
+                        if added >= limit:
+                            break
+                        if lk["link"] in seen_urls or \
+                                lk["link"].split("#")[0].rstrip("/") == self_url:
+                            continue
+                        seen_urls.add(lk["link"])
+                        sub = http_get(lk["link"])
+                        if sub:
+                            jobs.append((src, lk["title"], lk["link"], sub))
+                            added += 1
+                            stats["articles"] += 1
+                            stats["per_source"][src["name"]]["articles"] += 1
+                else:
+                    arts = quiz_articles_for_source(src)
+                    for a in arts:
+                        if a["link"] in seen_urls:
+                            continue
+                        seen_urls.add(a["link"])
+                        page = http_get(a["link"])
+                        if not page:
+                            continue
+                        jobs.append((src, a["title"], a["link"], page))
+                        stats["articles"] += 1
+                        stats["per_source"][src["name"]]["articles"] += 1
+            except Exception as e:
+                print(f"   [collect] {src['name']} discovery error: {e}")
+                continue
 
-    for source_name, title, url, page in jobs:
+    for src, title, url, page in jobs:
+        source_name = src["name"] if isinstance(src, dict) else str(src)
         try:
-            lines = html_to_lines(page)
-            raws = parse_quiz_lines(lines, article_title=title, url=url)
+            raws = parse_page(src if isinstance(src, dict) else {},
+                              page, title, url)
         except Exception as e:
             print(f"   [collect] parse error {source_name}: {e}")
             continue
@@ -694,6 +916,8 @@ def collect_daily(dry=False, llm=None, max_questions=MAX_QUESTIONS_PER_RUN,
                                         "count": len(accepted),
                                         "questions": accepted})
         save_json_atomic(PENDING, {"count": len(pending), "questions": pending})
+        if not fixture:
+            save_seen_urls(seen_urls)
         if stats["accepted"]:
             try:
                 from .question_bank import rebuild_json

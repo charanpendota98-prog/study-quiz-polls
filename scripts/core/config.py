@@ -224,15 +224,23 @@ def channel_chat_id(key: str) -> str:
 # TWO main quiz rounds a day (India No.1 cadence — morning + evening).
 # Add a line (e.g. "13:30": ("quiz", {"slot": 3})) to add more rounds anytime.
 SCHEDULE = {
-    "05:30": ("collect", {}),      # daily multi-website exam-quiz scraping
+    # Deep multi-source exam-quiz scraping — runs all day, including right
+    # AFTER each quiz round, so content is constantly refreshed. Small polite
+    # batches + seen-URL tracking mean each run pages forward to NEW content.
+    "05:30": ("collect", {}),
     "06:00": ("filler", {"reason": "morning top-up"}),
     "07:00": ("morning", {}),
     "07:30": ("quiz", {"slot": 1, "round": "Morning ⛅"}),
-    "12:30": ("coach", {}),       # daily expert reasoning/aptitude trick
+    "08:15": ("collect", {}),      # right AFTER morning quiz — keep collecting
+    "11:00": ("collect", {}),      # late-morning fresh quiz scraping
+    "12:30": ("coach", {}),        # daily expert reasoning/aptitude trick
     "14:30": ("tip", {}),
+    "16:00": ("collect", {}),      # pre-evening top-up scrape
     "19:30": ("quiz", {"slot": 2, "round": "Evening 🌙"}),
+    "20:15": ("collect", {}),      # right AFTER evening quiz — keep collecting
     "21:00": ("leaderboard", {"when": "sunday"}),   # weekly toppers, Sunday only
     "21:30": ("digest", {}),
+    "22:30": ("collect", {}),      # late-evening deep scrape
 }
 
 # Quiz slot minutes (2/day) — reminders derive from these automatically.

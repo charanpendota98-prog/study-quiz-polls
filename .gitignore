@@ -27,3 +27,4 @@ extracted/
 *.backup
 data/scraped_bank.json
 data/scraped_pending.json
+data/collector_seen.json

@@ -261,11 +261,14 @@ class TestCollector(unittest.TestCase):
     """Advanced multi-source exam-content collector (website/app scraping)."""
 
     FIXTURE = ROOT / "tests" / "fixture_quiz.html"
+    FIXTURE_INDIA = ROOT / "tests" / "fixture_indiabix.html"
+    FIXTURE_INDEX = ROOT / "tests" / "fixture_index.html"
 
     def setUp(self):
         for f in ("question_bank.json", "question_bank_extra.json",
                   "shown_signatures.json", "used_questions.json",
-                  "scraped_bank.json", "scraped_pending.json"):
+                  "scraped_bank.json", "scraped_pending.json",
+                  "collector_seen.json"):
             p = config.DATA / f
             if p.exists():
                 p.unlink()
@@ -343,6 +346,60 @@ class TestCollector(unittest.TestCase):
         self.assertTrue(must.search("IBPS Clerk Quantitative Aptitude Quiz 2026"))
         self.assertTrue(notp.search("IBPS Clerk Notification 2026 Apply Online"))
         self.assertFalse(notp.search("Reasoning Ability Practice Questions Set"))
+
+    def test_large_deep_source_registry(self):
+        """Many sources, central exams covered, all well-formed + enabled."""
+        from core import collector
+        srcs = collector.DEFAULT_SOURCES
+        self.assertGreaterEqual(len(srcs), 14)
+        names = {s["name"] for s in srcs}
+        self.assertIn("IndiaBIX General Knowledge", names)
+        self.assertTrue(any(s.get("type") == "index" for s in srcs))
+        for s in srcs:
+            self.assertIn(s["type"], ("rss", "index"))
+            self.assertTrue(s["name"])
+            self.assertTrue(s.get("feed") or s.get("url"))
+
+    def test_indiabix_adapter(self):
+        """Dedicated IndiaBIX adapter parses its table markup correctly."""
+        from core import collector
+        ib = self.FIXTURE_INDIA.read_text(encoding="utf-8")
+        raws = collector.parse_indiabix(ib, "IndiaBIX Aptitude",
+                                        "https://www.indiabix.com/aptitude/problems-on-trains/")
+        self.assertGreaterEqual(len(raws), 3)
+        for r in raws:
+            self.assertEqual(len(r["options_en"]), 4)
+            self.assertIn(r["answer_index"], (0, 1, 2, 3))
+            self.assertFalse(r["q_en"][0].isdigit() and ")" in r["q_en"][:4])
+        # known answers from the fixture: trains=B(1), notes=D(3), SI=B(1)
+        self.assertEqual(raws[0]["answer_index"], 1)
+        self.assertEqual(raws[1]["answer_index"], 3)
+        self.assertEqual(raws[2]["answer_index"], 1)
+
+    def test_index_link_extraction(self):
+        """Deep index pages yield topic quiz links, not forum/sidebar junk."""
+        from core import collector
+        idx = self.FIXTURE_INDEX.read_text(encoding="utf-8")
+        links = collector.extract_links(
+            idx, "https://www.indiabix.com/aptitude/questions-and-answers/",
+            r"^https://www\.indiabix\.com/aptitude/[a-z0-9\-]+/?$")
+        hrefs = [l["link"] for l in links]
+        self.assertTrue(any("problems-on-trains" in h for h in hrefs))
+        self.assertFalse(any("/forum/" in h for h in hrefs))
+        self.assertFalse(any("questions-and-answers" in h for h in hrefs))
+
+    def test_seen_url_store_pages_forward(self):
+        """Re-collection does not refetch URLs already collected."""
+        from core import collector
+        u = "https://www.indiabix.com/aptitude/simple-interest/"
+        self.assertNotIn(u, collector.load_seen_urls())
+        collector.save_seen_urls({u})
+        try:
+            self.assertIn(u, collector.load_seen_urls())
+        finally:
+            seen = collector.load_seen_urls()
+            seen.discard(u)
+            collector.save_seen_urls(seen)
 
 
 class TestSchedule(unittest.TestCase):
