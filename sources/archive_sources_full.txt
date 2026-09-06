@@ -1,65 +1,159 @@
 # STUDENTUP — ARCHIVE / BACKUP / DEAD SOURCE DATABASE (generated from central registry)
 # Source of truth: data/collector_sources.json  (regenerate: scripts/rebuild_registry.py)
-# Generated: 2026-09-06 | Version 3.0
+# Generated: 2026-09-06 | Version 4.0
 # Status: enabled=live (audited) | candidate=auto-audit | dead=confirmed | archive=re-scan
 # Queried by: scripts/core/collector.py + scripts/core/auditor.py + scripts/core/feeds.py
 #
-archive    | ARCHIVE:Aaj Tak                        | https://www.aajtak.in/feed/
-archive    | ARCHIVE:CNN News18                     | https://www.news18.com/feed/
-archive    | ARCHIVE:India TV                       | https://www.indiatvnews.com/feed/
-archive    | ARCHIVE:Republic TV                    | https://www.republicworld.com/feed/
-archive    | ARCHIVE:SarkariNaukri                  | https://www.sarkarinaukri.com/feed/
-archive    | ARCHIVE:Times Now                      | https://timesnownews.com/feed/
-candidate  | AffairsCloud Quiz Category             | https://affairscloud.com/category/current-affairs-quiz/feed/
-candidate  | BankersAdda Quiz Category              | https://www.bankersadda.com/category/quiz/feed/
-candidate  | CareerPower Practice Category          | https://www.careerpower.in/blog/category/practice-set/feed/
-candidate  | IBPSGuide Quiz                         | https://www.ibpsguide.com/feed
-candidate  | Jagran Josh Current Affairs Quiz       | https://www.jagranjosh.com/rss/current-affairs-quizzes.xml
-candidate  | Oliveboard Quiz Category               | https://www.oliveboard.in/blog/category/quiz/feed/
-candidate  | PendulumEdu Quiz                       | https://pendulumedu.com/feed
-candidate  | PracticeMock Quiz Category             | https://www.practicemock.com/blog/category/quiz/feed/
-candidate  | SSCAdda Quiz Category                  | https://www.sscadda.com/category/quiz/feed/
-candidate  | Smartkeeda Quiz                        | https://www.smartkeeda.com/feed/
-candidate  | StudyIQ Quiz                           | https://www.studyiq.com/feed
-candidate  | Testbook Daily Quiz                    | https://testbook.com/feed/
-dead       | ARCHIVE:10MinuteTelugu                 | https://10minutetelugu.com/feed
-dead       | ARCHIVE:ABP Live                       | https://abplive.com/feed/
-dead       | ARCHIVE:APJobs                         | https://www.apjobs.in/feed
-dead       | ARCHIVE:BBC India                      | https://feeds.bbci.co.uk/news/world/india/rss.xml
-dead       | ARCHIVE:Business Standard Old          | https://feed.business-standard.com/feed/
-dead       | ARCHIVE:CivilServicesToday             | https://civilstoday.com/feed/
-dead       | ARCHIVE:Deccan Chronicle               | https://deccanchronus.com/feed
-dead       | ARCHIVE:Deccan Herald                  | https://www.deccanherald.com/rss
-dead       | ARCHIVE:Firstpost News                 | https://www.firstpost.com/feed/
-dead       | ARCHIVE:Freshersworld                  | https://www.freshersworld.com/feed/
-dead       | ARCHIVE:Frontline Magazine             | https://frontline.thehindu.com/feed/
-dead       | ARCHIVE:GovtJobs.com                   | https://www.govtjobs.com/feed
-dead       | ARCHIVE:IASbaba                        | https://www.iasbaba.com/feed/
-dead       | ARCHIVE:IBPS Guide (jobs)              | https://www.ibpsguide.com/feed
-dead       | ARCHIVE:Livemint Top                   | https://www.livemint.com/feed/latest
-dead       | ARCHIVE:NaukriGazzette                 | https://naukri-gazzette.com/feed
-dead       | ARCHIVE:NewsOnAir                      | https://newsonair.gov.in/feed/
-dead       | ARCHIVE:PRS Legislative                | https://prsindia.org/feed/
-dead       | ARCHIVE:RailBiz                        | https://railbiz.com/feed/
-dead       | ARCHIVE:RecruitmentIndia               | https://recruitmentindia.in/feed/
-dead       | ARCHIVE:Samayam Telugu                 | https://samayam.com/telugu/feed
-dead       | ARCHIVE:Smartkeeda                     | https://smartkeeda.com/feed/
-dead       | ARCHIVE:TOI Hyderabad City             | https://timesofindia.indiatimes.com/rssfeeds/2223817529.cms
-dead       | ARCHIVE:TOI Vijayawada City            | https://timesofindia.indiatimes.com/rssfeeds/1224655363.cms
-dead       | ARCHIVE:TSJobs.in                      | https://tsjobs.in/feed
-dead       | ARCHIVE:Telegraph India                | https://www.telegraphindia.com/feed
-dead       | ARCHIVE:The Quint India                | https://www.thequint.com/feed
-dead       | ARCHIVE:The Week India                 | https://www.theweek.in/feed/india-news.xml
-dead       | Adda247 Quiz                           | https://www.adda247.com/feed/
-dead       | BankersAdda Old Feed                   | https://www.bankersadda.com/feed/rss/
-dead       | GKToday Quiz                           | https://www.gktoday.in/feed/
-dead       | Guidely Quiz                           | https://guidely.in/blog/feed
-dead       | RailwayAdda Quiz                       | https://www.rrbadda.com/feed
-dead       | Testbook Quiz Category                 | https://testbook.com/blog/category/quiz/feed/
-dead       | Testbook Quizzes                       | https://testbook.com/blog/feed/
-tested     | ARCHIVE:FreeJobAlert                   | https://www.freejobalert.com/feed
-tested     | ARCHIVE:PIB                            | https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=3
-tested     | ARCHIVE:Sakshi Telugu                  | https://sakshi.com/rss/feed.xml
-tested     | ARCHIVE:SarkariYojana                  | https://www.sarkariyojana.com/feed
-
-# TOTAL tracked (registry): 72 sources (enabled 15, candidates 12)
+live       | AffairsCloud                             | https://affairscloud.com/feed
+live       | InsightsIndia Quiz                       | https://www.insightsonindia.com/feed
+live       | BankersAdda Quiz                         | https://www.bankersadda.com/current-affairs/
+live       | Oliveboard Quiz                          | https://www.oliveboard.in/blog/feed/
+live       | SSCAdda Quiz                             | https://www.sscadda.com/
+live       | CareerPower Quiz                         | https://www.careerpower.in/blog/
+live       | PracticeMock Quiz                        | https://www.practicemock.com/blog/feed/
+live       | IndiaBIX Aptitude                        | https://www.indiabix.com/aptitude/questions-and-answers/
+live       | IndiaBIX Verbal Reasoning                | https://www.indiabix.com/verbal-reasoning/questions-and-answers/
+live       | IndiaBIX Logical Reasoning               | https://www.indiabix.com/logical-reasoning/questions-and-answers/
+live       | IndiaBIX Non Verbal Reasoning            | https://www.indiabix.com/non-verbal-reasoning/questions-and-answers/
+live       | IndiaBIX General Knowledge               | https://www.indiabix.com/general-knowledge/questions-and-answers/
+live       | IndiaBIX Data Interpretation             | https://www.indiabix.com/data-interpretation/questions-and-answers/
+live       | IndiaBIX Verbal Ability                  | https://www.indiabix.com/verbal-ability/questions-and-answers/
+live       | IndiaBIX Current Affairs                 | https://www.indiabix.com/current-affairs/questions-and-answers/
+dead       | GKToday Quiz                             | https://www.gktoday.in/feed/
+dead       | Testbook Quizzes                         | https://testbook.com/blog/feed/
+dead       | Guidely Quiz                             | https://guidely.in/blog/feed
+dead       | RailwayAdda Quiz                         | https://www.rrbadda.com/feed
+dead       | Adda247 Quiz                             | https://www.adda247.com/feed/
+dead       | BankersAdda Old Feed                     | https://www.bankersadda.com/feed/rss/
+dead       | Testbook Quiz Category                   | https://testbook.com/blog/category/quiz/feed/
+dead       | Smartkeeda Old Root                      | https://smartkeeda.com/feed/
+dead       | IASbaba Root Feed                        | https://www.iasbaba.com/feed/
+dead       | CivilServicesToday                       | https://civilstoday.com/feed/
+candidate  | AffairsCloud Quiz Category               | https://affairscloud.com/category/current-affairs-quiz/feed/
+candidate  | AffairsCloud Banking Awareness           | https://affairscloud.com/category/banking-awareness/feed/
+candidate  | AffairsCloud Static GK                   | https://affairscloud.com/category/static-gk/feed/
+candidate  | BankersAdda Quiz Category                | https://www.bankersadda.com/category/quiz/feed/
+candidate  | CareerPower Practice Category            | https://www.careerpower.in/blog/category/practice-set/feed/
+candidate  | Oliveboard Quiz Category                 | https://www.oliveboard.in/blog/category/quiz/feed/
+candidate  | Oliveboard Banking Category              | https://www.oliveboard.in/blog/category/banking/feed/
+candidate  | Oliveboard SSC Category                  | https://www.oliveboard.in/blog/category/ssc/feed/
+candidate  | Oliveboard RRB Category                  | https://www.oliveboard.in/blog/category/rrb/feed/
+candidate  | Oliveboard Free Practice                 | https://www.oliveboard.in/blog/category/free-practice-questions/feed/
+candidate  | PracticeMock Quiz Category               | https://www.practicemock.com/blog/category/quiz/feed/
+candidate  | PracticeMock Banking Category            | https://www.practicemock.com/blog/category/banking/feed/
+candidate  | PracticeMock SSC Category                | https://www.practicemock.com/blog/category/ssc/feed/
+candidate  | SSCAdda Quiz Category                    | https://www.sscadda.com/category/quiz/feed/
+candidate  | InsightsIndia Quizzes Category           | https://www.insightsonindia.com/category/quizzes/feed/
+candidate  | InsightsIndia Secure                     | https://www.insightsonindia.com/category/secure-initiative/feed/
+candidate  | Drishti IAS                              | https://www.drishtiias.com/feed
+candidate  | ClearIAS                                 | https://www.clearias.com/feed/
+candidate  | BYJU IAS Prep                            | https://byjus.com/free-ias-prep/feed/
+candidate  | PMF IAS                                  | https://www.pmfias.com/feed/
+candidate  | CivilsDaily                              | https://www.civilsdaily.com/feed/
+candidate  | IASExpress                               | https://www.iasexpress.net/feed/
+candidate  | BankExamsToday                           | https://www.bankexamstoday.com/feeds/posts/default?alt=rss
+candidate  | Bankersdaily                             | https://bankersdaily.in/feed/
+candidate  | IxamBee Blog                             | https://www.ixambee.com/blog/feed
+candidate  | Mahendras Blog                           | https://www.mahendras.org/blog/feed
+candidate  | Cracku Blog                              | https://cracku.in/blog/feed/
+candidate  | StudyIQ Articles                         | https://www.studyiq.com/articles/feed/
+candidate  | PendulumEdu Quiz                         | https://pendulumedu.com/feed
+candidate  | Smartkeeda Quiz                          | https://www.smartkeeda.com/feed/
+candidate  | IBPSGuide Quiz                           | https://www.ibpsguide.com/feed
+candidate  | Jagran Josh Current Affairs Quiz         | https://www.jagranjosh.com/rss/current-affairs-quizzes.xml
+candidate  | Jagran Josh Education                    | https://www.jagranjosh.com/rss/edu.xml
+candidate  | Testbook Daily Quiz                      | https://testbook.com/feed/
+candidate  | Adda247 Current Affairs                  | https://currentaffairs.adda247.com/feed/
+candidate  | SSBCrackExams                            | https://www.ssbcrackexams.com/feed/
+candidate  | The Hindu Education                      | https://www.thehindu.com/education/feeder/default.rss
+candidate  | India Today Education                    | https://www.indiatoday.in/rss/education
+candidate  | TOI Education                            | https://timesofindia.indiatimes.com/rssfeeds/913168846.cms
+candidate  | PRS Blog                                 | https://prsindia.org/theprsblog/feed
+candidate  | BankersAdda Reasoning                    | https://www.bankersadda.com/category/reasoning/
+candidate  | BankersAdda Quant                        | https://www.bankersadda.com/category/quantitative-aptitude/
+candidate  | SSCAdda Reasoning                        | https://www.sscadda.com/category/reasoning/
+candidate  | SSCAdda Quant                            | https://www.sscadda.com/category/quantitative-aptitude/
+candidate  | CareerPower Practice Sets                | https://www.careerpower.in/blog/category/practice-set/
+candidate  | IndiaBIX Mechanical                      | https://www.indiabix.com/mechanical-engineering/questions-and-answers/
+candidate  | IndiaBIX Electrical                      | https://www.indiabix.com/electrical-engineering/questions-and-answers/
+candidate  | IndiaBIX Civil                           | https://www.indiabix.com/civil-engineering/questions-and-answers/
+candidate  | IndiaBIX Computer Science                | https://www.indiabix.com/computer-science/questions-and-answers/
+dead       | ARCHIVE:Deccan Chronicle                 | https://deccanchronus.com/feed
+dead       | ARCHIVE:Deccan Herald                    | https://www.deccanherald.com/rss
+dead       | ARCHIVE:TOI Hyderabad City               | https://timesofindia.indiatimes.com/rssfeeds/2223817529.cms
+dead       | ARCHIVE:TOI Vijayawada City              | https://timesofindia.indiatimes.com/rssfeeds/1224655363.cms
+dead       | ARCHIVE:Firstpost News                   | https://www.firstpost.com/feed/
+dead       | ARCHIVE:Livemint Top                     | https://www.livemint.com/feed/latest
+dead       | ARCHIVE:The Quint India                  | https://www.thequint.com/feed
+dead       | ARCHIVE:Frontline Magazine               | https://frontline.thehindu.com/feed/
+dead       | ARCHIVE:Telegraph India                  | https://www.telegraphindia.com/feed
+tested     | ARCHIVE:Sakshi Telugu                    | https://sakshi.com/rss/feed.xml
+dead       | ARCHIVE:Samayam Telugu                   | https://samayam.com/telugu/feed
+dead       | ARCHIVE:10MinuteTelugu                   | https://10minutetelugu.com/feed
+dead       | ARCHIVE:APJobs                           | https://www.apjobs.in/feed
+tested     | ARCHIVE:PIB Old                          | https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=3
+dead       | ARCHIVE:PRS Legislative                  | https://prsindia.org/feed/
+dead       | ARCHIVE:NewsOnAir                        | https://newsonair.gov.in/feed/
+dead       | ARCHIVE:RecruitmentIndia                 | https://recruitmentindia.in/feed/
+dead       | ARCHIVE:BBC India                        | https://feeds.bbci.co.uk/news/world/india/rss.xml
+dead       | ARCHIVE:The Week India                   | https://www.theweek.in/feed/india-news.xml
+dead       | ARCHIVE:ABP Live                         | https://abplive.com/feed/
+dead       | ARCHIVE:Business Standard Old            | https://feed.business-standard.com/feed/
+archive    | ARCHIVE:Times Now                        | https://timesnownews.com/feed/
+archive    | ARCHIVE:India TV                         | https://www.indiatvnews.com/feed/
+archive    | ARCHIVE:CNN News18                       | https://www.news18.com/feed/
+archive    | ARCHIVE:Aaj Tak                          | https://www.aajtak.in/feed/
+archive    | ARCHIVE:Republic TV                      | https://www.republicworld.com/feed/
+tested     | ARCHIVE:FreeJobAlert                     | https://www.freejobalert.com/feed
+tested     | ARCHIVE:SarkariYojana                    | https://www.sarkariyojana.com/feed
+dead       | ARCHIVE:GovtJobs.com                     | https://www.govtjobs.com/feed
+archive    | ARCHIVE:SarkariNaukri                    | https://www.sarkarinaukri.com/feed/
+dead       | ARCHIVE:Freshersworld                    | https://www.freshersworld.com/feed/
+dead       | ARCHIVE:NaukriGazzette                   | https://naukri-gazzette.com/feed
+dead       | ARCHIVE:TSJobs.in                        | https://tsjobs.in/feed
+dead       | ARCHIVE:RailBiz                          | https://railbiz.com/feed/
+dead       | ARCHIVE:IBPS Guide (jobs)                | https://www.ibpsguide.com/feed
+archive    | ARCHIVE:Eenadu Telugu                    | https://www.eenadu.net/rss
+archive    | ARCHIVE:AndhraJyothy                     | https://www.andhrajyothy.com/rss
+archive    | ARCHIVE:NamastheTelangana                | https://www.ntnews.com/feed
+archive    | ARCHIVE:TelanganaToday                   | https://telanganatoday.com/feed
+archive    | ARCHIVE:HansIndia                        | https://www.thehansindia.com/feed
+archive    | ARCHIVE:NewIndianExpress                 | https://www.newindianexpress.com/Nation/rssfeed/?id=170&getXmlFeed=XML
+archive    | ARCHIVE:ThePrint                         | https://theprint.in/feed/
+archive    | ARCHIVE:Scroll.in                        | https://scroll.in/feed
+archive    | ARCHIVE:Wire.in                          | https://thewire.in/rss
+archive    | ARCHIVE:Moneycontrol Markets             | https://www.moneycontrol.com/rss/latestnews.xml
+archive    | ARCHIVE:BusinessStandard RSS             | https://www.business-standard.com/rss/latest.rss
+archive    | ARCHIVE:LiveMint Markets                 | https://www.livemint.com/rss/markets
+archive    | ARCHIVE:ORF Expert                       | https://www.orfonline.org/feed
+archive    | ARCHIVE:IDSA                             | https://idsa.in/feed
+archive    | ARCHIVE:MyGov                            | https://www.mygov.in/feed/
+archive    | ARCHIVE:India.gov                        | https://www.india.gov.in/rss
+archive    | ARCHIVE:SarkariResult                    | https://www.sarkariresult.com/feed/
+archive    | ARCHIVE:SarkariExam                      | https://www.sarkariexam.com/feed/
+archive    | ARCHIVE:AllIndiaJobs                     | https://www.allindiajobs.in/feed/
+archive    | ARCHIVE:Jobriya                          | https://www.jobriya.in/feed/
+archive    | ARCHIVE:FreshersLive                     | https://www.fresherslive.com/feed
+archive    | ARCHIVE:SSBCrack                         | https://www.ssbcrack.com/feed
+archive    | ARCHIVE:MajorKalshiClasses               | https://www.majorkalshiclasses.com/feed/
+archive    | ARCHIVE:Wifistudy                        | https://www.wifistudy.com/blog/feed
+archive    | ARCHIVE:Embibe Blog                      | https://www.embibe.com/blog/feed/
+archive    | ARCHIVE:Toppr Bytes                      | https://www.toppr.com/bytes/feed/
+archive    | ARCHIVE:Vedantu Blog                     | https://www.vedantu.com/blog/feed/
+archive    | ARCHIVE:EduRev                           | https://edurev.in/feed
+archive    | ARCHIVE:Gradeup Legacy                   | https://gradeup.co/feed
+archive    | ARCHIVE:Unacademy Content                | https://unacademy.com/content/feed/
+archive    | ARCHIVE:CareerLauncher                   | https://www.careerlauncher.com/feed/
+archive    | ARCHIVE:VisionIAS Blog                   | https://www.visionias.in/blog/feed
+archive    | ARCHIVE:Vajiram                          | https://vajiramandravi.com/feed/
+archive    | ARCHIVE:ShankarIAS                       | https://www.shankariasacademy.com/feed/
+archive    | ARCHIVE:NextIAS                          | https://www.nextias.com/blog/feed
+archive    | ARCHIVE:ForumIAS                         | https://forumias.com/blog/feed/
+archive    | ARCHIVE:SleepyClasses                    | https://sleepyclasses.com/feed/
+archive    | ARCHIVE:OnlyIAS                          | https://onlyias.com/feed/
+archive    | ARCHIVE:ChahalAcademy                    | https://chahalacademy.com/feed/
+archive    | ARCHIVE:PlutusIAS                        | https://plutusias.com/feed/
+archive    | ARCHIVE:UPSCPathshala                    | https://upscpathshala.com/feed/
+archive    | ARCHIVE:KhanGlobalStudies                | https://www.khanglobalstudies.com/blog/feed
+archive    | ARCHIVE:ISRO Updates                     | https://www.isro.gov.in/rss.xml
+archive    | ARCHIVE:RBI Press Releases               | https://rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx

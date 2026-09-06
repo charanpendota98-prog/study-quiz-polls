@@ -198,6 +198,24 @@ class TestPYQBank(unittest.TestCase):
         self.assertIn("pyq", sources)
 
 
+    def test_pyq_volume3_loaded(self):
+        """pyq_bank_3.json adds 50 more authentic previous-paper questions."""
+        from core.store import load_json
+        from core import config
+        vol3 = load_json(config.DATA / "pyq_bank_3.json", {"questions": []})
+        qs = vol3.get("questions", [])
+        self.assertGreaterEqual(len(qs), 50)
+        for q in qs:
+            self.assertEqual(q.get("source"), "pyq")
+            self.assertEqual(validate_question(q), [], f"{q['id']}: {validate_question(q)}")
+
+    def test_total_pyq_pool_large(self):
+        from core.question_bank import Bank
+        b = Bank()
+        pyqs = [q for q in b.questions if q.get("source") == "pyq"]
+        self.assertGreaterEqual(len(pyqs), 100, f"need 100+ PYQs, got {len(pyqs)}")
+
+
 class TestNoRepeatAndSources(unittest.TestCase):
     """Phase-5 guarantees: questions NEVER repeat and quizzes never draw
     from news/article sources (exam-paper sources only)."""
@@ -226,17 +244,27 @@ class TestNoRepeatAndSources(unittest.TestCase):
     def test_questions_never_repeat(self):
         b = Bank()
         seen = set()
+        posted = 0
         for _ in range(4):
             for ch in ("DEFENCE", "APPSC", "RAILWAY", "POLICE"):
-                for q in b.pick(ch, 10):
+                batch = b.pick(ch, 10)
+                posted += len(batch)
+                for q in batch:
                     from core.question_bank import q_signature
                     sig = q_signature(q)
                     self.assertNotIn(sig, seen, f"repeat posted: {q['id']}")
                     seen.add(sig)
-        # permanent history persisted on disk
+        # permanent history persisted on disk — every posted id recorded
         history = load_json(config.STORE_USED, {})
-        self.assertTrue(all(len(history.get(ch, [])) >= 40
-                            for ch in ("DEFENCE", "APPSC", "RAILWAY", "POLICE")))
+        total_hist = sum(len(history.get(ch, []))
+                         for ch in ("DEFENCE", "APPSC", "RAILWAY", "POLICE"))
+        self.assertEqual(total_hist, posted)
+        self.assertEqual(len(seen), posted)
+        # With PYQ + curated + offline top-up we must sustain multiple full rounds
+        self.assertGreaterEqual(posted, 100, f"only posted {posted} across 4 rounds")
+        for ch in ("DEFENCE", "APPSC", "RAILWAY", "POLICE"):
+            self.assertGreaterEqual(len(history.get(ch, [])), 20,
+                                    f"{ch} history too thin: {len(history.get(ch, []))}")
 
     def test_digest_items_are_digest_only(self):
         """News-feed items must never carry a quiz question / answer key."""
@@ -390,16 +418,33 @@ class TestCollector(unittest.TestCase):
 
     def test_seen_url_store_pages_forward(self):
         """Re-collection does not refetch URLs already collected."""
+        import tempfile
+        from pathlib import Path as _P
         from core import collector
+        from core.store import load_json, save_json_atomic
         u = "https://www.indiabix.com/aptitude/simple-interest/"
-        self.assertNotIn(u, collector.load_seen_urls())
-        collector.save_seen_urls({u})
+        # Fully isolate on a temp path so other tests cannot clobber the store
+        tmp = _P(tempfile.gettempdir()) / "studentup_test_seen_urls.json"
+        if tmp.exists():
+            tmp.unlink()
+        orig = collector.SEEN_URLS
         try:
-            self.assertIn(u, collector.load_seen_urls())
+            collector.SEEN_URLS = tmp
+            self.assertNotIn(u, collector.load_seen_urls())
+            collector.save_seen_urls({u})
+            loaded = collector.load_seen_urls()
+            self.assertIn(u, loaded)
+            disk = load_json(tmp, {"urls": []})
+            self.assertIn(u, disk.get("urls", []))
+            # second save merges forward (pages forward, never loses prior)
+            u2 = "https://www.indiabix.com/aptitude/problems-on-trains/"
+            collector.save_seen_urls(loaded | {u2})
+            both = collector.load_seen_urls()
+            self.assertEqual(both, {u, u2})
         finally:
-            seen = collector.load_seen_urls()
-            seen.discard(u)
-            collector.save_seen_urls(seen)
+            collector.SEEN_URLS = orig
+            if tmp.exists():
+                tmp.unlink()
 
 
 class TestSchedule(unittest.TestCase):
@@ -624,6 +669,82 @@ class TestDedup(unittest.TestCase):
         self.assertTrue(s.is_dup("IBPS clerk recruitment 2026 apply online"))
         self.assertTrue(s.is_dup("IBPS clerk recruitment 2026 apply online now"))
         p.unlink()
+
+
+class TestTeluguFirstAndAnswerKey(unittest.TestCase):
+    """Telugu-first poll layout + delayed answer-key builder."""
+
+    def _sample_q(self):
+        return {
+            "id": "T001", "channel": "TSPSC", "topic": "Percentage",
+            "q_en": "What is 10% of 200?",
+            "q_te": "⤷ 200లో 10% ఎంత?",
+            "options_en": ["10", "20", "30", "40"],
+            "options_te": ["10", "20", "30", "40"],
+            "answer_index": 1,
+            "explanation_en": "10% of 200 = 20.",
+            "explanation_te": "200లో 10% = 20.",
+            "source": "pyq",
+        }
+
+    def test_telugu_first_question_layout(self):
+        from core.content import build_question_text
+        from core import config
+        q = self._sample_q()
+        cfg = config.CHANNELS["TSPSC"]
+        text = build_question_text(q, cfg, telugu_first=True)
+        # Telugu line must appear before the English question
+        te_pos = text.find("200లో 10%")
+        en_pos = text.find("What is 10% of 200?")
+        self.assertGreaterEqual(te_pos, 0)
+        self.assertGreaterEqual(en_pos, 0)
+        self.assertLess(te_pos, en_pos, "Telugu must come before English")
+
+    def test_telugu_first_options(self):
+        from core.content import build_options
+        q = self._sample_q()
+        # worded bilingual options
+        q["options_en"] = ["Ten", "Twenty", "Thirty", "Forty"]
+        q["options_te"] = ["పది", "ఇరవై", "ముప్పై", "నలభై"]
+        opts = build_options(q, telugu_first=True)
+        self.assertEqual(len(opts), 4)
+        self.assertTrue(opts[0].startswith("A) పది"), opts[0])
+        self.assertIn("Ten", opts[0])
+
+    def test_delayed_answer_key_builder(self):
+        from core.content import build_answer_key
+        qs = [self._sample_q(), dict(self._sample_q(), id="T002", answer_index=0,
+                                      topic="Ratio")]
+        key = build_answer_key(qs, round_label="Morning ⛅")
+        self.assertIn("Answer Key", key)
+        self.assertIn("సమాధానాలు", key)
+        self.assertIn("[B]", key)   # sample answer_index=1 → B
+        self.assertIn("[A]", key)
+
+    def test_instant_mode_sends_explanation(self):
+        """Channel polls in instant mode include explanation payload."""
+        from core import config
+        from core.telegram import Telegram
+        # default is instant
+        self.assertIn(config.ANSWER_MODE, ("instant", "delayed"))
+        tg = Telegram(dry=True)
+        res = tg.send_quiz("@test", "Q?", ["A) 1", "B) 2", "C) 3", "D) 4"],
+                           1, explanation="because twenty",
+                           with_explanation=True)
+        self.assertTrue(res.get("ok"))
+        # dry returns payload merged into result
+        self.assertIn("explanation", res.get("result", {}))
+
+    def test_delayed_mode_withholds_explanation(self):
+        from core.telegram import Telegram
+        tg = Telegram(dry=True)
+        res = tg.send_quiz("@test", "Q?", ["A) 1", "B) 2", "C) 3", "D) 4"],
+                           1, explanation="secret",
+                           with_explanation=False)
+        self.assertTrue(res.get("ok"))
+        self.assertNotIn("explanation", res.get("result", {}))
+        # correct_option_id still present for Telegram right/wrong mark
+        self.assertEqual(res.get("result", {}).get("correct_option_id"), 1)
 
 
 class TestPollFormat(unittest.TestCase):

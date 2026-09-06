@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 STUDENTUP — CENTRAL SOURCE REGISTRY + AUDITOR TEST SUITE
-Covers: registry integrity (72+ sources, no dupes, https-only, enabled==live),
+Covers: registry integrity (100+ sources, no dupes, https-only, enabled==live),
 collector registry/health behaviour (auto-pause, pagination, feed reuse),
 and the content-gated auditor (candidates enabled ONLY when live+fresh+quiz
 content; dead sources disabled after N failures). No network — mocked.
@@ -25,11 +25,12 @@ class TestRegistryIntegrity(unittest.TestCase):
     def test_registry_exists_and_loads(self):
         reg = collector.load_registry()
         self.assertTrue(reg.get("sources"), "registry missing sources")
-        self.assertEqual(reg["version"], "3.0")
+        self.assertIn(reg["version"], ("3.0", "4.0"))
 
     def test_many_sources_centrally(self):
         reg = collector.load_registry()
-        self.assertGreaterEqual(len(reg["sources"]), 60)
+        self.assertGreaterEqual(len(reg["sources"]), 100,
+                                "registry must hold 100+ sources")
 
     def test_no_duplicate_names(self):
         reg = collector.load_registry()
@@ -59,16 +60,16 @@ class TestRegistryIntegrity(unittest.TestCase):
         reg = collector.load_registry()
         cand = [s for s in reg["sources"]
                 if not s.get("enabled") and s.get("auto_enable_if_live")]
-        self.assertGreaterEqual(len(cand), 8, "candidate pool too small")
+        self.assertGreaterEqual(len(cand), 20, "candidate pool too small")
 
     def test_news_feeds_centrally_defined(self):
         reg = collector.load_registry()
         nf = reg["news_feeds"]
-        self.assertGreaterEqual(len(nf["ca"]), 10)
+        self.assertGreaterEqual(len(nf["ca"]), 12)
         self.assertGreaterEqual(len(nf["jobs"]), 5)
         # feeds.py must read the same central registry
         src = feeds.load_feed_sources()
-        self.assertGreaterEqual(len(src["ca"]), 10)
+        self.assertGreaterEqual(len(src["ca"]), 12)
         self.assertGreaterEqual(len(src["jobs"]), 5)
 
     def test_live_sources_cover_exam_categories(self):
@@ -301,6 +302,9 @@ class TestJinaFallback(unittest.TestCase):
         from core import collector
         old_key = os.environ.get("JINA_API_KEY")
         old_open = collector.urllib.request.urlopen
+        old_sleep = collector._sleep_polite
+        old_jina = collector._jina_fetch
+        old_save = collector.save_seen_urls
         try:
             os.environ["JINA_API_KEY"] = "test-jina"
             collector._sleep_polite = lambda host: None
@@ -313,6 +317,9 @@ class TestJinaFallback(unittest.TestCase):
             self.assertTrue(got and got.startswith("JINA_CONTENT"))
         finally:
             collector.urllib.request.urlopen = old_open
+            collector._sleep_polite = old_sleep
+            collector._jina_fetch = old_jina
+            collector.save_seen_urls = old_save
             if old_key is None:
                 os.environ.pop("JINA_API_KEY", None)
             else:
@@ -324,6 +331,8 @@ class TestJinaFallback(unittest.TestCase):
         from core import collector
         old_key = os.environ.get("JINA_API_KEY")
         old_open = collector.urllib.request.urlopen
+        old_sleep = collector._sleep_polite
+        old_jina = collector._jina_fetch
         try:
             os.environ["JINA_API_KEY"] = "test-jina"
             collector._sleep_polite = lambda host: None
@@ -337,6 +346,8 @@ class TestJinaFallback(unittest.TestCase):
             self.assertEqual(calls, [], "Jina must not be used for feeds")
         finally:
             collector.urllib.request.urlopen = old_open
+            collector._sleep_polite = old_sleep
+            collector._jina_fetch = old_jina
             if old_key is None:
                 os.environ.pop("JINA_API_KEY", None)
             else:

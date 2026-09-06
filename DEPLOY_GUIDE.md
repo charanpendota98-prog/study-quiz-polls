@@ -71,3 +71,23 @@ ssh -i C:\Users\Charan\Downloads\ssh-key-2026-08-01.key ubuntu@129.159.229.134
 
 *(Only if that is the actual StudentUp Oracle VM — the repo docs name
 80.225.205.135 + ssh-key-2026-08-23.key. Use whichever is real.)*
+
+
+---
+
+## ⚠️ BEFORE GOING LIVE — two mandatory secret fixes
+
+1. **Replace `ADMIN_ID=YOUR_ID`** in `env/.env` on the server with your real
+   Telegram numeric user id (message `@userinfobot` to get it). Admin alerts
+   and `/analytics` will not work until this is a real id.
+
+2. **Regenerate any OpenAI / Groq / Gemini keys** you pasted in chat after
+   deploy (best practice). Update `env/.env` on the server only — never commit.
+
+Optional presentation toggles in `env/.env`:
+
+```
+TELUGU_FIRST=1
+ANSWER_MODE=instant          # or: delayed
+QUIZ_OPEN_PERIOD=300
+```

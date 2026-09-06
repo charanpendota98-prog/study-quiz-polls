@@ -1,13 +1,13 @@
 {
-  "version": "3.0",
-  "description": "STUDENTUP central source registry — every exam-quiz source, CA/jobs feed and tracked-dead source in one place. Collector, auditor and feeds aggregator all read this file. Regenerate with scripts/rebuild_registry.py.",
+  "version": "4.0",
+  "description": "STUDENTUP central source registry — 100+ exam-quiz sources, CA/jobs feeds and tracked-dead/archive sources in one place. Collector, auditor and feeds aggregator all read this file. Regenerate with scripts/rebuild_registry.py. Deep research Sep 2026: only previous-paper / syllabus-aligned sources; candidates auto-enable only after content-gated audit.",
   "last_audit": "2026-09-06",
-  "audit_note": "Live/statuses below were checked on 2026-09-06 with a content-level audit (feed entries + title filters). Candidates auto-enable only after a real content-gated check.",
+  "audit_note": "Live sources checked 2026-09-06 with content-level audit. Registry expanded to 100+ with deep specialist candidates (UPSC/Banking/SSC/Railway/Defence/IndiaBIX JE sections) + full archive tracking. Candidates auto-enable only after a real content-gated check. No dummy, no sample, no junk.",
   "defaults": {
     "max_articles_per_source": 2,
     "max_links_per_index": 3,
     "max_pages_per_index": 2,
-    "max_questions_per_run": 160,
+    "max_questions_per_run": 200,
     "polite_delay_sec": 2.0,
     "fetch_timeout": 20,
     "auto_pause_after_failures": 3
@@ -30,14 +30,29 @@
         "tested (Aug 2026)"
       ],
       [
+        "The Hindu Education",
+        "https://www.thehindu.com/education/feeder/default.rss",
+        "candidate 2026-09-06"
+      ],
+      [
         "India Today",
         "https://www.indiatoday.in/rss/india",
         "tested (Aug 2026)"
       ],
       [
+        "India Today Education",
+        "https://www.indiatoday.in/rss/education",
+        "candidate 2026-09-06"
+      ],
+      [
         "TOI Top",
         "https://timesofindia.indiatimes.com/rssfeedstopstories.cms",
         "tested (Aug 2026)"
+      ],
+      [
+        "TOI Education",
+        "https://timesofindia.indiatimes.com/rssfeeds/913168846.cms",
+        "candidate 2026-09-06"
       ],
       [
         "ET Top",
@@ -73,6 +88,21 @@
         "Hindustan Times India",
         "https://www.hindustantimes.com/feeds/rss/india-news",
         "tested (server OK)"
+      ],
+      [
+        "Drishti IAS",
+        "https://www.drishtiias.com/feed",
+        "candidate 2026-09-06"
+      ],
+      [
+        "ClearIAS",
+        "https://www.clearias.com/feed/",
+        "candidate 2026-09-06"
+      ],
+      [
+        "PRS Blog",
+        "https://prsindia.org/theprsblog/feed",
+        "candidate 2026-09-06"
       ]
     ],
     "jobs": [
@@ -110,6 +140,21 @@
         "TOI Top",
         "https://timesofindia.indiatimes.com/rssfeedstopstories.cms",
         "tested (Aug 2026)"
+      ],
+      [
+        "Adda247 Banking Jobs",
+        "https://www.adda247.com/jobs/banking-jobs/feed",
+        "candidate 2026-09-06"
+      ],
+      [
+        "SarkariResult",
+        "https://www.sarkariresult.com/feed/",
+        "candidate 2026-09-06"
+      ],
+      [
+        "AllIndiaJobs",
+        "https://www.allindiajobs.in/feed/",
+        "candidate 2026-09-06"
       ]
     ]
   },
@@ -120,7 +165,7 @@
       "type": "rss",
       "exam": "all",
       "feed": "https://affairscloud.com/feed",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
       "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "checked": "2026-09-06",
@@ -134,7 +179,7 @@
       "type": "rss",
       "exam": "upsc",
       "feed": "https://www.insightsonindia.com/feed",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
       "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "checked": "2026-09-06",
@@ -162,7 +207,7 @@
       "type": "rss",
       "exam": "banking",
       "feed": "https://www.oliveboard.in/blog/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
       "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "checked": "2026-09-06",
@@ -204,7 +249,7 @@
       "type": "rss",
       "exam": "all",
       "feed": "https://www.practicemock.com/blog/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
       "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "checked": "2026-09-06",
@@ -354,7 +399,7 @@
       "type": "rss",
       "exam": "ssc-upsc",
       "feed": "https://www.gktoday.in/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
       "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "checked": "2026-09-06",
@@ -368,7 +413,7 @@
       "type": "rss",
       "exam": "all",
       "feed": "https://testbook.com/blog/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
       "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "checked": "2026-09-06",
@@ -382,7 +427,7 @@
       "type": "rss",
       "exam": "banking",
       "feed": "https://guidely.in/blog/feed",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
       "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "checked": "2026-09-06",
@@ -396,7 +441,7 @@
       "type": "rss",
       "exam": "railway",
       "feed": "https://www.rrbadda.com/feed",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
       "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "checked": "2026-09-06",
@@ -410,7 +455,7 @@
       "type": "rss",
       "exam": "all",
       "feed": "https://www.adda247.com/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
       "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "checked": "2026-09-06",
@@ -424,7 +469,7 @@
       "type": "rss",
       "exam": "banking",
       "feed": "https://www.bankersadda.com/feed/rss/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
       "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "checked": "2026-09-06",
@@ -438,7 +483,7 @@
       "type": "rss",
       "exam": "all",
       "feed": "https://testbook.com/blog/category/quiz/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
       "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "checked": "2026-09-06",
@@ -447,63 +492,45 @@
       }
     },
     {
-      "name": "Smartkeeda Quiz",
+      "name": "Smartkeeda Old Root",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://www.smartkeeda.com/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
+      "feed": "https://smartkeeda.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
       "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
-      "auto_enable_if_live": true,
       "audit": {
-        "status": "unverified",
         "checked": "2026-09-06",
-        "note": "docs marked 404 in Aug 2026; re-verify before use"
+        "status": "dead",
+        "note": "dead | 404 (Aug 2026)"
       }
     },
     {
-      "name": "IBPSGuide Quiz",
+      "name": "IASbaba Root Feed",
       "enabled": false,
       "type": "rss",
-      "exam": "banking",
-      "feed": "https://www.ibpsguide.com/feed",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
+      "exam": "upsc",
+      "feed": "https://www.iasbaba.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
       "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
-      "auto_enable_if_live": true,
       "audit": {
-        "status": "unverified",
         "checked": "2026-09-06",
-        "note": "docs: stale ~180 days; re-verify before use"
+        "status": "dead",
+        "note": "dead | TLS (Aug 2026)"
       }
     },
     {
-      "name": "StudyIQ Quiz",
+      "name": "CivilServicesToday",
       "enabled": false,
       "type": "rss",
-      "exam": "all",
-      "feed": "https://www.studyiq.com/feed",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
+      "exam": "upsc",
+      "feed": "https://civilstoday.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
       "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
-      "auto_enable_if_live": true,
       "audit": {
-        "status": "unverified",
         "checked": "2026-09-06",
-        "note": "unverified URL — auditor checks feed + content"
-      }
-    },
-    {
-      "name": "PendulumEdu Quiz",
-      "enabled": false,
-      "type": "rss",
-      "exam": "all",
-      "feed": "https://pendulumedu.com/feed",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
-      "auto_enable_if_live": true,
-      "audit": {
-        "status": "unverified",
-        "checked": "2026-09-06",
-        "note": "unverified URL — auditor checks feed + content"
+        "status": "dead",
+        "note": "dead | 500 (Aug 2026)"
       }
     },
     {
@@ -512,13 +539,43 @@
       "type": "rss",
       "exam": "all",
       "feed": "https://affairscloud.com/category/current-affairs-quiz/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
+      "title_must": "current affairs|daily ca|quiz|mcq|gk|prelims|upsc|banking awareness|static gk|scheme|budget|rbi|isro|defence|parliament",
       "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "auto_enable_if_live": true,
       "audit": {
         "status": "unverified",
         "checked": "2026-09-06",
-        "note": "unverified category feed — auditor checks + content gate"
+        "note": "category feed — auditor content gate"
+      }
+    },
+    {
+      "name": "AffairsCloud Banking Awareness",
+      "enabled": false,
+      "type": "rss",
+      "exam": "banking",
+      "feed": "https://affairscloud.com/category/banking-awareness/feed/",
+      "title_must": "current affairs|daily ca|quiz|mcq|gk|prelims|upsc|banking awareness|static gk|scheme|budget|rbi|isro|defence|parliament",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "banking-awareness posts for IBPS/SBI"
+      }
+    },
+    {
+      "name": "AffairsCloud Static GK",
+      "enabled": false,
+      "type": "rss",
+      "exam": "ssc-upsc-railway",
+      "feed": "https://affairscloud.com/category/static-gk/feed/",
+      "title_must": "current affairs|daily ca|quiz|mcq|gk|prelims|upsc|banking awareness|static gk|scheme|budget|rbi|isro|defence|parliament",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "static GK for SSC/RRB/UPSC"
       }
     },
     {
@@ -527,7 +584,7 @@
       "type": "rss",
       "exam": "banking",
       "feed": "https://www.bankersadda.com/category/quiz/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
       "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "auto_enable_if_live": true,
       "audit": {
@@ -542,7 +599,7 @@
       "type": "rss",
       "exam": "ssc",
       "feed": "https://www.careerpower.in/blog/category/practice-set/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
       "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "auto_enable_if_live": true,
       "audit": {
@@ -557,13 +614,73 @@
       "type": "rss",
       "exam": "banking",
       "feed": "https://www.oliveboard.in/blog/category/quiz/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
       "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "auto_enable_if_live": true,
       "audit": {
         "status": "unverified",
         "checked": "2026-09-06",
         "note": "unverified category feed — auditor checks + content gate"
+      }
+    },
+    {
+      "name": "Oliveboard Banking Category",
+      "enabled": false,
+      "type": "rss",
+      "exam": "banking",
+      "feed": "https://www.oliveboard.in/blog/category/banking/feed/",
+      "title_must": "current affairs|daily ca|quiz|mcq|gk|prelims|upsc|banking awareness|static gk|scheme|budget|rbi|isro|defence|parliament",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "banking exam posts"
+      }
+    },
+    {
+      "name": "Oliveboard SSC Category",
+      "enabled": false,
+      "type": "rss",
+      "exam": "ssc",
+      "feed": "https://www.oliveboard.in/blog/category/ssc/feed/",
+      "title_must": "current affairs|daily ca|quiz|mcq|gk|prelims|upsc|banking awareness|static gk|scheme|budget|rbi|isro|defence|parliament",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "SSC exam posts"
+      }
+    },
+    {
+      "name": "Oliveboard RRB Category",
+      "enabled": false,
+      "type": "rss",
+      "exam": "railway",
+      "feed": "https://www.oliveboard.in/blog/category/rrb/feed/",
+      "title_must": "current affairs|daily ca|quiz|mcq|gk|prelims|upsc|banking awareness|static gk|scheme|budget|rbi|isro|defence|parliament",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "RRB exam posts"
+      }
+    },
+    {
+      "name": "Oliveboard Free Practice",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "feed": "https://www.oliveboard.in/blog/category/free-practice-questions/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "free practice MCQ posts"
       }
     },
     {
@@ -572,13 +689,43 @@
       "type": "rss",
       "exam": "all",
       "feed": "https://www.practicemock.com/blog/category/quiz/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
       "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "auto_enable_if_live": true,
       "audit": {
         "status": "unverified",
         "checked": "2026-09-06",
         "note": "unverified category feed — auditor checks + content gate"
+      }
+    },
+    {
+      "name": "PracticeMock Banking Category",
+      "enabled": false,
+      "type": "rss",
+      "exam": "banking",
+      "feed": "https://www.practicemock.com/blog/category/banking/feed/",
+      "title_must": "current affairs|daily ca|quiz|mcq|gk|prelims|upsc|banking awareness|static gk|scheme|budget|rbi|isro|defence|parliament",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "banking mocks/practice"
+      }
+    },
+    {
+      "name": "PracticeMock SSC Category",
+      "enabled": false,
+      "type": "rss",
+      "exam": "ssc",
+      "feed": "https://www.practicemock.com/blog/category/ssc/feed/",
+      "title_must": "current affairs|daily ca|quiz|mcq|gk|prelims|upsc|banking awareness|static gk|scheme|budget|rbi|isro|defence|parliament",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "SSC mocks/practice"
       }
     },
     {
@@ -587,7 +734,7 @@
       "type": "rss",
       "exam": "ssc",
       "feed": "https://www.sscadda.com/category/quiz/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
       "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "auto_enable_if_live": true,
       "audit": {
@@ -597,18 +744,258 @@
       }
     },
     {
-      "name": "Testbook Daily Quiz",
+      "name": "InsightsIndia Quizzes Category",
       "enabled": false,
       "type": "rss",
-      "exam": "all",
-      "feed": "https://testbook.com/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
+      "exam": "upsc",
+      "feed": "https://www.insightsonindia.com/category/quizzes/feed/",
+      "title_must": "quiz|mcq|current affairs",
       "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "auto_enable_if_live": true,
       "audit": {
         "status": "unverified",
         "checked": "2026-09-06",
-        "note": "unverified main feed — auditor checks + content gate"
+        "note": "UPSC daily quiz category"
+      }
+    },
+    {
+      "name": "InsightsIndia Secure",
+      "enabled": false,
+      "type": "rss",
+      "exam": "upsc",
+      "feed": "https://www.insightsonindia.com/category/secure-initiative/feed/",
+      "title_must": "current affairs|daily ca|quiz|mcq|gk|prelims|upsc|banking awareness|static gk|scheme|budget|rbi|isro|defence|parliament",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "UPSC Mains Secure initiative — CA depth"
+      }
+    },
+    {
+      "name": "Drishti IAS",
+      "enabled": false,
+      "type": "rss",
+      "exam": "upsc",
+      "feed": "https://www.drishtiias.com/feed",
+      "title_must": "current affairs|daily ca|quiz|mcq|gk|prelims|upsc|banking awareness|static gk|scheme|budget|rbi|isro|defence|parliament",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "UPSC current affairs + quiz depth"
+      }
+    },
+    {
+      "name": "ClearIAS",
+      "enabled": false,
+      "type": "rss",
+      "exam": "upsc",
+      "feed": "https://www.clearias.com/feed/",
+      "title_must": "current affairs|daily ca|quiz|mcq|gk|prelims|upsc|banking awareness|static gk|scheme|budget|rbi|isro|defence|parliament",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "UPSC prelims MCQ + CA"
+      }
+    },
+    {
+      "name": "BYJU IAS Prep",
+      "enabled": false,
+      "type": "rss",
+      "exam": "upsc",
+      "feed": "https://byjus.com/free-ias-prep/feed/",
+      "title_must": "current affairs|daily ca|quiz|mcq|gk|prelims|upsc|banking awareness|static gk|scheme|budget|rbi|isro|defence|parliament",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "UPSC free IAS prep feed"
+      }
+    },
+    {
+      "name": "PMF IAS",
+      "enabled": false,
+      "type": "rss",
+      "exam": "upsc",
+      "feed": "https://www.pmfias.com/feed/",
+      "title_must": "current affairs|daily ca|quiz|mcq|gk|prelims|upsc|banking awareness|static gk|scheme|budget|rbi|isro|defence|parliament",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "geography/environment UPSC depth"
+      }
+    },
+    {
+      "name": "CivilsDaily",
+      "enabled": false,
+      "type": "rss",
+      "exam": "upsc",
+      "feed": "https://www.civilsdaily.com/feed/",
+      "title_must": "current affairs|daily ca|quiz|mcq|gk|prelims|upsc|banking awareness|static gk|scheme|budget|rbi|isro|defence|parliament",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "UPSC daily CA"
+      }
+    },
+    {
+      "name": "IASExpress",
+      "enabled": false,
+      "type": "rss",
+      "exam": "upsc",
+      "feed": "https://www.iasexpress.net/feed/",
+      "title_must": "current affairs|daily ca|quiz|mcq|gk|prelims|upsc|banking awareness|static gk|scheme|budget|rbi|isro|defence|parliament",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "UPSC notes/CA"
+      }
+    },
+    {
+      "name": "BankExamsToday",
+      "enabled": false,
+      "type": "rss",
+      "exam": "banking",
+      "feed": "https://www.bankexamstoday.com/feeds/posts/default?alt=rss",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "banking awareness + quizzes"
+      }
+    },
+    {
+      "name": "Bankersdaily",
+      "enabled": false,
+      "type": "rss",
+      "exam": "banking",
+      "feed": "https://bankersdaily.in/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "banking daily quizzes + CA"
+      }
+    },
+    {
+      "name": "IxamBee Blog",
+      "enabled": false,
+      "type": "rss",
+      "exam": "banking-ssc-railway",
+      "feed": "https://www.ixambee.com/blog/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "banking/SSC/railway exam blog"
+      }
+    },
+    {
+      "name": "Mahendras Blog",
+      "enabled": false,
+      "type": "rss",
+      "exam": "banking-ssc",
+      "feed": "https://www.mahendras.org/blog/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "banking/SSC practice blog"
+      }
+    },
+    {
+      "name": "Cracku Blog",
+      "enabled": false,
+      "type": "rss",
+      "exam": "banking-ssc",
+      "feed": "https://cracku.in/blog/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "quant/reasoning practice"
+      }
+    },
+    {
+      "name": "StudyIQ Articles",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "feed": "https://www.studyiq.com/articles/feed/",
+      "title_must": "current affairs|daily ca|quiz|mcq|gk|prelims|upsc|banking awareness|static gk|scheme|budget|rbi|isro|defence|parliament",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "exam CA/articles — content gate required"
+      }
+    },
+    {
+      "name": "PendulumEdu Quiz",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "feed": "https://pendulumedu.com/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "unverified URL — auditor checks feed + content"
+      }
+    },
+    {
+      "name": "Smartkeeda Quiz",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "feed": "https://www.smartkeeda.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "docs marked 404 in Aug 2026; re-verify before use"
+      }
+    },
+    {
+      "name": "IBPSGuide Quiz",
+      "enabled": false,
+      "type": "rss",
+      "exam": "banking",
+      "feed": "https://www.ibpsguide.com/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "docs: stale ~180 days; re-verify before use"
       }
     },
     {
@@ -617,7 +1004,7 @@
       "type": "rss",
       "exam": "all",
       "feed": "https://www.jagranjosh.com/rss/current-affairs-quizzes.xml",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
       "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "auto_enable_if_live": true,
       "audit": {
@@ -627,536 +1014,1365 @@
       }
     },
     {
+      "name": "Jagran Josh Education",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "feed": "https://www.jagranjosh.com/rss/edu.xml",
+      "title_must": "current affairs|daily ca|quiz|mcq|gk|prelims|upsc|banking awareness|static gk|scheme|budget|rbi|isro|defence|parliament",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "education/exam desk RSS"
+      }
+    },
+    {
+      "name": "Testbook Daily Quiz",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "feed": "https://testbook.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "unverified main feed — auditor checks + content gate"
+      }
+    },
+    {
+      "name": "Adda247 Current Affairs",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "feed": "https://currentaffairs.adda247.com/feed/",
+      "title_must": "current affairs|daily ca|quiz|mcq|gk|prelims|upsc|banking awareness|static gk|scheme|budget|rbi|isro|defence|parliament",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "Adda247 CA desk — content gate"
+      }
+    },
+    {
+      "name": "SSBCrackExams",
+      "enabled": false,
+      "type": "rss",
+      "exam": "defence",
+      "feed": "https://www.ssbcrackexams.com/feed/",
+      "title_must": "current affairs|daily ca|quiz|mcq|gk|prelims|upsc|banking awareness|static gk|scheme|budget|rbi|isro|defence|parliament",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "NDA/CDS/Agniveer exam desk"
+      }
+    },
+    {
+      "name": "The Hindu Education",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "feed": "https://www.thehindu.com/education/feeder/default.rss",
+      "title_must": "current affairs|daily ca|quiz|mcq|gk|prelims|upsc|banking awareness|static gk|scheme|budget|rbi|isro|defence|parliament",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "education desk — exam-relevant only"
+      }
+    },
+    {
+      "name": "India Today Education",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "feed": "https://www.indiatoday.in/rss/education",
+      "title_must": "current affairs|daily ca|quiz|mcq|gk|prelims|upsc|banking awareness|static gk|scheme|budget|rbi|isro|defence|parliament",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "education desk RSS"
+      }
+    },
+    {
+      "name": "TOI Education",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "feed": "https://timesofindia.indiatimes.com/rssfeeds/913168846.cms",
+      "title_must": "current affairs|daily ca|quiz|mcq|gk|prelims|upsc|banking awareness|static gk|scheme|budget|rbi|isro|defence|parliament",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "education desk RSS"
+      }
+    },
+    {
+      "name": "PRS Blog",
+      "enabled": false,
+      "type": "rss",
+      "exam": "upsc",
+      "feed": "https://prsindia.org/theprsblog/feed",
+      "title_must": "current affairs|daily ca|quiz|mcq|gk|prelims|upsc|banking awareness|static gk|scheme|budget|rbi|isro|defence|parliament",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "legislative research — polity PYQ depth"
+      }
+    },
+    {
+      "name": "BankersAdda Reasoning",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking",
+      "url": "https://www.bankersadda.com/category/reasoning/",
+      "link_re": "^https://www\\.bankersadda\\.com/[a-z0-9\\-]*reasoning[a-z0-9\\-]*/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "reasoning practice listing — content-gated deep crawl"
+      }
+    },
+    {
+      "name": "BankersAdda Quant",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking",
+      "url": "https://www.bankersadda.com/category/quantitative-aptitude/",
+      "link_re": "^https://www\\.bankersadda\\.com/[a-z0-9\\-]*(quant|aptitude|di)[a-z0-9\\-]*/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "quant practice listing — content-gated deep crawl"
+      }
+    },
+    {
+      "name": "SSCAdda Reasoning",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc",
+      "url": "https://www.sscadda.com/category/reasoning/",
+      "link_re": "^https://www\\.sscadda\\.com/[a-z0-9\\-]*reasoning[a-z0-9\\-]*/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "SSC reasoning listing"
+      }
+    },
+    {
+      "name": "SSCAdda Quant",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc",
+      "url": "https://www.sscadda.com/category/quantitative-aptitude/",
+      "link_re": "^https://www\\.sscadda\\.com/[a-z0-9\\-]*(quant|aptitude)[a-z0-9\\-]*/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "SSC quant listing"
+      }
+    },
+    {
+      "name": "CareerPower Practice Sets",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc",
+      "url": "https://www.careerpower.in/blog/category/practice-set/",
+      "link_re": "^https://www\\.careerpower\\.in/blog/[a-z0-9\\-]+/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "practice-set listing deep crawl"
+      }
+    },
+    {
+      "name": "IndiaBIX Mechanical",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-railway",
+      "url": "https://www.indiabix.com/mechanical-engineering/questions-and-answers/",
+      "link_re": "^https://www\\.indiabix\\.com/mechanical-engineering/[a-z0-9\\-]+(?:/[0-9]+)?/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "IndiaBIX mechanical section (RRB JE / SSC JE syllabus)"
+      }
+    },
+    {
+      "name": "IndiaBIX Electrical",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-railway",
+      "url": "https://www.indiabix.com/electrical-engineering/questions-and-answers/",
+      "link_re": "^https://www\\.indiabix\\.com/electrical-engineering/[a-z0-9\\-]+(?:/[0-9]+)?/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "IndiaBIX electrical section (RRB JE / SSC JE syllabus)"
+      }
+    },
+    {
+      "name": "IndiaBIX Civil",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-railway",
+      "url": "https://www.indiabix.com/civil-engineering/questions-and-answers/",
+      "link_re": "^https://www\\.indiabix\\.com/civil-engineering/[a-z0-9\\-]+(?:/[0-9]+)?/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "IndiaBIX civil section (RRB JE / SSC JE syllabus)"
+      }
+    },
+    {
+      "name": "IndiaBIX Computer Science",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking-ssc",
+      "url": "https://www.indiabix.com/computer-science/questions-and-answers/",
+      "link_re": "^https://www\\.indiabix\\.com/computer-science/[a-z0-9\\-]+(?:/[0-9]+)?/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "IndiaBIX computer awareness (IBPS/SBI/SSC)"
+      }
+    },
+    {
       "name": "ARCHIVE:Deccan Chronicle",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://deccanchronus.com/feed",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "dead",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "dead | TLS cert dead (Aug 2026)"
-      }
+      },
+      "feed": "https://deccanchronus.com/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:Deccan Herald",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://www.deccanherald.com/rss",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "dead",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "dead | 404 (Aug 2026)"
-      }
+      },
+      "feed": "https://www.deccanherald.com/rss",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:TOI Hyderabad City",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://timesofindia.indiatimes.com/rssfeeds/2223817529.cms",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "dead",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "dead | 404 (Aug 2026)"
-      }
+      },
+      "feed": "https://timesofindia.indiatimes.com/rssfeeds/2223817529.cms",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:TOI Vijayawada City",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://timesofindia.indiatimes.com/rssfeeds/1224655363.cms",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "dead",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "dead | 200 but 0 entries (Aug 2026)"
-      }
+      },
+      "feed": "https://timesofindia.indiatimes.com/rssfeeds/1224655363.cms",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:Firstpost News",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://www.firstpost.com/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "dead",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "dead | 403 (Aug 2026)"
-      }
+      },
+      "feed": "https://www.firstpost.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:Livemint Top",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://www.livemint.com/feed/latest",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "dead",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "dead | HTML only (Aug 2026)"
-      }
+      },
+      "feed": "https://www.livemint.com/feed/latest",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:The Quint India",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://www.thequint.com/feed",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "dead",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "dead | 404 (Aug 2026)"
-      }
+      },
+      "feed": "https://www.thequint.com/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:Frontline Magazine",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://frontline.thehindu.com/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "dead",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "dead | HTML only (Aug 2026)"
-      }
+      },
+      "feed": "https://frontline.thehindu.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:Telegraph India",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://www.telegraphindia.com/feed",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "dead",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "dead | 403 (Aug 2026)"
-      }
+      },
+      "feed": "https://www.telegraphindia.com/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:Sakshi Telugu",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://sakshi.com/rss/feed.xml",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "tested",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "tested | sandbox 403, server OK per Aug-2026 audit"
-      }
+      },
+      "feed": "https://sakshi.com/rss/feed.xml",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:Samayam Telugu",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://samayam.com/telugu/feed",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "dead",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "dead | TLS (Aug 2026)"
-      }
+      },
+      "feed": "https://samayam.com/telugu/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:10MinuteTelugu",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://10minutetelugu.com/feed",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "dead",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "dead | TLS (Aug 2026)"
-      }
+      },
+      "feed": "https://10minutetelugu.com/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:APJobs",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://www.apjobs.in/feed",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "dead",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "dead | junk/spam — permanently blocked"
-      }
+      },
+      "feed": "https://www.apjobs.in/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
-      "name": "ARCHIVE:PIB",
+      "name": "ARCHIVE:PIB Old",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=3",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "tested",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "tested | structured RSS may vary; auditor re-checks"
-      }
+      },
+      "feed": "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=3",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:PRS Legislative",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://prsindia.org/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "dead",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "dead | 404 (Aug 2026)"
-      }
-    },
-    {
-      "name": "ARCHIVE:IASbaba",
-      "enabled": false,
-      "type": "rss",
-      "exam": "all",
-      "feed": "https://www.iasbaba.com/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
-      "audit": {
-        "status": "dead",
-        "checked": "2026-08-30",
-        "note": "dead | TLS (Aug 2026)"
-      }
-    },
-    {
-      "name": "ARCHIVE:CivilServicesToday",
-      "enabled": false,
-      "type": "rss",
-      "exam": "all",
-      "feed": "https://civilstoday.com/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
-      "audit": {
-        "status": "dead",
-        "checked": "2026-08-30",
-        "note": "dead | 500 (Aug 2026)"
-      }
+      },
+      "feed": "https://prsindia.org/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:NewsOnAir",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://newsonair.gov.in/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "dead",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "dead | timeout (Aug 2026)"
-      }
-    },
-    {
-      "name": "ARCHIVE:Smartkeeda",
-      "enabled": false,
-      "type": "rss",
-      "exam": "all",
-      "feed": "https://smartkeeda.com/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
-      "audit": {
-        "status": "dead",
-        "checked": "2026-08-30",
-        "note": "dead | 404 (Aug 2026)"
-      }
+      },
+      "feed": "https://newsonair.gov.in/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:RecruitmentIndia",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://recruitmentindia.in/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "dead",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "dead | HTML only (Aug 2026)"
-      }
+      },
+      "feed": "https://recruitmentindia.in/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:BBC India",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://feeds.bbci.co.uk/news/world/india/rss.xml",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "dead",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "dead | 404 (Aug 2026) — foreign, blocked"
-      }
+      },
+      "feed": "https://feeds.bbci.co.uk/news/world/india/rss.xml",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:The Week India",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://www.theweek.in/feed/india-news.xml",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "dead",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "dead | 403 (Aug 2026) — blocked"
-      }
+      },
+      "feed": "https://www.theweek.in/feed/india-news.xml",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:ABP Live",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://abplive.com/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "dead",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "dead | HTML only (Aug 2026)"
-      }
+      },
+      "feed": "https://abplive.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:Business Standard Old",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://feed.business-standard.com/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "dead",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "dead | HTML only (Aug 2026)"
-      }
+      },
+      "feed": "https://feed.business-standard.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:Times Now",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://timesnownews.com/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "archive",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "archive | re-scan"
-      }
+      },
+      "feed": "https://timesnownews.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:India TV",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://www.indiatvnews.com/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "archive",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "archive | re-scan"
-      }
+      },
+      "feed": "https://www.indiatvnews.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:CNN News18",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://www.news18.com/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "archive",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "archive | re-scan"
-      }
+      },
+      "feed": "https://www.news18.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:Aaj Tak",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://www.aajtak.in/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "archive",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "archive | re-scan"
-      }
+      },
+      "feed": "https://www.aajtak.in/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:Republic TV",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://www.republicworld.com/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "archive",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "archive | re-scan"
-      }
+      },
+      "feed": "https://www.republicworld.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:FreeJobAlert",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://www.freejobalert.com/feed",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "tested",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "tested | main jobs feed — used by news_feeds, verified Aug 2026"
-      }
+      },
+      "feed": "https://www.freejobalert.com/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:SarkariYojana",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://www.sarkariyojana.com/feed",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "tested",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "tested | Telugu jobs feed — used by news_feeds, verified Aug 2026"
-      }
+      },
+      "feed": "https://www.sarkariyojana.com/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:GovtJobs.com",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://www.govtjobs.com/feed",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "dead",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "dead | stale 170+ days"
-      }
+      },
+      "feed": "https://www.govtjobs.com/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:SarkariNaukri",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://www.sarkarinaukri.com/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "archive",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "archive | re-scan"
-      }
+      },
+      "feed": "https://www.sarkarinaukri.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:Freshersworld",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://www.freshersworld.com/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "dead",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "dead | 403"
-      }
+      },
+      "feed": "https://www.freshersworld.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:NaukriGazzette",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://naukri-gazzette.com/feed",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "dead",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "dead | timeout"
-      }
+      },
+      "feed": "https://naukri-gazzette.com/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:TSJobs.in",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://tsjobs.in/feed",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "dead",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "dead | 404"
-      }
+      },
+      "feed": "https://tsjobs.in/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:RailBiz",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://railbiz.com/feed/",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "dead",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "dead | timeout"
-      }
+      },
+      "feed": "https://railbiz.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     },
     {
       "name": "ARCHIVE:IBPS Guide (jobs)",
       "enabled": false,
       "type": "rss",
       "exam": "all",
-      "feed": "https://www.ibpsguide.com/feed",
-      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based",
-      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
       "audit": {
         "status": "dead",
-        "checked": "2026-08-30",
+        "checked": "2026-09-06",
         "note": "dead | stale"
-      }
+      },
+      "feed": "https://www.ibpsguide.com/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:Eenadu Telugu",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | Telugu state news re-scan"
+      },
+      "feed": "https://www.eenadu.net/rss",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:AndhraJyothy",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | Telugu state news re-scan"
+      },
+      "feed": "https://www.andhrajyothy.com/rss",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:NamastheTelangana",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | TS Telugu re-scan"
+      },
+      "feed": "https://www.ntnews.com/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:TelanganaToday",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | TS English re-scan"
+      },
+      "feed": "https://telanganatoday.com/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:HansIndia",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | south India re-scan"
+      },
+      "feed": "https://www.thehansindia.com/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:NewIndianExpress",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | national re-scan"
+      },
+      "feed": "https://www.newindianexpress.com/Nation/rssfeed/?id=170&getXmlFeed=XML",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:ThePrint",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | policy depth re-scan"
+      },
+      "feed": "https://theprint.in/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:Scroll.in",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | longform re-scan"
+      },
+      "feed": "https://scroll.in/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:Wire.in",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | policy re-scan"
+      },
+      "feed": "https://thewire.in/rss",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:Moneycontrol Markets",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | economy/markets re-scan"
+      },
+      "feed": "https://www.moneycontrol.com/rss/latestnews.xml",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:BusinessStandard RSS",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | economy re-scan"
+      },
+      "feed": "https://www.business-standard.com/rss/latest.rss",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:LiveMint Markets",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | markets re-scan"
+      },
+      "feed": "https://www.livemint.com/rss/markets",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:ORF Expert",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | foreign-policy research"
+      },
+      "feed": "https://www.orfonline.org/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:IDSA",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | defence research"
+      },
+      "feed": "https://idsa.in/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:MyGov",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | gov portal re-scan"
+      },
+      "feed": "https://www.mygov.in/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:India.gov",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | gov portal re-scan"
+      },
+      "feed": "https://www.india.gov.in/rss",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:SarkariResult",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | jobs re-scan"
+      },
+      "feed": "https://www.sarkariresult.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:SarkariExam",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | jobs re-scan"
+      },
+      "feed": "https://www.sarkariexam.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:AllIndiaJobs",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | jobs re-scan"
+      },
+      "feed": "https://www.allindiajobs.in/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:Jobriya",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | jobs re-scan"
+      },
+      "feed": "https://www.jobriya.in/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:FreshersLive",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | jobs re-scan"
+      },
+      "feed": "https://www.fresherslive.com/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:SSBCrack",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | defence re-scan"
+      },
+      "feed": "https://www.ssbcrack.com/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:MajorKalshiClasses",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | defence exam re-scan"
+      },
+      "feed": "https://www.majorkalshiclasses.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:Wifistudy",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | exam prep re-scan"
+      },
+      "feed": "https://www.wifistudy.com/blog/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:Embibe Blog",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | exam prep re-scan"
+      },
+      "feed": "https://www.embibe.com/blog/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:Toppr Bytes",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | student prep re-scan"
+      },
+      "feed": "https://www.toppr.com/bytes/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:Vedantu Blog",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | student prep re-scan"
+      },
+      "feed": "https://www.vedantu.com/blog/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:EduRev",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | exam notes re-scan"
+      },
+      "feed": "https://edurev.in/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:Gradeup Legacy",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | BYJU Exam Prep legacy"
+      },
+      "feed": "https://gradeup.co/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:Unacademy Content",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | content re-scan"
+      },
+      "feed": "https://unacademy.com/content/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:CareerLauncher",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | CAT/bank re-scan"
+      },
+      "feed": "https://www.careerlauncher.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:VisionIAS Blog",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | UPSC coaching re-scan"
+      },
+      "feed": "https://www.visionias.in/blog/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:Vajiram",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | UPSC coaching re-scan"
+      },
+      "feed": "https://vajiramandravi.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:ShankarIAS",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | UPSC coaching re-scan"
+      },
+      "feed": "https://www.shankariasacademy.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:NextIAS",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | UPSC coaching re-scan"
+      },
+      "feed": "https://www.nextias.com/blog/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:ForumIAS",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | UPSC community re-scan"
+      },
+      "feed": "https://forumias.com/blog/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:SleepyClasses",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | UPSC re-scan"
+      },
+      "feed": "https://sleepyclasses.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:OnlyIAS",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | UPSC re-scan"
+      },
+      "feed": "https://onlyias.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:ChahalAcademy",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | UPSC re-scan"
+      },
+      "feed": "https://chahalacademy.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:PlutusIAS",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | UPSC re-scan"
+      },
+      "feed": "https://plutusias.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:UPSCPathshala",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | UPSC re-scan"
+      },
+      "feed": "https://upscpathshala.com/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:KhanGlobalStudies",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | UPSC re-scan"
+      },
+      "feed": "https://www.khanglobalstudies.com/blog/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:ISRO Updates",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | space GK re-scan"
+      },
+      "feed": "https://www.isro.gov.in/rss.xml",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:RBI Press Releases",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | banking GK re-scan (HTML page, not RSS)"
+      },
+      "feed": "https://rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     }
   ]
 }

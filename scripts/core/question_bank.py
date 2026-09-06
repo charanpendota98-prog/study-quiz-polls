@@ -213,12 +213,14 @@ class Bank:
         # freshly generated questions, so top-up may need more than one pass;
         # loop (bounded) so a round is never short and never repeats.
         attempts = 0
-        while len(pool) < n and attempts < 4:
+        while len(pool) < n and attempts < 8:
             attempts += 1
             try:
                 from .generator import top_up
                 before = len(pool)
-                need_each = max(config.FILLER_TRIGGER_UNUSED, n * 4)
+                # Ask for plenty — signature-dedup rejects near-collisions, so
+                # the generator must over-produce to guarantee a full round.
+                need_each = max(config.FILLER_TRIGGER_UNUSED, n * 6, 40)
                 top_up(per_channel_min=need_each)
                 self.__init__()
                 pool = self.unused(channel)
