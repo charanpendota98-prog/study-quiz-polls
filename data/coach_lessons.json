@@ -1,0 +1,117 @@
+{
+  "note": "Daily expert coaching — friendly reasoning/aptitude TRICKS that make hard questions easy. Each lesson teaches a shortcut with a worked example (EN + Telugu). Posted by watch.py. No news/article content — pure exam skill-building.",
+  "lessons": [
+    {
+      "id": "L01",
+      "topic": "Number Series",
+      "channel": "BANKING",
+      "en": "🧠 COACH TRICK — Number series in 20 seconds: Always check TWO patterns first — (1) differences between terms, (2) each term vs its position n². Example: 2,6,12,20,30. Differences = 4,6,8,10 (rising by 2), so next difference = 12 → answer 42. Try it on every series before guessing!",
+      "te": "నంబర్ సిరీస్ 20 సెకన్లలో: ముందు రెండు చెక్ చేయండి — (1) సంఖ్యల మధ్య తేడాలు, (2) n² ప్యాటర్న్. ఉదా: 2,6,12,20,30 → తేడాలు 4,6,8,10 (2 పెరుగుతోంది) → తదుపరి 12 → జవాబు 42. ఊహించే ముందు ఇది ట్రై చేయండి!"
+    },
+    {
+      "id": "L02",
+      "topic": "Percentage",
+      "channel": "BANKING",
+      "en": "🧠 COACH TRICK — 'x% of y = y% of x'. Finding 18% of 50? Flip it to 50% of 18 = 9. Much faster! Also remember fraction shortcuts: 12.5% = 1/8, 37.5% = 3/8, 62.5% = 5/8, 87.5% = 7/8. Convert % to a fraction, multiply once — no long multiplication.",
+      "te": "'x% of y = y% of x'. 18% of 50 కావాలా? తిప్పి 50% of 18 = 9. చాలా వేగం! ఫ్రాక్షన్ గుర్తుంచుకోండి: 12.5%=1/8, 37.5%=3/8, 62.5%=5/8. శాతాన్ని భిన్నంగా మారిస్తే పొడవు లెక్క ఉండదు."
+    },
+    {
+      "id": "L03",
+      "topic": "Ratio",
+      "channel": "BANKING",
+      "en": "🧠 COACH TRICK — Ratio sharing: Add the parts, divide total by that sum, multiply by each share. Example: ₹450 in ratio 2:3 → parts = 5 → 1 part = 450/5 = 90 → B (3 parts) = ₹270. Always find ONE PART first — it unlocks every ratio question.",
+      "te": "నిష్పత్తి పంపిణీ: భాగాలను కలపండి, మొత్తాన్ని ఆ మొత్తంతో భాగించి, ప్రతి వాటాతో గుణించండి. ఉదా: ₹450 ను 2:3 → భాగాలు=5 → 1 భాగం=90 → B(3 భాగాలు)=₹270. ముందు ఒక భాగం విలువ కనుక్కోండి — అన్ని ప్రశ్నలు ఓపెన్!"
+    },
+    {
+      "id": "L04",
+      "topic": "Simple & Compound Interest",
+      "channel": "BANKING",
+      "en": "🧠 COACH TRICK — SI is just P×R×T/100. For 2-year CI at r%, amount = P×(1+r/100)². Quick mental check: at 10% for 2 years, ₹1000 → 1000×1.1×1.1 = ₹1210, so CI = ₹210 (not ₹200 — that's the trap; SI would be ₹200). CI > SI because interest earns interest.",
+      "te": "SI = P×R×T/100. 2 ఏళ్ల CI కి amount = P×(1+r/100)². 10%పై 2 ఏళ్లు ₹1000 → 1.1×1.1 = ₹1210, CI=₹210 (₹200 కాదు — అది ట్రాప్! SI=₹200). వడ్డీపై వడ్డీ వస్తుంది కాబట్టి CI > SI."
+    },
+    {
+      "id": "L05",
+      "topic": "Time & Work",
+      "channel": "BANKING",
+      "en": "🧠 COACH TRICK — Time & Work made easy: use LCM of the days as total work. A does a job in 10 days, B in 15. LCM(10,15)=30 units. A's speed = 30/10 = 3 units/day, B = 30/15 = 2 units/day. Together = 5 units/day → 30/5 = 6 days. No fractions!",
+      "te": "టైమ్ & వర్క్: రోజుల LCM ని మొత్తం పనిగా తీసుకోండి. A=10 రోజులు, B=15. LCM=30 యూనిట్లు. A వేగం=3/రోజు, B=2/రోజు. కలిసి=5 → 30/5=6 రోజులు. భిన్నాలు అవసరం లేదు!"
+    },
+    {
+      "id": "L06",
+      "topic": "Coding-Decoding",
+      "channel": "TSPSC",
+      "en": "🧠 COACH TRICK — Letter coding: write the alphabet with numbers A=1…Z=26. If FIRE→GJSF, each letter moved +1 (F→G, I→J, R→S, E→F). Find the shift from the FIRST pair, then apply to the whole word. Tip: common shifts are +1, +2, +3 and −1. Check both directions if + fails.",
+      "te": "లెటర్ కోడింగ్: A=1…Z=26 అని రాయండి. FIRE→GJSF అంటే ప్రతి అక్షరం +1 (F→G,I→J). మొదటి జత నుండి shift కనుక్కొని, మొత్తం పదానికి apply చేయండి. సాధారణ shifts: +1,+2,+3,−1. + పని చేయకపోతే −1 చెక్ చేయండి."
+    },
+    {
+      "id": "L07",
+      "topic": "Blood Relations",
+      "channel": "TSPSC",
+      "en": "🧠 COACH TRICK — Blood relations: draw a family tree with symbols (— for same generation, | for parent→child). 'Only daughter of my mother' = the speaker herself. Break long sentences backwards from the END. Gender clues: he/she, father/mother. Always start from the person who is speaking or pointing.",
+      "te": "రక్త సంబంధాలు: ఫ్యామిలీ ట్రీ గీయండి (— ఒక తరం, | తల్లి/తండ్రి→బిడ్డ). 'నా తల్లి ఏకైక కుమార్తె' = మాట్లాడేది ఆమె కూడానే. పొడవు వాక్యాలను చివరి నుండి విడదీయండి. మాట్లాడే/చూపించే వ్యక్తి నుండి మొదలుపెట్టండి."
+    },
+    {
+      "id": "L08",
+      "topic": "Direction Sense",
+      "channel": "RAILWAY",
+      "en": "🧠 COACH TRICK — Directions: draw a + (N up, E right, S down, W left). Opposite walks CANCEL: 5 km north then 5 km south = back to start, leaving only the perpendicular (east/west) distance. Right turn from North = East; from East = South; from South = West; from West = North. Sketch each turn.",
+      "te": "దిశలు: + గీయండి (ఉత్తరం పైకి, తూర్పు కుడికి). వ్యతిరేక నడకలు రద్దు: 5 కి.మీ ఉత్తరం + 5 దక్షిణం = సున్నా, మిగిలింది తూర్పు/పడమర దూరమే. ఉత్తరం నుండి కుడి = తూర్పు; తూర్పు నుండి కుడి = దక్షిణం. ప్రతి మలుపు గీయండి."
+    },
+    {
+      "id": "L09",
+      "topic": "Clock Angles",
+      "channel": "RAILWAY",
+      "en": "🧠 COACH TRICK — Clock angle formula: minute hand moves 6° per minute, hour hand moves 0.5° per minute. At H:M, hour angle = 30H + 0.5M, minute angle = 6M. Difference = |30H − 5.5M|, then take min(angle, 360−angle). At 3:15: |90−82.5| = 7.5°.",
+      "te": "గడియార కోణం: నిమిష ముల్లు నిమిషానికి 6°, గంట ముల్లు 0.5°. H:M వద్ద గంట కోణం=30H+0.5M, నిమిషం=6M. తేడా=|30H−5.5M|, ఆపై min(కోణం,360−కోణం). 3:15కి |90−82.5|=7.5°."
+    },
+    {
+      "id": "L10",
+      "topic": "Syllogism",
+      "channel": "TSPSC",
+      "en": "🧠 COACH TRICK — Syllogism: 'All A are B' + 'All B are C' ⇒ 'All A are C' (definitely true). 'Some' only guarantees 'some' — it NEVER proves 'all' or 'none'. Draw Venn circles: if a conclusion is possible in ONE diagram but not another, the answer is 'does not follow / cannot say'.",
+      "te": "సిలజిజం: 'All A are B' + 'All B are C' ⇒ 'All A are C' (ఖచ్చితం). 'Some' ఎప్పుడూ 'all'/'none' ని నిరూపించదు. వెన్ డయాగ్రామ్ గీయండి: ఒక చిత్రంలో నిజం, మరోదానిలో కాకపోతే జవాబు 'అనుసరించదు/చెప్పలేం'."
+    },
+    {
+      "id": "L11",
+      "topic": "Sitting Arrangement",
+      "channel": "TSPSC",
+      "en": "🧠 COACH TRICK — Seating: first fix the people facing a direction (facing North means their left = West, right = East). Place the most-certain clue first ('2nd from left'), then attach relative clues ('right of'). Never assume — write positions as numbered slots 1,2,3… and fill them one clue at a time.",
+      "te": "కూర్పు: ముందు దిశ ఫిక్స్ చేయండి (ఉత్తరం వైపు చూస్తుంటే వారి ఎడమ=పడమర, కుడి=తూర్పు). ఖచ్చితమైన క్లూ ముందు ('ఎడమ నుండి 2వది'), ఆపై సాపేక్ష క్లూలు. 1,2,3… స్లాట్లుగా రాసి ఒక్కో క్లూ పూరించండి."
+    },
+    {
+      "id": "L12",
+      "topic": "Profit & Loss",
+      "channel": "APPSC",
+      "en": "🧠 COACH TRICK — Profit % is always on COST price, not selling price! Profit% = (SP−CP)/CP ×100. CP=800, SP=920 → profit 120 → 120/800 = 15%. Reverse: if sold at 10% loss for ₹450, then 450 = 90% of CP → CP = 450×100/90 = ₹500.",
+      "te": "లాభ% ఎప్పుడూ కొన్నధర (CP) పై! లాభ%=(SP−CP)/CP×100. CP=800,SP=920 → లాభం120 → 120/800=15%. తిరగదోడు: 10% నష్టానికి ₹450 అమ్మితే, 450=CPలో 90% → CP=450×100/90=₹500."
+    },
+    {
+      "id": "L13",
+      "topic": "Averages",
+      "channel": "BANKING",
+      "en": "🧠 COACH TRICK — Average questions: use TOTALS, not averages. Avg of 5 is 20 → total = 100. Remove one, avg of 4 is 18 → total = 72. Removed = 100 − 72 = 28. 'Total = average × count' solves almost every average question instantly.",
+      "te": "సగటు ప్రశ్నలు: సగటులు కాకుండా మొత్తాలు వాడండి. 5 సగటు 20 → మొత్తం=100. ఒకటి తీస్తే 4 సగటు 18 → మొత్తం=72. తీసేసింది=100−72=28. 'మొత్తం=సగటు×సంఖ్య'తో దాదాపు అన్ని సులభం."
+    },
+    {
+      "id": "L14",
+      "topic": "Analogy & Classification",
+      "channel": "RAILWAY",
+      "en": "🧠 COACH TRICK — Analogy asks the RELATIONSHIP: Doctor:Hospital (worker:workplace), Telescope:Astronomer (tool:user), Crime:Punishment (cause:remedy). State the link as a sentence ('a X uses a Y to work'), then test it on the options. Odd-one-out: find the shared category (all primes except 21).",
+      "te": "అనలజీ సంబంధం అడుగుతుంది: డాక్టర్:ఆసుపత్రి (పని:చోటు), టెలిస్కోప్:ఖగోళ శాస్త్రవేత్త (పరికరం:వాడేవారు). సంబంధాన్ని వాక్యంగా చెప్పి ఆప్షన్లకు apply చేయండి. భిన్నమైనది: కామన్ కేటగిరీ కనుక్కోండి (21 తప్ప అన్నీ ప్రధాన సంఖ్యలు)."
+    },
+    {
+      "id": "L15",
+      "topic": "Ranking & Order",
+      "channel": "POLICE",
+      "en": "🧠 COACH TRICK — Ranking in a row: Total = rank-from-left + rank-from-right − 1 (the person is counted twice). 7th from left + 11th from right → total = 7+11−1 = 17. The −1 removes the double count. Same formula works top-to-bottom in a class.",
+      "te": "వరుసలో ర్యాంక్: మొత్తం = ఎడమ ర్యాంక్ + కుడి ర్యాంక్ − 1 (ఆ వ్యక్తి రెండుసార్లు లెక్క). ఎడమ నుండి 7 + కుడి నుండి 11 → మొత్తం=7+11−1=17. −1 రెట్టింపు లెక్క తొలగిస్తుంది. క్లాస్‌లో పై-క్రిందకు ఇదే ఫార్ములా."
+    },
+    {
+      "id": "L16",
+      "topic": "Exam Strategy",
+      "channel": "CURRENT",
+      "en": "🧠 COACH MINDSET — Attempt order matters in every exam: do your STRONGEST section first to build confidence and bank marks; mark hard/long questions for review; never waste 3 minutes on one number series. Aim for accuracy first — 80% accuracy with good speed beats 100% attempts with guesses. Review every wrong answer — that's where growth hides.",
+      "te": "పరీక్ష వ్యూహం: ముందు మీ బలమైన సెక్షన్ రాయండి (కాన్ఫిడెన్స్ + మార్కులు); కఠిన ప్రశ్నలు రివ్యూకు; ఒక సిరీస్‌పై 3 నిమిషాలు వృథా చేయకండి. ముందు కచ్చితత్వం — 80% ఖచ్చితత్వం > 100% ఊహలు. ప్రతి తప్పు జవాబును రివైజ్ చేయండి — అక్కడే ఎదుగుదల ఉంది."
+    }
+  ]
+}

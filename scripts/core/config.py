@@ -227,6 +227,7 @@ SCHEDULE = {
     "06:00": ("filler", {"reason": "morning top-up"}),
     "07:00": ("morning", {}),
     "07:30": ("quiz", {"slot": 1, "round": "Morning ⛅"}),
+    "12:30": ("coach", {}),       # daily expert reasoning/aptitude trick
     "14:30": ("tip", {}),
     "19:30": ("quiz", {"slot": 2, "round": "Evening 🌙"}),
     "21:00": ("leaderboard", {"when": "sunday"}),   # weekly toppers, Sunday only

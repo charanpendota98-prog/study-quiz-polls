@@ -17,7 +17,10 @@ Defence (NDA/CDS/Agniveer), and Current Affairs GK** — plus a private
 | Feature | Detail |
 |---|---|
 | **2 big quiz rounds daily** | ⛅ **07:30 morning** + 🌙 **19:30 evening** — 10 polls per channel per round (70/round). Add more rounds with one config line. |
-| **Previous-Year Questions first** | An authentic **PYQ bank** (`data/pyq_bank.json`, TSPSC/APPSC/RRB/IBPS/SBI/Police/NDA/CDS/UPSC patterns) is **prioritised in every round** (about 4 of 10), then curated, then generated. |
+| 🚫 **Questions NEVER repeat** | Every posted question is recorded permanently by a **content signature** (channel + topic + key numbers + keywords). A question — even if regenerated with a new id — is **never posted twice**. The rotation never resets; verified over 600+ questions with zero repeats. |
+| 🎯 **Exam-paper sources only** | Quiz questions come **only** from exam-aligned sources (`pyq`, `curated`, `llm-gen`, `offline-gen`). **Newspapers and articles never become quiz questions** — news feeds feed the Current-Affairs *digest* only, and soft headlines (opinion/blog/sports/lifestyle/etc.) are filtered out even there. |
+| **Previous-Year Questions first** | Authentic PYQ banks (`data/pyq_bank.json` + `data/pyq_bank_2.json`, TSPSC/APPSC/RRB/IBPS/SBI/Police/NDA/CDS/UPSC patterns, **60+ verified bilingual PYQs**) are **prioritised in every round**, then curated, then generated. |
+| 🧑‍🏫 **Daily expert coach lesson** | A friendly, professional expert posts a **reasoning/aptitude shortcut with a worked example** at **12:30 IST** to every channel (`data/coach_lessons.json`, 16 lessons EN+Telugu) — plus `/coach` any time in the bot DM. |
 | **Member registration** | `/register` guided sign-up (name → exam target → language), +25 bonus points. Members stored in `data/members.json`. |
 | **Points, levels & ranks** | +10 per correct answer, +5 daily activity, streak bonuses (3/7/15/30/100 days), levels 🆕→🥉→🥈→🥇→💎→👑 Champion, weekly + all-time leaderboards. |
 | **Native quiz polls** | `sendPoll` type `quiz` with `correct_option_id` → instant right/wrong feedback + **explanation**. Bot quizzes are non-anonymous so they earn points. |
@@ -88,6 +91,7 @@ the bot (matched by Telegram @username) — no duplicate accounts.
 | 07:00 | Morning greeting + today's schedule (all 7 public channels) |
 | **⛅ 07:30** | **Morning quiz round** — 10 bilingual PYQ-first polls per channel |
 | (−10/−5/−1 min) | Reminders (EN + Telugu) before each round |
+| 🧠 **12:30** | **Daily expert coach lesson** — a reasoning/aptitude shortcut with worked example (EN + Telugu) |
 | 14:30 | Daily study tip (rotating, EN + Telugu) |
 | **🌙 19:30** | **Evening quiz round** — 10 bilingual PYQ-first polls per channel |
 | 21:00 Sunday | Weekly member leaderboard (points + ranks) |
@@ -105,7 +109,7 @@ the bot (matched by Telegram @username) — no duplicate accounts.
 study-quiz-polls/
 ├── scripts/
 │   ├── watch.py              # 24/7 IST scheduler (master service)
-│   ├── bot.py                # interactive bot: /quiz /stats /leaderboard (long-poll)
+│   ├── bot.py                # interactive bot: /quiz /coach /review /badges /stats (long-poll)
 │   ├── quiz_engine.py        # CLI: quiz|morning|tip|evening|jobs|reminder|leaderboard
 │   ├── filler_gen.py         # auto top-up question bank
 │   ├── personal_news.py      # refresh jobs feeds + post (private channel)
@@ -177,16 +181,39 @@ python3 -m unittest -v ../tests/test_bot.py       # run the test suite
 
 ---
 
-## 🧠 How the question bank never runs dry
+## 🧠 How the bank never repeats and never runs dry
 
-1. **Curated** previous-paper questions live in `data/quiz_bank_advanced.md`
-   (parsed into `question_bank.json`).
-2. The **offline generator** (`core/generator.py`) produces verified arithmetic /
-   reasoning questions on demand — 16 generator types, answers computed in code.
-3. When an LLM key is present, `filler_gen` can additionally generate worded
-   reasoning/GK, gated by the same strict validator.
-4. `watch.py` calls the filler at 06:00 and whenever a channel has fewer than a
-   slot's worth of unused questions.
+1. **PYQ banks** — `data/pyq_bank.json` + `data/pyq_bank_2.json` (60+ authentic
+   previous-paper questions, EN+Telugu) plus curated GK from `quiz_bank_advanced.md`.
+2. **The offline generator** (`core/generator.py`) produces verified
+   arithmetic/reasoning questions on demand — 16 numeric generator types plus a
+   fixed bank of 40 exam-aligned **static-GK** facts for the Current-Affairs
+   channel; answers computed/verified in code.
+3. When LLM keys are present, worded reasoning/GK is also generated, gated by the
+   same strict validator.
+4. `watch.py` tops up at 06:00, and `Bank.pick()` **auto-generates fresh
+   questions mid-round** whenever fewer than a slot's worth of unseen questions
+   remain — so a round is never short.
+
+### 🚫 The no-repeat guarantee
+
+- Every question has a **content signature** (`channel | topic | sorted numbers |
+  sorted keywords` — answer-position-independent, so shuffling options doesn't
+  make a question "new").
+- When questions post, their ids **and** signatures are written permanently to
+  `data/shown_signatures.json` / `data/used_questions.json`. This history
+  **never resets**.
+- A candidate question whose signature has been shown is rejected — even if it
+  was freshly generated with a different id. The same check runs inside
+  `generator.top_up()` before new questions are accepted.
+- Verified in tests: 600+ picks across all channels → **zero repeats**.
+
+### 🎯 Source policy (no news quizzes)
+
+`ALLOWED_QUIZ_SOURCES = {pyq, curated, llm-gen, offline-gen}` — the quiz bank
+loads only exam-paper-aligned sources. RSS/news feeds feed **only** the
+Current-Affairs digest (and soft/opinion/entertainment headlines are dropped
+there by `feeds.is_weak_content`); they never produce quiz polls.
 
 The validation gate (`finalize.py`) and the test suite (`tests/test_bot.py`)
 **independently recompute** the numeric answers to prove correctness.

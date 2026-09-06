@@ -22,7 +22,7 @@ from core import config
 
 def main():
     ap = argparse.ArgumentParser(description="StudentUp quiz engine")
-    ap.add_argument("slot", choices=["quiz", "morning", "tip", "evening",
+    ap.add_argument("slot", choices=["quiz", "morning", "tip", "coach", "evening",
                                      "reminder", "jobs", "leaderboard",
                                      # back-compat aliases
                                      "digest", "personal"])
@@ -48,6 +48,8 @@ def main():
         eng.morning()
     elif args.slot == "tip":
         eng.tip()
+    elif args.slot == "coach":
+        eng.coach_broadcast()
     elif args.slot in ("evening", "digest"):
         eng.digest()
     elif args.slot in ("jobs", "personal"):

@@ -54,6 +54,21 @@ FEEDS = {
 }
 
 
+# POLICY: news feeds feed ONLY the Current-Affairs digest — they are never
+# turned into quiz questions (see question_bank.ALLOWED_QUIZ_SOURCES). Even
+# within the digest we drop soft/non-exam headlines so students see only
+# exam-relevant news.
+DIGEST_WEAK_WORDS = ("opin", "edit", "blog", "interview", "profile",
+                     "whatsapp", "facebook", "lifestyle", "horoscope",
+                     "recipe", "travel", "fashion", "sports", "entertain")
+
+
+def is_weak_content(title: str) -> bool:
+    """True for headlines that do not belong in an exam-focused CA digest."""
+    t = (title or "").lower()
+    return any(w in t for w in DIGEST_WEAK_WORDS)
+
+
 def _clean(text: str) -> str:
     text = re.sub(r"<[^>]+>", " ", text or "")
     text = html.unescape(text)
@@ -138,6 +153,9 @@ def aggregate(dry=False, translate=True, max_ca=6, max_jobs=5, max_age_hours=72)
                 title = e["title"]
                 if not title:
                     continue
+                # POLICY: news feeds NEVER become quiz questions. They only feed
+                # the CA DIGEST (and jobs channel). Quiz polls come from the
+                # PYQ/curated/generated bank, never from articles.
                 blocked, _ = is_blocked(title)
                 if blocked:
                     stats["blocked"] += 1
@@ -151,10 +169,13 @@ def aggregate(dry=False, translate=True, max_ca=6, max_jobs=5, max_age_hours=72)
                 if scope == "ca":
                     if not ca_relevance(title):
                         continue
+                    # Only strongly exam-relevant headlines join the digest.
+                    if is_weak_content(title):
+                        continue
                     if len(ca_items) >= max_ca:
                         continue
                     ca_items.append({"en": title, "te": "", "link": e["link"],
-                                     "source": name})
+                                     "source": name, "kind": "digest-only"})
                     if not dry:
                         dedup.mark(title, "ca", {"source": name})
                     stats["ca_kept"] += 1

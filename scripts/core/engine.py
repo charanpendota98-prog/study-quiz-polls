@@ -139,6 +139,38 @@ class Engine:
             self.tg.polite_gap(not self.dry)
         print("[tip] study tip sent")
 
+    # ----------------------------------------------------------- coach
+    def coach_lesson(self, channel=None):
+        """Post a friendly expert reasoning/aptitude coaching trick."""
+        lessons = load_json(config.DATA / "coach_lessons.json",
+                            {"lessons": []}).get("lessons", [])
+        if not lessons:
+            return None
+        # pick a lesson matching the channel if possible, else random
+        pool = [l for l in lessons if l.get("channel") == channel] if channel else lessons
+        lesson = random.choice(pool or lessons)
+        msg = f"{lesson['en']}\n\n⤷ {lesson['te']}"
+        return msg
+
+    def coach_broadcast(self):
+        """Post today's coaching trick to all public channels (topic-rotated)."""
+        from datetime import datetime
+        idx = datetime.now(config.IST).timetuple().tm_yday % 16
+        lessons = load_json(config.DATA / "coach_lessons.json",
+                            {"lessons": []}).get("lessons", [])
+        if not lessons:
+            return
+        for ch in config.PUBLIC_CHANNELS:
+            lesson = lessons[idx % len(lessons)]
+            msg = f"{lesson['en']}\n\n⤷ {lesson['te']}"
+            try:
+                self.tg.send_message(config.channel_chat_id(ch), msg)
+            except TelegramError as e:
+                print(f"   [coach] {ch} failed: {e}")
+            self.tg.polite_gap(not self.dry)
+            idx += 1
+        print("[coach] daily expert lessons sent")
+
     # ----------------------------------------------------------- reminder
     def reminder(self, slot_minutes):
         for ch in config.PUBLIC_CHANNELS:

@@ -325,6 +325,157 @@ def g_calendar(rng):
             "note": "", "source": "offline-gen", "bank": "extra"}
 
 
+# ---------------------------------------------------------------------------
+# Static GK for the CURRENT channel (SSC/UPSC/RRB static facts — exam-aligned,
+# NOT news). Each item is a fixed, verifiable fact with bilingual options.
+# ---------------------------------------------------------------------------
+_STATIC_GK = [
+    ("What is the national currency of Japan?", "జపాన్ జాతీయ కరెన్సీ ఏది?",
+     ["Yen", "Won", "Yuan", "Rupee"], ["యెన్", "వోన్", "యువాన్", "రూపాయ్"], 0,
+     "Japan's currency is the Yen (¥).", "జపాన్ కరెన్సీ యెన్ (¥)."),
+    ("The Tropic of Cancer passes through how many Indian states?", "కర్కట రేఖ భారతదేశంలో ఎన్ని రాష్ట్రాల గుండా వెళుతుంది?",
+     ["8", "6", "7", "9"], ["8", "6", "7", "9"], 0,
+     "The Tropic of Cancer passes through 8 Indian states.", "కర్కట రేఖ 8 భారత రాష్ట్రాల గుండా వెళుతుంది."),
+    ("Which is the longest river in India?", "భారతదేశంలో పొడవైన నది ఏది?",
+     ["Ganga", "Godavari", "Yamuna", "Krishna"], ["గంగా", "గోదావరి", "యమునా", "కృష్ణా"], 0,
+     "The Ganga is the longest river in India (~2,525 km).", "గంగా భారత్‌లో పొడవైన నది (~2,525 కి.మీ.)."),
+    ("Who was the first President of independent India?", "స్వతంత్ర భారతదేశ మొదటి రాష్ట్రపతి ఎవరు?",
+     ["Dr. Rajendra Prasad", "Jawaharlal Nehru", "S. Radhakrishnan", "B. R. Ambedkar"],
+     ["డాక్టర్ రాజేంద్ర ప్రసాద్", "జవహర్‌లాల్ నెహ్రూ", "ఎస్. రాధాకృష్ణన్", "బి.ఆర్. అంబేద్కర్"], 0,
+     "Dr. Rajendra Prasad was the first President (1950–62).", "డాక్టర్ రాజేంద్ర ప్రసాద్ మొదటి రాష్ట్రపతి (1950–62)."),
+    ("Which gas do plants absorb from the atmosphere during photosynthesis?", "కిరణజన్య సంయోగక్రియలో మొక్కలు వాతావరణం నుండి ఏ వాయువును గ్రహిస్తాయి?",
+     ["Carbon dioxide", "Oxygen", "Nitrogen", "Hydrogen"], ["కార్బన్ డై ఆక్సైడ్", "ఆక్సిజన్", "నైట్రోజన్", "హైడ్రోజన్"], 0,
+     "Plants absorb CO₂ and release oxygen.", "మొక్కలు CO₂ గ్రహించి ఆక్సిజన్ విడుదల చేస్తాయి."),
+    ("The headquarters of the International Monetary Fund (IMF) is in?", "అంతర్జాతీయ ద్రవ్య నిధి (IMF) ప్రధాన కార్యాలయం ఎక్కడ?",
+     ["Washington D.C.", "New York", "Geneva", "Paris"], ["వాషింగ్టన్ D.C.", "న్యూయార్క్", "జెనీవా", "పారిస్"], 0,
+     "The IMF is headquartered in Washington D.C., USA.", "IMF ప్రధాన కార్యాలయం వాషింగ్టన్ D.C.లో ఉంది."),
+    ("Which Indian state is known as the 'Spice Garden of India'?", "భారతదేశ 'స్పైస్ గార్డెన్' గా ఏ రాష్ట్రం పిలువబడుతుంది?",
+     ["Kerala", "Tamil Nadu", "Karnataka", "Andhra Pradesh"], ["కేరళ", "తమిళనాడు", "కర్ణాటక", "ఆంధ్రప్రదేశ్"], 0,
+     "Kerala is called the Spice Garden of India.", "కేరళను భారత స్పైస్ గార్డెన్ అంటారు."),
+    ("The Reserve Bank of India was nationalised in which year?", "రిజర్వ్ బ్యాంక్ ఆఫ్ ఇండియా ఏ సంవత్సరంలో జాతీయం చేయబడింది?",
+     ["1949", "1935", "1955", "1969"], ["1949", "1935", "1955", "1969"], 0,
+     "RBI was nationalised on 1 January 1949 (established 1935).", "RBI 1 జనవరి 1949న జాతీయం చేయబడింది (1935లో స్థాపన)."),
+    ("Which is the smallest state of India by area?", "విస్తీర్ణం ప్రకారం భారతదేశంలో అతి చిన్న రాష్ట్రం ఏది?",
+     ["Goa", "Sikkim", "Tripura", "Nagaland"], ["గోవా", "సిక్కిం", "త్రిపుర", "నాగాలాండ్"], 0,
+     "Goa is the smallest state by area.", "విస్తీర్ణంలో గోవా అతి చిన్న రాష్ట్రం."),
+    ("The Battle of Plassey was fought in which year?", "ప్లాసీ యుద్ధం ఏ సంవత్సరంలో జరిగింది?",
+     ["1757", "1764", "1857", "1761"], ["1757", "1764", "1857", "1761"], 0,
+     "The Battle of Plassey was fought in 1757.", "ప్లాసీ యుద్ధం 1757లో జరిగింది."),
+    ("Which vitamin is produced when the skin is exposed to sunlight?", "చర్మం సూర్యరశ్మికి గురైనప్పుడు ఏ విటమిన్ ఉత్పత్తి అవుతుంది?",
+     ["Vitamin D", "Vitamin C", "Vitamin A", "Vitamin B"], ["విటమిన్ D", "విటమిన్ C", "విటమిన్ A", "విటమిన్ B"], 0,
+     "Sunlight helps the skin synthesise Vitamin D.", "సూర్యరశ్మి వల్ల చర్మం విటమిన్ D తయారుచేస్తుంది."),
+    ("The Sardar Sarovar Dam is built on which river?", "సర్దార్ సరోవర్ డ్యామ్ ఏ నదిపై నిర్మించబడింది?",
+     ["Narmada", "Tapi", "Godavari", "Mahanadi"], ["నర్మద", "తాపీ", "గోదావరి", "మహానది"], 0,
+     "Sardar Sarovar Dam is on the Narmada river, Gujarat.", "సర్దార్ సరోవర్ డ్యామ్ గుజరాత్‌లో నర్మద నదిపై ఉంది."),
+    ("Who wrote the national anthem of India?", "భారత జాతీయ గీతాన్ని ఎవరు రచించారు?",
+     ["Rabindranath Tagore", "Bankim Chandra Chatterjee", "Sarojini Naidu", "Subhash Chandra Bose"],
+     ["రవీంద్రనాథ్ ఠాగూర్", "బంకించంద్ర ఛటర్జీ", "సరోజినీ నాయుడు", "సుభాష్ చంద్రబోస్"], 0,
+     "'Jana Gana Mana' was written by Rabindranath Tagore.", "'జన గణ మన్' రచయిత రవీంద్రనాథ్ ఠాగూర్."),
+    ("Which is the largest desert in the world?", "ప్రపంచంలో అతిపెద్ద ఎడారి ఏది?",
+     ["Sahara", "Gobi", "Thar", "Kalahari"], ["సహారా", "గోబీ", "థార్", "కలహరి"], 0,
+     "The Sahara (Africa) is the world's largest hot desert.", "ఆఫ్రికాలోని సహారా ప్రపంచ అతిపెద్ద వేడి ఎడారి."),
+    ("The Indian Parliament consists of how many houses?", "భారత పార్లమెంట్‌లో ఎన్ని సభలు ఉన్నాయి?",
+     ["Two", "Three", "One", "Four"], ["రెండు", "మూడు", "ఒకటి", "నాలుగు"], 0,
+     "Parliament has two houses: Lok Sabha and Rajya Sabha.", "పార్లమెంట్‌లో లోక్‌సభ, రాజ్యసభ అనే రెండు సభలు."),
+    ("Which metal is liquid at room temperature?", "గది ఉష్ణోగ్రత వద్ద ద్రవ రూపంలో ఉండే లోహం ఏది?",
+     ["Mercury", "Iron", "Copper", "Aluminium"], ["పాదరసం", "ఇనుము", "రాగి", "అల్యూమినియం"], 0,
+     "Mercury (Hg) is liquid at room temperature.", "పాదరసం (Hg) గది ఉష్ణోగ్రత వద్ద ద్రవంగా ఉంటుంది."),
+    ("The headquarters of ISRO is located in which city?", "ఇస్రో (ISRO) ప్రధాన కార్యాలయం ఏ నగరంలో ఉంది?",
+     ["Bengaluru", "Hyderabad", "New Delhi", "Chennai"], ["బెంగళూరు", "హైదరాబాద్", "న్యూఢిల్లీ", "చెన్నై"], 0,
+     "ISRO is headquartered in Bengaluru.", "ఇస్రో ప్రధాన కార్యాలయం బెంగళూరులో ఉంది."),
+    ("Which is the highest mountain peak in India?", "భారతదేశంలో ఎత్తైన పర్వత శిఖరం ఏది?",
+     ["Kanchenjunga", "Mount Everest", "Nanda Devi", "K2"], ["కాంచనజంగా", "ఎవరెస్ట్", "నందాదేవి", "K2"], 0,
+     "Kanchenjunga (8,586 m) is the highest peak within India.", "కాంచనజంగా (8,586 మీ.) భారతదేశంలో ఎత్తైన శిఖరం."),
+    ("The Pongal festival is primarily celebrated in which state?", "పొంగల్ పండుగ ప్రధానంగా ఏ రాష్ట్రంలో జరుపుకుంటారు?",
+     ["Tamil Nadu", "Kerala", "Karnataka", "Telangana"], ["తమిళనాడు", "కేరళ", "కర్ణాటక", "తెలంగాణ"], 0,
+     "Pongal is the major harvest festival of Tamil Nadu.", "పొంగల్ తమిళనాడు ప్రధాన పంట పండుగ."),
+    ("How many fundamental rights are currently guaranteed by the Indian Constitution?", "ప్రస్తుతం భారత రాజ్యాంగం ఎన్ని ప్రాథమిక హక్కులను కల్పిస్తోంది?",
+     ["Six", "Seven", "Five", "Eight"], ["ఆరు", "ఏడు", "ఐదు", "ఎనిమిది"], 0,
+     "Originally seven; after the 44th Amendment removed the Right to Property, six remain.", "మొదట ఏడు; 44వ సవరణతో ఆస్తి హక్కు తొలగి ఆరు మిగిలాయి."),
+    ("Which planet is known as the Red Planet?", "ఎర్ర గ్రహం గా పిలువబడే గ్రహం ఏది?",
+     ["Mars", "Venus", "Jupiter", "Saturn"], ["అంగారకుడు", "శుక్రుడు", "బృహస్పతి", "శని"], 0,
+     "Mars appears red due to iron oxide on its surface.", "ఉపరితలంపై ఐరన్ ఆక్సైడ్ వల్ల అంగారకుడు ఎర్రగా కనిపిస్తాడు."),
+    ("The Charminar is located in which city?", "చార్మినార్ ఏ నగరంలో ఉంది?",
+     ["Hyderabad", "Vijayawada", "Warangal", "Bidar"], ["హైదరాబాద్", "విజయవాడ", "వరంగల్", "బీదర్"], 0,
+     "The Charminar (1591) is a landmark of Hyderabad.", "చార్మినార్ (1591) హైదరాబాద్ చారిత్రక కట్టడం."),
+    ("Which is the largest gland in the human body?", "మానవ శరీరంలో అతిపెద్ద గ్రంథి ఏది?",
+     ["Liver", "Pancreas", "Thyroid", "Kidney"], ["కాలేయం", "క్లోమం", "థైరాయిడ్", "మూత్రపిండం"], 0,
+     "The liver is the largest gland in the human body.", "కాలేయం మానవ శరీరంలో అతిపెద్ద గ్రంథి."),
+    ("The World Health Organization (WHO) has its headquarters in?", "ప్రపంచ ఆరోగ్య సంస్థ (WHO) ప్రధాన కార్యాలయం ఎక్కడ?",
+     ["Geneva", "New York", "Paris", "Rome"], ["జెనీవా", "న్యూయార్క్", "పారిస్", "రోమ్"], 0,
+     "WHO is headquartered in Geneva, Switzerland.", "WHO ప్రధాన కార్యాలయం స్విట్జర్లాండ్‌లోని జెనీవాలో ఉంది."),
+    ("Which Indian won the Nobel Prize for the discovery of the scattering of light (Raman Effect)?", "కాంతి వికీర్ణం (రామన్ ఎఫెక్ట్) కనుగొన్నందుకు నోబెల్ బహుమతి పొందిన భారతీయుడు ఎవరు?",
+     ["C. V. Raman", "Homi Bhabha", "S. Ramanujan", "Vikram Sarabhai"],
+     ["సి.వి. రామన్", "హోమీ భాభా", "ఎస్. రామానుజన్", "విక్రమ్ సారాభాయ్"], 0,
+     "Sir C. V. Raman won the 1930 Nobel Prize in Physics.", "సర్ సి.వి. రామన్ 1930 భౌతిక శాస్త్ర నోబెల్ అందుకున్నారు."),
+    ("The Konark Sun Temple is in which state?", "కోణార్క్ సూర్య దేవాలయం ఏ రాష్ట్రంలో ఉంది?",
+     ["Odisha", "West Bengal", "Gujarat", "Madhya Pradesh"], ["ఒడిశా", "పశ్చిమ బెంగాల్", "గుజరాత్", "మధ్యప్రదేశ్"], 0,
+     "The Konark Sun Temple is in Odisha.", "కోణార్క్ సూర్య దేవాలయం ఒడిశాలో ఉంది."),
+    ("What is the chemical symbol for Gold?", "బంగారం రసాయన చిహ్నం ఏది?",
+     ["Au", "Ag", "Gd", "Go"], ["Au", "Ag", "Gd", "Go"], 0,
+     "Gold's symbol Au comes from Latin 'aurum'.", "బంగారం చిహ్నం Au — లాటిన్ 'aurum' నుండి."),
+    ("The first woman Prime Minister of India was?", "భారతదేశ మొదటి మహిళా ప్రధానమంత్రి ఎవరు?",
+     ["Indira Gandhi", "Pratibha Patil", "Sonia Gandhi", "Sarojini Naidu"],
+     ["ఇందిరా గాంధీ", "ప్రతిభా పాటిల్", "సోనియా గాంధీ", "సరోజినీ నాయుడు"], 0,
+     "Indira Gandhi was PM from 1966–77 and 1980–84.", "ఇందిరా గాంధీ 1966–77, 1980–84లో ప్రధానమంత్రి."),
+    ("Which is the national aquatic animal of India?", "భారత జాతీయ జల జంతువు ఏది?",
+     ["Ganges River Dolphin", "Blue Whale", "Olive Ridley Turtle", "Gharial"],
+     ["గంగా నది డాల్ఫిన్", "బ్లూ వేల్", "ఆలివ్ రిడ్లీ తాబేలు", "ఘడియల్"], 0,
+     "The Ganges River Dolphin is India's national aquatic animal.", "గంగా నది డాల్ఫిన్ భారత జాతీయ జల జంతువు."),
+    ("The Jallianwala Bagh massacre took place in which year?", "జలియన్‌వాలా బాగ్ మారణకాండ ఏ సంవత్సరంలో జరిగింది?",
+     ["1919", "1920", "1918", "1921"], ["1919", "1920", "1918", "1921"], 0,
+     "The Jallianwala Bagh massacre occurred on 13 April 1919.", "జలియన్‌వాలా బాగ్ మారణకాండ 13 ఏప్రిల్ 1919న జరిగింది."),
+    ("Which blood group is called the universal donor?", "సార్వత్రిక దాతగా ఏ రక్త సమూహాన్ని పిలుస్తారు?",
+     ["O negative", "AB positive", "A positive", "B negative"], ["O నెగటివ్", "AB పాజిటివ్", "A పాజిటివ్", "B నెగటివ్"], 0,
+     "O-negative blood can be given to all recipients.", "O-నెగటివ్ రక్తం అందరికీ ఇవ్వవచ్చు."),
+    ("The Tehri Dam, the tallest in India, is on which river?", "భారతదేశంలో ఎత్తైన టెహ్రీ డ్యామ్ ఏ నదిపై ఉంది?",
+     ["Bhagirathi", "Alaknanda", "Yamuna", "Sutlej"], ["భాగీరథి", "అలకనంద", "యమునా", "సట్లెజ్"], 0,
+     "Tehri Dam is built on the Bhagirathi river in Uttarakhand.", "టెహ్రీ డ్యామ్ ఉత్తరాఖండ్‌లో భాగీరథి నదిపై ఉంది."),
+    ("Who is known as the 'Father of the Indian Constitution'?", "భారత రాజ్యాంగ పితామహుడిగా ఎవరు పిలువబడతారు?",
+     ["B. R. Ambedkar", "Jawaharlal Nehru", "Rajendra Prasad", "Sardar Patel"],
+     ["బి.ఆర్. అంబేద్కర్", "జవహర్‌లాల్ నెహ్రూ", "రాజేంద్ర ప్రసాద్", "సర్దార్ పటేల్"], 0,
+     "Dr. B. R. Ambedkar chaired the Drafting Committee.", "డాక్టర్ బి.ఆర్. అంబేద్కర్ ముసాయిదా కమిటీ అధ్యక్షులు."),
+    ("Which is the hardest naturally occurring substance?", "ప్రకృతిలో లభించే అత్యంత కఠినమైన పదార్థం ఏది?",
+     ["Diamond", "Quartz", "Iron", "Granite"], ["వజ్రం", "క్వార్ట్జ్", "ఇనుము", "గ్రానైట్"], 0,
+     "Diamond is the hardest natural substance (10 on Mohs scale).", "వజ్రం అత్యంత కఠినమైన సహజ పదార్థం (మోహ్స్ 10)."),
+    ("The Kumbh Mela is held on the banks of which river in Allahabad (Prayagraj)?", "అలహాబాద్ (ప్రయాగ్‌రాజ్)లో కుంభమేళా ఏ నది ఒడ్డున జరుగుతుంది?",
+     ["Ganga (Triveni Sangam)", "Yamuna alone", "Godavari", "Narmada"],
+     ["గంగా (త్రివేణి సంగమం)", "యమునా మాత్రమే", "గోదావరి", "నర్మద"], 0,
+     "Prayagraj hosts Kumbh at the Triveni Sangam (Ganga-Yamuna-Saraswati).", "ప్రయాగ్‌రాజ్‌లో త్రివేణి సంగమం (గంగా-యమున-సరస్వతి) వద్ద కుంభం."),
+    ("Which Indian state has the highest forest cover by area?", "విస్తీర్ణం ప్రకారం అత్యధిక అటవీ ప్రాంతం ఉన్న భారత రాష్ట్రం ఏది?",
+     ["Madhya Pradesh", "Arunachal Pradesh", "Chhattisgarh", "Odisha"], ["మధ్యప్రదేశ్", "అరుణాచల్ ప్రదేశ్", "ఛత్తీస్‌గఢ్", "ఒడిశా"], 0,
+     "Madhya Pradesh has the largest forest cover in absolute area.", "సంపూర్ణ విస్తీర్ణంలో మధ్యప్రదేశ్ అటవీ ప్రాంతం అత్యధికం."),
+    ("The Dandi March led by Gandhiji in 1930 was associated with which movement?", "1930లో గాంధీజీ నేతృత్వంలోని దండి యాత్ర ఏ ఉద్యమంతో సంబంధం కలిగి ఉంది?",
+     ["Civil Disobedience (Salt Satyagraha)", "Non-Cooperation", "Quit India", "Khilafat"],
+     ["శాసనోల్లంఘన (ఉప్పు సత్యాగ్రహం)", "సహాయ నిరాకరణ", "క్విట్ ఇండియా", "ఖిలాఫత్"], 0,
+     "The Dandi March launched the Civil Disobedience Movement against the salt tax.", "దండి యాత్ర ఉప్పు పన్నుకు వ్యతిరేకంగా శాసనోల్లంఘన ఉద్యమాన్ని ప్రారంభించింది."),
+    ("Which instrument is used to measure atmospheric pressure?", "వాతావరణ పీడనాన్ని కొలవడానికి ఉపయోగించే పరికరం ఏది?",
+     ["Barometer", "Thermometer", "Hygrometer", "Anemometer"], ["బారోమీటర్", "థర్మామీటర్", "హైగ్రోమీటర్", "ఎనిమోమీటర్"], 0,
+     "A barometer measures atmospheric pressure.", "బారోమీటర్ వాతావరణ పీడనాన్ని కొలుస్తుంది."),
+    ("The famous 'Hampi' ruins are in which Indian state?", "ప్రసిద్ధ 'హంపి' శిథిలాలు ఏ భారత రాష్ట్రంలో ఉన్నాయి?",
+     ["Karnataka", "Tamil Nadu", "Telangana", "Maharashtra"], ["కర్ణాటక", "తమిళనాడు", "తెలంగాణ", "మహారాష్ట్ర"], 0,
+     "Hampi (Vijayanagara empire ruins) is in Karnataka.", "హంపి (విజయనగర సామ్రాజ్య శిథిలాలు) కర్ణాటకలో ఉన్నాయి."),
+    ("How many players are there in a kabaddi team on the court?", "కోర్టులో ఒక కబడ్డీ జట్టులో ఎంతమంది ఆటగాళ్ళు ఉంటారు?",
+     ["7", "5", "9", "11"], ["7", "5", "9", "11"], 0,
+     "A kabaddi team has 7 players on the court.", "కబడ్డీలో కోర్టుపై 7 మంది ఆటగాళ్ళు ఉంటారు."),
+]
+
+
+def g_static_gk(rng):
+    en, te, opts_en, opts_te, ans, expl_en, expl_te = rng.choice(_STATIC_GK)
+    # shuffle options together, preserving the correct-answer link
+    idx = list(range(4))
+    rng.shuffle(idx)
+    o_en = [opts_en[i] for i in idx]
+    o_te = [opts_te[i] for i in idx]
+    ai = idx.index(ans)
+    return {"id": "", "channel": "CURRENT", "topic": "static gk",
+            "q_en": en, "q_te": f"⤷ {te}", "options_en": o_en, "options_te": o_te,
+            "answer_index": ai,
+            "explanation_en": expl_en,
+            "note": "", "source": "offline-gen", "bank": "extra"}
+
+
 _GENERATORS = [g_percentage, g_ratio, g_simple_interest, g_compound_interest,
                g_average, g_squares, g_geometric, g_linear_2n1, g_cubes,
                g_letter_shift, g_symbol_math, g_clock_angle, g_time_work,
@@ -405,7 +556,14 @@ _APTITUDE_CHANNELS = {"BANKING", "RAILWAY", "POLICE", "DEFENCE", "TSPSC", "APPSC
 
 
 def _generate_for_channel(ch, rng):
-    """Generate one question, re-tagged to target channel ch when aptitude."""
+    """Generate one question for the target channel.
+    CURRENT channel gets exam-aligned static GK (never news); aptitude
+    channels get numeric/reasoning questions re-tagged to that channel."""
+    if ch == "CURRENT":
+        try:
+            return g_static_gk(rng)
+        except Exception:
+            return None
     qs = generate_offline(1, seed=rng.randint(0, 10 ** 6))
     if not qs:
         return None
@@ -415,53 +573,75 @@ def _generate_for_channel(ch, rng):
     return q
 
 
-def top_up(per_channel_min=20, max_add=120, use_llm=True):
-    """Ensure every channel has >= per_channel_min questions; add offline (+LLM)."""
-    from .question_bank import load_bank
+def top_up(per_channel_min=20, max_add=400, use_llm=True):
+    """
+    Ensure every channel has >= per_channel_min UNUSED (never-posted) questions.
+    Counts only unseen questions and rejects any newly-generated question whose
+    content signature already exists — guaranteeing NO repeats, ever.
+    """
+    from .question_bank import load_bank, q_signature
     bank = load_bank()
     extra = load_json(config.BANK_EXTRA_JSON, {"questions": []})
-    have = {}
-    for q in bank:
-        have[q["channel"]] = have.get(q["channel"], 0) + 1
-    for q in extra.get("questions", []):
-        have[q["channel"]] = have.get(q["channel"], 0) + 1
+    shown = load_json(config.DATA / "shown_signatures.json", {"sigs": []})
+    used = load_json(config.STORE_USED, {})
+
+    used_ids = {ch: set(ids) for ch, ids in used.items()}
+    existing_sigs = set(shown.get("sigs", []))
+    # include signatures of all questions already in the bank
+    for q in bank + extra.get("questions", []):
+        existing_sigs.add(q_signature(q))
+
+    have_unused = {ch: 0 for ch in config.PUBLIC_CHANNELS}
+    for q in bank + extra.get("questions", []):
+        ch = q.get("channel")
+        if ch in have_unused and q["id"] not in used_ids.get(ch, set()):
+            if q_signature(q) not in set(shown.get("sigs", [])):
+                have_unused[ch] += 1
 
     added = []
     counter = len({q["id"] for q in extra.get("questions", [])})
     rng = random.Random()
-    # Fill the most-starved channels first (CURRENT relies on curated/LLM GK).
-    order = sorted(config.PUBLIC_CHANNELS,
-                   key=lambda c: have.get(c, 0))
+    order = sorted(config.PUBLIC_CHANNELS, key=lambda c: have_unused.get(c, 0))
     for ch in order:
-        need = max(0, per_channel_min - have.get(ch, 0))
-        if ch == "CURRENT":
-            continue  # current-affairs GK is curated/LLM-only (no fabricated facts)
+        # CURRENT can now top up from offline static-GK facts, but the pool is
+        # finite (facts list), so its target floor is smaller to avoid
+        # exhausting signature space on one run.
+        target = n_min_current if ch == "CURRENT" else per_channel_min
+        need = max(0, target - have_unused.get(ch, 0))
         made = tries = 0
         recent_topics = set()
-        while made < need and len(added) < max_add and tries < need * 6:
+        while made < need and len(added) < max_add and tries < need * 10:
             tries += 1
             q = _generate_for_channel(ch, rng)
             if not q:
                 continue
             if validate_question(q):
                 continue
-            # light topic diversity — avoid 6 identical-topic questions
-            tkey = (ch, q["topic"])
-            if tkey in recent_topics and rng.random() < 0.6:
+            # HARD no-repeat: reject duplicate content signature
+            sig = q_signature(q)
+            if sig in existing_sigs:
+                continue
+            # topic variety within a fresh batch
+            tkey = q["topic"]
+            if tkey in recent_topics and rng.random() < 0.5:
                 continue
             recent_topics.add(tkey)
-            if len(recent_topics) > 6:
+            if len(recent_topics) > 8:
                 recent_topics.pop()
             counter += 1
             q["id"] = f"G{counter:03d}"
             added.append(q)
-            have[ch] = have.get(ch, 0) + 1
+            existing_sigs.add(sig)
+            have_unused[ch] = have_unused.get(ch, 0) + 1
             made += 1
     extra.setdefault("questions", []).extend(added)
     save_json_atomic(config.BANK_EXTRA_JSON, extra)
     from .question_bank import rebuild_json
     qs, errs = rebuild_json()
     return added, errs
+
+
+n_min_current = 12   # CURRENT channel relies on curated/LLM GK — smaller pool
 
 
 if __name__ == "__main__":

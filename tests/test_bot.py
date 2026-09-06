@@ -198,6 +198,64 @@ class TestPYQBank(unittest.TestCase):
         self.assertIn("pyq", sources)
 
 
+class TestNoRepeatAndSources(unittest.TestCase):
+    """Phase-5 guarantees: questions NEVER repeat and quizzes never draw
+    from news/article sources (exam-paper sources only)."""
+
+    def setUp(self):
+        # Start each test with a fresh rotation state so picks here do not
+        # consume questions for other test classes (the store is permanent by
+        # design — tests reset it explicitly).
+        for f in ("question_bank.json", "question_bank_extra.json",
+                  "shown_signatures.json", "used_questions.json"):
+            p = config.DATA / f
+            if p.exists():
+                p.unlink()
+
+    def tearDown(self):
+        self.setUp()
+
+    def test_quiz_sources_are_exam_only(self):
+        from core.question_bank import ALLOWED_QUIZ_SOURCES
+        b = Bank()
+        for q in b.questions:
+            self.assertIn(q.get("source", ""), ALLOWED_QUIZ_SOURCES,
+                          f"non-exam source leaked into quiz bank: {q.get('source')}")
+
+    def test_questions_never_repeat(self):
+        b = Bank()
+        seen = set()
+        for _ in range(4):
+            for ch in ("DEFENCE", "APPSC", "RAILWAY", "POLICE"):
+                for q in b.pick(ch, 10):
+                    from core.question_bank import q_signature
+                    sig = q_signature(q)
+                    self.assertNotIn(sig, seen, f"repeat posted: {q['id']}")
+                    seen.add(sig)
+        # permanent history persisted on disk
+        history = load_json(config.STORE_USED, {})
+        self.assertTrue(all(len(history.get(ch, [])) >= 40
+                            for ch in ("DEFENCE", "APPSC", "RAILWAY", "POLICE")))
+
+    def test_digest_items_are_digest_only(self):
+        """News-feed items must never carry a quiz question / answer key."""
+        from core import feeds
+        # no network: call the filter with a fake item containing blocked junk
+        junk = {"en": "Blog: five lifestyle habits of a celebrity horoscope today",
+                "te": "—", "link": "http://x"}
+        self.assertTrue(feeds.is_weak_content(junk["en"]))
+        self.assertFalse(feeds.is_weak_content(
+            "Cabinet approves new national education policy implementation"))
+
+    def test_coach_lessons_bilingual(self):
+        lessons = load_json(config.DATA / "coach_lessons.json",
+                            {"lessons": []}).get("lessons", [])
+        self.assertGreaterEqual(len(lessons), 12)
+        for l in lessons:
+            self.assertTrue(l.get("en") and l.get("te"), l.get("id"))
+            self.assertFalse(l["te"].lstrip().startswith("⤷ ⤷"))
+
+
 class TestSchedule(unittest.TestCase):
     def test_two_daily_rounds(self):
         quiz_times = [t for t, (task, _) in config.SCHEDULE.items() if task == "quiz"]

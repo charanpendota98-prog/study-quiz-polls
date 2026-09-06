@@ -7,6 +7,9 @@ Commands:
   /start, /help       welcome (EN + Telugu)
   /register           guided sign-up (name -> exam target -> language) = +25 pts
   /quiz [channel]     one NON-anonymous PYQ-first practice poll (earns points)
+  /coach [channel]    a friendly expert reasoning/aptitude trick (EN+Telugu)
+  /review             due spaced-repetition questions (missed ones come back)
+  /badges             your earned achievement badges
   /stats /profile     your points, level, rank, accuracy, streak
   /rank /leaderboard  points-based top players
   /levels             points & level rules
@@ -35,6 +38,7 @@ WELCOME = (
     "⭐ Earn *points*, levels and ranks:\n"
     "• /register — join as a member (+25 pts)\n"
     "• /quiz — play a previous-paper question (+10 per correct)\n"
+    "• /coach — a friendly expert trick that makes reasoning & aptitude easy 🧠\n"
     "• /stats — your level, rank, points & streak\n"
     "• /leaderboard — top players\n"
     "• /levels — how points & ranks work\n\n"
@@ -48,7 +52,10 @@ HELP = (
     "3️⃣ Play daily — first activity each day +5, and streak bonuses at "
     "3/7/15/30/100 days 🔥.\n"
     "4️⃣ /rank shows the weekly+all-time leaderboard; levels go Bronze→Champion 👑.\n"
-    "5️⃣ Channels post 2 big rounds daily (07:30 & 19:30 IST) + CA digest 21:30.\n\n"
+    "5️⃣ /coach gives you a quick expert trick any time; channels also post a "
+    "daily expert lesson at 12:30 IST 🧠.\n"
+    "6️⃣ Channels post 2 big rounds daily (07:30 & 19:30 IST) + CA digest 21:30. "
+    "Questions NEVER repeat and come only from real exam-paper sources.\n\n"
     "⤷ పాయింట్లు సంపాదించడానికి ఈ బాట్‌లో /quiz ఆడండి. ఛానెళ్లలో ప్రాక్టీస్, "
     "బాట్‌లో పాయింట్లు + ర్యాంక్! 🏆"
 )
@@ -134,6 +141,20 @@ class Bot:
              "SSC/UPSC": "CURRENT", "Current Affairs GK": "CURRENT"}
         return m.get(exam, "TSPSC")
 
+    def _coach_lesson(self, channel=None):
+        from core.store import load_json
+        lessons = load_json(config.DATA / "coach_lessons.json",
+                            {"lessons": []}).get("lessons", [])
+        if not lessons:
+            return None
+        import random as _r
+        pool = [l for l in lessons if l.get("channel") == channel] if channel else lessons
+        l = _r.choice(pool or lessons)
+        te = l["te"].lstrip()
+        while te.startswith("⤷"):
+            te = te[1:].lstrip()
+        return f"{l['en']}\n\n⤷ {te}"
+
     _polls_file = config.DATA / "poll_state.json"
 
     def _load_polls(self):
@@ -208,6 +229,12 @@ class Bot:
                     "⤷ రివిజన్ ప్రశ్నలు లేవు. /quiz ఆడండి.")
             else:
                 self.send_quiz_to(chat_id, None, uid=uid, adaptive=True)
+        elif low.startswith("/coach") or low.startswith("/trick") or low.startswith("/lesson"):
+            parts = low.split()
+            ch = parts[1].upper() if len(parts) > 1 and parts[1].upper() in config.PUBLIC_CHANNELS else None
+            lesson = self._coach_lesson(ch)
+            if lesson:
+                self.tg.send_message(chat_id, lesson)
         elif low.startswith("/badges"):
             self.tg.send_message(chat_id, self._render_badges(uid))
         elif low.startswith("/analytics") or low.startswith("/admin"):

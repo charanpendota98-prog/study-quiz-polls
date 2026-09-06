@@ -11,6 +11,7 @@ data/stats.json
 data/aggregated_*.json
 data/question_bank.json
 data/question_bank_extra.json
+data/shown_signatures.json
 data/ca_digest_curated.json
 logs/*.log
 

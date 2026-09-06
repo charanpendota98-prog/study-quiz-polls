@@ -15,12 +15,17 @@ from pathlib import Path
 from . import config
 from .store import load_json, save_json_atomic
 from .content import validate_question, has_telugu
+import re as _re
 
 # Channel name in the "• Channel:" line -> our channel key
 _CHANNEL_HINT = {
     "TSPSC": "TSPSC", "APPSC": "APPSC", "Banking": "BANKING", "Railway": "RAILWAY",
     "Police": "POLICE", "Defence": "DEFENCE", "Current Affairs": "CURRENT",
 }
+
+# Quiz questions may ONLY come from exam-paper-aligned sources — never from
+# news feeds/articles (those feed the CA digest, never the quiz polls).
+ALLOWED_QUIZ_SOURCES = {"pyq", "curated", "llm-gen", "offline-gen", ""}
 
 _OPT_SPLIT = re.compile(r"\s+([A-D])\)\s+")
 
@@ -107,9 +112,10 @@ def parse_digest(md_path: Path = config.BANK_MD):
 def rebuild_json():
     """Parse MD + PYQ + curated extras + generated extras -> validated bank."""
     questions = parse_markdown()
-    # Authentic previous-year questions (highest priority)
-    pyq = load_json(config.BANK_PYQ_JSON, {"questions": []})
-    questions.extend(pyq.get("questions", []))
+    # Authentic previous-year questions (highest priority) — all PYQ volumes
+    for _pyq_name in ("pyq_bank.json", "pyq_bank_2.json", "pyq_bank_3.json"):
+        _pyq = load_json(config.DATA / _pyq_name, {"questions": []})
+        questions.extend(_pyq.get("questions", []))
     # Hand-curated bilingual GK/CA extras
     curated = load_json(config.CURATED_EXTRA_JSON, {"questions": []})
     questions.extend(curated.get("questions", []))
@@ -151,41 +157,69 @@ def load_bank(force_rebuild=False):
 
 
 class Bank:
-    """Per-channel question access with rotation + answer-key balancing."""
+    """Per-channel question access with a PERMANENT no-repeat guarantee."""
     def __init__(self):
-        self.questions = load_bank()
-        self.used = load_json(config.STORE_USED, {})  # channel -> [ids]
+        self.questions = [q for q in load_bank()
+                          if q.get("source", "pyq") in ALLOWED_QUIZ_SOURCES]
+        # rotation history: channel -> list of posted ids (permanent, never reset)
+        self.used = load_json(config.STORE_USED, {})
+        # content signature set: qid -> signature (so the same question, even
+        # regenerated, cannot be posted twice)
+        self.shown_sigs = load_json(config.DATA / "shown_signatures.json",
+                                    {"sigs": []})
+        self._sig_set = set(self.shown_sigs.get("sigs", []))
 
     def by_channel(self, channel: str):
         return [q for q in self.questions if q.get("channel") == channel]
 
     def unused(self, channel: str):
         used = set(self.used.get(channel, []))
-        return [q for q in self.by_channel(channel) if q["id"] not in used]
+        sigs = self._sig_set
+        out = []
+        for q in self.by_channel(channel):
+            if q["id"] in used:
+                continue
+            sig = q_signature(q)
+            # never repeat a question with the same content signature
+            if sig in sigs:
+                continue
+            out.append(q)
+        return out
+
+    def mark_posted(self, channel: str, questions):
+        """Record these questions as permanently shown."""
+        ids = self.used.setdefault(channel, [])
+        for q in questions:
+            ids.append(q["id"])
+            self._sig_set.add(q_signature(q))
+        self.shown_sigs["sigs"] = sorted(self._sig_set)
+        save_json_atomic(config.STORE_USED, self.used)
+        save_json_atomic(config.DATA / "shown_signatures.json", self.shown_sigs)
 
     def pick(self, channel: str, n: int = 10):
         """
-        Pick n unused questions for a slot:
-          - topic diversity (prefer not repeating the same topic back-to-back)
-          - answer-key balance (spread the correct option across A/B/C/D)
-        Resets rotation when the channel pool is exhausted.
+        Pick n NEVER-SEEN questions for a round:
+          - source priority: PYQ first, then curated, LLM, offline-generated
+          - topic diversity + answer-key balance
+        If fewer than n unseen questions remain, auto-generate fresh ones
+        (top_up) so the channel NEVER repeats and NEVER runs dry.
         """
         pool = self.unused(channel)
         if len(pool) < n:
-            self.used[channel] = []          # bank cycled — reset
-            pool = self.by_channel(channel)
-        random.shuffle(pool)
-        # Source priority: authentic PYQ first, then curated, then LLM, then
-        # offline-generated. Lower number = used earlier in the round.
+            # grow the bank with fresh, non-duplicate questions, then reload
+            try:
+                from .generator import top_up
+                need_each = max(config.FILLER_TRIGGER_UNUSED, n * 3)
+                top_up(per_channel_min=need_each)
+                self.__init__()
+                pool = self.unused(channel)
+            except Exception as e:
+                print(f"   [bank] auto top-up note: {e}")
         src_rank = {"pyq": 0, "curated": 1, "llm-gen": 2, "offline-gen": 3}
-        # Greedy selection: prefer PYQ/top sources, then topic diversity, then
-        # answer-key balance — but always include a healthy mix if pool allows.
-        chosen, topics_used, keys_used = [], {}, [0, 0, 0, 0]
-        # Seed with available PYQs (authentic previous-paper questions) first.
         pyqs = [q for q in pool if q.get("source") == "pyq"]
         rest = [q for q in pool if q.get("source") != "pyq"]
-        # Take up to ~4 PYQs per 10-Q round (authentic but keep variety).
         ordered = pyqs[:max(1, n * 4 // 10)] + rest
+        chosen, topics_used, keys_used = [], {}, [0, 0, 0, 0]
         candidates = ordered[:]
         while len(chosen) < n and candidates:
             def score(q):
@@ -197,8 +231,7 @@ class Bank:
             chosen.append(q)
             topics_used[q.get("topic", "")] = topics_used.get(q.get("topic", ""), 0) + 1
             keys_used[q["answer_index"]] += 1
-        self.used.setdefault(channel, []).extend(q["id"] for q in chosen)
-        save_json_atomic(config.STORE_USED, self.used)
+        self.mark_posted(channel, chosen)      # PERMANENT — never repeat
         return chosen
 
     def by_id(self, qid):
@@ -209,47 +242,51 @@ class Bank:
 
     def pick_adaptive(self, channel, weak_topics=None, review_qids=None):
         """
-        Pick one question for a member:
-          1) a due spaced-repetition question (missed earlier), if available;
-          2) a question from a weak topic, if available;
-          3) otherwise the normal diverse/balanced pick (single question).
-        Returns a question dict (does NOT record rotation for review/weak so they
-        can re-ask; normal picks use the standard rotation).
+        One personalised question: due spaced-repetition card -> weak-topic
+        fresh question -> normal balanced pick. Never repeats seen content.
         """
-        # 1) spaced repetition
+        # 1) spaced-repetition review (re-ask a previously missed question)
         if review_qids:
-            for rqid in review_qids:
-                q = self.by_id(rqid)
-                if q and q.get("channel") in (channel, "CURRENT"):
-                    return q
             for rqid in review_qids:
                 q = self.by_id(rqid)
                 if q:
                     return q
         pool = self.unused(channel) or self.by_channel(channel)
-        # 2) weak topic
+        # 2) weak topic (fresh, unseen)
         if weak_topics:
             for wt in weak_topics:
                 for q in pool:
                     if wt in (q.get("topic", "") or "").lower():
+                        self.mark_posted(channel, [q])
                         return q
-        # 3) normal single pick (standard rotation)
+        # 3) normal single pick (rotation + mark posted)
         qs = self.pick(channel, 1)
         if qs:
             return qs[0]
         return pool[0] if pool else None
 
-    def _key_count(self, channel, idx):
-        return sum(1 for q in self.by_channel(channel)
-                   if q["id"] in set(self.used.get(channel, []))
-                   and q["answer_index"] == idx)
-
     def stats(self):
         out = {}
         for ch in config.CHANNELS:
             allq = self.by_channel(ch)
-            out[ch] = {"total": len(allq), "unused": len(self.unused(ch))}
+            used = set(self.used.get(ch, []))
+            out[ch] = {"total": len(allq), "unused": len(self.unused(ch)),
+                       "posted": len(used)}
         return out
+
+
+def q_signature(q: dict) -> str:
+    """
+    Content identity of a question — topic + its key numbers + answer.
+    Two generated questions with the same topic, values and answer are the
+    SAME question (even with different ids), so the no-repeat engine blocks it.
+    """
+    nums = ".".join(sorted(_re.findall(r"\d+", q.get("q_en", ""))))
+    words = "".join(sorted(
+        set(_re.findall(r"[a-z]{4,}", (q.get("q_en", "") or "").lower()))))[:40]
+    # NOTE: answer_index is deliberately excluded — shuffling the 4 options
+    # must not make the SAME question look new.
+    return f"{q.get('channel','')}|{q.get('topic','')}|{nums}|{words}"
 
 
 if __name__ == "__main__":

@@ -92,6 +92,8 @@ def tick(eng, now, dry=False):
             ran.append(f"quiz{meta.get('slot','')}")
         elif task == "tip":
             eng.tip(); ran.append("tip")
+        elif task == "coach":
+            eng.coach_broadcast(); ran.append("coach")
         elif task == "digest":
             eng.digest(); ran.append("digest")
         elif task == "leaderboard":
