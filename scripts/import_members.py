@@ -18,6 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from core.members import Members
+import re as _re
 
 
 def _find(row, keywords):
@@ -28,6 +29,62 @@ def _find(row, keywords):
     return ""
 
 
+def _norm_district(val):
+    """'TS · Hyderabad' -> 'Hyderabad'; tags state via prefix."""
+    v = (val or "").strip()
+    state = ""
+    if v.startswith("TS"):
+        state = state or "Telangana"
+    if v.startswith("AP"):
+        state = state or "Andhra Pradesh"
+    v = _re.sub(r"^[AT][PS]\s*·\s*", "", v)
+    if "other" in v.lower() or "not listed" in v.lower():
+        return "", state
+    return v, state
+
+
+def _norm_exam(val):
+    """Map the form's descriptive exam labels to the bot's short targets."""
+    v = (val or "").lower()
+    if "tspsc" in v:
+        return "TSPSC"
+    if "appsc" in v:
+        return "APPSC"
+    if "bank" in v or "ibps" in v or "sbi" in v:
+        return "Banking"
+    if "railway" in v or "rrb" in v or "alp" in v:
+        return "Railway"
+    if "police" in v or "constable" in v or " si" in v:
+        return "Police"
+    if "defence" in v or "nda" in v or "cds" in v or "agniveer" in v:
+        return "Defence"
+    if "ssc" in v or "upsc" in v:
+        return "SSC/UPSC"
+    if "current" in v or "gk" in v:
+        return "Current Affairs GK"
+    return (val or "").strip()
+
+
+def _norm_lang(val):
+    v = (val or "").lower()
+    if "both" in v:
+        return "Both (EN + TE)"
+    if "telugu" in v:
+        return "Telugu"
+    if "english" in v:
+        return "English"
+    return (val or "").strip()
+
+
+def _norm_phone(val):
+    digits = _re.sub(r"\D", "", val or "")
+    if len(digits) == 11 and digits.startswith("91"):
+        digits = digits[2:]
+    if len(digits) == 10:
+        return digits
+    return (val or "").strip()  # keep as-is if unexpected
+
+
 def _username(val):
     val = (val or "").strip()
     if val.isdigit():
@@ -36,21 +93,27 @@ def _username(val):
 
 
 def parse_row(row):
-    name = _find(row, ["name", "పేరు"])
-    phone = _find(row, ["mobile", "phone", "whatsapp", "మొబైల్"])
+    name = _find(row, ["full name", "name", "పేరు"])
+    phone = _norm_phone(_find(row, ["mobile", "phone", "whatsapp", "మొబైల్"]))
+    # Email may be Google's auto-collected "Email Address" column
+    email = _find(row, ["email", "ఇమెయిల్", "e-mail"])
     tg = _find(row, ["telegram", "టెలిగ్రామ్"])
-    email = _find(row, ["email", "ఇమెయిల్"])
     state = _find(row, ["state", "రాష్ట్రం"])
-    district = _find(row, ["district", "జిల్లా"])
-    exam = _find(row, ["exam target", "target", "లక్ష్యం", "exam"])
-    lang = _find(row, ["language", "medium", "మాధ్యమం", "భాష"])
-    stage = _find(row, ["stage", "preparation", "stage"])
-    coaching = _find(row, ["coaching", "self study"])
+    district_raw = _find(row, ["district", "జిల్లా"])
+    district, dstate = _norm_district(district_raw)
+    if dstate and not state:
+        state = dstate
+    exam = _norm_exam(_find(row, ["exam target", "target", "లక్ష్యం", "preparing", "exam"]))
+    lang = _norm_lang(_find(row, ["language", "medium", "మాధ్యమం", "భాష"]))
+    stage = _find(row, ["target exam", "when is your target", "education level",
+                        "current education", "stage", "preparation"])
+    study = _find(row, ["how do you study", "study", "coaching", "self study"])
+    source = _find(row, ["how did you find", "source", "find studentup"])
     uname, tgid = _username(tg)
     return {
         "name": name, "username": uname, "tg_id": tgid, "phone": phone,
         "email": email, "state": state, "district": district, "exam": exam,
-        "lang": lang, "stage": stage, "coaching": coaching,
+        "lang": lang, "stage": stage, "coaching": study, "source": source,
     }
 
 

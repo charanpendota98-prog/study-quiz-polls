@@ -1,85 +1,100 @@
-# 📋 StudentUp Registration — Google Form Blueprint
+# 📋 StudentUp Registration — Google Form (one-click build)
 
-Create this once at <https://forms.google.com> (takes ~15 min). It collects
-**rich member data** (phone, district, WhatsApp, exam target) that the Telegram
-bot can't. The in-bot `/register` still handles **points/leaderboard**; this form
-handles **growth + analytics + broadcasts**. They are linked by **Telegram username/id**.
-
-> Tip: responses auto-save to a Google Sheet. That sheet can export a CSV which
-> `scripts/import_members.py` loads into the bot's points system.
+You do **not** add questions by hand. The script
+[`build_studentup_form.gs`](build_studentup_form.gs) builds the entire form for
+you — **59 districts (33 Telangana + 26 Andhra Pradesh)**, validation, and the
+thank-you page — in about 60 seconds.
 
 ---
 
-## Form title
-**StudentUp — Free Daily Quiz for TS & AP Aspirants | రిజిస్ట్రేషన్**
+## ✅ Build the form in 3 minutes
 
-## Description (paste this)
-> Join 50,000+ TS/AP aspirants practising FREE daily quiz polls in English +
-> Telugu for TSPSC, APPSC, Banking, Railway, Police, Defence & Current Affairs.
->
-> ⤷ TSPSC, APPSC, బ్యాంక్, రైల్వే, పోలీస్, డిఫెన్స్ అభ్యర్థుల కోసం ప్రతిరోజూ
-> ఉచిత బైలింగ్వల్ క్విజ్. రిజిస్టర్ చేసుకోండి — మీ లక్ష్యానికి తగ్గ క్విజ్‌లు,
-> ఉద్యోగ అప్‌డేట్స్, వీక్లీ లీడర్‌బోర్డ్ మీకు నేరుగా!
+1. Open **<https://script.google.com>** → click **New project**.
+2. Delete the sample code in `Code.gs`, then **paste the whole content of
+   [`build_studentup_form.gs`](build_studentup_form.gs)**.
+3. (Optional) change `BOT_USERNAME` at the top to your bot.
+4. Click the **▶ Run** button. Function must be `buildStudentUpForm`.
+   When asked, **Review permissions** → your Google account → **Advanced** →
+   **Go to project (unsafe)** → **Allow**. (It's safe — the script is yours.)
+5. Open the **Execution log** (bottom). It prints:
+   - `LIVE FORM (share this): https://docs.google.com/forms/d/...`
+   - `EDIT URL: https://docs.google.com/forms/d/.../edit`
+6. Open the **LIVE FORM** URL → click **Send** → copy the link. Put it in
+   `env/.env` as `FORM_URL=...` (so the bot's `/regform` command shares it).
 
----
-
-## Questions (in this exact order)
-
-| # | Question | Type | Options / Notes | Required |
-|---|----------|------|-----------------|----------|
-| 1 | Full Name / పేరు | Short answer | | ✅ |
-| 2 | Mobile number (WhatsApp) / మొబైల్ | Short answer | Validation: 10 digits | ✅ |
-| 3 | Telegram username or numeric id / టెలిగ్రామ్ | Short answer | e.g. `@charan` or `123456789` — **this links to quiz points** | ✅ |
-| 4 | Email | Short answer | Validation: email | ⬜ |
-| 5 | State / రాష్ట్రం | Multiple choice | Telangana · Andhra Pradesh · Other | ✅ |
-| 6 | District / జిల్లా | Dropdown | (full list below) | ✅ |
-| 7 | Exam target / మీ లక్ష్యం | Dropdown | TSPSC · APPSC · Banking (IBPS/SBI/RRB) · Railway (RRB) · Police (Constable/SI) · Defence (NDA/CDS/Agniveer) · SSC/UPSC · Current Affairs GK | ✅ |
-| 8 | Current preparation stage | Multiple choice | Just starting · Foundation · Serious/Revision · Exam soon (1–2 months) | ✅ |
-| 9 | Preferred language / మాధ్యమం | Multiple choice | English · Telugu · Both | ✅ |
-| 10 | Coaching / self study? | Multiple choice | Self study · Coaching institute · College student | ⬜ |
-| 11 | How did you find us? | Dropdown | Friend · YouTube · WhatsApp · Telegram search · Other | ⬜ |
+> Responses are saved automatically to a linked Google Sheet.
 
 ---
 
-## Districts (for question 6 dropdown)
+## 🔔 Get a Telegram alert on every signup
 
-**Telangana:** Hyderabad, Medchal-Malkajgiri, Ranga Reddy, Sangareddy, Vikarabad,
-Medak, Siddipet, Nizamabad, Kamareddy, Adilabad, Nirmal, Mancherial, Komaram Bheem,
-Karimnagar, Rajanna Sircilla, Jagtial, Peddapalli, Jayashankar Bhupalpally, Warangal
-Urban, Warangal Rural, Mahabubabad, Jangaon, Yadadri Bhuvanagiri, Nalgonda,
-Suryapet, Khammam, Bhadradri Kothagudem, Mahabubnagar, Nagarkurnool, Wanaparthy,
-Jogulamba Gadwal, Narayanpet.
+In the **same** Apps Script project:
 
-**Andhra Pradesh:** Visakhapatnam, Anakapalli, Alluri Sitharama Raju,
-Annamayya, Anantapur, Bapatla, Chittoor, East Godavari, Eluru, Guntur, Kadapa
-(YSR), Kakinada, Konaseema, Krishna, Kurnool, Nandyal, Nellore, NTR,
-Palnadu, Parvathipuram Manyam, Prakasam, Sri Sathya Sai, Srikakulam,
-Tirupati, Visakhapatnam, Vizianagaram, West Godavari.
+1. **New script file** (the `+` next to "Files") → name it e.g. `Notify`.
+2. Paste the contents of [`google_apps_script.gs`](google_apps_script.gs),
+   fill in `BOT_TOKEN` (BotFather) and `ADMIN_CHAT_ID` (your numeric Telegram id
+   — message [@userinfobot](https://t.me/userinfobot)).
+3. **Triggers** (clock/⏰ icon, left sidebar) → **Add Trigger**:
+   - Function: `onFormSubmit`
+   - Event source: **From spreadsheet**
+   - Event type: **On form submit**
+4. Save / authorize. Run `testNotification` once to confirm the ping arrives.
 
 ---
 
-## Settings to enable
-- ☑️ **Collect email addresses** (Settings → Responses)
-- ☑️ **Limit to 1 response** (requires Google sign-in)
-- ☑️ Edit after submit: OFF
-- After each submit → "Show link to your Telegram quiz bot" in the confirmation:
-  `👉 Open Telegram → @DailyQuizPosterbot → send /register then /quiz`
+## 📝 What the form collects
 
-## Where to share the form
-- All 7 channel "pinned" posts + the bot `/start` message (`/regform`).
+**1. Basic details**
+- Full name / పేరు *(required)*
+- WhatsApp / mobile — **validated to a 10-digit Indian number** *(required)*
+- Telegram username or numeric ID — **links quiz points & rank** *(required, validated)*
+- Email — collected automatically by Google Forms
+
+**2. Location**
+- State: Telangana · Andhra Pradesh · Other
+- District — single searchable dropdown with all districts prefixed:
+  - `TS · …` = **33 Telangana districts**
+  - `AP · …` = **26 Andhra Pradesh districts**
+  - plus an "Other / not listed" option for each
+
+**3. Preparation / study**
+- Target exam: TSPSC · APPSC · Banking · Railway · Police · Defence · SSC/UPSC · GK
+- Education level (10th/Inter → Degree → B.Tech → PG → working professional)
+- Target exam year (2026 / 2027 / 2028 / exploring)
+- Medium (English / Telugu / Both)
+- Study mode (self / coaching / college / online)
+- Daily study hours
+
+**4. Updates & feedback**
+- WhatsApp / Telegram update consent
+- How they found you (for growth tracking)
+- Open suggestion box
+
+---
+
+## 🔁 Bring signups into the bot (points + leaderboard)
+
+The Google Sheet → **File → Download → CSV**, then:
+
+```bash
+cd scripts
+python3 import_members.py ~/Downloads/responses.csv          # preview
+python3 import_members.py ~/Downloads/responses.csv --commit  # import
+```
+
+The importer:
+- normalises districts (`TS · Hyderabad` → **Hyderabad**, state **Telangana**),
+  exam labels (`Banking — IBPS / SBI…` → **Banking**), language, phone (strips
+  `91` country code / dashes), and reads the auto-collected email;
+- creates members who gave a **numeric Telegram id** immediately (+25 points);
+- holds **username-only** sign-ups in a pending list — they **auto-link** the
+  first time the person taps `/start` in the bot (matched by @username), keeping
+  all their form details and points, with no duplicate accounts.
+
+---
+
+## 📣 Where to share the form link
+- Pinned post in all 7 channels + the bot `/start` message (`/regform`).
 - YouTube description, WhatsApp broadcast, Instagram bio.
-
----
-
-## Linking form ↔ bot (automatic)
-When a response comes in, **Apps Script** (see `forms/google_apps_script.gs`)
-sends you a Telegram alert and can stamp the member into the bot. For points,
-users must ALSO tap `/register` inside the bot (Telegram identity is the key).
-
-## Bulk import
-Responses → Google Sheet → **File → Download → CSV** → then run:
-```
-cd scripts && python3 import_members.py ../Downloads/responses.csv
-```
-That matches Telegram usernames/ids to bot profiles, adds name/district/exam,
-and grants the +25 registration bonus so form users appear on the leaderboard.
+- After submit, the form thanks students and sends them straight to the Telegram
+  bot to `/register` and play `/quiz`.

@@ -136,6 +136,50 @@ class TestSchedule(unittest.TestCase):
         self.assertIn("19:30", quiz_times)
 
 
+class TestFormDistricts(unittest.TestCase):
+    """The Google-Form builder must include all TS + AP districts."""
+    @classmethod
+    def setUpClass(cls):
+        import re as _re
+        root = Path(__file__).resolve().parents[1]
+        src = (root / "forms" / "build_studentup_form.gs").read_text(encoding="utf-8")
+        def grab(var):
+            m = _re.search(r"var %s = \[(.*?)\];" % var, src, _re.S)
+            return _re.findall(r'"([^"]+)"', m.group(1))
+        cls.ts = [d for d in grab("TS_DISTRICTS") if "Other" not in d]
+        cls.ap = [d for d in grab("AP_DISTRICTS") if "Other" not in d]
+
+    def test_ts_has_33_districts(self):
+        self.assertGreaterEqual(len(self.ts), 33)
+        self.assertTrue(any("Hyderabad" in d for d in self.ts))
+        self.assertTrue(any("Mancherial" in d for d in self.ts))
+
+    def test_ap_has_26_districts(self):
+        self.assertGreaterEqual(len(self.ap), 26)
+        self.assertTrue(any("Visakhapatnam" in d for d in self.ap))
+        self.assertTrue(any("Kurnool" in d for d in self.ap))
+
+    def test_no_duplicate_districts(self):
+        self.assertEqual(len(self.ts), len(set(self.ts)))
+        self.assertEqual(len(self.ap), len(set(self.ap)))
+
+
+class TestFormImportNormalize(unittest.TestCase):
+    def test_district_and_exam_normalization(self):
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "import_members",
+            str(Path(__file__).resolve().parents[1] / "scripts" / "import_members.py"))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        d, state = mod._norm_district("TS · Warangal")
+        self.assertEqual(d, "Warangal")
+        self.assertEqual(state, "Telangana")
+        self.assertEqual(mod._norm_exam("Banking — IBPS / SBI / RRB Clerk-PO"), "Banking")
+        self.assertEqual(mod._norm_phone("98765-43210"), "9876543210")
+
+
 class TestBank(unittest.TestCase):
     def test_rebuild_valid(self):
         qs, errs = rebuild_json()
