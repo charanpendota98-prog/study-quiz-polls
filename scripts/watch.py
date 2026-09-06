@@ -31,8 +31,8 @@ from core.feeds import aggregate
 
 LOG = config.LOGS / "watch.log"
 
-# Quiz slot minutes for reminder lookups
-QUIZ_SLOTS = ["07:30", "10:30", "13:30", "16:30", "19:30"]
+# Quiz slot minutes for reminder lookups (2 daily rounds)
+QUIZ_SLOTS = config.QUIZ_SLOT_TIMES
 
 
 def log(msg):
@@ -88,11 +88,17 @@ def tick(eng, now, dry=False):
         elif task == "morning":
             eng.morning(); ran.append("morning")
         elif task == "quiz":
-            eng.run_quiz_slot(); ran.append("quiz")
+            eng.run_quiz_slot(round_label=meta.get("round", ""))
+            ran.append(f"quiz{meta.get('slot','')}")
         elif task == "tip":
             eng.tip(); ran.append("tip")
         elif task == "digest":
             eng.digest(); ran.append("digest")
+        elif task == "leaderboard":
+            if meta.get("when") == "sunday" and now.weekday() == 6:
+                eng.weekly_leaderboard(); ran.append("leaderboard")
+            elif meta.get("when") != "sunday":
+                eng.weekly_leaderboard(); ran.append("leaderboard")
 
     rem = due_reminders(hhmm)
     if rem is not None:

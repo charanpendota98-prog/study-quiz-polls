@@ -105,12 +105,15 @@ def parse_digest(md_path: Path = config.BANK_MD):
 
 
 def rebuild_json():
-    """Parse MD + curated extras + generated extras -> validated canonical bank."""
+    """Parse MD + PYQ + curated extras + generated extras -> validated bank."""
     questions = parse_markdown()
-    # Merge hand-curated bilingual GK/CA extras
-    curated = load_json(config.DATA / "curated_extra.json", {"questions": []})
+    # Authentic previous-year questions (highest priority)
+    pyq = load_json(config.BANK_PYQ_JSON, {"questions": []})
+    questions.extend(pyq.get("questions", []))
+    # Hand-curated bilingual GK/CA extras
+    curated = load_json(config.CURATED_EXTRA_JSON, {"questions": []})
     questions.extend(curated.get("questions", []))
-    # Merge generated extras
+    # AI / offline generated extras
     extra = load_json(config.BANK_EXTRA_JSON, {"questions": []})
     questions.extend(extra.get("questions", []))
     # Validate
@@ -172,13 +175,22 @@ class Bank:
             self.used[channel] = []          # bank cycled — reset
             pool = self.by_channel(channel)
         random.shuffle(pool)
-        # Greedy selection: at each step choose the question whose topic has
-        # been used least in this slot AND whose answer key is least used.
+        # Source priority: authentic PYQ first, then curated, then LLM, then
+        # offline-generated. Lower number = used earlier in the round.
+        src_rank = {"pyq": 0, "curated": 1, "llm-gen": 2, "offline-gen": 3}
+        # Greedy selection: prefer PYQ/top sources, then topic diversity, then
+        # answer-key balance — but always include a healthy mix if pool allows.
         chosen, topics_used, keys_used = [], {}, [0, 0, 0, 0]
-        candidates = pool[:]
+        # Seed with available PYQs (authentic previous-paper questions) first.
+        pyqs = [q for q in pool if q.get("source") == "pyq"]
+        rest = [q for q in pool if q.get("source") != "pyq"]
+        # Take up to ~4 PYQs per 10-Q round (authentic but keep variety).
+        ordered = pyqs[:max(1, n * 4 // 10)] + rest
+        candidates = ordered[:]
         while len(chosen) < n and candidates:
             def score(q):
-                return (topics_used.get(q.get("topic", ""), 0) * 2
+                return (src_rank.get(q.get("source", "offline-gen"), 3) * 0
+                        + topics_used.get(q.get("topic", ""), 0) * 2
                         + keys_used[q["answer_index"]] + random.random())
             candidates.sort(key=score)
             q = candidates.pop(0)

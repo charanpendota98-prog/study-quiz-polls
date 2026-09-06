@@ -66,7 +66,10 @@ _BLOCK_RAW = [
 BLOCKED_REGEX = re.compile("|".join(_BLOCK_RAW), re.IGNORECASE)
 
 # Words that legitimately contain blocked substrings — protected.
-_PROTECT = re.compile(r"\b(factory|factories|dramatic|remain|remains|commissioners?)\b", re.I)
+# (e.g. "national song" is a GK topic, not music; "factory" contains no block)
+_PROTECT = re.compile(
+    r"\b(factory|factories|dramatic|remain|remains|commissioners?)\b|national song",
+    re.I)
 
 # Other-state hard block (jobs/CA must be TS/AP + central/pan-India only)
 _OTHER_STATE = [

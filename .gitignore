@@ -6,6 +6,7 @@ data/used_questions.json
 data/*_seen.json
 data/poll_state.json
 data/leaderboard.json
+data/members.json
 data/stats.json
 data/aggregated_*.json
 data/question_bank.json

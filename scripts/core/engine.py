@@ -17,6 +17,7 @@ from .telegram import Telegram, TelegramError
 from .question_bank import Bank
 from .content import build_question_text, build_options, build_explanation
 from .leaderboard import Leaderboard
+from .members import Members
 from .store import load_json
 
 
@@ -28,6 +29,7 @@ class Engine:
         self.tg = Telegram(dry=dry)
         self.bank = Bank()
         self.lb = Leaderboard()
+        self.members = Members()
         self.dry = dry
         self._ensure_filled()
 
@@ -63,18 +65,22 @@ class Engine:
             print(f"   [quiz] {channel_key} {q['id']} FAILED: {e}")
             return False
 
-    def run_quiz_slot(self, slot=None, channels=None):
+    def run_quiz_slot(self, slot=None, channels=None, round_label=""):
         channels = channels or config.PUBLIC_CHANNELS
         total = 0
+        label = f"{round_label} " if round_label else ""
         for ch in channels:
             qs = self.bank.pick(ch, config.POLLS_PER_SLOT)
             if not qs:
                 print(f"   [slot] {ch}: no questions available")
                 continue
             cfg = config.CHANNELS[ch]
+            n_pyq = sum(1 for q in qs if q.get("source") == "pyq")
             # slot opener
-            opener = (f"{cfg['emoji']} {cfg['subject']} — {len(qs)} Questions!\n"
-                      f"ఈ స్లాట్‌లో {len(qs)} ప్రశ్నలు — ready? 🔥")
+            opener = (f"{cfg['emoji']} {label}{cfg['subject']} — Quiz Round!\n"
+                      f"📝 {len(qs)} questions — including {n_pyq} previous-paper (PYQ) questions.\n"
+                      f"{len(qs)} ప్రశ్నలు — వాటిలో {n_pyq} మునుపటి ప్రశ్నపత్రాల (PYQ) నుండి. Ready? 🔥\n"
+                      f"Play in our bot group with /quiz to earn points & ranks! ⭐")
             try:
                 self.tg.send_message(config.channel_chat_id(ch), opener)
             except TelegramError as e:
@@ -85,9 +91,10 @@ class Engine:
                 if i < len(qs):
                     self.tg.polite_gap(not self.dry)
             # completion message
-            done = (f"🎌 Slot complete! {len(qs)} questions done.\n"
+            done = (f"🎌 Round complete! {len(qs)} questions done.\n"
                     f"10/10 కొట్టినవారు కామెంట్‌లో 👇 రాయండి!\n"
-                    f"Next quiz: check the daily schedule. Keep your streak 🔥")
+                    f"Want points, ranks & streaks? Register with /register in our quiz bot ⭐\n"
+                    f"Next round: see the daily schedule. Keep your streak 🔥")
             try:
                 self.tg.send_message(config.channel_chat_id(ch), done)
             except TelegramError as e:
@@ -100,8 +107,9 @@ class Engine:
     def morning(self):
         now = datetime.now(config.IST)
         wd = WEEKDAYS_TE[now.weekday()]
-        sched = ("07:30 • 10:30 • 13:30 • 16:30 • 19:30 — Quiz slots\n"
-                 "14:30 — Study tip | 21:30 — Current Affairs digest")
+        sched = ("⛅ 07:30 — Morning quiz round\n🌙 19:30 — Evening quiz round\n"
+                 "14:30 — Study tip | 21:30 — Current Affairs digest\n"
+                 "💼 Jobs updates every 30 min")
         for ch in config.PUBLIC_CHANNELS:
             cfg = config.CHANNELS[ch]
             msg = (f"{cfg['emoji']} శుభోదయం! Good morning, aspirants!\n"
@@ -221,3 +229,14 @@ class Engine:
             print("[leaderboard] posted")
         except TelegramError as e:
             print(f"   [leaderboard] failed: {e}")
+
+    def weekly_leaderboard(self, channels=None):
+        """Post the points-based weekly member leaderboard to channels."""
+        text = self.members.render_leaderboard()
+        targets = channels or ["CURRENT"]
+        for ch in targets:
+            try:
+                self.tg.send_message(config.channel_chat_id(ch), text, parse_mode="Markdown")
+                print(f"[weekly-leaderboard] posted to {ch}")
+            except TelegramError as e:
+                print(f"   [weekly-leaderboard] {ch} failed: {e}")

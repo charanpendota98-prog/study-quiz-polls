@@ -29,6 +29,9 @@ for d in (DATA, LOGS):
 BANK_JSON = DATA / "question_bank.json"
 BANK_EXTRA_JSON = DATA / "question_bank_extra.json"
 BANK_MD = DATA / "quiz_bank_advanced.md"
+BANK_PYQ_JSON = DATA / "pyq_bank.json"
+CURATED_EXTRA_JSON = DATA / "curated_extra.json"
+MEMBERS_JSON = DATA / "members.json"
 CA_CURATED_JSON = DATA / "ca_curated.json"
 TIPS_JSON = DATA / "study_tips.json"
 
@@ -213,17 +216,21 @@ def channel_chat_id(key: str) -> str:
 # Schedule (IST). Each entry maps an IST "HH:MM" to a task.
 # Slots are minute-aligned; watch.py evaluates once per minute.
 # ---------------------------------------------------------------------------
+# TWO main quiz rounds a day (India No.1 cadence — morning + evening).
+# Add a line (e.g. "13:30": ("quiz", {"slot": 3})) to add more rounds anytime.
 SCHEDULE = {
     "06:00": ("filler", {"reason": "morning top-up"}),
     "07:00": ("morning", {}),
-    "07:30": ("quiz", {"slot": 1}),
-    "10:30": ("quiz", {"slot": 2}),
-    "13:30": ("quiz", {"slot": 3}),
+    "07:30": ("quiz", {"slot": 1, "round": "Morning ⛅"}),
     "14:30": ("tip", {}),
-    "16:30": ("quiz", {"slot": 4}),
-    "19:30": ("quiz", {"slot": 5}),
+    "19:30": ("quiz", {"slot": 2, "round": "Evening 🌙"}),
+    "21:00": ("leaderboard", {"when": "sunday"}),   # weekly toppers, Sunday only
     "21:30": ("digest", {}),
 }
+
+# Quiz slot minutes (2/day) — reminders derive from these automatically.
+QUIZ_SLOT_TIMES = ["07:30", "19:30"]
+QUIZ_SLOT_HOURS = {t.split(":")[0]: 0 for t in []}  # placeholder
 
 # Reminders fire 10 / 5 / 1 minutes before each quiz slot.
 REMINDER_BEFORE_MIN = (10, 5, 1)

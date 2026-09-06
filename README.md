@@ -16,31 +16,49 @@ Defence (NDA/CDS/Agniveer), and Current Affairs GK** — plus a private
 
 | Feature | Detail |
 |---|---|
-| **Native quiz polls** | `sendPoll` type `quiz` with `correct_option_id` → Telegram gives instant right/wrong feedback + an **explanation**. |
-| **Fully bilingual** | Every poll shows English **and** Telugu (U+0C00–0C7F) in the question and options. Forbidden Indic scripts (Hindi/Kannada/Malayalam…) are rejected. |
-| **Self-filling question bank** | An **offline procedural generator** creates an *unlimited* supply of aptitude questions whose answers are **computed in code and independently test-verified** (percentages, SI/CI, ratio, time-work, averages, series, coding, clock, calendar, direction, ranking…). AI keys add worded/reasoning/GK questions when present. |
-| **Real RSS aggregation** | 12+ CA + jobs feeds (stdlib XML parser, feedparser if installed), 2-tier relevance filter, other-state hard block, blocked-topic filter. |
-| **4-layer dedup** | Fingerprint + Jaccard + character-shingle similarity; CA 48h / jobs 12h / global 6h TTL stores; in-batch collapse; number-aware so "15% of 5000" ≠ "25% of 200". |
-| **Zero-downtime philosophy** | **Never silent.** If feeds/LLM/network fail → curated CA, curated jobs and offline-generated quizzes keep every slot running. Atomic JSON writes survive crashes (no database needed — 1 GB RAM friendly). |
-| **Leaderboard + streaks** | Non-anonymous quizzes in study groups feed per-user accuracy, daily streaks and a weekly 🥇🥈🥉 leaderboard. Interactive bot: `/quiz /stats /leaderboard`. |
-| **Smart slot selection** | Each slot picks questions for **topic diversity** and **answer-key balance** (never all-A), with rotation so no question repeats until the bank cycles. |
-| **Validation gate** | `finalize.py` machine-checks every question (4+4 options, valid index, Telugu policy, length caps, blocked-topic, duplicates, answer-key skew) before deploy. |
-| **Telegram-safe pacing** | 2.2–3.2 s gaps between polls, ~72 msgs/channel/day, no links in public — avoids spam flags. |
-| **IST scheduler** | One 24/7 process (`watch.py`) with an Asia/Kolkata clock; reminders 10/5/1 min before each slot. |
+| **2 big quiz rounds daily** | ⛅ **07:30 morning** + 🌙 **19:30 evening** — 10 polls per channel per round (70/round). Add more rounds with one config line. |
+| **Previous-Year Questions first** | An authentic **PYQ bank** (`data/pyq_bank.json`, TSPSC/APPSC/RRB/IBPS/SBI/Police/NDA/CDS/UPSC patterns) is **prioritised in every round** (about 4 of 10), then curated, then generated. |
+| **Member registration** | `/register` guided sign-up (name → exam target → language), +25 bonus points. Members stored in `data/members.json`. |
+| **Points, levels & ranks** | +10 per correct answer, +5 daily activity, streak bonuses (3/7/15/30/100 days), levels 🆕→🥉→🥈→🥇→💎→👑 Champion, weekly + all-time leaderboards. |
+| **Native quiz polls** | `sendPoll` type `quiz` with `correct_option_id` → instant right/wrong feedback + **explanation**. Bot quizzes are non-anonymous so they earn points. |
+| **Fully bilingual** | Every poll shows English **and** Telugu (U+0C00–0C7F). Forbidden Indic scripts (Hindi/Kannada/Malayalam…) are rejected. |
+| **Self-filling question bank** | An **offline procedural generator** creates an *unlimited* supply of verified-correct aptitude questions (answers computed in code & test-proven). AI keys add worded/GK when present. |
+| **Real RSS aggregation** | 12+ CA + jobs feeds (stdlib XML, feedparser if present), 2-tier relevance filter, other-state & blocked-topic filters. |
+| **4-layer dedup** | Fingerprint + Jaccard + char-shingle similarity; CA 48h / jobs 12h / global 6h TTL; number-aware so "15% of 5000" ≠ "25% of 200". |
+| **Never silent** | If feeds/LLM/network fail → curated CA, curated jobs, PYQ and offline quizzes keep every round live. Atomic JSON, no database. |
+| **Smart round selection** | PYQ-first ordering + topic diversity + answer-key balance (never all-A) + rotation. |
+| **Validation gate** | `finalize.py` machine-checks every question before deploy. 28 tests including answer-correctness proofs. |
+| **Telegram-safe pacing** | 2.2–3.2 s gaps; no links in public; IST scheduler with 10/5/1-min reminders. |
+
+### 🏆 Points system (in the bot)
+- **+25** completing `/register`
+- **+10** every correct answer
+- **+5** first activity each day
+- **Streak bonus:** 3 days +20 · 7 days +75 · 15 days +200 · 30 days +500 · 100 days +2000 🔥
+- **Levels:** 🆕 Newcomer (0) → 🥉 Bronze (100) → 🥈 Silver (300) → 🥇 Gold (700) → 💎 Platinum (1500) → 👑 Champion (3000)
+
+> Channel auto-polls are anonymous (Telegram rule) — members earn points by playing
+> `/quiz` **in the bot / study group**. Add `@DailyQuizPosterbot` to your group so
+> everyone competes on the leaderboard.
 
 ---
 
 ## 📅 Daily schedule (IST)
 
-| Time | What |
+| Time (IST) | What |
 |---|---|
 | 06:00 | Auto top-up question bank if any pool runs low |
 | 07:00 | Morning greeting + today's schedule (all 7 public channels) |
-| 07:30 / 10:30 / 13:30 / 16:30 / 19:30 | **Quiz slots** — 10 bilingual polls per channel + 🎌 completion message |
-| (−10/−5/−1 min) | Reminders (EN + Telugu) before each slot |
+| **⛅ 07:30** | **Morning quiz round** — 10 bilingual PYQ-first polls per channel |
+| (−10/−5/−1 min) | Reminders (EN + Telugu) before each round |
 | 14:30 | Daily study tip (rotating, EN + Telugu) |
-| 21:30 | Current Affairs digest — 6 exam-relevant items, EN + Telugu, no links |
-| Every :00 / :30 | Jobs & Exams update to the **private** jobs channel (links allowed, max 5) |
+| **🌙 19:30** | **Evening quiz round** — 10 bilingual PYQ-first polls per channel |
+| 21:00 Sunday | Weekly member leaderboard (points + ranks) |
+| 21:30 | Current Affairs digest — 6 exam-relevant items, EN + Telugu |
+| Every :00 / :30 | Jobs & Exams update to the **private** jobs channel (links, max 5) |
+
+> Want more than 2 rounds? Add a line to `SCHEDULE` in `core/config.py`,
+> e.g. `"13:30": ("quiz", {"slot": 3, "round": "Afternoon ☀️"})`. Reminders update automatically.
 
 ---
 

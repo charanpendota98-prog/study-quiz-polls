@@ -55,7 +55,7 @@ def main():
     elif args.slot == "reminder":
         eng.reminder(args.in_min)
     elif args.slot == "leaderboard":
-        eng.leaderboard_post()
+        eng.weekly_leaderboard()
 
 
 if __name__ == "__main__":

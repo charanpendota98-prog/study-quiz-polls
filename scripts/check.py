@@ -49,6 +49,7 @@ def main():
     # assets
     print("\n[3] Content assets")
     for name, path, key in [
+        ("PYQ bank", config.BANK_PYQ_JSON, "questions"),
         ("CA curated", config.CA_CURATED_JSON, "items"),
         ("Study tips", config.TIPS_JSON, "tips"),
         ("Jobs curated", config.DATA / "jobs_curated.json", "items"),
@@ -60,6 +61,19 @@ def main():
         if not n:
             ok = False
         print(f"  [{status}] {name:15s} {n}")
+
+    # members
+    print("\n[3b] Members & points")
+    try:
+        from core.members import Members
+        mb = Members()
+        reg = mb.count()
+        print(f"  Registered members: {reg}")
+        top = mb.top(3)
+        for i, (uid, m) in enumerate(top):
+            print(f"    {i+1}. {m.get('name','?')} — ⭐{m.get('points',0)}")
+    except Exception as e:
+        print("  members note:", e)
 
     # telegram
     if config.BOT_TOKEN:

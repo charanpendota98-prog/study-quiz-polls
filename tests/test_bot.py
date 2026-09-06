@@ -23,6 +23,98 @@ from core.question_bank import Bank, rebuild_json, parse_markdown
 from core.store import similarity, normalize, SeenStore
 from core.content import build_options, build_question_text, validate_question
 from core.engine import Engine
+from core.members import Members, level_for, STREAK_BONUS
+from core.store import load_json
+
+
+class TestMembers(unittest.TestCase):
+    def setUp(self):
+        # isolate: use a throwaway members store (never touch real data)
+        import tempfile
+        from pathlib import Path as _P
+        self.tmp = _P(tempfile.gettempdir()) / "test_members.json"
+        if self.tmp.exists():
+            self.tmp.unlink()
+        self.mb = Members()
+        self.mb.kv.path = self.tmp
+        self.mb.data = {"members": {}, "pending": {}}
+        self.mb.members = self.mb.data["members"]
+        self.mb.pending = self.mb.data["pending"]
+        self.uid = 999001
+
+    def tearDown(self):
+        if self.tmp.exists():
+            self.tmp.unlink()
+
+    def test_registration_flow(self):
+        self.mb.start_registration(self.uid, username="tester")
+        s, _ = self.mb.registration_input(self.uid, "Test User")
+        self.assertEqual(s, "ask_exam")
+        s, _ = self.mb.registration_input(self.uid, "1")  # TSPSC
+        self.assertEqual(s, "ask_lang")
+        s, _ = self.mb.registration_input(self.uid, "2")  # Telugu
+        self.assertEqual(s, "done")
+        p = self.mb.profile(self.uid)
+        self.assertTrue(p["registered"])
+        self.assertEqual(p["exam"], "TSPSC")
+        self.assertEqual(p["lang"], "Telugu")
+        self.assertEqual(p["points"], 25)  # registration bonus
+
+    def test_points_correct_answer(self):
+        self.mb.register(self.uid, name="T")
+        before = self.mb.profile(self.uid)["points"]
+        res = self.mb.award_answer(self.uid, correct=True)
+        after = self.mb.profile(self.uid)["points"]
+        self.assertGreater(after, before)
+        self.assertTrue(any("correct" in e for e in res["events"]))  # +10 correct
+        self.assertEqual(after - before, res["earned"])
+
+    def test_levels(self):
+        self.assertEqual(level_for(0)["title_en"], "Newcomer")
+        self.assertEqual(level_for(150)["title_en"], "Bronze")
+        self.assertEqual(level_for(400)["title_en"], "Silver")
+        self.assertEqual(level_for(800)["title_en"], "Gold")
+        self.assertEqual(level_for(1600)["title_en"], "Platinum")
+        self.assertEqual(level_for(5000)["title_en"], "Champion")
+
+    def test_ranking(self):
+        self.mb.register(1, name="A")
+        self.mb.register(2, name="B")
+        for _ in range(3):
+            self.mb.award_answer(1, correct=True)
+        for _ in range(6):
+            self.mb.award_answer(2, correct=True)
+        self.assertEqual(self.mb.rank(2), 1)
+        self.assertEqual(self.mb.rank(1), 2)
+
+    def test_streak_bonus_present(self):
+        self.assertIn(7, STREAK_BONUS)
+        self.assertEqual(STREAK_BONUS[7], 75)
+
+
+class TestPYQBank(unittest.TestCase):
+    def test_pyq_loads_and_valid(self):
+        data = load_json(config.BANK_PYQ_JSON, {"questions": []})
+        pyq = data.get("questions", [])
+        self.assertGreaterEqual(len(pyq), 20)
+        for q in pyq:
+            self.assertEqual(validate_question(q), [],
+                             f"{q['id']} invalid: {validate_question(q)}")
+            self.assertEqual(q.get("source"), "pyq")
+
+    def test_round_includes_pyq(self):
+        b = Bank()
+        qs = b.pick("TSPSC", 10)
+        sources = {q.get("source") for q in qs}
+        self.assertIn("pyq", sources)
+
+
+class TestSchedule(unittest.TestCase):
+    def test_two_daily_rounds(self):
+        quiz_times = [t for t, (task, _) in config.SCHEDULE.items() if task == "quiz"]
+        self.assertEqual(len(quiz_times), 2)
+        self.assertIn("07:30", quiz_times)
+        self.assertIn("19:30", quiz_times)
 
 
 class TestBank(unittest.TestCase):
@@ -215,13 +307,6 @@ class TestPollFormat(unittest.TestCase):
                 cfg = config.CHANNELS[ch]
                 qt = build_question_text(q, cfg)
                 self.assertLessEqual(len(qt), 300, f"{q['id']} question too long")
-
-
-class TestScheduler(unittest.TestCase):
-    def test_schedule_has_all_slots(self):
-        for t in ("07:00", "07:30", "10:30", "13:30", "16:30", "19:30",
-                  "14:30", "21:30", "06:00"):
-            self.assertIn(t, config.SCHEDULE)
 
 
 if __name__ == "__main__":
