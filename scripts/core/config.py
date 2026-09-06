@@ -235,6 +235,7 @@ SCHEDULE = {
     "06:00": ("filler", {"reason": "morning top-up"}),
     "07:00": ("morning", {}),
     "07:30": ("quiz", {"slot": 1, "round": "Morning ⛅"}),
+    "08:00": ("answer_key", {"round": "Morning ⛅"}),  # delayed key (no-op if instant)
     "07:40": ("collect", {"reason": "post-morning-quiz"}),
     "08:15": ("collect", {"reason": "post-morning deep scrape"}),
     "11:00": ("collect", {"reason": "late-morning scrape"}),
@@ -242,6 +243,7 @@ SCHEDULE = {
     "14:30": ("tip", {}),
     "16:00": ("collect", {"reason": "pre-evening top-up scrape"}),
     "19:30": ("quiz", {"slot": 2, "round": "Evening 🌙"}),
+    "20:00": ("answer_key", {"round": "Evening 🌙"}),  # delayed key (no-op if instant)
     "19:40": ("collect", {"reason": "post-evening-quiz"}),
     "20:15": ("collect", {"reason": "post-evening deep scrape"}),
     "21:00": ("leaderboard", {"when": "sunday"}),   # weekly toppers, Sunday only
@@ -263,6 +265,19 @@ POLLS_PER_SLOT = 10
 POLL_GAP_MIN = 2.2          # never faster than 2.2s — avoids Telegram spam flag
 POLL_GAP_MAX = 3.2
 FILLER_TRIGGER_UNUSED = 20  # if a channel bank has < this unused, top-up
+
+# Poll presentation
+# TELUGU_FIRST=1 (default) → Telugu line above English in every poll (TS/AP first).
+# ANSWER_MODE=instant (default) → Telegram quiz poll with correct_option_id
+#   (instant ✅/❌ feedback + explanation).
+# ANSWER_MODE=delayed → regular quiz still uses correct_option_id for scoring,
+#   but explanation is withheld; a full bilingual answer-key is posted after
+#   the round (advanced delayed answer key).
+TELUGU_FIRST = env("TELUGU_FIRST", "1").lower() not in ("0", "false", "no", "off")
+ANSWER_MODE = (env("ANSWER_MODE", "instant") or "instant").strip().lower()
+if ANSWER_MODE not in ("instant", "delayed"):
+    ANSWER_MODE = "instant"
+QUIZ_OPEN_PERIOD = int(env("QUIZ_OPEN_PERIOD", "300") or "300")  # seconds poll stays open
 
 # Telegram limits
 TG_POLL_OPTION_MAX = 100    # chars per option

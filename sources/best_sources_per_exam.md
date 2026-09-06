@@ -1,6 +1,6 @@
 # STUDENTUP — BEST EXAM SOURCES MAPPING (PER EXAM / BANK)
 # Version: 3.0 — 100+ Sources Categorized by Exam Relevance
-# Machine source of truth: data/collector_sources.json (72 entries, audited 2026-09-06)
+# Machine source of truth: data/collector_sources.json (153 entries v4.0, audited 2026-09-06)
 # Rule: ONLY REAL EXAM QUESTIONS — NO DUMMY — NO SAMPLE — NO MISTAKES — NO SAMPLE PAPERS
 # Every source listed here is either: LIVE VERIFIED (Aug 2026) or TESTED (Server OK, Sandbox 403)
 # DEAD / STALE / JUNK sources are PERMANENTLY EXCLUDED (see exclusion table at end)

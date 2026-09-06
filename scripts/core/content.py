@@ -167,27 +167,33 @@ def _clamp(text: str, limit: int) -> str:
     return text[: limit - 1].rstrip() + "…"
 
 
-def build_question_text(q: dict, channel_cfg: dict) -> str:
+def build_question_text(q: dict, channel_cfg: dict, telugu_first: bool = True) -> str:
     """
     Compose the poll question (≤300 chars).
-    Format: {emoji} {subject} • Q{n}
-            {English question}
-            {Telugu question}
+    Telugu-first (default for TS/AP aspirants):
+      {emoji} {subject} • {topic}
+      {Telugu question}
+      {English question}
     """
     en = (q.get("q_en") or "").strip()
     te = (q.get("q_te") or "").lstrip("⤷").strip()
     header = f"{channel_cfg['emoji']} {channel_cfg['subject']} • {q.get('topic','').title()}"
-    body = en
-    if te:
-        body += f"\n⤷ {te}"
+    if telugu_first and te:
+        body = f"{te}"
+        if en:
+            body += f"\n{en}"
+    else:
+        body = en
+        if te:
+            body += f"\n⤷ {te}"
     text = f"{header}\n{body}"
     return _clamp(text, 300)
 
 
-def build_options(q: dict) -> list:
+def build_options(q: dict, telugu_first: bool = True) -> list:
     """
     Merge EN + TE into exactly 4 option strings (≤100 chars each).
-    Style: "A) English — Telugu" (Telugu omitted if it would overflow).
+    Telugu-first style: "A) Telugu — English" (falls back to EN-only if needed).
     """
     letters = ["A", "B", "C", "D"]
     en = q.get("options_en", [])
@@ -199,24 +205,68 @@ def build_options(q: dict) -> list:
         # Strip a leading "A)" if the source already has it
         e = re.sub(r"^[A-D][\)\.\:]\s*", "", e)
         t = re.sub(r"^[A-D][\)\.\:]\s*", "", t)
-        opt = f"{letters[i]}) {e}"
-        if t and t != e:
-            merged = f"{opt} — {t}"
-            if len(merged) <= 100:
-                opt = merged
+        if telugu_first and t:
+            opt = f"{letters[i]}) {t}"
+            if e and e != t:
+                merged = f"{opt} — {e}"
+                if len(merged) <= 100:
+                    opt = merged
+        else:
+            opt = f"{letters[i]}) {e}"
+            if t and t != e:
+                merged = f"{opt} — {t}"
+                if len(merged) <= 100:
+                    opt = merged
         out.append(_clamp(opt, 100))
     return out
 
 
-def build_explanation(q: dict) -> str:
+def build_explanation(q: dict, telugu_first: bool = True) -> str:
     expl = (q.get("explanation_en") or q.get("note") or "").strip()
-    if not expl:
+    te = (q.get("explanation_te") or "").lstrip("⤷").strip()
+    if not expl and not te:
         return ""
-    te = q.get("explanation_te", "")
-    text = f"✅ {expl}"
-    if te:
-        text += f"\n⤷ {te.lstrip('⤷').strip()}"
+    if telugu_first and te:
+        text = f"✅ {te}"
+        if expl:
+            text += f"\n{expl}"
+    else:
+        text = f"✅ {expl}" if expl else "✅"
+        if te:
+            text += f"\n⤷ {te}"
     return _clamp(text, 200)
+
+
+def build_answer_key(questions: list, round_label: str = "") -> str:
+    """
+    Delayed answer-key message (posted AFTER the quiz window closes).
+    Lists correct option letter + short bilingual explanation per question.
+    Used when ANSWER_MODE=delayed so polls hide the key until the round ends.
+    """
+    letters = "ABCD"
+    label = f"{round_label} " if round_label else ""
+    lines = [f"🔑 {label}Answer Key — సమాధానాలు\n"]
+    for i, q in enumerate(questions, 1):
+        idx = int(q.get("answer_index", 0))
+        letter = letters[idx] if 0 <= idx < 4 else "?"
+        topic = q.get("topic", "")
+        opts = q.get("options_en") or []
+        tops = q.get("options_te") or []
+        en_opt = str(opts[idx]).strip() if 0 <= idx < len(opts) else ""
+        te_opt = str(tops[idx]).lstrip("⤷").strip() if 0 <= idx < len(tops) else ""
+        ans = te_opt or en_opt
+        if te_opt and en_opt and te_opt != en_opt:
+            ans = f"{te_opt} / {en_opt}"
+        line = f"{i}. {topic} → [{letter}] {ans}" if topic else f"{i}. [{letter}] {ans}"
+        expl_te = (q.get("explanation_te") or "").lstrip("⤷").strip()
+        expl_en = (q.get("explanation_en") or q.get("note") or "").strip()
+        if expl_te:
+            line += f"\n   {expl_te}"
+        elif expl_en:
+            line += f"\n   {expl_en}"
+        lines.append(line)
+    lines.append("\n— StudentUp | PYQ-first · no repeats ✅")
+    return _clamp("\n".join(lines), 4000)
 
 
 # ---------------------------------------------------------------------------

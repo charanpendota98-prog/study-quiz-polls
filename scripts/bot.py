@@ -114,15 +114,18 @@ class Bot:
         if not tag:
             tag = "📜 PYQ" if q.get("source") == "pyq" else "📝 Practice"
         cfg = config.CHANNELS[ch]
-        text = f"{tag} {build_question_text(q, cfg)}"
-        opts = build_options(q)
-        expl = build_explanation(q)
+        tf = bool(getattr(config, "TELUGU_FIRST", True))
+        text = f"{tag} {build_question_text(q, cfg, telugu_first=tf)}"
+        opts = build_options(q, telugu_first=tf)
+        expl = build_explanation(q, telugu_first=tf)
+        # DM/group quizzes ALWAYS use instant correct/wrong (points need it)
         payload = {
             "chat_id": chat_id, "question": text[:300],
             "options": [{"text": o} for o in opts], "type": "quiz",
             "is_anonymous": False,               # track members for points
             "allows_multiple_answers": False,
-            "correct_option_id": q["answer_index"], "open_period": 300,
+            "correct_option_id": q["answer_index"],
+            "open_period": getattr(config, "QUIZ_OPEN_PERIOD", 300),
         }
         if expl.strip():
             payload["explanation"] = expl[:config.TG_POLL_EXPLANATION_MAX]

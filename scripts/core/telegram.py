@@ -101,7 +101,14 @@ class Telegram:
     # ------------------------------------------------------------- high-level
     def send_quiz(self, chat_id: str, question: str, options: list,
                   correct_index: int, explanation: str = "",
-                  open_period: int = 300) -> dict:
+                  open_period: int = 300, with_explanation: bool = True) -> dict:
+        """Native Telegram quiz poll.
+
+        Instant mode (default): correct_option_id + explanation → Telegram
+        shows ✅/❌ immediately after the user votes.
+        Delayed mode: still sets correct_option_id (so Telegram marks right/
+        wrong) but omits explanation; Engine posts a full answer-key later.
+        """
         if len(options) < 2:
             raise TelegramError("quiz needs >=2 options")
         payload = {
@@ -114,7 +121,7 @@ class Telegram:
             "correct_option_id": int(correct_index),
             "open_period": open_period,
         }
-        if explanation.strip():
+        if with_explanation and explanation.strip():
             payload["explanation"] = explanation[:config.TG_POLL_EXPLANATION_MAX]
         return self._call("sendPoll", payload)
 

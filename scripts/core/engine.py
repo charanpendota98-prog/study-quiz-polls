@@ -15,7 +15,8 @@ from datetime import datetime
 from . import config
 from .telegram import Telegram, TelegramError
 from .question_bank import Bank
-from .content import build_question_text, build_options, build_explanation
+from .content import (build_question_text, build_options, build_explanation,
+                      build_answer_key)
 from .leaderboard import Leaderboard
 from .members import Members
 from .store import load_json
@@ -51,11 +52,18 @@ class Engine:
     def send_quiz(self, channel_key, q):
         cfg = config.CHANNELS[channel_key]
         chat = config.channel_chat_id(channel_key)
-        text = build_question_text(q, cfg)
-        opts = build_options(q)
-        expl = build_explanation(q)
+        tf = bool(getattr(config, "TELUGU_FIRST", True))
+        text = build_question_text(q, cfg, telugu_first=tf)
+        opts = build_options(q, telugu_first=tf)
+        expl = build_explanation(q, telugu_first=tf)
+        # Instant = show explanation with poll; delayed = withhold for answer-key post
+        instant = getattr(config, "ANSWER_MODE", "instant") != "delayed"
         try:
-            res = self.tg.send_quiz(chat, text, opts, q["answer_index"], expl)
+            res = self.tg.send_quiz(
+                chat, text, opts, q["answer_index"], expl,
+                open_period=getattr(config, "QUIZ_OPEN_PERIOD", 300),
+                with_explanation=instant,
+            )
             poll = res.get("result", {}).get("poll") or {}
             poll_id = poll.get("id")
             if poll_id:
@@ -69,17 +77,25 @@ class Engine:
         channels = channels or config.PUBLIC_CHANNELS
         total = 0
         label = f"{round_label} " if round_label else ""
+        # Track this round's questions so a delayed answer-key can be posted later.
+        self._last_round = {"label": round_label or "", "by_channel": {}}
+        delayed = getattr(config, "ANSWER_MODE", "instant") == "delayed"
         for ch in channels:
             qs = self.bank.pick(ch, config.POLLS_PER_SLOT)
             if not qs:
                 print(f"   [slot] {ch}: no questions available")
                 continue
+            self._last_round["by_channel"][ch] = qs
             cfg = config.CHANNELS[ch]
             n_pyq = sum(1 for q in qs if q.get("source") == "pyq")
-            # slot opener
+            mode_note = ("సమాధానాలు రౌండ్ తర్వాత — answer key after round 🔑"
+                         if delayed else
+                         "సరైన/తప్పు వెంటనే — instant ✅/❌ feedback")
+            # slot opener (Telugu-first)
             opener = (f"{cfg['emoji']} {label}{cfg['subject']} — Quiz Round!\n"
-                      f"📝 {len(qs)} questions — including {n_pyq} previous-paper (PYQ) questions.\n"
-                      f"{len(qs)} ప్రశ్నలు — వాటిలో {n_pyq} మునుపటి ప్రశ్నపత్రాల (PYQ) నుండి. Ready? 🔥\n"
+                      f"📝 {len(qs)} ప్రశ్నలు — వాటిలో {n_pyq} PYQ (మునుపటి ప్రశ్నపత్రాలు).\n"
+                      f"{len(qs)} questions — including {n_pyq} previous-paper (PYQ).\n"
+                      f"{mode_note}\n"
                       f"Play in our bot group with /quiz to earn points & ranks! ⭐")
             try:
                 self.tg.send_message(config.channel_chat_id(ch), opener)
@@ -91,17 +107,71 @@ class Engine:
                 if i < len(qs):
                     self.tg.polite_gap(not self.dry)
             # completion message
-            done = (f"🎌 Round complete! {len(qs)} questions done.\n"
-                    f"10/10 కొట్టినవారు కామెంట్‌లో 👇 రాయండి!\n"
-                    f"Want points, ranks & streaks? Register with /register in our quiz bot ⭐\n"
-                    f"Next round: see the daily schedule. Keep your streak 🔥")
+            if delayed:
+                done = (f"🎌 Round complete! {len(qs)} questions done.\n"
+                        f"🔑 Answer key posts shortly — సమాధానాలు కాసేపట్లో.\n"
+                        f"10/10 కొట్టినవారు కామెంట్‌లో 👇 రాయండి!\n"
+                        f"Points & ranks: /register in our quiz bot ⭐")
+            else:
+                done = (f"🎌 Round complete! {len(qs)} questions done.\n"
+                        f"10/10 కొట్టినవారు కామెంట్‌లో 👇 రాయండి!\n"
+                        f"Want points, ranks & streaks? Register with /register in our quiz bot ⭐\n"
+                        f"Next round: see the daily schedule. Keep your streak 🔥")
             try:
                 self.tg.send_message(config.channel_chat_id(ch), done)
             except TelegramError as e:
                 print(f"   [slot] {ch} closer failed: {e}")
             self.tg.polite_gap(not self.dry)
-        print(f"[slot] posted {total} polls across {len(channels)} channels")
+        # Persist last-round snapshot for the delayed answer-key job
+        try:
+            from .store import save_json_atomic
+            snap = {
+                "label": self._last_round.get("label", ""),
+                "by_channel": {
+                    ch: [{"id": q.get("id"), "topic": q.get("topic"),
+                          "answer_index": q.get("answer_index"),
+                          "options_en": q.get("options_en"),
+                          "options_te": q.get("options_te"),
+                          "explanation_en": q.get("explanation_en"),
+                          "explanation_te": q.get("explanation_te")}
+                         for q in qs]
+                    for ch, qs in self._last_round.get("by_channel", {}).items()
+                },
+            }
+            save_json_atomic(config.DATA / "last_round.json", snap)
+        except Exception as e:
+            print(f"   [slot] last_round save note: {e}")
+        print(f"[slot] posted {total} polls across {len(channels)} channels "
+              f"(mode={getattr(config, 'ANSWER_MODE', 'instant')})")
         return total
+
+    def post_answer_key(self, round_label: str = "", channels=None):
+        """Post the delayed bilingual answer key (no-op when ANSWER_MODE=instant)."""
+        if getattr(config, "ANSWER_MODE", "instant") != "delayed":
+            print("[answer_key] skipped (ANSWER_MODE=instant — keys already on polls)")
+            return 0
+        channels = channels or config.PUBLIC_CHANNELS
+        snap = {}
+        try:
+            snap = load_json(config.DATA / "last_round.json", {})
+        except Exception:
+            snap = getattr(self, "_last_round", {}) or {}
+        by_ch = snap.get("by_channel") or {}
+        label = round_label or snap.get("label") or ""
+        posted = 0
+        for ch in channels:
+            qs = by_ch.get(ch) or []
+            if not qs:
+                continue
+            text = build_answer_key(qs, round_label=label)
+            try:
+                self.tg.send_message(config.channel_chat_id(ch), text)
+                posted += 1
+            except TelegramError as e:
+                print(f"   [answer_key] {ch} failed: {e}")
+            self.tg.polite_gap(not self.dry)
+        print(f"[answer_key] posted to {posted} channels")
+        return posted
 
     # ------------------------------------------------------------ morning
     def morning(self):

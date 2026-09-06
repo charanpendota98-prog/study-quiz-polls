@@ -1,6 +1,6 @@
 # STUDENTUP — 100+ EXAM QUESTION & CURRENT AFFAIRS SOURCE DATABASE
 # Version: 3.0 | Date: 2026-09-06 | Verified & Categorized (deep audit)
-# >>> MACHINE SOURCE OF TRUTH: data/collector_sources.json (72 entries) <<<
+# >>> MACHINE SOURCE OF TRUTH: data/collector_sources.json (153 entries, v4.0) <<<
 #   collector reads this registry; core/auditor.py audits it daily (04:45 IST);
 #   scripts/rebuild_registry.py regenerates it; scripts/audit_sources.py prints status.
 # This .md is the HUMAN-READABLE companion (history + per-exam mapping).

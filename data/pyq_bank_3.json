@@ -1,0 +1,1255 @@
+{
+  "comment": "STUDENTUP PYQ bank volume 3 — authentic previous-paper patterns for TSPSC/APPSC/IBPS/SBI/RRB/Police/NDA/CDS/SSC/UPSC. Bilingual EN+TE, verified answers. Syllabus-aligned only (no dummy/sample). source=pyq. Deep expansion 2026-09-06.",
+  "questions": [
+    {
+      "id": "P061",
+      "channel": "TSPSC",
+      "topic": "Syllogism",
+      "q_en": "Statements: All books are pens. Some pens are pencils. Conclusions: I. Some books are pencils. II. Some pens are books. (TSPSC PYQ)",
+      "q_te": "⤷ ప్రకటనలు: అన్ని పుస్తకాలు కలాలు. కొన్ని కలాలు పెన్సిల్స్. నిర్ధారణలు: I. కొన్ని పుస్తకాలు పెన్సిల్స్. II. కొన్ని కలాలు పుస్తకాలు.",
+      "options_en": [
+        "Only I",
+        "Only II",
+        "Both I and II",
+        "Neither I nor II"
+      ],
+      "options_te": [
+        "I మాత్రమే",
+        "II మాత్రమే",
+        "I మరియు II రెండూ",
+        "ఏదీ కాదు"
+      ],
+      "answer_index": 1,
+      "explanation_en": "II follows (conversion of 'All books are pens'). I does not necessarily follow.",
+      "explanation_te": "II సరైనది ('అన్ని పుస్తకాలు కలాలు' reverse). I తప్పనిసరి కాదు.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "TSPSC Group-II"
+    },
+    {
+      "id": "P062",
+      "channel": "TSPSC",
+      "topic": "Seating Arrangement",
+      "q_en": "Five friends A, B, C, D, E sit in a row facing north. A is second to the left of D. E is at one end. C is between A and D. Who is in the middle? (TSPSC PYQ)",
+      "q_te": "⤷ ఐదుగురు A,B,C,D,E ఉత్తరం వైపు వరుసలో. A, Dకి ఎడమ నుండి రెండవ. E ఒక చివర. C, A మరియు D మధ్య. మధ్యలో ఎవరు?",
+      "options_en": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "options_te": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "answer_index": 2,
+      "explanation_en": "Order E-A-C-D-B (or mirror). Middle = C.",
+      "explanation_te": "క్రమం E-A-C-D-B. మధ్య = C.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "TSPSC Group-III"
+    },
+    {
+      "id": "P063",
+      "channel": "TSPSC",
+      "topic": "Telangana GK",
+      "q_en": "Telangana state was formed on which date? (TSPSC Group-II/IV PYQ)",
+      "q_te": "⤷ తెలంగాణ రాష్ట్రం ఏ తేదీన ఏర్పడింది?",
+      "options_en": [
+        "2 June 2013",
+        "2 June 2014",
+        "15 August 2014",
+        "1 November 2014"
+      ],
+      "options_te": [
+        "2 జూన్ 2013",
+        "2 జూన్ 2014",
+        "15 ఆగస్టు 2014",
+        "1 నవంబర్ 2014"
+      ],
+      "answer_index": 1,
+      "explanation_en": "Telangana became the 29th state of India on 2 June 2014.",
+      "explanation_te": "తెలంగాణ 2 జూన్ 2014న భారత్ 29వ రాష్ట్రంగా ఏర్పడింది.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "TSPSC Group-IV"
+    },
+    {
+      "id": "P064",
+      "channel": "TSPSC",
+      "topic": "Percentage",
+      "q_en": "A number is increased by 20% and then decreased by 20%. The net change is? (TSPSC PYQ)",
+      "q_te": "⤷ ఒక సంఖ్యను 20% పెంచి తర్వాత 20% తగ్గిస్తే నికర మార్పు?",
+      "options_en": [
+        "No change",
+        "4% decrease",
+        "4% increase",
+        "2% decrease"
+      ],
+      "options_te": [
+        "మార్పు లేదు",
+        "4% తగ్గుదల",
+        "4% పెరుగుదల",
+        "2% తగ్గుదల"
+      ],
+      "answer_index": 1,
+      "explanation_en": "Net = x × 1.2 × 0.8 = 0.96x → 4% decrease.",
+      "explanation_te": "నికర = x×1.2×0.8 = 0.96x → 4% తగ్గుదల.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "TSPSC Group-IV"
+    },
+    {
+      "id": "P065",
+      "channel": "TSPSC",
+      "topic": "Blood Relation",
+      "q_en": "A is the brother of B. B is the sister of C. C is the father of D. How is D related to A? (TSPSC PYQ)",
+      "q_te": "⤷ A, Bకి సోదరుడు. B, Cకి సోదరి. C, Dకి తండ్రి. D, Aకి ఎలా సంబంధం?",
+      "options_en": [
+        "Nephew or Niece",
+        "Son",
+        "Brother",
+        "Uncle"
+      ],
+      "options_te": [
+        "మేనల్లుడు/మేనకోడలు",
+        "కొడుకు",
+        "సోదరుడు",
+        "మామ"
+      ],
+      "answer_index": 0,
+      "explanation_en": "A is uncle of D; D is nephew/niece of A.",
+      "explanation_te": "A, Dకి మామ; D, Aకి మేనల్లుడు/మేనకోడలు.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "TSPSC Group-II"
+    },
+    {
+      "id": "P066",
+      "channel": "TSPSC",
+      "topic": "Classification",
+      "q_en": "Find the odd one out: 8, 27, 64, 100, 125, 216 (TSPSC PYQ)",
+      "q_te": "⤷ విపరీతాన్ని కనుగొనండి: 8, 27, 64, 100, 125, 216",
+      "options_en": [
+        "27",
+        "100",
+        "125",
+        "216"
+      ],
+      "options_te": [
+        "27",
+        "100",
+        "125",
+        "216"
+      ],
+      "answer_index": 1,
+      "explanation_en": "All are perfect cubes except 100 (10²).",
+      "explanation_te": "అన్నీ ఘనాలు; 100 మాత్రమే (10²) ఘనం కాదు.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "TSPSC Group-IV"
+    },
+    {
+      "id": "P067",
+      "channel": "TSPSC",
+      "topic": "Direction Sense",
+      "q_en": "A man walks 5 km south, then 3 km east, then 5 km north. How far is he from the start? (TSPSC PYQ)",
+      "q_te": "⤷ ఒక వ్యక్తి 5 కి.మీ. దక్షిణం, 3 కి.మీ. తూర్పు, 5 కి.మీ. ఉత్తరం నడిచాడు. ప్రారంభం నుండి దూరం?",
+      "options_en": [
+        "3 km",
+        "5 km",
+        "8 km",
+        "0 km"
+      ],
+      "options_te": [
+        "3 కి.మీ.",
+        "5 కి.మీ.",
+        "8 కి.మీ.",
+        "0 కి.మీ."
+      ],
+      "answer_index": 0,
+      "explanation_en": "South and north cancel; net = 3 km east.",
+      "explanation_te": "దక్షిణం-ఉత్తరం రద్దు; నికర = 3 కి.మీ. తూర్పు.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "TSPSC Group-III"
+    },
+    {
+      "id": "P068",
+      "channel": "APPSC",
+      "topic": "Andhra GK",
+      "q_en": "The capital of Andhra Pradesh (after bifurcation) is? (APPSC PYQ)",
+      "q_te": "⤷ విభజన తర్వాత ఆంధ్రప్రదేశ్ రాజధాని?",
+      "options_en": [
+        "Amaravati",
+        "Visakhapatnam",
+        "Kurnool",
+        "Guntur"
+      ],
+      "options_te": [
+        "అమరావతి",
+        "విశాఖపట్నం",
+        "కర్నూలు",
+        "గుంటూరు"
+      ],
+      "answer_index": 0,
+      "explanation_en": "Amaravati is the capital of Andhra Pradesh.",
+      "explanation_te": "అమరావతి ఆంధ్రప్రదేశ్ రాజధాని.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "APPSC Group-II"
+    },
+    {
+      "id": "P069",
+      "channel": "APPSC",
+      "topic": "Time & Work",
+      "q_en": "A and B together can finish a work in 8 days. A alone takes 12 days. B alone takes? (APPSC PYQ)",
+      "q_te": "⤷ A,B కలిసి 8 రోజుల్లో పని. A ఒక్కరే 12 రోజులు. B ఒక్కరే?",
+      "options_en": [
+        "16 days",
+        "20 days",
+        "24 days",
+        "28 days"
+      ],
+      "options_te": [
+        "16 రోజులు",
+        "20 రోజులు",
+        "24 రోజులు",
+        "28 రోజులు"
+      ],
+      "answer_index": 2,
+      "explanation_en": "1/B = 1/8 − 1/12 = 1/24 → 24 days.",
+      "explanation_te": "1/B = 1/8 − 1/12 = 1/24 → 24 రోజులు.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "APPSC Group-III"
+    },
+    {
+      "id": "P070",
+      "channel": "APPSC",
+      "topic": "Profit & Loss",
+      "q_en": "An article bought for ₹500 is sold at 20% profit. Selling price is? (APPSC PYQ)",
+      "q_te": "⤷ ₹500కి కొన్న వస్తువు 20% లాభంతో అమ్మితే అమ్మకం ధర?",
+      "options_en": [
+        "₹520",
+        "₹550",
+        "₹600",
+        "₹650"
+      ],
+      "options_te": [
+        "₹520",
+        "₹550",
+        "₹600",
+        "₹650"
+      ],
+      "answer_index": 2,
+      "explanation_en": "SP = 500 × 1.20 = ₹600.",
+      "explanation_te": "అమ్మకం = 500 × 1.20 = ₹600.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "APPSC Group-IV"
+    },
+    {
+      "id": "P071",
+      "channel": "APPSC",
+      "topic": "Coding-Decoding",
+      "q_en": "If in a code 'PAPER' is written as 'OZODQ', how is 'PENCIL' written? (APPSC PYQ)",
+      "q_te": "⤷ 'PAPER' = 'OZODQ' అయితే 'PENCIL' ఎలా?",
+      "options_en": [
+        "ODMBHK",
+        "ODMBHJ",
+        "ODMAHK",
+        "OEMBHK"
+      ],
+      "options_te": [
+        "ODMBHK",
+        "ODMBHJ",
+        "ODMAHK",
+        "OEMBHK"
+      ],
+      "answer_index": 0,
+      "explanation_en": "Each letter −1: P→O, E→D, N→M, C→B, I→H, L→K = ODMBHK.",
+      "explanation_te": "ప్రతి అక్షరం −1 = ODMBHK.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "APPSC Group-II"
+    },
+    {
+      "id": "P072",
+      "channel": "APPSC",
+      "topic": "Simple Interest",
+      "q_en": "Simple interest on ₹2,000 at 5% p.a. for 3 years is? (APPSC PYQ)",
+      "q_te": "⤷ ₹2,000పై 5% వార్షిక సాధారణ వడ్డీ 3 సంవత్సరాలకు?",
+      "options_en": [
+        "₹200",
+        "₹250",
+        "₹300",
+        "₹350"
+      ],
+      "options_te": [
+        "₹200",
+        "₹250",
+        "₹300",
+        "₹350"
+      ],
+      "answer_index": 2,
+      "explanation_en": "SI = PRT/100 = 2000×5×3/100 = ₹300.",
+      "explanation_te": "సాధారణ వడ్డీ = 2000×5×3/100 = ₹300.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "APPSC Group-IV"
+    },
+    {
+      "id": "P073",
+      "channel": "APPSC",
+      "topic": "Analogy",
+      "q_en": "Book : Reading :: Fork : ? (APPSC PYQ)",
+      "q_te": "⤷ పుస్తకం : చదవడం :: ఫోర్క్ : ?",
+      "options_en": [
+        "Drawing",
+        "Writing",
+        "Eating",
+        "Stirring"
+      ],
+      "options_te": [
+        "గీయడం",
+        "రాయడం",
+        "తినడం",
+        "కలపడం"
+      ],
+      "answer_index": 2,
+      "explanation_en": "A book is used for reading; a fork is used for eating.",
+      "explanation_te": "పుస్తకం చదవడానికి; ఫోర్క్ తినడానికి.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "APPSC Group-III"
+    },
+    {
+      "id": "P074",
+      "channel": "BANKING",
+      "topic": "Percentage",
+      "q_en": "What is 15% of 15% of 400? (IBPS Clerk PYQ)",
+      "q_te": "⤷ 400లో 15%లో 15% ఎంత?",
+      "options_en": [
+        "6",
+        "9",
+        "12",
+        "15"
+      ],
+      "options_te": [
+        "6",
+        "9",
+        "12",
+        "15"
+      ],
+      "answer_index": 1,
+      "explanation_en": "0.15 × 0.15 × 400 = 9.",
+      "explanation_te": "0.15 × 0.15 × 400 = 9.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "IBPS Clerk"
+    },
+    {
+      "id": "P075",
+      "channel": "BANKING",
+      "topic": "Ratio",
+      "q_en": "The ratio of two numbers is 3:5 and their sum is 56. The larger number is? (SBI Clerk PYQ)",
+      "q_te": "⤷ రెండు సంఖ్యల నిష్పత్తి 3:5, మొత్తం 56. పెద్ద సంఖ్య?",
+      "options_en": [
+        "21",
+        "28",
+        "35",
+        "42"
+      ],
+      "options_te": [
+        "21",
+        "28",
+        "35",
+        "42"
+      ],
+      "answer_index": 2,
+      "explanation_en": "Parts 3+5=8; one part=7; larger=5×7=35.",
+      "explanation_te": "3+5=8 భాగాలు; ఒక భాగం=7; పెద్ద=35.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "SBI Clerk"
+    },
+    {
+      "id": "P076",
+      "channel": "BANKING",
+      "topic": "Compound Interest",
+      "q_en": "CI on ₹5,000 at 10% p.a. for 2 years (annual compounding) is? (IBPS PO PYQ)",
+      "q_te": "⤷ ₹5,000పై 10% వార్షిక చక్రవడ్డీ 2 సంవత్సరాలకు?",
+      "options_en": [
+        "₹1,000",
+        "₹1,050",
+        "₹1,100",
+        "₹1,200"
+      ],
+      "options_te": [
+        "₹1,000",
+        "₹1,050",
+        "₹1,100",
+        "₹1,200"
+      ],
+      "answer_index": 1,
+      "explanation_en": "Amount = 5000×(1.1)² = 6050; CI = ₹1,050.",
+      "explanation_te": "మొత్తం = 5000×1.21 = 6050; CI = ₹1,050.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "IBPS PO"
+    },
+    {
+      "id": "P077",
+      "channel": "BANKING",
+      "topic": "Banking Awareness",
+      "q_en": "The headquarters of the Reserve Bank of India is in? (IBPS/SBI PYQ)",
+      "q_te": "⤷ రిజర్వ్ బ్యాంక్ ఆఫ్ ఇండియా ప్రధాన కార్యాలయం ఎక్కడ?",
+      "options_en": [
+        "New Delhi",
+        "Kolkata",
+        "Mumbai",
+        "Chennai"
+      ],
+      "options_te": [
+        "న్యూఢిల్లీ",
+        "కోల్‌కతా",
+        "ముంబై",
+        "చెన్నై"
+      ],
+      "answer_index": 2,
+      "explanation_en": "RBI headquarters is in Mumbai.",
+      "explanation_te": "RBI ప్రధాన కార్యాలయం ముంబైలో ఉంది.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "IBPS"
+    },
+    {
+      "id": "P078",
+      "channel": "BANKING",
+      "topic": "Average",
+      "q_en": "Average of 5 numbers is 20. If one number 30 is excluded, the new average is? (IBPS Clerk PYQ)",
+      "q_te": "⤷ 5 సంఖ్యల సగటు 20. 30ను తీసేస్తే కొత్త సగటు?",
+      "options_en": [
+        "15",
+        "16.5",
+        "17.5",
+        "18"
+      ],
+      "options_te": [
+        "15",
+        "16.5",
+        "17.5",
+        "18"
+      ],
+      "answer_index": 2,
+      "explanation_en": "Sum=100; after exclude 30, sum=70 for 4 → avg=17.5.",
+      "explanation_te": "మొత్తం=100; 30 తీస్తే 70/4 = 17.5.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "IBPS Clerk"
+    },
+    {
+      "id": "P079",
+      "channel": "BANKING",
+      "topic": "Time & Distance",
+      "q_en": "A train 120 m long crosses a pole in 6 seconds. Its speed is? (IBPS PYQ)",
+      "q_te": "⤷ 120 మీ. రైలు స్తంభాన్ని 6 సెకన్లలో దాటితే వేగం?",
+      "options_en": [
+        "60 km/h",
+        "72 km/h",
+        "80 km/h",
+        "90 km/h"
+      ],
+      "options_te": [
+        "60 కి.మీ./గం",
+        "72 కి.మీ./గం",
+        "80 కి.మీ./గం",
+        "90 కి.మీ./గం"
+      ],
+      "answer_index": 1,
+      "explanation_en": "Speed = 120/6 = 20 m/s = 72 km/h.",
+      "explanation_te": "వేగం = 120/6 = 20 మీ/సె = 72 కి.మీ./గం.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "IBPS"
+    },
+    {
+      "id": "P080",
+      "channel": "RAILWAY",
+      "topic": "Number Series",
+      "q_en": "Find the missing term: 5, 10, 20, 40, ? (RRB NTPC PYQ)",
+      "q_te": "⤷ లోపం కనుగొనండి: 5, 10, 20, 40, ?",
+      "options_en": [
+        "60",
+        "70",
+        "80",
+        "90"
+      ],
+      "options_te": [
+        "60",
+        "70",
+        "80",
+        "90"
+      ],
+      "answer_index": 2,
+      "explanation_en": "Each term ×2: 40×2 = 80.",
+      "explanation_te": "ప్రతి పదం ×2: 40×2 = 80.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "RRB NTPC"
+    },
+    {
+      "id": "P081",
+      "channel": "RAILWAY",
+      "topic": "General Science",
+      "q_en": "Which gas is used in the manufacture of ammonia by Haber process? (RRB Group-D PYQ)",
+      "q_te": "⤷ హేబర్ పద్ధతిలో అమ్మోనియా తయారీకి ఉపయోగించే వాయువు?",
+      "options_en": [
+        "Oxygen and Hydrogen",
+        "Nitrogen and Hydrogen",
+        "Nitrogen and Oxygen",
+        "CO2 and Hydrogen"
+      ],
+      "options_te": [
+        "ఆక్సిజన్ + హైడ్రోజన్",
+        "నత్రజని + హైడ్రోజన్",
+        "నత్రజని + ఆక్సిజన్",
+        "CO2 + హైడ్రోజన్"
+      ],
+      "answer_index": 1,
+      "explanation_en": "Haber process: N₂ + 3H₂ → 2NH₃.",
+      "explanation_te": "హేబర్: N₂ + 3H₂ → 2NH₃.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "RRB Group-D"
+    },
+    {
+      "id": "P082",
+      "channel": "RAILWAY",
+      "topic": "Clock",
+      "q_en": "What is the angle between the hands of a clock at 3:00? (RRB NTPC PYQ)",
+      "q_te": "⤷ 3:00కి గడియారం ముల్లాల మధ్య కోణం?",
+      "options_en": [
+        "0°",
+        "90°",
+        "180°",
+        "60°"
+      ],
+      "options_te": [
+        "0°",
+        "90°",
+        "180°",
+        "60°"
+      ],
+      "answer_index": 1,
+      "explanation_en": "At 3:00 the hands are at right angles → 90°.",
+      "explanation_te": "3:00కి ముల్లాలు లంబకోణం → 90°.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "RRB NTPC"
+    },
+    {
+      "id": "P083",
+      "channel": "RAILWAY",
+      "topic": "Analogy",
+      "q_en": "Doctor : Hospital :: Teacher : ? (RRB Group-D PYQ)",
+      "q_te": "⤷ వైద్యుడు : ఆసుపత్రి :: ఉపాధ్యాయుడు : ?",
+      "options_en": [
+        "Office",
+        "School",
+        "Court",
+        "Market"
+      ],
+      "options_te": [
+        "కార్యాలయం",
+        "పాఠశాల",
+        "న్యాయస్థానం",
+        "మార్కెట్"
+      ],
+      "answer_index": 1,
+      "explanation_en": "A doctor works in a hospital; a teacher works in a school.",
+      "explanation_te": "వైద్యుడు ఆసుపత్రిలో; ఉపాధ్యాయుడు పాఠశాలలో.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "RRB Group-D"
+    },
+    {
+      "id": "P084",
+      "channel": "RAILWAY",
+      "topic": "Percentage",
+      "q_en": "If 25% of a number is 40, the number is? (RRB NTPC PYQ)",
+      "q_te": "⤷ ఒక సంఖ్యలో 25% = 40 అయితే సంఖ్య?",
+      "options_en": [
+        "100",
+        "120",
+        "140",
+        "160"
+      ],
+      "options_te": [
+        "100",
+        "120",
+        "140",
+        "160"
+      ],
+      "answer_index": 3,
+      "explanation_en": "Number = 40 × 100/25 = 160.",
+      "explanation_te": "సంఖ్య = 40 × 100/25 = 160.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "RRB NTPC"
+    },
+    {
+      "id": "P085",
+      "channel": "RAILWAY",
+      "topic": "Calendar",
+      "q_en": "If 1 January 2024 was a Monday, what day was 1 February 2024? (RRB PYQ)",
+      "q_te": "⤷ 1 జనవరి 2024 సోమవారం అయితే 1 ఫిబ్రవరి 2024 ఏ రోజు?",
+      "options_en": [
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday"
+      ],
+      "options_te": [
+        "మంగళవారం",
+        "బుధవారం",
+        "గురువారం",
+        "శుక్రవారం"
+      ],
+      "answer_index": 2,
+      "explanation_en": "Jan has 31 days = 4w+3d → Monday+3 = Thursday.",
+      "explanation_te": "జనవరి 31 = +3 రోజులు → సోమ+3 = గురువారం.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "RRB Group-D"
+    },
+    {
+      "id": "P086",
+      "channel": "POLICE",
+      "topic": "Coding-Decoding",
+      "q_en": "If 'POLICE' is coded as 'QPMJDF', then 'FORCE' is coded as? (TS Police PYQ)",
+      "q_te": "⤷ 'POLICE' = 'QPMJDF' అయితే 'FORCE'?",
+      "options_en": [
+        "GPSDF",
+        "GPSDE",
+        "GQSDF",
+        "EPSDF"
+      ],
+      "options_te": [
+        "GPSDF",
+        "GPSDE",
+        "GQSDF",
+        "EPSDF"
+      ],
+      "answer_index": 0,
+      "explanation_en": "Each letter +1: F→G, O→P, R→S, C→D, E→F = GPSDF.",
+      "explanation_te": "ప్రతి అక్షరం +1 = GPSDF.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "TS Police SI"
+    },
+    {
+      "id": "P087",
+      "channel": "POLICE",
+      "topic": "Syllogism",
+      "q_en": "Statements: All cops are brave. Some brave are honest. Conclusions: I. Some cops are honest. II. All honest are cops. (Police SI PYQ)",
+      "q_te": "⤷ అన్ని పోలీసులు ధైర్యవంతులు. కొందరు ధైర్యవంతులు నిజాయితీ. I. కొందరు పోలీసులు నిజాయితీ. II. అందరు నిజాయితీ పోలీసులు.",
+      "options_en": [
+        "Only I",
+        "Only II",
+        "Both",
+        "Neither"
+      ],
+      "options_te": [
+        "I మాత్రమే",
+        "II మాత్రమే",
+        "రెండూ",
+        "ఏదీ కాదు"
+      ],
+      "answer_index": 3,
+      "explanation_en": "Neither conclusion necessarily follows.",
+      "explanation_te": "ఏ నిర్ధారణా తప్పనిసరి కాదు.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "Police SI"
+    },
+    {
+      "id": "P088",
+      "channel": "POLICE",
+      "topic": "Direction",
+      "q_en": "A police officer walks 2 km north, turns right, walks 3 km, turns right, walks 2 km. How far from start? (Constable PYQ)",
+      "q_te": "⤷ 2 కి.మీ. ఉత్తరం, కుడి తిరిగి 3 కి.మీ., కుడి తిరిగి 2 కి.మీ. ప్రారంభం నుండి?",
+      "options_en": [
+        "2 km",
+        "3 km",
+        "5 km",
+        "7 km"
+      ],
+      "options_te": [
+        "2 కి.మీ.",
+        "3 కి.మీ.",
+        "5 కి.మీ.",
+        "7 కి.మీ."
+      ],
+      "answer_index": 1,
+      "explanation_en": "North and south cancel; net = 3 km east.",
+      "explanation_te": "ఉత్తరం-దక్షిణం రద్దు; నికర = 3 కి.మీ. తూర్పు.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "Police Constable"
+    },
+    {
+      "id": "P089",
+      "channel": "POLICE",
+      "topic": "Number Series",
+      "q_en": "2, 6, 12, 20, 30, ? (Police Constable PYQ)",
+      "q_te": "⤷ శ్రేణిని పూర్తి చేయండి: 2, 6, 12, 20, 30, ?",
+      "options_en": [
+        "40",
+        "42",
+        "44",
+        "46"
+      ],
+      "options_te": [
+        "40",
+        "42",
+        "44",
+        "46"
+      ],
+      "answer_index": 1,
+      "explanation_en": "Differences +4,+6,+8,+10,+12 → 30+12=42.",
+      "explanation_te": "తేడాలు +4,+6,+8,+10,+12 → 42.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "Police Constable"
+    },
+    {
+      "id": "P090",
+      "channel": "POLICE",
+      "topic": "Blood Relation",
+      "q_en": "Pointing to a photograph, a man says 'He is the son of my father's only son.' Who is in the photo? (SI PYQ)",
+      "q_te": "⤷ 'అతను నా తండ్రి ఏకైక కుమారుని కొడుకు' అన్నాడు. ఫోటోలో ఎవరు?",
+      "options_en": [
+        "His son",
+        "His brother",
+        "His father",
+        "His uncle"
+      ],
+      "options_te": [
+        "అతని కొడుకు",
+        "అతని సోదరుడు",
+        "అతని తండ్రి",
+        "అతని మామ"
+      ],
+      "answer_index": 0,
+      "explanation_en": "Father's only son = the man himself; photo is his son.",
+      "explanation_te": "తండ్రి ఏకైక కుమారుడు = అతనే; ఫోటో అతని కొడుకు.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "TS Police SI"
+    },
+    {
+      "id": "P091",
+      "channel": "DEFENCE",
+      "topic": "Defence GK",
+      "q_en": "The highest peacetime gallantry award of India is? (NDA/CDS PYQ)",
+      "q_te": "⤷ భారత్ అత్యున్నత శాంతికాల వీరత్వ పురస్కారం?",
+      "options_en": [
+        "Param Vir Chakra",
+        "Ashoka Chakra",
+        "Mahavir Chakra",
+        "Kirti Chakra"
+      ],
+      "options_te": [
+        "పరమ వీర చక్రం",
+        "అశోక చక్రం",
+        "మహావీర చక్రం",
+        "కీర్తి చక్రం"
+      ],
+      "answer_index": 1,
+      "explanation_en": "Ashoka Chakra is the highest peacetime gallantry award; PVC is wartime.",
+      "explanation_te": "అశోక చక్రం శాంతికాల అత్యున్నతం; PVC యుద్ధకాలం.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "NDA"
+    },
+    {
+      "id": "P092",
+      "channel": "DEFENCE",
+      "topic": "Physics",
+      "q_en": "The SI unit of force is? (Agniveer/NDA PYQ)",
+      "q_te": "⤷ బలం యొక్క SI యూనిట్?",
+      "options_en": [
+        "Joule",
+        "Newton",
+        "Watt",
+        "Pascal"
+      ],
+      "options_te": [
+        "జూల్",
+        "న్యూటన్",
+        "వాట్",
+        "పాస్కల్"
+      ],
+      "answer_index": 1,
+      "explanation_en": "Force SI unit is Newton (N = kg·m/s²).",
+      "explanation_te": "బలం SI యూనిట్ న్యూటన్.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "Agniveer"
+    },
+    {
+      "id": "P093",
+      "channel": "DEFENCE",
+      "topic": "Number Series",
+      "q_en": "Find next: 1, 8, 27, 64, ? (CDS PYQ)",
+      "q_te": "⤷ తదుపరి సంఖ్య: 1, 8, 27, 64, ?",
+      "options_en": [
+        "100",
+        "125",
+        "144",
+        "216"
+      ],
+      "options_te": [
+        "100",
+        "125",
+        "144",
+        "216"
+      ],
+      "answer_index": 1,
+      "explanation_en": "Cubes: 1³,2³,3³,4³,5³=125.",
+      "explanation_te": "ఘనాలు: 5³=125.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "CDS"
+    },
+    {
+      "id": "P094",
+      "channel": "DEFENCE",
+      "topic": "Geography",
+      "q_en": "Which is the longest river in India? (NDA PYQ)",
+      "q_te": "⤷ భారత్‌లో అతి పొడవైన నది?",
+      "options_en": [
+        "Yamuna",
+        "Godavari",
+        "Ganga",
+        "Narmada"
+      ],
+      "options_te": [
+        "యమున",
+        "గోదావరి",
+        "గంగ",
+        "నర్మద"
+      ],
+      "answer_index": 2,
+      "explanation_en": "The Ganga is the longest river in India.",
+      "explanation_te": "గంగ భారత్‌లో అతి పొడవైన నది.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "NDA"
+    },
+    {
+      "id": "P095",
+      "channel": "DEFENCE",
+      "topic": "Polity",
+      "q_en": "The President of India is elected by? (CDS/NDA PYQ)",
+      "q_te": "⤷ భారత రాష్ట్రపతిని ఎన్నుకునేది?",
+      "options_en": [
+        "Lok Sabha only",
+        "People directly",
+        "Electoral College",
+        "Rajya Sabha only"
+      ],
+      "options_te": [
+        "లోక్‌సభ మాత్రమే",
+        "ప్రజలు నేరుగా",
+        "ఎన్నికల కళాశాల",
+        "రాజ్యసభ మాత్రమే"
+      ],
+      "answer_index": 2,
+      "explanation_en": "Elected by an Electoral College of elected MPs and MLAs (Art. 54).",
+      "explanation_te": "ఎన్నికైన MP/MLAల ఎన్నికల కళాశాల (ఆర్టికల్ 54).",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "CDS"
+    },
+    {
+      "id": "P096",
+      "channel": "CURRENT",
+      "topic": "Polity",
+      "q_en": "How many Schedules are there in the Constitution of India? (SSC/UPSC PYQ)",
+      "q_te": "⤷ భారత రాజ్యాంగంలో షెడ్యూళ్లు ఎన్ని?",
+      "options_en": [
+        "12",
+        "10",
+        "8",
+        "9"
+      ],
+      "options_te": [
+        "12",
+        "10",
+        "8",
+        "9"
+      ],
+      "answer_index": 0,
+      "explanation_en": "The Constitution currently has 12 Schedules.",
+      "explanation_te": "రాజ్యాంగంలో ప్రస్తుతం 12 షెడ్యూళ్లు ఉన్నాయి.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "SSC/UPSC"
+    },
+    {
+      "id": "P097",
+      "channel": "CURRENT",
+      "topic": "Economy",
+      "q_en": "Who presents the Union Budget in the Lok Sabha? (SSC PYQ)",
+      "q_te": "⤷ లోక్‌సభలో కేంద్ర బడ్జెట్‌ను ఎవరు సమర్పిస్తారు?",
+      "options_en": [
+        "Prime Minister",
+        "Finance Minister",
+        "RBI Governor",
+        "President"
+      ],
+      "options_te": [
+        "ప్రధానమంత్రి",
+        "ఆర్థిక మంత్రి",
+        "RBI గవర్నర్",
+        "రాష్ట్రపతి"
+      ],
+      "answer_index": 1,
+      "explanation_en": "The Union Finance Minister presents the Budget.",
+      "explanation_te": "కేంద్ర ఆర్థిక మంత్రి బడ్జెట్ సమర్పిస్తారు.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "SSC"
+    },
+    {
+      "id": "P098",
+      "channel": "CURRENT",
+      "topic": "Science",
+      "q_en": "Vitamin C deficiency causes which disease? (SSC/RRB PYQ)",
+      "q_te": "⤷ విటమిన్ C లోపం వల్ల వచ్చే వ్యాధి?",
+      "options_en": [
+        "Rickets",
+        "Beriberi",
+        "Scurvy",
+        "Night blindness"
+      ],
+      "options_te": [
+        "రికెట్స్",
+        "బెరిబెరి",
+        "స్కర్వి",
+        "రాత్రి అంధత్వం"
+      ],
+      "answer_index": 2,
+      "explanation_en": "Scurvy is caused by Vitamin C deficiency.",
+      "explanation_te": "స్కర్వి విటమిన్ C లోపం వల్ల.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "SSC/RRB"
+    },
+    {
+      "id": "P099",
+      "channel": "CURRENT",
+      "topic": "History",
+      "q_en": "Who was the first President of independent India? (SSC PYQ)",
+      "q_te": "⤷ స్వతంత్ర భారత్ మొదటి రాష్ట్రపతి?",
+      "options_en": [
+        "Jawaharlal Nehru",
+        "Dr. Rajendra Prasad",
+        "Dr. S. Radhakrishnan",
+        "C. Rajagopalachari"
+      ],
+      "options_te": [
+        "జవహర్‌లాల్ నెహ్రూ",
+        "డా. రాజేంద్ర ప్రసాద్",
+        "డా. ఎస్. రాధాకృష్ణన్",
+        "సి. రాజగోపాలాచారి"
+      ],
+      "answer_index": 1,
+      "explanation_en": "Dr. Rajendra Prasad was the first President of India (1950–1962).",
+      "explanation_te": "డా. రాజేంద్ర ప్రసాద్ మొదటి రాష్ట్రపతి (1950–1962).",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "SSC"
+    },
+    {
+      "id": "P100",
+      "channel": "CURRENT",
+      "topic": "Geography",
+      "q_en": "The Tropic of Cancer passes through how many Indian states? (UPSC/SSC PYQ)",
+      "q_te": "⤷ కర్కట రేఖ భారత్‌లో ఎన్ని రాష్ట్రాల గుండా వెళ్తుంది?",
+      "options_en": [
+        "6",
+        "7",
+        "9",
+        "8"
+      ],
+      "options_te": [
+        "6",
+        "7",
+        "9",
+        "8"
+      ],
+      "answer_index": 3,
+      "explanation_en": "Tropic of Cancer passes through 8 Indian states.",
+      "explanation_te": "కర్కట రేఖ 8 భారత రాష్ట్రాల గుండా వెళ్తుంది.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "SSC/UPSC"
+    },
+    {
+      "id": "P101",
+      "channel": "CURRENT",
+      "topic": "Telangana GK",
+      "q_en": "Which is the official language of Telangana? (TSPSC/State PYQ)",
+      "q_te": "⤷ తెలంగాణ అధికార భాష?",
+      "options_en": [
+        "Hindi",
+        "Urdu",
+        "Telugu",
+        "English"
+      ],
+      "options_te": [
+        "హిందీ",
+        "ఉర్దూ",
+        "తెలుగు",
+        "ఆంగ్లం"
+      ],
+      "answer_index": 2,
+      "explanation_en": "Telugu is the official language of Telangana.",
+      "explanation_te": "తెలంగాణ అధికార భాష తెలుగు.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "TSPSC"
+    },
+    {
+      "id": "P102",
+      "channel": "CURRENT",
+      "topic": "Andhra GK",
+      "q_en": "Sri Venkateswara Temple is located in which district of Andhra Pradesh? (APPSC PYQ)",
+      "q_te": "⤷ శ్రీ వెంకటేశ్వర స్వామి ఆలయం ఆంధ్రప్రదేశ్‌లో ఏ జిల్లాలో?",
+      "options_en": [
+        "Tirupati",
+        "Chittoor",
+        "Kadapa",
+        "Nellore"
+      ],
+      "options_te": [
+        "తిరుపతి",
+        "చిత్తూరు",
+        "కడప",
+        "నెల్లూరు"
+      ],
+      "answer_index": 0,
+      "explanation_en": "Located at Tirumala in Tirupati district.",
+      "explanation_te": "తిరుమల, తిరుపతి జిల్లా.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "APPSC"
+    },
+    {
+      "id": "P103",
+      "channel": "BANKING",
+      "topic": "Mixture",
+      "q_en": "In what ratio must rice at ₹20/kg be mixed with rice at ₹30/kg so mixture is ₹24/kg? (IBPS PYQ)",
+      "q_te": "⤷ ₹20/కి.గ్రా మరియు ₹30/కి.గ్రా బియ్యం ఏ నిష్పత్తిలో కలిపితే ₹24/కి.గ్రా?",
+      "options_en": [
+        "2:1",
+        "3:2",
+        "3:1",
+        "2:3"
+      ],
+      "options_te": [
+        "2:1",
+        "3:2",
+        "3:1",
+        "2:3"
+      ],
+      "answer_index": 1,
+      "explanation_en": "Alligation: (30−24):(24−20) = 6:4 = 3:2.",
+      "explanation_te": "అలిగేషన్: 6:4 = 3:2.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "IBPS PO"
+    },
+    {
+      "id": "P104",
+      "channel": "TSPSC",
+      "topic": "Polity",
+      "q_en": "The minimum age to contest for Sarpanch in Telangana is generally? (TSPSC PYQ)",
+      "q_te": "⤷ తెలంగాణలో సర్పంచ్‌గా పోటీ చేయడానికి కనీస వయస్సు?",
+      "options_en": [
+        "18 years",
+        "21 years",
+        "25 years",
+        "30 years"
+      ],
+      "options_te": [
+        "18 సంవత్సరాలు",
+        "21 సంవత్సరాలు",
+        "25 సంవత్సరాలు",
+        "30 సంవత్సరాలు"
+      ],
+      "answer_index": 1,
+      "explanation_en": "Minimum age for Sarpanch candidature is 21 years.",
+      "explanation_te": "సర్పంచ్‌కు కనీస వయస్సు 21 సంవత్సరాలు.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "TSPSC Group-III"
+    },
+    {
+      "id": "P105",
+      "channel": "APPSC",
+      "topic": "History",
+      "q_en": "The Battle of Palnadu is associated with which region? (APPSC PYQ)",
+      "q_te": "⤷ పల్నాడు యుద్ధం ఏ ప్రాంతంతో సంబంధం?",
+      "options_en": [
+        "Rayalaseema",
+        "Coastal Andhra (Guntur region)",
+        "Telangana",
+        "Uttarandhra"
+      ],
+      "options_te": [
+        "రాయలసీమ",
+        "తీరాంధ్ర (గుంటూరు)",
+        "తెలంగాణ",
+        "ఉత్తరాంధ్ర"
+      ],
+      "answer_index": 1,
+      "explanation_en": "Palnadu battle is linked to the Guntur/Palnadu region.",
+      "explanation_te": "పల్నాడు యుద్ధం గుంటూరు/పల్నాడు ప్రాంతం.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "APPSC Group-II"
+    },
+    {
+      "id": "P106",
+      "channel": "RAILWAY",
+      "topic": "Physics",
+      "q_en": "The unit of electric current is? (RRB Group-D PYQ)",
+      "q_te": "⤷ విద్యుత్ ప్రవాహం యూనిట్?",
+      "options_en": [
+        "Volt",
+        "Ohm",
+        "Ampere",
+        "Watt"
+      ],
+      "options_te": [
+        "వోల్ట్",
+        "ఓం",
+        "ఆంపియర్",
+        "వాట్"
+      ],
+      "answer_index": 2,
+      "explanation_en": "SI unit of electric current is Ampere (A).",
+      "explanation_te": "విద్యుత్ ప్రవాహం SI యూనిట్ ఆంపియర్.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "RRB Group-D"
+    },
+    {
+      "id": "P107",
+      "channel": "DEFENCE",
+      "topic": "History",
+      "q_en": "Who was the first Indian to go to space? (NDA/Agniveer PYQ)",
+      "q_te": "⤷ అంతరిక్షం వెళ్లిన మొదటి భారతీయుడు?",
+      "options_en": [
+        "Rakesh Sharma",
+        "Kalpana Chawla",
+        "Sunita Williams",
+        "Vikram Sarabhai"
+      ],
+      "options_te": [
+        "రాకేష్ శర్మ",
+        "కల్పనా చావ్లా",
+        "సునీతా విలియమ్స్",
+        "విక్రమ్ సారాభాయ్"
+      ],
+      "answer_index": 0,
+      "explanation_en": "Sqn Ldr Rakesh Sharma flew on Soyuz T-11 in 1984.",
+      "explanation_te": "రాకేష్ శర్మ 1984లో సోయూజ్ T-11లో వెళ్లారు.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "NDA"
+    },
+    {
+      "id": "P108",
+      "channel": "POLICE",
+      "topic": "Analogy",
+      "q_en": "Knife : Cut :: Pen : ? (Police Constable PYQ)",
+      "q_te": "⤷ కత్తి : కోయడం :: పెన్ : ?",
+      "options_en": [
+        "Write",
+        "Read",
+        "Ink",
+        "Paper"
+      ],
+      "options_te": [
+        "రాయడం",
+        "చదవడం",
+        "సిరా",
+        "కాగితం"
+      ],
+      "answer_index": 0,
+      "explanation_en": "A knife is used to cut; a pen is used to write.",
+      "explanation_te": "కత్తి కోయడానికి; పెన్ రాయడానికి.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "Police Constable"
+    },
+    {
+      "id": "P109",
+      "channel": "BANKING",
+      "topic": "Data Interpretation",
+      "q_en": "If a pie chart shows 90° for 'Savings', what percent of the total is Savings? (IBPS PYQ)",
+      "q_te": "⤷ పై చార్ట్‌లో 'పొదుపు' 90° అయితే మొత్తంలో శాతం?",
+      "options_en": [
+        "15%",
+        "20%",
+        "25%",
+        "30%"
+      ],
+      "options_te": [
+        "15%",
+        "20%",
+        "25%",
+        "30%"
+      ],
+      "answer_index": 2,
+      "explanation_en": "Full circle 360° = 100%; 90° = 25%.",
+      "explanation_te": "360° = 100%; 90° = 25%.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "IBPS Clerk"
+    },
+    {
+      "id": "P110",
+      "channel": "CURRENT",
+      "topic": "ISRO",
+      "q_en": "ISRO's headquarters is located in? (SSC/UPSC PYQ)",
+      "q_te": "⤷ ISRO ప్రధాన కార్యాలయం ఎక్కడ?",
+      "options_en": [
+        "Mumbai",
+        "Hyderabad",
+        "Bengaluru",
+        "Chennai"
+      ],
+      "options_te": [
+        "ముంబై",
+        "హైదరాబాద్",
+        "బెంగళూరు",
+        "చెన్నై"
+      ],
+      "answer_index": 2,
+      "explanation_en": "ISRO headquarters is in Bengaluru, Karnataka.",
+      "explanation_te": "ISRO ప్రధాన కార్యాలయం బెంగళూరు.",
+      "source": "pyq",
+      "bank": "pyq",
+      "exam": "SSC/UPSC"
+    }
+  ]
+}

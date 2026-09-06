@@ -9,6 +9,7 @@ Schedule (IST):
   06:00  filler top-up
   07:00  morning greeting
   07:30 / 19:30  quiz slots (10 polls x 7 channels)
+  08:00 / 20:00  delayed answer key (no-op if ANSWER_MODE=instant)
   14:30  study tip
   21:30  CA digest
   every :00 / :30   jobs update (private channel)
@@ -119,6 +120,13 @@ def tick(eng, now, dry=False):
         elif task == "quiz":
             eng.run_quiz_slot(round_label=meta.get("round", ""))
             ran.append(f"quiz{meta.get('slot','')}")
+        elif task == "answer_key":
+            try:
+                eng.post_answer_key(round_label=meta.get("round", ""))
+                ran.append("answer_key")
+            except Exception as e:
+                log(f"answer_key error: {e}")
+
         elif task == "tip":
             eng.tip(); ran.append("tip")
         elif task == "coach":

@@ -70,3 +70,28 @@ Each run is small and polite (2 s host delay, jitter, robots.txt, seen-URL
 forward-paging); dead sources auto-pause after 3 bad runs.
 
 *Source: StudentUp — audit executed 2026-09-06, Hyderabad. 72/72 tests pass.*
+
+---
+
+## 4. Registry expansion to 100+ (v4.0 — deep research 2026-09-06)
+
+| Bucket | Count | Notes |
+|---|---|---|
+| **Live enabled** | 15 | Unchanged — only content-gated verified sources stay enabled |
+| **Candidates (auto-enable)** | 49 | Specialist UPSC/Banking/SSC/Railway/Defence blogs + IndiaBIX JE/CS sections + category feeds — auditor enables ONLY when live+fresh+quiz content |
+| **Archive / dead tracking** | 89 | Full history for monthly re-scan; never queried live |
+| **TOTAL registry** | **153** | One central file: `data/collector_sources.json` |
+| **CA news feeds** | 18 | + education desks + Drishti/ClearIAS/PRS |
+| **Jobs news feeds** | 10 | + Adda247 banking jobs + SarkariResult + AllIndiaJobs |
+
+**Rules unchanged:** no dummy, no sample, no junk. Quiz questions still come
+ONLY from `pyq` / `curated` / `llm-gen` / `offline-gen` / `scraped` (exam-prep
+sites). Newspapers feed the CA digest only. PYQ bank expanded to **110**
+authentic bilingual previous-paper items (`pyq_bank.json` + `_2` + `_3`).
+
+**Poll presentation (v4):**
+- **Telugu-first** layout (TE above EN) for every channel poll + bot DM.
+- **Instant** correct/wrong (default) via Telegram `correct_option_id` + explanation.
+- **Delayed answer-key** mode (`ANSWER_MODE=delayed`) withholds explanation and
+  posts a full bilingual key at 08:00 / 20:00 IST after each round.
+
