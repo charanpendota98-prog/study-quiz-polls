@@ -66,6 +66,14 @@ $PY finalize.py --strict || { echo "  ✗ Validation failed — fix before live"
 # 5) Health check + (optionally) deep source audit
 echo "[5/6] Health check…"
 $PY check.py || echo "  (health check reported notes)"
+# Auto-detect the 8 channel IDs on the live server (network available there):
+# bot is already admin; this probes getChat and writes numeric -100... ids
+# into env/.env (comments preserved). Usernames also work if a channel is
+# public — but numeric ids are rename-proof.
+if [ -n "${BOT_TOKEN:-}" ] || grep -q "^BOT_TOKEN=..*" "$DEPLOY_DIR/env/.env" 2>/dev/null; then
+  echo "[5a] Detecting channel IDs (getChat)…"
+  $PY detect_channels.py --write || echo "  (channel detection note — usernames still configured)"
+fi
 if [ "${1:-}" = "--audit" ]; then
   echo "[5b] Deep source audit (content-gated, all registry sources)…"
   $PY audit_sources.py --only-enabled || echo "  (audit reported notes — collector auto-handles)"
