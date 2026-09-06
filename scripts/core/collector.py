@@ -594,7 +594,7 @@ OPT_INLINE_RE = re.compile(r"(?:^|\s)[\(\[]?" + _LBL + r"[\)\].:\-]\s+")
 # — but NOT "Answer & Solution Discuss..." chrome.
 ANS_RE = re.compile(
     r"(?:correct\s+answer|correct\s+option|answer|ans|జవాబు|సమాధానం|సరైన\s*సమాధానం|उत्तर|सही\s*उत्तर)"
-    r"\s*(?:is|:|-|=|–)?\s*(?:option|\(|\[)?\s*" + _LBL + r"(?:[\)\].\]]|\b|(?=\s)|$)", re.I)
+    r"\s*(?:is|:|-|=|–)?\s*(?:option)?\s*(?:\(|\[)?\s*" + _LBL + r"(?:[\)\].\]]|\b|(?=\s)|$)", re.I)
 EXPL_RE = re.compile(r"^(?:explanation|solution|sol|exp|notes?|hint|వివరణ|व्याख्या)[\.:\-]\s*(.+)$", re.I)
 # label-only lines ("Notes:", "Explanation:") -> the body follows on the next line(s)
 EXPL_LABEL_RE = re.compile(r"^(?:explanation|solution|notes?|hint|answer\s*&\s*solution|వివరణ|व्याख्या)\s*[\.:\-]?\s*$", re.I)
@@ -656,12 +656,48 @@ _NUM_OPT_RE = re.compile(r"^([1-4])\)\s*(.+)$")
 _NUM_STEM_GLUE_RE = re.compile(r"^(.+?\S)\s+1\)\s*(.+)$")
 _NUM_ANS_RE = re.compile(
     r"^(?:\W*)(answer|ans|జవాబు|సమాధానం|సరైన\s*సమాధానం|उत्तर|सही\s*उत्तर)\s*[:\-=–]?\s*"
-    r"(?:option\s*)?\(?([1-4])\)?\s*$", re.I)
+    r"(?:option\s*)?\(?([1-5])\)?(?:\s*[\)\.:\-–]?\s*[^\d].{0,80})?\s*$", re.I)
+# Banking-style 5th option that can be dropped when it is not the key
+_NUM_OPT5_RE = re.compile(r"^5\)\s*(.+)$")
+_FILLER_OPT_RE = re.compile(
+    r"^(?:none of (?:these|the above|them)|cannot be determined|can't be determined|"
+    r"data inadequate|other than (?:those|the) given(?: as)? options?|none)\.?$", re.I)
 
 
 # Examsbook / some blogs: a bare "Q :" / "Question:" label line followed by the
 # stem on the next line, with no numbering at all -> synthesise "N. stem".
 _BARE_Q_RE = re.compile(r"^(?:q|que|question|ప్రశ్న|प्रश्न)\s*[:.\-)]?\s*$", re.I)
+
+
+# GKSeries / IndiaBIX-style markup: the question NUMBER sits alone on a line
+# ("1") followed by the stem, and each option LABEL sits alone ("A") followed
+# by the option text -> fold them into "1. stem" / "A) text".
+_BARE_NUM_RE = re.compile(r"^(\d{1,3})[\.\)]?$")
+_BARE_LBL_RE = re.compile(r"^[\(\[]?([A-Da-d]|ఎ|బి|సి|డి)[\)\].]?$")
+
+
+def _fold_bare_labels(lines):
+    out, i, n, folded = [], 0, len(lines), 0
+    while i < n:
+        ln = lines[i]
+        nxt = lines[i + 1] if i + 1 < n else ""
+        if nxt and _BARE_NUM_RE.match(ln) and len(nxt) >= 8 \
+                and not OPT_RE.match(nxt) and not _BARE_LBL_RE.match(nxt) \
+                and not QSTART_RE.match(nxt) and not ANS_RE.search(nxt):
+            out.append(f"{_BARE_NUM_RE.match(ln).group(1)}. {nxt}")
+            i += 2
+            folded += 1
+            continue
+        if nxt and _BARE_LBL_RE.match(ln) and not _BARE_LBL_RE.match(nxt) \
+                and not QSTART_RE.match(nxt) and not ANS_RE.search(nxt) \
+                and 0 < len(nxt) <= 120:
+            out.append(f"{_BARE_LBL_RE.match(ln).group(1).upper()}) {nxt}")
+            i += 2
+            folded += 1
+            continue
+        out.append(ln)
+        i += 1
+    return out if folded else lines
 
 
 def _number_bare_questions(lines):
@@ -711,12 +747,22 @@ def _normalize_numeric_options(lines):
                 i += 5
                 converted = True
         if converted:
+            # AffairsCloud / banking sets: a 5th filler option ("None of these")
+            # follows -- drop it as long as the key is 1-4.
+            m5 = _NUM_OPT5_RE.match(lines[i]) if i < n else None
+            if m5 and _FILLER_OPT_RE.match(m5.group(1).strip()):
+                i += 1
             # numeric answer key within the next few lines
             j = i
             while j < n and j < i + 4:
                 ma = _NUM_ANS_RE.match(lines[j])
                 if ma:
-                    lines[j] = f"{ma.group(1)}: {letters[int(ma.group(2)) - 1]}"
+                    k = int(ma.group(2))
+                    if k == 5:
+                        # key was the dropped filler -> make the question unusable
+                        lines[j] = "Answer: -"
+                    else:
+                        lines[j] = f"{ma.group(1)}: {letters[k - 1]}"
                     break
                 if QSTART_RE.match(lines[j]):
                     break
@@ -773,7 +819,7 @@ def parse_quiz_lines(lines, article_title="", url=""):
                 })
         cur = None
 
-    lines = _normalize_numeric_options(_number_bare_questions(list(lines)))
+    lines = _normalize_numeric_options(_number_bare_questions(_fold_bare_labels(list(lines))))
     for line in lines:
         if len(line) > 400:
             line = line[:400]

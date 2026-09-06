@@ -279,6 +279,26 @@ class TestTeluguSources(unittest.TestCase):
         self.assertEqual([q["answer_index"] for q in qs], [2, 3])
         self.assertTrue(qs[0]["q_en"].startswith("If PARTICLE"))
 
+    def test_gkseries_bare_labels(self):
+        qs = self._parse("fixture_gkseries.html",
+                         "https://www.gkseries.com/general-knowledge/indian-polity/x/fundamental-rights")
+        self.assertEqual(len(qs), 2)
+        self.assertEqual([q["answer_index"] for q in qs], [2, 1])
+        self.assertEqual(qs[1]["options_en"], ["Part II", "Part III", "Part IV", "Part V"])
+
+    def test_affairscloud_five_options(self):
+        from core.collector import parse_quiz_lines
+        lines = ["1. A is the daughter of B's only son. How is A related to B?",
+                 "1) Sister", "2) Granddaughter", "3) Cousin", "4) Aunt", "5) None of these",
+                 "Answer- 2) Granddaughter", "Solution:", "B's son is A's father.",
+                 "2. Which one cannot be determined?",
+                 "1) Father", "2) Uncle", "3) Brother", "4) Mother", "5) None of these",
+                 "Answer- 5) None of these"]
+        qs = parse_quiz_lines(lines, "Blood Relation Set 24", "https://affairscloud.com/x/")
+        self.assertEqual(len(qs), 1)
+        self.assertEqual(qs[0]["answer_index"], 1)
+        self.assertEqual(len(qs[0]["options_en"]), 4)
+
     def test_schedule_has_nightly_backfill(self):
         self.assertIn("backfill", {v[0] for v in config.SCHEDULE.values()})
 

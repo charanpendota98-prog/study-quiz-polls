@@ -1028,6 +1028,132 @@
       }
     },
     {
+      "name": "GKSeries Indian Polity Chapters",
+      "enabled": true,
+      "type": "index",
+      "exam": "tspsc-appsc-ssc-upsc",
+      "url": "https://www.gkseries.com/general-knowledge/gk-subjects",
+      "link_re": "^https://www\\.gkseries\\.com/general-knowledge/indian-polity/[a-z0-9\\-]+/[a-z0-9\\-]+$",
+      "max_links": 4,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — chapter-wise polity MCQs (FRs, DPSP, judiciary…) with explanations"
+      }
+    },
+    {
+      "name": "GKSeries Indian History Chapters",
+      "enabled": true,
+      "type": "index",
+      "exam": "tspsc-appsc-ssc-railway",
+      "url": "https://www.gkseries.com/general-knowledge/gk-subjects",
+      "link_re": "^https://www\\.gkseries\\.com/general-knowledge/indian-history/[a-z0-9\\-]+/[a-z0-9\\-]+$",
+      "max_links": 4,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — IVC → national movement, chapter-wise with answers"
+      }
+    },
+    {
+      "name": "GKSeries Geography Chapters",
+      "enabled": true,
+      "type": "index",
+      "exam": "tspsc-appsc-ssc-railway",
+      "url": "https://www.gkseries.com/general-knowledge/gk-subjects",
+      "link_re": "^https://www\\.gkseries\\.com/general-knowledge/geography/[a-z0-9\\-]+/[a-z0-9\\-]+$",
+      "max_links": 4,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — geomorphology/climatology/oceanography chapter MCQs"
+      }
+    },
+    {
+      "name": "GKSeries Indian Economy Chapters",
+      "enabled": true,
+      "type": "index",
+      "exam": "tspsc-appsc-banking-ssc",
+      "url": "https://www.gkseries.com/general-knowledge/gk-subjects",
+      "link_re": "^https://www\\.gkseries\\.com/general-knowledge/indian-economy/[a-z0-9\\-]+/[a-z0-9\\-]+$",
+      "max_links": 4,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — planning, banking system, fiscal system chapter MCQs"
+      }
+    },
+    {
+      "name": "GKSeries Sports GK",
+      "enabled": true,
+      "type": "index",
+      "exam": "ssc-railway-police",
+      "url": "https://www.gkseries.com/general-knowledge/gk-subjects",
+      "link_re": "^https://www\\.gkseries\\.com/general-knowledge/sports/[a-z0-9\\-]+/[a-z0-9\\-]+$",
+      "max_links": 4,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — sports GK MCQs (Olympics, Asian Games, cricket…)"
+      }
+    },
+    {
+      "name": "AffairsCloud Reasoning Topic Sets",
+      "enabled": true,
+      "type": "index",
+      "exam": "banking-ssc-railway",
+      "url": "https://affairscloud.com/reasoning-questions/",
+      "link_re": "^https://affairscloud\\.com/(?:logical-reasoning-questions/[a-z0-9\\-]+/|reasoning-questions-[a-z0-9\\-]+/)$",
+      "max_links": 4,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — blood relation, syllogism, puzzles, coding sets (EN)"
+      }
+    },
+    {
+      "name": "AffairsCloud Blood Relation Sets",
+      "enabled": true,
+      "type": "index",
+      "exam": "banking-ssc-railway-police",
+      "url": "https://affairscloud.com/logical-reasoning-questions/blood-relation/",
+      "link_re": "^https://affairscloud\\.com/reasoning-questions-blood-relation-set-\\d+/$",
+      "max_links": 4,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — 20+ numbered sets, Answer- N) text"
+      }
+    },
+    {
+      "name": "AffairsCloud Quant Topic Sets",
+      "enabled": true,
+      "type": "index",
+      "exam": "banking-ssc-railway",
+      "url": "https://affairscloud.com/quantitative-aptitude-questions/",
+      "link_re": "^https://affairscloud\\.com/(?:aptitude-questions/[a-z0-9\\-]+/|[a-z0-9\\-]*quant[a-z0-9\\-]*/)$",
+      "max_links": 4,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — 24 topic categories (percentage, SI/CI, time-work…)"
+      }
+    },
+    {
+      "name": "AffairsCloud Static GK Q&A",
+      "enabled": true,
+      "type": "index",
+      "exam": "ssc-railway-police-banking",
+      "url": "https://affairscloud.com/general-knowledge-questions-and-answers/",
+      "link_re": "^https://affairscloud\\.com/[a-z0-9\\-]*(?:gk|awareness|quiz)[a-z0-9\\-]*/$",
+      "max_links": 4,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — static GK + banking/computer awareness sets"
+      }
+    },
+    {
       "name": "MCQBits TSPSC Previous Papers",
       "enabled": true,
       "type": "index",
@@ -2262,6 +2388,146 @@
         "note": "AP SI/constable previous paper PDFs (Telugu) — harvested via pdf_re when audited live"
       },
       "pdf_re": "^https?://[a-z0-9\\.\\-]*questionpapersonline\\.com/.+\\.pdf$"
+    },
+    {
+      "name": "Eenadu Pratibha Telugu Quiz — Reasoning",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc-appsc-police",
+      "url": "https://pratibha.eenadu.net/quiz/viewmore/NDEw",
+      "link_re": "^https://pratibha\\.eenadu\\.net/quiz/load_exam/2/1034/410/\\d+$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "Telugu-native 10-Q quizzes (89 sets); key served by AJAX — enable once answer endpoint mapped"
+      },
+      "lang": "te"
+    },
+    {
+      "name": "Eenadu Pratibha Telugu Quiz — Polity",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc-appsc",
+      "url": "https://pratibha.eenadu.net/quiz/viewmore/NDA4",
+      "link_re": "^https://pratibha\\.eenadu\\.net/quiz/load_exam/2/1034/408/\\d+$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "Telugu పాలిటీ quizzes — AJAX key (content gate)"
+      },
+      "lang": "te"
+    },
+    {
+      "name": "Eenadu Pratibha Telugu Quiz — History",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc-appsc",
+      "url": "https://pratibha.eenadu.net/quiz/viewmore/NDAx",
+      "link_re": "^https://pratibha\\.eenadu\\.net/quiz/load_exam/2/1034/401/\\d+$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "Telugu చరిత్ర quizzes — AJAX key (content gate)"
+      },
+      "lang": "te"
+    },
+    {
+      "name": "Eenadu Pratibha Telugu Quiz — Current Affairs",
+      "enabled": false,
+      "type": "index",
+      "exam": "current-affairs",
+      "url": "https://pratibha.eenadu.net/quiz/viewmore/NDA0",
+      "link_re": "^https://pratibha\\.eenadu\\.net/quiz/load_exam/2/1034/404/\\d+$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "Telugu కరెంట్ అఫైర్స్ quizzes — AJAX key (content gate)"
+      },
+      "lang": "te"
+    },
+    {
+      "name": "Eenadu Pratibha Telugu Quiz — Arithmetic",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc-appsc-police",
+      "url": "https://pratibha.eenadu.net/quiz/viewmore/NDEx",
+      "link_re": "^https://pratibha\\.eenadu\\.net/quiz/load_exam/2/1034/411/\\d+$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "Telugu అరిథ్‌మెటిక్‌ quizzes — AJAX key (content gate)"
+      },
+      "lang": "te"
+    },
+    {
+      "name": "PendulumEdu SSC Quizzes",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc",
+      "url": "https://pendulumedu.com/quiz/ssc",
+      "link_re": "^https://pendulumedu\\.com/quiz/ssc/[a-z0-9\\-]+/[a-z0-9\\-]+/[a-z0-9\\-]+$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "quiz pages parse but 'Answer : Option D' repeats for every Q — content gate must confirm key"
+      }
+    },
+    {
+      "name": "PendulumEdu Railways Quizzes",
+      "enabled": false,
+      "type": "index",
+      "exam": "railway",
+      "url": "https://pendulumedu.com/quiz/railways",
+      "link_re": "^https://pendulumedu\\.com/quiz/railways/[a-z0-9\\-]+/[a-z0-9\\-]+/[a-z0-9\\-]+$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "same PendulumEdu key caveat (content gate)"
+      }
+    },
+    {
+      "name": "Examrace Modern History MCQ Parts",
+      "enabled": false,
+      "type": "index",
+      "exam": "upsc-ssc",
+      "url": "https://www.examrace.com/Sample-Objective-Questions/History-Questions/Modern-Indian-History/",
+      "link_re": "^https://www\\.examrace\\.com/Sample-Objective-Questions/History-Questions/[A-Za-z\\-]+/[A-Za-z0-9\\-]+\\.html$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "66 parts of 'Q.' + (a)-(d) MCQs but NO key in HTML — needs answer source"
+      }
+    },
+    {
+      "name": "Smartkeeda Reasoning Topics",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking-ssc",
+      "url": "https://www.smartkeeda.com/reasoning-aptitude/",
+      "link_re": "^https://www\\.smartkeeda\\.com/reasoning-aptitude/[a-z0-9\\-]+$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "testzone JS quizzes, only prose in HTML (content gate)"
+      }
     },
     {
       "name": "Sakshi APPSC Bitbank Hub",
