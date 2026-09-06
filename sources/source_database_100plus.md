@@ -1,6 +1,10 @@
 # STUDENTUP — 100+ EXAM QUESTION & CURRENT AFFAIRS SOURCE DATABASE
-# Version: 2.1 | Date: 2026-09-05 | Verified & Categorized
-# Purpose: Source aggregation for quiz_engine.py + personal_news.py + filler_gen.py
+# Version: 3.0 | Date: 2026-09-06 | Verified & Categorized (deep audit)
+# >>> MACHINE SOURCE OF TRUTH: data/collector_sources.json (72 entries) <<<
+#   collector reads this registry; core/auditor.py audits it daily (04:45 IST);
+#   scripts/rebuild_registry.py regenerates it; scripts/audit_sources.py prints status.
+# This .md is the HUMAN-READABLE companion (history + per-exam mapping).
+# See sources/AUDIT_REPORT_2026-09-06.md for the one-by-one Sep-6 audit results.
 # Rule: Every source must pass feedparser + TLS check + content-quality scan before inclusion
 # Categories: EXAM_QUESTIONS | CURRENT_AFFAIRS | JOBS | SCHEMES | DEFENCE | RAILWAY | BANKING
 # Status: ACTIVE (verified live Aug 2026) | DEAD (404/TLS/0 entries/stale >90 days) | TESTED (sandbox 403 but server OK)

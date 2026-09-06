@@ -21,7 +21,8 @@ Defence (NDA/CDS/Agniveer), and Current Affairs GK** — plus a private
 | 🎯 **Exam-paper sources only** | Quiz questions come **only** from exam-aligned sources (`pyq`, `curated`, `llm-gen`, `offline-gen`). **Newspapers and articles never become quiz questions** — news feeds feed the Current-Affairs *digest* only, and soft headlines (opinion/blog/sports/lifestyle/etc.) are filtered out even there. |
 | **Previous-Year Questions first** | Authentic PYQ banks (`data/pyq_bank.json` + `data/pyq_bank_2.json`, TSPSC/APPSC/RRB/IBPS/SBI/Police/NDA/CDS/UPSC patterns, **60+ verified bilingual PYQs**) are **prioritised in every round**, then curated, then generated. |
 | 🧑‍🏫 **Daily expert coach lesson** | A friendly, professional expert posts a **reasoning/aptitude shortcut with a worked example** at **12:30 IST** to every channel (`data/coach_lessons.json`, 16 lessons EN+Telugu) — plus `/coach` any time in the bot DM. |
-| 🕷️ **Deep multi-source scraper** | `core/collector.py` pulls fresh exam **quiz/MCQ content from 15+ websites across all day (6 runs, incl. right after each quiz)** — AffairsCloud, GKToday, Insights, Testbook, BankersAdda, Guidely, Oliveboard, SSCAdda, CareerPower, RailwayAdda, plus **deep-crawled static MCQ banks (IndiaBIX)** via a dedicated adapter. Browser fetching, retries, **robots.txt**, polite pacing, seen-URL paging, per-site parsers & **LLM-API Telugu translation**. Everything merges into the same validated, no-repeat bank. |
+| 🕷️ **Deep multi-source scraper** | `core/collector.py` pulls fresh exam **quiz/MCQ content from 15 verified-live sources, 8×/day including immediately after each quiz** (`07:40` & `19:40`) — AffairsCloud, InsightsIndia, PracticeMock, Oliveboard, BankersAdda, SSCAdda, CareerPower + **8 deep-crawled IndiaBIX sections** (Aptitude, Verbal/Logical/Non-Verbal Reasoning, GK, Data Interpretation, Verbal Ability, Current Affairs) via a dedicated adapter. Browser fetching, retries, **robots.txt**, polite pacing, seen-URL paging, index pagination, per-site parsers & **LLM-API Telugu translation**. Everything merges into the same validated, no-repeat bank. |
+| 🗂️ **Central source registry + auto-auditor** | **72 sources in ONE registry** (`data/collector_sources.json`): 15 audited-live, 12 candidates, 7 confirmed-dead, 38 tracked archives. `scripts/audit_sources.py` daily (04:45) checks every source **with a content gate** (feed must be live *and* return quiz-matching items): dead sources auto-pause/disable after 3 failures, genuinely-fresh candidates auto-enable. No junk, no guesses. Regenerate the registry with `scripts/rebuild_registry.py`. |
 | **Member registration** | `/register` guided sign-up (name → exam target → language), +25 bonus points. Members stored in `data/members.json`. |
 | **Points, levels & ranks** | +10 per correct answer, +5 daily activity, streak bonuses (3/7/15/30/100 days), levels 🆕→🥉→🥈→🥇→💎→👑 Champion, weekly + all-time leaderboards. |
 | **Native quiz polls** | `sendPoll` type `quiz` with `correct_option_id` → instant right/wrong feedback + **explanation**. Bot quizzes are non-anonymous so they earn points. |
@@ -88,7 +89,8 @@ the bot (matched by Telegram @username) — no duplicate accounts.
 
 | Time (IST) | What |
 |---|---|
-| 🕷️ **05:30 / 08:15 / 11:00 / 16:00 / 20:15 / 22:30** | **Deep multi-source scraping (6× daily)** — fresh quizzes from websites/apps/APIs, translated & validated; runs right after both quiz rounds too |
+| 04:45 | **Deep source audit** — content-gated check of all 72 registry sources; auto-pause dead, auto-enable fresh candidates |
+| 🕷️ **05:30 / 07:40 / 08:15 / 11:00 / 16:00 / 19:40 / 20:15 / 22:30** | **Deep multi-source scraping (8× daily)** — fresh quizzes from websites/apps/APIs, translated & validated; **07:40 & 19:40 run immediately after each quiz round** |
 | 06:00 | Auto top-up question bank if any pool runs low |
 | 07:00 | Morning greeting + today's schedule (all 7 public channels) |
 | **⛅ 07:30** | **Morning quiz round** — 10 bilingual PYQ-first polls per channel |
@@ -269,6 +271,10 @@ python3 -m core.collector --collect          # live run (writes scraped_bank.jso
 python3 -m core.collector --collect --dry    # fetch + parse, don't save
 python3 -m core.collector --retry-pending    # translate parked questions
 python3 -m core.collector --fixture page.html --title "IBPS Quiz"  # offline parse
+python3 audit_sources.py                     # deep audit ALL 72 registry sources
+python3 audit_sources.py --only-enabled      # audit only live sources (fast)
+python3 rebuild_registry.py --check          # validate the central registry
+python3 check.py --sources                   # registry + health summary
 ```
 > In dev sandboxes outbound HTTPS may be blocked — the collector fails silently
 > there (never crashes) and runs from the production server. Verified offline via
@@ -281,7 +287,7 @@ python3 -m core.collector --fixture page.html --title "IBPS Quiz"  # offline par
 - **Never crashes, never silent** — every external call is wrapped; failures fall
   back to curated/offline content.
 - **Atomic JSON** writes (temp → rename); TTL-pruned stores; no database.
-- **Multi-key LLM rotation** with exponential backoff; all keys used, none wasted.
+- **Multi-key LLM rotation** — Groq → DeepSeek → OpenAI → **Gemini (unlimited keys)** → Dify, precise failover + exponential backoff; all keys used, none wasted. Web layer: **Jina Reader auto-fallback** (`JINA_API_KEY`) for sites that block scrapers + **Serper.dev search** utility (`core/search.py`) for deep discovery.
 - **Sandbox note:** outbound HTTPS may be blocked in dev sandboxes; feeds/LLM
   fail gracefully there and work from the production server.
 

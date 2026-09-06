@@ -63,9 +63,13 @@ echo "[4/6] Validation gate…"
 cd "$DEPLOY_DIR/scripts"
 $PY finalize.py --strict || { echo "  ✗ Validation failed — fix before live"; }
 
-# 5) Health check
+# 5) Health check + (optionally) deep source audit
 echo "[5/6] Health check…"
 $PY check.py || echo "  (health check reported notes)"
+if [ "${1:-}" = "--audit" ]; then
+  echo "[5b] Deep source audit (content-gated, all registry sources)…"
+  $PY audit_sources.py --only-enabled || echo "  (audit reported notes — collector auto-handles)"
+fi
 
 # 6) systemd (optional)
 if [ "${1:-}" = "--systemd" ]; then
@@ -90,6 +94,7 @@ echo ""
 echo "Dry-run tests:"
 echo "  cd $DEPLOY_DIR/scripts && python3 watch.py --once --dry"
 echo "  cd $DEPLOY_DIR/scripts && python3 quiz_engine.py quiz --dry"
+echo "  cd $DEPLOY_DIR/scripts && python3 audit_sources.py --only-enabled --no-write"
 echo "  cd $DEPLOY_DIR/scripts && python3 check.py --feeds"
 echo ""
 echo "=============== DEPLOY DONE ================"

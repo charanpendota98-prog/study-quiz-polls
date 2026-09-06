@@ -63,6 +63,19 @@ DIGEST_WEAK_WORDS = ("opin", "edit", "blog", "interview", "profile",
                      "recipe", "travel", "fashion", "sports", "entertain")
 
 
+def load_feed_sources():
+    """Central feed list from the registry (data/collector_sources.json,
+    key 'news_feeds'). Falls back to FEEDS for fresh checkouts."""
+    reg = load_json(config.DATA / "collector_sources.json", {})
+    nf = (reg or {}).get("news_feeds") or {}
+    if nf.get("ca") and nf.get("jobs"):
+        return {
+            "ca": [(n, u) for n, u, *_ in nf["ca"]],
+            "jobs": [(n, u) for n, u, *_ in nf["jobs"]],
+        }
+    return FEEDS
+
+
 def is_weak_content(title: str) -> bool:
     """True for headlines that do not belong in an exam-focused CA digest."""
     t = (title or "").lower()
@@ -140,7 +153,7 @@ def aggregate(dry=False, translate=True, max_ca=6, max_jobs=5, max_age_hours=72)
     stats = {"feeds_ok": 0, "feeds_dead": 0, "entries": 0,
              "ca_kept": 0, "jobs_kept": 0, "blocked": 0, "dup": 0}
 
-    for scope, feeds in FEEDS.items():
+    for scope, feeds in load_feed_sources().items():
         for name, url in feeds:
             entries = fetch_feed(name, url)
             if entries is None:

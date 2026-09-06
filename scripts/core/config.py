@@ -224,23 +224,29 @@ def channel_chat_id(key: str) -> str:
 # TWO main quiz rounds a day (India No.1 cadence — morning + evening).
 # Add a line (e.g. "13:30": ("quiz", {"slot": 3})) to add more rounds anytime.
 SCHEDULE = {
-    # Deep multi-source exam-quiz scraping — runs all day, including right
-    # AFTER each quiz round, so content is constantly refreshed. Small polite
-    # batches + seen-URL tracking mean each run pages forward to NEW content.
-    "05:30": ("collect", {}),
+    # Deep multi-source exam-quiz scraping — runs all day AND twice
+    # immediately after each quiz round (07:40 / 19:40), so fresh exam
+    # content is collected right after every round. Small polite batches +
+    # seen-URL tracking mean each run pages forward to NEW content.
+    # Failing sources auto-pause via collector_health.json; the 04:45 auditor
+    # re-verifies all sources (content-gated) and auto-pauses/enables them.
+    "04:45": ("audit", {}),        # daily deep source audit (content-gated)
+    "05:30": ("collect", {"reason": "pre-dawn scrape"}),
     "06:00": ("filler", {"reason": "morning top-up"}),
     "07:00": ("morning", {}),
     "07:30": ("quiz", {"slot": 1, "round": "Morning ⛅"}),
-    "08:15": ("collect", {}),      # right AFTER morning quiz — keep collecting
-    "11:00": ("collect", {}),      # late-morning fresh quiz scraping
+    "07:40": ("collect", {"reason": "post-morning-quiz"}),
+    "08:15": ("collect", {"reason": "post-morning deep scrape"}),
+    "11:00": ("collect", {"reason": "late-morning scrape"}),
     "12:30": ("coach", {}),        # daily expert reasoning/aptitude trick
     "14:30": ("tip", {}),
-    "16:00": ("collect", {}),      # pre-evening top-up scrape
+    "16:00": ("collect", {"reason": "pre-evening top-up scrape"}),
     "19:30": ("quiz", {"slot": 2, "round": "Evening 🌙"}),
-    "20:15": ("collect", {}),      # right AFTER evening quiz — keep collecting
+    "19:40": ("collect", {"reason": "post-evening-quiz"}),
+    "20:15": ("collect", {"reason": "post-evening deep scrape"}),
     "21:00": ("leaderboard", {"when": "sunday"}),   # weekly toppers, Sunday only
     "21:30": ("digest", {}),
-    "22:30": ("collect", {}),      # late-evening deep scrape
+    "22:30": ("collect", {"reason": "late-evening deep scrape"}),
 }
 
 # Quiz slot minutes (2/day) — reminders derive from these automatically.
