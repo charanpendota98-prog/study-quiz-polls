@@ -549,7 +549,7 @@ def generate_llm(channel, topic, llm=None):
 # ---------------------------------------------------------------------------
 # Offline-generated quantitative/reasoning questions are valid for every
 # aptitude channel — we route a copy to whichever channel is under-stocked.
-_APTITUDE_CHANNELS = {"BANKING", "RAILWAY", "POLICE", "DEFENCE", "TSPSC", "APPSC"}
+_APTITUDE_CHANNELS = {"BANKING", "RAILWAY", "POLICE", "DEFENCE", "TSPSC", "APPSC", "SSC"}
 
 # Per-topic generators are natively owned by these channels, but a numeric
 # question can serve any aptitude channel. Worded GK (CURRENT) stays curated/LLM.

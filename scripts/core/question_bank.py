@@ -20,7 +20,7 @@ import re as _re
 # Channel name in the "• Channel:" line -> our channel key
 _CHANNEL_HINT = {
     "TSPSC": "TSPSC", "APPSC": "APPSC", "Banking": "BANKING", "Railway": "RAILWAY",
-    "Police": "POLICE", "Defence": "DEFENCE", "Current Affairs": "CURRENT",
+    "Police": "POLICE", "Defence": "DEFENCE", "SSC": "SSC", "Current Affairs": "CURRENT",
 }
 
 # Quiz questions may ONLY come from exam-paper-aligned sources — never from
@@ -114,7 +114,7 @@ def rebuild_json():
     """Parse MD + PYQ + curated extras + generated extras -> validated bank."""
     questions = parse_markdown()
     # Authentic previous-year questions (highest priority) — all PYQ volumes
-    for _pyq_name in ("pyq_bank.json", "pyq_bank_2.json", "pyq_bank_3.json"):
+    for _pyq_name in ("pyq_bank.json", "pyq_bank_2.json", "pyq_bank_3.json", "pyq_bank_4_ssc.json"):
         _pyq = load_json(config.DATA / _pyq_name, {"questions": []})
         questions.extend(_pyq.get("questions", []))
     # Hand-curated bilingual GK/CA extras
@@ -232,18 +232,38 @@ class Bank:
         src_rank = {"pyq": 0, "curated": 1, "llm-gen": 2, "offline-gen": 3}
         pyqs = [q for q in pool if q.get("source") == "pyq"]
         rest = [q for q in pool if q.get("source") != "pyq"]
-        ordered = pyqs[:max(1, n * 4 // 10)] + rest
+        ordered = pyqs + rest
         chosen, topics_used, keys_used = [], {}, [0, 0, 0, 0]
+        subjects_used = {}
+
+        def _ssc_subject(topic: str) -> str:
+            t = (topic or "").lower()
+            if any(k in t for k in ("reason", "analog", "coding", "series", "puzzle", "syllogism", "relation", "figure", "intelligence")):
+                return "reasoning"
+            if any(k in t for k in ("quant", "arith", "math", "ratio", "percent", "algebra", "geom", "trig", "number", "interest", "profit", "time", "average", "mensuration", "hcf")):
+                return "quant"
+            if any(k in t for k in ("english", "grammar", "vocab", "synonym", "antonym", "error", "fill", "idiom", "one word", "spelling", "sentence", "cloze")):
+                return "english"
+            return "gk"
+
         candidates = ordered[:]
         while len(chosen) < n and candidates:
             def score(q):
+                s_bonus = 0
+                if channel == "SSC":
+                    subj = _ssc_subject(q.get("topic", ""))
+                    s_bonus = subjects_used.get(subj, 0) * 3
                 return (src_rank.get(q.get("source", "offline-gen"), 3) * 0
                         + topics_used.get(q.get("topic", ""), 0) * 2
+                        + s_bonus
                         + keys_used[q["answer_index"]] + random.random())
             candidates.sort(key=score)
             q = candidates.pop(0)
             chosen.append(q)
             topics_used[q.get("topic", "")] = topics_used.get(q.get("topic", ""), 0) + 1
+            if channel == "SSC":
+                subj = _ssc_subject(q.get("topic", ""))
+                subjects_used[subj] = subjects_used.get(subj, 0) + 1
             keys_used[q["answer_index"]] += 1
         self.mark_posted(channel, chosen)      # PERMANENT — never repeat
         return chosen

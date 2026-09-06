@@ -141,7 +141,7 @@ class Bot:
     def _exam_to_channel(exam):
         m = {"TSPSC": "TSPSC", "APPSC": "APPSC", "Banking": "BANKING",
              "Railway": "RAILWAY", "Police": "POLICE", "Defence": "DEFENCE",
-             "SSC/UPSC": "CURRENT", "Current Affairs GK": "CURRENT"}
+             "SSC": "SSC", "SSC/UPSC": "SSC", "Current Affairs GK": "CURRENT"}
         return m.get(exam, "TSPSC")
 
     def _coach_lesson(self, channel=None):
