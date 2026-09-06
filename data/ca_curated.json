@@ -1,0 +1,29 @@
+{
+  "note": "Curated, exam-relevant Current Affairs fallback. Used when live feeds are unreachable so the bot is NEVER silent. Keep facts verified; update monthly.",
+  "items": [
+    {"en": "Government of Telangana expanded the Indiramma Housing Scheme for rural women — 2 lakh units approved.",
+     "te": "తెలంగాణ ప్రభుత్వం ఇందిరమ్మ గృహ పథకాన్ని గ్రామీణ మహిళల కోసం విస్తరించింది — 2 లక్షల యూనిట్లకు ఆమోదం."},
+    {"en": "RBI kept the repo rate unchanged at 6.50% in its latest monetary policy review, focusing on inflation control.",
+     "te": "RBI తాజా ద్రవ్య విధాన సమీక్షలో రెపో రేటును 6.50% వద్ద మార్చకుండా, ద్రవ్యోల్బణ నియంత్రణపై దృష్టి సారించింది."},
+    {"en": "ISRO's Aditya-L1 solar mission continues observing the Sun from the L1 halo orbit, supporting space-science research.",
+     "te": "ఇస్రో ఆదిత్య-L1 సౌర మిషన్ L1 కక్ష్య నుండి సూర్యునిని పరిశీలిస్తూ, అంతరిక్ష శాస్త్ర పరిశోధనకు తోడ్పడుతోంది."},
+    {"en": "PM-KISAN provides income support of ₹6,000 per year to eligible farmer families in three equal installments.",
+     "te": "PM-KISAN అర్హ రైతు కుటుంబాలకు సంవత్సరానికి ₹6,000 ఆదాయ మద్దతును మూడు సమాన విడతల్లో అందిస్తుంది."},
+    {"en": "Ayushman Bharat PM-JAY offers health cover of up to ₹5 lakh per family per year for secondary and tertiary care.",
+     "te": "ఆయుష్మాన్ భారత్ PM-JAY ప్రతి కుటుంబానికి సంవత్సరానికి ₹5 లక్షల వరకు ఆరోగ్య కవరేజీని అందిస్తుంది."},
+    {"en": "Indian Railways is expanding electrification with a target of 100% electrification of broad-gauge routes.",
+     "te": "భారతీయ రైల్వే బ్రాడ్‌గేజ్ మార్గాల 100% విద్యుదీకరణ లక్ష్యంతో విద్యుదీకరణను విస్తరిస్తోంది."},
+    {"en": "Fundamental Rights are enshrined in Part III of the Indian Constitution, Articles 12 to 35.",
+     "te": "ప్రాథమిక హక్కులు భారత రాజ్యాంగంలోని భాగం III, ఆర్టికల్ 12 నుండి 35 వరకు ఉన్నాయి."},
+    {"en": "INS Vikrant is India's first indigenously built aircraft carrier, commissioned into the Indian Navy.",
+     "te": "INS విక్రాంత్ భారతదేశపు మొదటి స్వదేశీ విమాన వాహక నౌక — భారత నౌకాదళంలో చేర్చబడింది."},
+    {"en": "DRDO, headquartered in New Delhi, leads India's defence research and indigenous missile development.",
+     "te": "న్యూఢిల్లీలో ప్రధాన కార్యాలయం ఉన్న DRDO భారత రక్షణ పరిశోధన, స్వదేశీ క్షిపణి అభివృద్ధిని నడిపిస్తుంది."},
+    {"en": "The Union Budget sets the fiscal deficit glide path; recent targets aim to consolidate the deficit toward 4.4% of GDP.",
+     "te": "కేంద్ర బడ్జెట్ ఆర్థిక లోటు మార్గాన్ని నిర్దేశిస్తుంది; ఇటీవలి లక్ష్యాలు లోటును GDPలో 4.4% వైపు తీసుకెళ్తాయి."},
+    {"en": "The Bogibeel Bridge in Assam is India's longest rail-cum-road bridge, a key national infrastructure project.",
+     "te": "అస్సాంలోని బొగీబీల్ వంతెన భారతదేశపు అత్యంత పొడవైన రైలు-కమ్-రోడ్డు వంతెన — కీలక జాతీయ మౌలిక సదుపాయం."},
+    {"en": "TSPSC and APPSC conduct Group II, III and IV recruitments; aspirants should watch official notifications for exam dates.",
+     "te": "TSPSC, APPSC గ్రూప్ II, III, IV నియామకాలను నిర్వహిస్తాయి; అభ్యర్థులు పరీక్ష తేదీల కోసం అధికారిక నోటిఫికేషన్లు చూడాలి."}
+  ]
+}

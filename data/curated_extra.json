@@ -1,0 +1,181 @@
+{
+  "comment": "Hand-curated TS/AP + central GK/current-affairs bilingual questions (verified). Folded into the bank by generator.top_up / question_bank. Fact-based — never fabricated by the offline generator.",
+  "questions": [
+    {
+      "id": "C001", "channel": "CURRENT", "topic": "Telangana statehood",
+      "q_en": "In which year was Telangana formed as the 29th state of India?",
+      "q_te": "⤷ భారతదేశ 29వ రాష్ట్రంగా తెలంగాణ ఏ సంవత్సరంలో ఏర్పడింది?",
+      "options_en": ["2012", "2013", "2014", "2015"],
+      "options_te": ["2012", "2013", "2014", "2015"],
+      "answer_index": 2,
+      "explanation_en": "Telangana was formed on 2 June 2014 (state formation day).",
+      "explanation_te": "తెలంగాణ 2 జూన్ 2014న ఏర్పడింది (రాష్ట్ర ఆవిర్భావ దినోత్సవం).",
+      "source": "curated", "bank": "extra"
+    },
+    {
+      "id": "C002", "channel": "CURRENT", "topic": "Andhra Pradesh formation",
+      "q_en": "Which city became the capital of Andhra Pradesh after the 2014 bifurcation?",
+      "q_te": "⤷ 2014 విభజన తర్వాత ఆంధ్రప్రదేశ్‌కు రాజధానిగా ఏ నగరం ఏర్పడింది?",
+      "options_en": ["Visakhapatnam", "Amaravati", "Vijayawada", "Guntur"],
+      "options_te": ["విశాఖపట్నం", "అమరావతి", "విజయవాడ", "గుంటూరు"],
+      "answer_index": 1,
+      "explanation_en": "Amaravati was developed as the capital of Andhra Pradesh after bifurcation.",
+      "explanation_te": "విభజన తర్వాత అమరావతి ఆంధ్రప్రదేశ్ రాజధానిగా అభివృద్ధి చేయబడింది.",
+      "source": "curated", "bank": "extra"
+    },
+    {
+      "id": "C003", "channel": "TSPSC", "topic": "Telangana GK",
+      "q_en": "Which is the longest river flowing through Telangana?",
+      "q_te": "⤷ తెలంగాణ గుండా ప్రవహించే పొడవైన నది ఏది?",
+      "options_en": ["Krishna", "Godavari", "Musi", "Manjira"],
+      "options_te": ["కృష్ణా", "గోదావరి", "మూసీ", "మంజీరా"],
+      "answer_index": 1,
+      "explanation_en": "The Godavari is the longest river in Telangana (and peninsular India).",
+      "explanation_te": "గోదావరి తెలంగాణలో పొడవైన నది (మరియు ద్వీపకల్ప భారతదేశంలో పొడవైనది).",
+      "source": "curated", "bank": "extra"
+    },
+    {
+      "id": "C004", "channel": "TSPSC", "topic": "Telangana GK",
+      "q_en": "Ramappa Temple (a UNESCO World Heritage Site) is located in which district of Telangana?",
+      "q_te": "⤷ రామప్ప దేవాలయం (యునెస్కో ప్రపంచ వారసత్వ ప్రదేశం) తెలంగాణలోని ఏ జిల్లాలో ఉంది?",
+      "options_en": ["Warangal", "Mulugu", "Karimnagar", "Nalgonda"],
+      "options_te": ["వరంగల్", "ములుగు", "కరీంనగర్", "నల్గొండ"],
+      "answer_index": 1,
+      "explanation_en": "Ramappa Temple is in Mulugu district; inscribed as a UNESCO site in 2021.",
+      "explanation_te": "రామప్ప దేవాలయం ములుగు జిల్లాలో ఉంది; 2021లో యునెస్కో జాబితాలో చేరింది.",
+      "source": "curated", "bank": "extra"
+    },
+    {
+      "id": "C005", "channel": "APPSC", "topic": "Andhra GK",
+      "q_en": "Which is the longest river in Andhra Pradesh?",
+      "q_te": "⤷ ఆంధ్రప్రదేశ్‌లో పొడవైన నది ఏది?",
+      "options_en": ["Krishna", "Godavari", "Penna", "Tungabhadra"],
+      "options_te": ["కృష్ణా", "గోదావరి", "పెన్నా", "తుంగభద్ర"],
+      "answer_index": 1,
+      "explanation_en": "The Godavari is the longest river in Andhra Pradesh.",
+      "explanation_te": "గోదావరి ఆంధ్రప్రదేశ్‌లో పొడవైన నది.",
+      "source": "curated", "bank": "extra"
+    },
+    {
+      "id": "C006", "channel": "APPSC", "topic": "Andhra GK",
+      "q_en": "The famous Tirumala Venkateswara Temple is located in which district of Andhra Pradesh?",
+      "q_te": "⤷ ప్రసిద్ధ తిరుమల వెంకటేశ్వర దేవాలయం ఆంధ్రప్రదేశ్‌లోని ఏ జిల్లాలో ఉంది?",
+      "options_en": ["Chittoor (Tirupati)", "Kadapa", "Anantapur", "Nellore"],
+      "options_te": ["చిత్తూరు (తిరుపతి)", "కడప", "అనంతపురం", "నెల్లూరు"],
+      "answer_index": 0,
+      "explanation_en": "Tirumala temple is in the Tirupati area of Chittoor district.",
+      "explanation_te": "తిరుమల దేవాలయం చిత్తూరు జిల్లా తిరుపతి ప్రాంతంలో ఉంది.",
+      "source": "curated", "bank": "extra"
+    },
+    {
+      "id": "C007", "channel": "CURRENT", "topic": "Government scheme",
+      "q_en": "The Rythu Bandhu investment-support scheme is a flagship of which state?",
+      "q_te": "⤷ రైతు బంధు పెట్టుబడి-సహాయక పథకం ఏ రాష్ట్ర ప్రధాన పథకం?",
+      "options_en": ["Andhra Pradesh", "Telangana", "Karnataka", "Tamil Nadu"],
+      "options_te": ["ఆంధ్రప్రదేశ్", "తెలంగాణ", "కర్ణాటక", "తమిళనాడు"],
+      "answer_index": 1,
+      "explanation_en": "Rythu Bandhu (farm investment support) was launched by Telangana.",
+      "explanation_te": "రైతు బంధు (రైతు పెట్టుబడి సహాయం) తెలంగాణ ప్రారంభించింది.",
+      "source": "curated", "bank": "extra"
+    },
+    {
+      "id": "C008", "channel": "CURRENT", "topic": "National symbol",
+      "q_en": "What is the national animal of India?",
+      "q_te": "⤷ భారతదేశ జాతీయ జంతువు ఏది?",
+      "options_en": ["Lion", "Tiger", "Elephant", "Peacock"],
+      "options_te": ["సింహం", "పులి", "ఏనుగు", "నెమలి"],
+      "answer_index": 1,
+      "explanation_en": "The Bengal Tiger is India's national animal; the peacock is the national bird.",
+      "explanation_te": "బెంగాల్ పులి భారత జాతీయ జంతువు; నెమలి జాతీయ పక్షి.",
+      "source": "curated", "bank": "extra"
+    },
+    {
+      "id": "C009", "channel": "CURRENT", "topic": "Constitution",
+      "q_en": "Who is the constitutional head of a state government in India?",
+      "q_te": "⤷ భారతదేశంలో రాష్ట్ర ప్రభుత్వ రాజ్యాంగ అధిపతి ఎవరు?",
+      "options_en": ["Chief Minister", "Governor", "Chief Secretary", "High Court Judge"],
+      "options_te": ["ముఖ్యమంత్రి", "గవర్నర్", "ప్రధాన కార్యదర్శి", "హైకోర్టు న్యాయమూర్తి"],
+      "answer_index": 1,
+      "explanation_en": "The Governor is the constitutional head of a state; real power rests with the CM and council.",
+      "explanation_te": "గవర్నర్ రాష్ట్ర రాజ్యాంగ అధిపతి; వాస్తవ అధికారం ముఖ్యమంత్రి, మంత్రిమండలికి ఉంటుంది.",
+      "source": "curated", "bank": "extra"
+    },
+    {
+      "id": "C010", "channel": "DEFENCE", "topic": "Defence GK",
+      "q_en": "What is the highest gallantry award in India for wartime bravery?",
+      "q_te": "⤷ యుద్ధ సమయంలో పరాక్రమానికి భారతదేశంలో అత్యున్నత శౌర్య పురస్కారం ఏది?",
+      "options_en": ["Ashoka Chakra", "Param Vir Chakra", "Vir Chakra", "Maha Vir Chakra"],
+      "options_te": ["అశోక చక్రం", "పరమ్ వీర్ చక్రం", "వీర్ చక్రం", "మహా వీర్ చక్రం"],
+      "answer_index": 1,
+      "explanation_en": "Param Vir Chakra is India's highest wartime gallantry award.",
+      "explanation_te": "పరమ్ వీర్ చక్రం భారతదేశ అత్యున్నత యుద్ధకాల శౌర్య పురస్కారం.",
+      "source": "curated", "bank": "extra"
+    },
+    {
+      "id": "C011", "channel": "RAILWAY", "topic": "Indian history",
+      "q_en": "In which year did India gain independence from British rule?",
+      "q_te": "⤷ భారతదేశం బ్రిటిష్ పాలన నుండి స్వాతంత్ర్యం ఏ సంవత్సరంలో పొందింది?",
+      "options_en": ["1942", "1945", "1947", "1950"],
+      "options_te": ["1942", "1945", "1947", "1950"],
+      "answer_index": 2,
+      "explanation_en": "India became independent on 15 August 1947; the Republic was adopted in 1950.",
+      "explanation_te": "భారతదేశం 15 ఆగస్టు 1947న స్వతంత్రమైంది; 1950లో గణతంత్రం అయింది.",
+      "source": "curated", "bank": "extra"
+    },
+    {
+      "id": "C012", "channel": "BANKING", "topic": "Banking awareness",
+      "q_en": "Which body is the regulator of banks and monetary policy in India?",
+      "q_te": "⤷ భారతదేశంలో బ్యాంకుల ద్రవ్య విధాన నియంత్రణ సంస్థ ఏది?",
+      "options_en": ["SEBI", "Reserve Bank of India", "NABARD", "Finance Ministry"],
+      "options_te": ["సెబీ", "రిజర్వ్ బ్యాంక్ ఆఫ్ ఇండియా", "నాబార్డ్", "ఆర్థిక మంత్రిత్వ శాఖ"],
+      "answer_index": 1,
+      "explanation_en": "The Reserve Bank of India (RBI) regulates banks and sets the repo rate.",
+      "explanation_te": "రిజర్వ్ బ్యాంక్ ఆఫ్ ఇండియా (RBI) బ్యాంకులను నియంత్రించి రెపో రేటు నిర్ణయిస్తుంది.",
+      "source": "curated", "bank": "extra"
+    },
+    {
+      "id": "C013", "channel": "POLICE", "topic": "Indian polity",
+      "q_en": "How many fundamental rights are currently guaranteed by the Indian Constitution?",
+      "q_te": "⤷ భారత రాజ్యాంగం ప్రస్తుతం ఎన్ని ప్రాథమిక హక్కులను హామీ ఇస్తోంది?",
+      "options_en": ["Five", "Six", "Seven", "Ten"],
+      "options_te": ["ఐదు", "ఆరు", "ఏడు", "పది"],
+      "answer_index": 1,
+      "explanation_en": "Six fundamental rights (Articles 12-35); the Right to Property was removed in 1978.",
+      "explanation_te": "ఆరు ప్రాథమిక హక్కులు (ఆర్టికల్ 12-35); ఆస్తి హక్కు 1978లో తొలగించబడింది.",
+      "source": "curated", "bank": "extra"
+    },
+    {
+      "id": "C014", "channel": "CURRENT", "topic": "Science/space",
+      "q_en": "Chandrayaan-3 achieved a historic soft landing near which part of the Moon?",
+      "q_te": "⤷ చంద్రయాన్-3 చంద్రుని ఏ ప్రాంతం దగ్గర చారిత్రాత్మక సాఫ్ట్ ల్యాండింగ్ సాధించింది?",
+      "options_en": ["North pole", "South pole", "Near side centre", "Far side equator"],
+      "options_te": ["ఉత్తర ధ్రువం", "దక్షిణ ధ్రువం", "దగ్గరి వైపు మధ్యభాగం", "దూరపు వైపు భూమధ్యరేఖ"],
+      "answer_index": 1,
+      "explanation_en": "On 23 August 2023 India became the first to land near the Moon's south pole.",
+      "explanation_te": "23 ఆగస్టు 2023న చంద్రుని దక్షిణ ధ్రువం దగ్గర దిగిన మొదటి దేశంగా భారత్ నిలిచింది.",
+      "source": "curated", "bank": "extra"
+    },
+    {
+      "id": "C015", "channel": "TSPSC", "topic": "Telangana GK",
+      "q_en": "The Kakatiya dynasty is most closely associated with which region/city?",
+      "q_te": "⤷ కాకతీయ రాజవంశం ఏ ప్రాంతం/నగరంతో ఎక్కువగా అనుబంధం?",
+      "options_en": ["Warangal (Orugallu)", "Hyderabad", "Nizamabad", "Khammam"],
+      "options_te": ["వరంగల్ (ఓరుగల్లు)", "హైదరాబాద్", "నిజామాబాద్", "ఖమ్మం"],
+      "answer_index": 0,
+      "explanation_en": "The Kakatiyas ruled from Orugallu (modern Warangal); rulers like Rani Rudrama Devi.",
+      "explanation_te": "కాకతీయులు ఓరుగల్లు (నేటి వరంగల్) నుండి పాలించారు; రాణి రుద్రమదేవి వంటి పాలకులు.",
+      "source": "curated", "bank": "extra"
+    },
+    {
+      "id": "C016", "channel": "CURRENT", "topic": "National symbol",
+      "q_en": "What is the national flower of India?",
+      "q_te": "⤷ భారతదేశ జాతీయ పుష్పం ఏది?",
+      "options_en": ["Rose", "Lotus", "Jasmine", "Sunflower"],
+      "options_te": ["గులాబీ", "కమలం", "మల్లె", "పొద్దుతిరుగుడు"],
+      "answer_index": 1,
+      "explanation_en": "The Lotus (Kamal) is India's national flower.",
+      "explanation_te": "కమలం భారత జాతీయ పుష్పం.",
+      "source": "curated", "bank": "extra"
+    }
+  ]
+}

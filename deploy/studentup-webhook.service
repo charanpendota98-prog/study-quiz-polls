@@ -1,0 +1,19 @@
+[Unit]
+Description=StudentUp Form Webhook (Google Form -> members)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/studentup
+ExecStart=/usr/bin/python3 /home/ubuntu/studentup/scripts/webhook_server.py
+Environment=WEBHOOK_PORT=8080
+Environment=WEBHOOK_SECRET=change-me
+Restart=always
+RestartSec=10
+StandardOutput=append:/home/ubuntu/studentup/logs/webhook.log
+StandardError=append:/home/ubuntu/studentup/logs/webhook.log
+
+[Install]
+WantedBy=multi-user.target

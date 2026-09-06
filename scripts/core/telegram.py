@@ -1,0 +1,158 @@
+#!/usr/bin/env python3
+"""
+STUDENTUP — TELEGRAM BOT API CLIENT
+Stdlib-only (urllib) with automatic fallback to `requests` if present.
+- sendQuiz  (native quiz poll, correct_option_index => instant feedback)
+- sendMessage (bilingual text / digest / jobs / reminders)
+- getUpdates (poll-answer listener for leaderboard)
+- Exponential-backoff retry on 429 / 5xx; hard-fail on 400/401/403.
+- DRY mode: logs the payload instead of posting (safe for tests / sandbox).
+"""
+from __future__ import annotations
+
+import json
+import time
+import random
+import urllib.request
+import urllib.parse
+import urllib.error
+from typing import Optional
+
+from . import config
+
+try:
+    import requests  # optional
+    _HAS_REQUESTS = True
+except Exception:
+    _HAS_REQUESTS = False
+
+API = "https://api.telegram.org/bot{token}/{method}"
+
+
+class TelegramError(RuntimeError):
+    pass
+
+
+class Telegram:
+    def __init__(self, token: str = "", dry: Optional[bool] = None):
+        self.token = token or config.BOT_TOKEN
+        self.dry = config.DRY if dry is None else dry
+        self.session = requests.Session() if _HAS_REQUESTS else None
+        self._offset = None
+
+    # ------------------------------------------------------------------ core
+    def _call(self, method: str, payload: dict, timeout: int = 30):
+        # Dry run short-circuits BEFORE requiring a token (sandbox/CI safe).
+        if self.dry:
+            print(f"   [DRY] {method} -> {payload.get('chat_id')} :: "
+                  f"{str(payload.get('question') or payload.get('text'))[:80]!r}")
+            return {"ok": True, "dry": True, "result": {"message_id": -1, **payload}}
+        if not self.token:
+            raise TelegramError("BOT_TOKEN not set (put it in env/.env)")
+        url = API.format(token=self.token, method=method)
+        data = json.dumps(payload).encode("utf-8")
+        headers = {"Content-Type": "application/json"}
+
+        if False:
+            preview = {k: (v if k != "options" else v) for k, v in payload.items()}
+            print(f"   [DRY] {method} -> {payload.get('chat_id')} :: "
+                  f"{str(payload.get('question') or payload.get('text'))[:70]!r}")
+            return {"ok": True, "dry": True, "result": {"message_id": -1, **payload}}
+
+        backoff = 2
+        for attempt in range(5):
+            try:
+                if self.session:
+                    r = self.session.post(url, data=data, headers=headers, timeout=timeout)
+                    code, body = r.status_code, r.text
+                else:
+                    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+                    with urllib.request.urlopen(req, timeout=timeout) as resp:
+                        code, body = resp.status, resp.read().decode("utf-8")
+                try:
+                    parsed = json.loads(body)
+                except json.JSONDecodeError:
+                    parsed = {"ok": False, "description": body[:200]}
+                if code == 200 and parsed.get("ok"):
+                    return parsed
+                desc = str(parsed.get("description", body))
+                # Fatal client errors — don't retry
+                if code in (400, 401, 403, 404) or "chat not found" in desc.lower() \
+                        or "unauthorized" in desc.lower() or "not enough rights" in desc.lower() \
+                        or "need administrator" in desc.lower():
+                    raise TelegramError(f"{method} fatal {code}: {desc}")
+                # Retry on 429 / 5xx
+                wait = backoff
+                if "retry_after" in desc.lower():
+                    try:
+                        wait = float(desc.split("retry_after")[1].split()[0].strip(":()"))
+                    except Exception:
+                        pass
+                print(f"   [retry {attempt+1}] {method} {code}: {desc[:120]} (sleep {wait}s)")
+                time.sleep(wait)
+                backoff = min(backoff * 2, 30)
+            except urllib.error.URLError as e:
+                if attempt == 4:
+                    raise TelegramError(f"{method} network error: {e}")
+                time.sleep(backoff)
+                backoff = min(backoff * 2, 30)
+        raise TelegramError(f"{method} failed after retries")
+
+    # ------------------------------------------------------------- high-level
+    def send_quiz(self, chat_id: str, question: str, options: list,
+                  correct_index: int, explanation: str = "",
+                  open_period: int = 300) -> dict:
+        if len(options) < 2:
+            raise TelegramError("quiz needs >=2 options")
+        payload = {
+            "chat_id": chat_id,
+            "question": question,
+            "options": [{"text": o} for o in options],
+            "type": "quiz",
+            "is_anonymous": True,
+            "allows_multiple_answers": False,
+            "correct_option_id": int(correct_index),
+            "open_period": open_period,
+        }
+        if explanation.strip():
+            payload["explanation"] = explanation[:config.TG_POLL_EXPLANATION_MAX]
+        return self._call("sendPoll", payload)
+
+    def send_message(self, chat_id: str, text: str, disable_preview: bool = True,
+                     parse_mode: str = "") -> dict:
+        payload = {"chat_id": chat_id, "text": text[:config.TG_MSG_MAX],
+                   "disable_web_page_preview": disable_preview}
+        if parse_mode:
+            payload["parse_mode"] = parse_mode
+        return self._call("sendMessage", payload)
+
+    def get_updates(self, timeout: int = 0):
+        payload = {"timeout": timeout, "allowed_updates": ["poll_answer", "poll", "message"]}
+        if self._offset is not None:
+            payload["offset"] = self._offset
+        try:
+            res = self._call("getUpdates", payload, timeout=timeout + 10)
+        except TelegramError:
+            return []
+        out = res.get("result", [])
+        if out:
+            self._offset = out[-1]["update_id"] + 1
+        return out
+
+    def admin_notify(self, text: str):
+        if config.ADMIN_ID:
+            try:
+                self.send_message(config.ADMIN_ID, "⚠️ " + text)
+            except TelegramError as e:
+                print(f"   [admin notify failed] {e}")
+
+    @staticmethod
+    def polite_gap(active=False):
+        """2.2–3.2s gap between polls — never faster (Telegram spam-flag safety).
+
+        In dry runs we skip the real sleep so tests run fast (caller passes the
+        client's dry state via `active` = actually posting).
+        """
+        if not active:
+            return
+        time.sleep(random.uniform(config.POLL_GAP_MIN, config.POLL_GAP_MAX))
