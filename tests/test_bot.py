@@ -213,7 +213,33 @@ class TestPYQBank(unittest.TestCase):
         from core.question_bank import Bank
         b = Bank()
         pyqs = [q for q in b.questions if q.get("source") == "pyq"]
-        self.assertGreaterEqual(len(pyqs), 100, f"need 100+ PYQs, got {len(pyqs)}")
+        self.assertGreaterEqual(len(pyqs), 160, f"need 160+ PYQs, got {len(pyqs)}")
+
+    def test_pyq_volume4_ssc_and_subject_rotation(self):
+        """pyq_bank_4_ssc.json adds 60 SSC Tier-I questions with subject rotation."""
+        from core.store import load_json
+        from core import config
+        from core.question_bank import Bank
+        vol4 = load_json(config.DATA / "pyq_bank_4_ssc.json", {"questions": []})
+        qs = vol4.get("questions", [])
+        self.assertEqual(len(qs), 60)
+        self.assertIn("SSC", config.CHANNELS)
+        b = Bank()
+        ssc_qs = b.pick("SSC", 10)
+        self.assertEqual(len(ssc_qs), 10)
+
+    def test_registry_187_sources(self):
+        """Central registry has 187 sources (15 live / 81 cand / 91 arch)."""
+        from core import collector
+        reg = collector.load_registry()
+        srcs = reg.get("sources", [])
+        self.assertEqual(len(srcs), 187)
+        live = [s for s in srcs if s.get("enabled")]
+        cand = [s for s in srcs if not s.get("enabled") and s.get("auto_enable_if_live")]
+        arch = [s for s in srcs if not s.get("enabled") and not s.get("auto_enable_if_live")]
+        self.assertEqual(len(live), 15)
+        self.assertEqual(len(cand), 81)
+        self.assertEqual(len(arch), 91)
 
 
 class TestNoRepeatAndSources(unittest.TestCase):

@@ -1269,6 +1269,486 @@
       }
     },
     {
+      "name": "SSCAdda CGL Tier 1",
+      "enabled": false,
+      "type": "rss",
+      "exam": "ssc",
+      "feed": "https://www.sscadda.com/ssc-cgl/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "SSC CGL prep feed"
+      }
+    },
+    {
+      "name": "SSCAdda CHSL Tier 1",
+      "enabled": false,
+      "type": "rss",
+      "exam": "ssc",
+      "feed": "https://www.sscadda.com/ssc-chsl/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "SSC CHSL prep feed"
+      }
+    },
+    {
+      "name": "SSCAdda MTS Exam",
+      "enabled": false,
+      "type": "rss",
+      "exam": "ssc",
+      "feed": "https://www.sscadda.com/ssc-mts/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "SSC MTS prep feed"
+      }
+    },
+    {
+      "name": "SSCAdda GD Constable",
+      "enabled": false,
+      "type": "rss",
+      "exam": "ssc",
+      "feed": "https://www.sscadda.com/ssc-gd-constable/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "SSC GD prep feed"
+      }
+    },
+    {
+      "name": "SSCAdda CPO Exam",
+      "enabled": false,
+      "type": "rss",
+      "exam": "ssc",
+      "feed": "https://www.sscadda.com/ssc-cpo/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "SSC CPO prep feed"
+      }
+    },
+    {
+      "name": "SSCAdda Selection Post",
+      "enabled": false,
+      "type": "rss",
+      "exam": "ssc",
+      "feed": "https://www.sscadda.com/ssc-selection-post/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "SSC Selection Post feed"
+      }
+    },
+    {
+      "name": "CareerPower SSC CGL",
+      "enabled": false,
+      "type": "rss",
+      "exam": "ssc",
+      "feed": "https://www.careerpower.in/blog/ssc-cgl/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "CareerPower SSC CGL feed"
+      }
+    },
+    {
+      "name": "CareerPower SSC CHSL",
+      "enabled": false,
+      "type": "rss",
+      "exam": "ssc",
+      "feed": "https://www.careerpower.in/blog/ssc-chsl/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "CareerPower SSC CHSL feed"
+      }
+    },
+    {
+      "name": "CareerPower SSC MTS",
+      "enabled": false,
+      "type": "rss",
+      "exam": "ssc",
+      "feed": "https://www.careerpower.in/blog/ssc-mts/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "CareerPower SSC MTS feed"
+      }
+    },
+    {
+      "name": "CareerPower SSC GD",
+      "enabled": false,
+      "type": "rss",
+      "exam": "ssc",
+      "feed": "https://www.careerpower.in/blog/ssc-gd/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "CareerPower SSC GD feed"
+      }
+    },
+    {
+      "name": "Testbook SSC CGL",
+      "enabled": false,
+      "type": "rss",
+      "exam": "ssc",
+      "feed": "https://testbook.com/ssc-cgl/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "Testbook SSC CGL feed"
+      }
+    },
+    {
+      "name": "Testbook SSC CHSL",
+      "enabled": false,
+      "type": "rss",
+      "exam": "ssc",
+      "feed": "https://testbook.com/ssc-chsl/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "Testbook SSC CHSL feed"
+      }
+    },
+    {
+      "name": "Testbook SSC MTS",
+      "enabled": false,
+      "type": "rss",
+      "exam": "ssc",
+      "feed": "https://testbook.com/ssc-mts/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "Testbook SSC MTS feed"
+      }
+    },
+    {
+      "name": "Testbook SSC GD",
+      "enabled": false,
+      "type": "rss",
+      "exam": "ssc",
+      "feed": "https://testbook.com/ssc-gd-constable/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "Testbook SSC GD feed"
+      }
+    },
+    {
+      "name": "BYJU Exam Prep SSC",
+      "enabled": false,
+      "type": "rss",
+      "exam": "ssc",
+      "feed": "https://byjusexamprep.com/ssc-exams/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "BYJU Exam Prep SSC feed"
+      }
+    },
+    {
+      "name": "BYJU Exam Prep Railway",
+      "enabled": false,
+      "type": "rss",
+      "exam": "railway",
+      "feed": "https://byjusexamprep.com/railway-exams/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "BYJU Exam Prep Railway feed"
+      }
+    },
+    {
+      "name": "BYJU Exam Prep Banking",
+      "enabled": false,
+      "type": "rss",
+      "exam": "banking",
+      "feed": "https://byjusexamprep.com/banking-exams/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "BYJU Exam Prep Banking feed"
+      }
+    },
+    {
+      "name": "PracticeMock SSC CGL",
+      "enabled": false,
+      "type": "rss",
+      "exam": "ssc",
+      "feed": "https://www.practicemock.com/blog/ssc-cgl/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "PracticeMock SSC CGL feed"
+      }
+    },
+    {
+      "name": "PracticeMock SSC CHSL",
+      "enabled": false,
+      "type": "rss",
+      "exam": "ssc",
+      "feed": "https://www.practicemock.com/blog/ssc-chsl/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "PracticeMock SSC CHSL feed"
+      }
+    },
+    {
+      "name": "PracticeMock SSC MTS",
+      "enabled": false,
+      "type": "rss",
+      "exam": "ssc",
+      "feed": "https://www.practicemock.com/blog/ssc-mts/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "PracticeMock SSC MTS feed"
+      }
+    },
+    {
+      "name": "PracticeMock RRB NTPC",
+      "enabled": false,
+      "type": "rss",
+      "exam": "railway",
+      "feed": "https://www.practicemock.com/blog/rrb-ntpc/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "PracticeMock RRB NTPC feed"
+      }
+    },
+    {
+      "name": "Oliveboard SSC CGL",
+      "enabled": false,
+      "type": "rss",
+      "exam": "ssc",
+      "feed": "https://www.oliveboard.in/blog/ssc-cgl/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "Oliveboard SSC CGL feed"
+      }
+    },
+    {
+      "name": "Oliveboard SSC CHSL",
+      "enabled": false,
+      "type": "rss",
+      "exam": "ssc",
+      "feed": "https://www.oliveboard.in/blog/ssc-chsl/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "Oliveboard SSC CHSL feed"
+      }
+    },
+    {
+      "name": "Oliveboard RRB Group D",
+      "enabled": false,
+      "type": "rss",
+      "exam": "railway",
+      "feed": "https://www.oliveboard.in/blog/rrb-group-d/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "Oliveboard RRB Group D feed"
+      }
+    },
+    {
+      "name": "BankersAdda IBPS PO",
+      "enabled": false,
+      "type": "rss",
+      "exam": "banking",
+      "feed": "https://www.bankersadda.com/ibps-po/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "BankersAdda IBPS PO feed"
+      }
+    },
+    {
+      "name": "BankersAdda SBI PO",
+      "enabled": false,
+      "type": "rss",
+      "exam": "banking",
+      "feed": "https://www.bankersadda.com/sbi-po/feed/",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "BankersAdda SBI PO feed"
+      }
+    },
+    {
+      "name": "SSCAdda General Awareness",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc",
+      "url": "https://www.sscadda.com/category/general-awareness/",
+      "link_re": "^https://www\\.sscadda\\.com/[a-z0-9\\-]*general-awareness[a-z0-9\\-]*/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "SSC GA listing"
+      }
+    },
+    {
+      "name": "SSCAdda English Language",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc",
+      "url": "https://www.sscadda.com/category/english-language/",
+      "link_re": "^https://www\\.sscadda\\.com/[a-z0-9\\-]*english[a-z0-9\\-]*/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "SSC English listing"
+      }
+    },
+    {
+      "name": "CareerPower Reasoning",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc",
+      "url": "https://www.careerpower.in/blog/category/reasoning/",
+      "link_re": "^https://www\\.careerpower\\.in/blog/[a-z0-9\\-]+/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "CareerPower Reasoning listing"
+      }
+    },
+    {
+      "name": "CareerPower Quant",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc",
+      "url": "https://www.careerpower.in/blog/category/quantitative-aptitude/",
+      "link_re": "^https://www\\.careerpower\\.in/blog/[a-z0-9\\-]+/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "CareerPower Quant listing"
+      }
+    },
+    {
+      "name": "IndiaBIX General Science",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-railway",
+      "url": "https://www.indiabix.com/general-knowledge/general-science/questions-and-answers/",
+      "link_re": "^https://www\\.indiabix\\.com/general-knowledge/general-science/[a-z0-9\\-]+(?:/[0-9]+)?/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "IndiaBIX General Science"
+      }
+    },
+    {
+      "name": "IndiaBIX Indian History",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-upsc",
+      "url": "https://www.indiabix.com/general-knowledge/indian-history/questions-and-answers/",
+      "link_re": "^https://www\\.indiabix\\.com/general-knowledge/indian-history/[a-z0-9\\-]+(?:/[0-9]+)?/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "IndiaBIX Indian History"
+      }
+    },
+    {
       "name": "ARCHIVE:Deccan Chronicle",
       "enabled": false,
       "type": "rss",
@@ -2371,6 +2851,34 @@
         "note": "archive | banking GK re-scan (HTML page, not RSS)"
       },
       "feed": "https://rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:SSC Portal",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | SSC portal legacy re-scan"
+      },
+      "feed": "https://sscportal.in/feed",
+      "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "ARCHIVE:Qmaths SSC",
+      "enabled": false,
+      "type": "rss",
+      "exam": "all",
+      "audit": {
+        "status": "archive",
+        "checked": "2026-09-06",
+        "note": "archive | SSC math prep re-scan"
+      },
+      "feed": "https://www.qmaths.in/feed/",
       "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
       "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
     }

@@ -1,0 +1,1326 @@
+{
+  "version": "4.0",
+  "count": 60,
+  "questions": [
+    {
+      "id": "PYQ-SSC-001",
+      "channel": "SSC",
+      "topic": "Reasoning - Analogy",
+      "q_en": "SSC CGL PYQ: Select the related word: Doctor : Hospital :: Teacher : ?",
+      "q_te": "SSC CGL PYQ: సంబంధిత పదాన్ని ఎంచుకోండి: డాక్టర్ : ఆసుపత్రి :: ఉపాధ్యాయుడు : ?",
+      "options_en": [
+        "School",
+        "College",
+        "Library",
+        "Office"
+      ],
+      "options_te": [
+        "పాఠశాల",
+        "కళాశాల",
+        "గ్రంథాలయం",
+        "కార్యాలయం"
+      ],
+      "answer_index": 0,
+      "explanation_en": "Doctor works in a Hospital; similarly a Teacher works in a School.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-002",
+      "channel": "SSC",
+      "topic": "Reasoning - Coding-Decoding",
+      "q_en": "SSC CHSL PYQ: If 'CAT' is coded as 24 and 'DOG' as 26, how is 'PIG' coded?",
+      "q_te": "SSC CHSL PYQ: 'CAT' ను 24 గా మరియు 'DOG' ను 26 గా కోడ్ చేస్తే, 'PIG' ఎలా కోడ్ చేయబడుతుంది?",
+      "options_en": [
+        "30",
+        "32",
+        "34",
+        "36"
+      ],
+      "options_te": [
+        "30",
+        "32",
+        "34",
+        "36"
+      ],
+      "answer_index": 1,
+      "explanation_en": "Sum of letter positions: P(16) + I(9) + G(7) = 32.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-003",
+      "channel": "SSC",
+      "topic": "Reasoning - Number Series",
+      "q_en": "SSC CGL PYQ: Find the missing number in series: 7, 12, 19, 28, 39, ?",
+      "q_te": "SSC CGL PYQ: శ్రేణిలో లోపించిన సంఖ్యను కనుగొనండి: 7, 12, 19, 28, 39, ?",
+      "options_en": [
+        "48",
+        "50",
+        "52",
+        "54"
+      ],
+      "options_te": [
+        "48",
+        "50",
+        "52",
+        "54"
+      ],
+      "answer_index": 2,
+      "explanation_en": "Differences are consecutive odd numbers: +5, +7, +9, +11, +13. Next = 39 + 13 = 52.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-004",
+      "channel": "SSC",
+      "topic": "Reasoning - Syllogism",
+      "q_en": "SSC MTS PYQ: Statements: All cats are dogs. All dogs are birds. Conclusion: All cats are birds.",
+      "q_te": "SSC MTS PYQ: ప్రకటనలు: పిల్లులన్నీ కుక్కలు. కుక్కలన్నీ పక్షులు. ముగింపు: పిల్లులన్నీ పక్షులు.",
+      "options_en": [
+        "Does not follow",
+        "Neither follows",
+        "Either I or II",
+        "Follows"
+      ],
+      "options_te": [
+        "అనుసరించదు",
+        "ఏదీ అనుసరించదు",
+        "I లేదా II",
+        "అనుసరిస్తుంది"
+      ],
+      "answer_index": 3,
+      "explanation_en": "All A are B and All B are C implies All A are C. Conclusion follows.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-005",
+      "channel": "SSC",
+      "topic": "Reasoning - Blood Relations",
+      "q_en": "SSC CGL PYQ: Pointing to a man, a woman said 'His mother is the only daughter of my mother'. How is woman related to man?",
+      "q_te": "SSC CGL PYQ: ఒక వ్యక్తిని చూపిస్తూ, ఒక మహిళ 'అతని తల్లి నా తల్లి యొక్క ఏకైక కుమార్తె' అని చెప్పింది. ఆ మహిళ ఆ వ్యక్తికి ఏమవుతుంది?",
+      "options_en": [
+        "Mother",
+        "Sister",
+        "Aunt",
+        "Daughter"
+      ],
+      "options_te": [
+        "తల్లి",
+        "సోదరి",
+        "అత్త/పిన్ని",
+        "కుమార్తె"
+      ],
+      "answer_index": 0,
+      "explanation_en": "Only daughter of woman's mother is the woman herself. So she is his Mother.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-006",
+      "channel": "SSC",
+      "topic": "Reasoning - Direction & Distance",
+      "q_en": "SSC GD PYQ: A man walks 10 km North, turns right and walks 10 km, then turns right and walks 10 km. Where is he from start?",
+      "q_te": "SSC GD PYQ: ఒక వ్యక్తి ఉత్తరం వైపు 10 కి.మీ నడిచి, కుడివైపు తిరిగి 10 కి.మీ నడిచి, మళ్ళీ కుడివైపు తిరిగి 10 కి.మీ నడిచాడు. ప్రారంభం నుండి అతను ఎక్కడ ఉన్నాడు?",
+      "options_en": [
+        "10 km West",
+        "10 km East",
+        "10 km North",
+        "10 km South"
+      ],
+      "options_te": [
+        "10 కి.మీ పశ్చిమం",
+        "10 కి.మీ తూర్పు",
+        "10 కి.మీ ఉత్తరం",
+        "10 కి.మీ దక్షినం"
+      ],
+      "answer_index": 1,
+      "explanation_en": "North 10 km then Right (East) 10 km then Right (South) 10 km leaves him 10 km East of start.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-007",
+      "channel": "SSC",
+      "topic": "Reasoning - Statement & Conclusion",
+      "q_en": "SSC CGL PYQ: Select the option that follows logically: Statement: Hard work leads to success.",
+      "q_te": "SSC CGL PYQ: తార్కికంగా అనుసరించే ఎంపికను ఎంచుకోండి: ప్రకటన: కష్టపడి పనిచేయడం విజయానికి దారితీస్తుంది.",
+      "options_en": [
+        "Only lazy fail",
+        "Success is impossible without effort",
+        "Success requires hard work",
+        "No one fails"
+      ],
+      "options_te": [
+        "సోమరిపోతులు మాత్రమే విఫలమవుతారు",
+        "ప్రయత్నం లేకుండా విజయం అసాధ్యం",
+        "విజయానికి కష్టపడి పనిచేయడం అవసరం",
+        "ఎవరూ విఫలం కారు"
+      ],
+      "answer_index": 2,
+      "explanation_en": "Direct logical implication of the statement is that success requires hard work.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-008",
+      "channel": "SSC",
+      "topic": "Reasoning - Odd One Out",
+      "q_en": "SSC CHSL PYQ: Find the odd word out: Apple, Mango, Orange, Potato.",
+      "q_te": "SSC CHSL PYQ: విభిన్నమైన పదాన్ని కనుగొనండి: ఆపిల్, మామిడి, ఆరెంజ్, బంగాళాదుంప.",
+      "options_en": [
+        "Apple",
+        "Mango",
+        "Orange",
+        "Potato"
+      ],
+      "options_te": [
+        "ఆపిల్",
+        "మామిడి",
+        "ఆరెంజ్",
+        "బంగాళాదుంప"
+      ],
+      "answer_index": 3,
+      "explanation_en": "Apple, Mango, and Orange are fruits, whereas Potato is a vegetable/tuber.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-009",
+      "channel": "SSC",
+      "topic": "Reasoning - Seating Arrangement",
+      "q_en": "SSC CGL PYQ: 5 friends A, B, C, D, E sit in a row facing North. C is at the middle. A is left of B and right of C. Who is rightmost?",
+      "q_te": "SSC CGL PYQ: 5 మంది మిత్రులు A, B, C, D, E ఉత్తరం వైపు చూస్తూ ఒక వరుసలో కూర్చున్నారు. C మధ్యలో ఉన్నాడు. A అనేది Bకి ఎడమవైపు, Cకి కుడివైపు ఉంది. అత్యంత కుడివైపు ఎవరున్నారు?",
+      "options_en": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "options_te": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "answer_index": 1,
+      "explanation_en": "Order from left: (D/E), C, A, B. Rightmost person is B.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-010",
+      "channel": "SSC",
+      "topic": "Reasoning - Venn Diagram",
+      "q_en": "SSC MTS PYQ: Which Venn diagram represents: Doctors, Surgeons, Women?",
+      "q_te": "SSC MTS PYQ: వైద్యులు, సర్జన్లు, మహిళలను ఏ వెన్ చిత్రం సూచిస్తుంది?",
+      "options_en": [
+        "Disjoint circles",
+        "Concentric circles",
+        "Three intersecting circles",
+        "Two inside one"
+      ],
+      "options_te": [
+        "వేరువేరు వృత్తాలు",
+        "ఏకకేంద్ర వృత్తాలు",
+        "మూడు ఖండించుకునే వృత్తాలు",
+        "ఒకదానిలో రెండు"
+      ],
+      "answer_index": 2,
+      "explanation_en": "Some women can be doctors and surgeons, represented by mutually intersecting circles.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-011",
+      "channel": "SSC",
+      "topic": "Reasoning - Order & Ranking",
+      "q_en": "SSC CGL PYQ: In a row of 40 students, Rahul is 15th from the left. What is his rank from the right?",
+      "q_te": "SSC CGL PYQ: 40 మంది విద్యార్థుల వరుసలో రాహుల్ ఎడమ నుండి 15వ స్థానంలో ఉన్నాడు. కుడి నుండి అతని ర్యాంక్ ఎంత?",
+      "options_en": [
+        "25th",
+        "26th",
+        "27th",
+        "28th"
+      ],
+      "options_te": [
+        "25వ",
+        "26వ",
+        "27వ",
+        "28వ"
+      ],
+      "answer_index": 1,
+      "explanation_en": "Rank from right = Total - Rank from left + 1 = 40 - 15 + 1 = 26th.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-012",
+      "channel": "SSC",
+      "topic": "Reasoning - Clock & Calendar",
+      "q_en": "SSC CPO PYQ: What is the angle between hour and minute hand of a clock at 3:30?",
+      "q_te": "SSC CPO PYQ: గడియారంలో 3:30 సమయంలో గంటల ముల్లు మరియు నిమిషాల ముల్లు మధ్య కోణం ఎంత?",
+      "options_en": [
+        "60 degrees",
+        "70 degrees",
+        "75 degrees",
+        "90 degrees"
+      ],
+      "options_te": [
+        "60 డిగ్రీలు",
+        "70 డిగ్రీలు",
+        "75 డిగ్రీలు",
+        "90 డిగ్రీలు"
+      ],
+      "answer_index": 2,
+      "explanation_en": "Angle = |30*H - 11/2*M| = |30*3 - 11/2*30| = |90 - 165| = 75 degrees.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-013",
+      "channel": "SSC",
+      "topic": "Reasoning - Mathematical Operations",
+      "q_en": "SSC GD PYQ: If '+' means 'x', '-' means '÷', 'x' means '-', and '÷' means '+', find value of: 12 + 4 - 2 x 6 ÷ 3",
+      "q_te": "SSC GD PYQ: '+' అంటే 'x', '-' అంటే '÷', 'x' అంటే '-', '÷' అంటే '+' అయితే, 12 + 4 - 2 x 6 ÷ 3 విలువ ఎంత?",
+      "options_en": [
+        "18",
+        "20",
+        "21",
+        "24"
+      ],
+      "options_te": [
+        "18",
+        "20",
+        "21",
+        "24"
+      ],
+      "answer_index": 2,
+      "explanation_en": "12 * 4 / 2 - 6 + 3 = 12 * 2 - 6 + 3 = 24 - 6 + 3 = 21.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-014",
+      "channel": "SSC",
+      "topic": "Reasoning - Dictionary Order",
+      "q_en": "SSC CHSL PYQ: Arrange words in dictionary order: 1. Eagle 2. Earth 3. Early 4. Eager",
+      "q_te": "SSC CHSL PYQ: పదాలను డిక్షనరీ క్రమంలో అమర్చండి: 1. Eagle 2. Earth 3. Early 4. Eager",
+      "options_en": [
+        "4, 1, 2, 3",
+        "4, 2, 1, 3",
+        "1, 4, 3, 2",
+        "4, 1, 3, 2"
+      ],
+      "options_te": [
+        "4, 1, 2, 3",
+        "4, 2, 1, 3",
+        "1, 4, 3, 2",
+        "4, 1, 3, 2"
+      ],
+      "answer_index": 3,
+      "explanation_en": "Alphabetical order: Eager (4), Eagle (1), Early (3), Earth (2).",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-015",
+      "channel": "SSC",
+      "topic": "Reasoning - Figure Counting",
+      "q_en": "SSC CGL PYQ: How many triangles are in a square divided by both diagonals?",
+      "q_te": "SSC CGL PYQ: రెండు కర్ణాలచే విభజించబడిన చతురస్రంలో ఎన్ని త్రిభుజాలు ఉంటాయి?",
+      "options_en": [
+        "4",
+        "6",
+        "8",
+        "10"
+      ],
+      "options_te": [
+        "4",
+        "6",
+        "8",
+        "10"
+      ],
+      "answer_index": 2,
+      "explanation_en": "A square divided by both diagonals contains 4 small + 4 large = 8 triangles.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-016",
+      "channel": "SSC",
+      "topic": "Quantitative Aptitude - Percentage",
+      "q_en": "SSC CGL PYQ: If 20% of a number is 120, then 120% of that number is?",
+      "q_te": "SSC CGL PYQ: ఒక సంఖ్యలో 20% విలువ 120 అయితే, ఆ సంఖ్యలో 120% విలువ ఎంత?",
+      "options_en": [
+        "720",
+        "600",
+        "480",
+        "360"
+      ],
+      "options_te": [
+        "720",
+        "600",
+        "480",
+        "360"
+      ],
+      "answer_index": 0,
+      "explanation_en": "Number = 120 / 0.20 = 600. 120% of 600 = 1.20 * 600 = 720.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-017",
+      "channel": "SSC",
+      "topic": "Quantitative Aptitude - Profit & Loss",
+      "q_en": "SSC CHSL PYQ: An article bought for Rs. 800 is sold for Rs. 960. Find the profit percentage.",
+      "q_te": "SSC CHSL PYQ: రూ. 800 కొన్న వస్తువును రూ. 960కి విక్రయించారు. లాభ శాతాన్ని కనుగొనండి.",
+      "options_en": [
+        "15%",
+        "20%",
+        "25%",
+        "30%"
+      ],
+      "options_te": [
+        "15%",
+        "20%",
+        "25%",
+        "30%"
+      ],
+      "answer_index": 1,
+      "explanation_en": "Profit = 960 - 800 = 160. Profit % = (160/800)*100 = 20%.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-018",
+      "channel": "SSC",
+      "topic": "Quantitative Aptitude - Simple Interest",
+      "q_en": "SSC CGL PYQ: Find Simple Interest on Rs. 5000 at 10% per annum for 3 years.",
+      "q_te": "SSC CGL PYQ: రూ. 5000 పై ఏటా 10% వడ్డీ రేటుతో 3 సంవత్సరాలకు సాధారణ వడ్డీ ఎంత?",
+      "options_en": [
+        "Rs. 1200",
+        "Rs. 1350",
+        "Rs. 1500",
+        "Rs. 1800"
+      ],
+      "options_te": [
+        "రూ. 1200",
+        "రూ. 1350",
+        "రూ. 1500",
+        "రూ. 1800"
+      ],
+      "answer_index": 2,
+      "explanation_en": "SI = (P * R * T) / 100 = (5000 * 10 * 3) / 100 = Rs. 1500.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-019",
+      "channel": "SSC",
+      "topic": "Quantitative Aptitude - Ratio & Proportion",
+      "q_en": "SSC MTS PYQ: If A:B = 2:3 and B:C = 4:5, find the ratio A:B:C.",
+      "q_te": "SSC MTS PYQ: A:B = 2:3 మరియు B:C = 4:5 అయితే, A:B:C నిష్పత్తి ఎంత?",
+      "options_en": [
+        "8:12:15",
+        "6:9:15",
+        "8:10:15",
+        "6:12:15"
+      ],
+      "options_te": [
+        "8:12:15",
+        "6:9:15",
+        "8:10:15",
+        "6:12:15"
+      ],
+      "answer_index": 0,
+      "explanation_en": "Make B common: A:B = 8:12, B:C = 12:15. So A:B:C = 8:12:15.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-020",
+      "channel": "SSC",
+      "topic": "Quantitative Aptitude - Time & Work",
+      "q_en": "SSC CGL PYQ: A can do a work in 10 days and B in 15 days. Working together, how many days to finish?",
+      "q_te": "SSC CGL PYQ: A ఒక పనిని 10 రోజుల్లో, B 15 రోజుల్లో చేయగలరు. ఇద్దరూ కలిసి ఆ పనిని ఎన్ని రోజుల్లో పూర్తి చేస్తారు?",
+      "options_en": [
+        "5 days",
+        "6 days",
+        "7 days",
+        "8 days"
+      ],
+      "options_te": [
+        "5 రోజులు",
+        "6 రోజులు",
+        "7 రోజులు",
+        "8 రోజులు"
+      ],
+      "answer_index": 1,
+      "explanation_en": "Together 1-day work = 1/10 + 1/15 = 5/30 = 1/6. Total days = 6 days.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-021",
+      "channel": "SSC",
+      "topic": "Quantitative Aptitude - Time Speed Distance",
+      "q_en": "SSC GD PYQ: A train 150m long crosses a pole in 9 seconds. Find speed in km/h.",
+      "q_te": "SSC GD PYQ: 150 మీటర్ల పొడవున్న రైలు 9 సెకన్లలో ఒక స్తంభాన్ని దాటుతుంది. దాని వేగం కి.మీ/గం లో ఎంత?",
+      "options_en": [
+        "50 km/h",
+        "54 km/h",
+        "60 km/h",
+        "72 km/h"
+      ],
+      "options_te": [
+        "50 కి.మీ/గం",
+        "54 కి.మీ/గం",
+        "60 కి.మీ/గం",
+        "72 కి.మీ/గం"
+      ],
+      "answer_index": 2,
+      "explanation_en": "Speed = 150/9 m/s = (150/9) * (18/5) = 60 km/h.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-022",
+      "channel": "SSC",
+      "topic": "Quantitative Aptitude - Average",
+      "q_en": "SSC CHSL PYQ: The average of 5 numbers is 20. If one number is removed, average becomes 18. What was removed?",
+      "q_te": "SSC CHSL PYQ: 5 సంఖ్యల సగటు 20. ఒక సంఖ్యను తొలగిస్తే సగటు 18 అవుతుంది. తొలగించిన సంఖ్య ఏది?",
+      "options_en": [
+        "22",
+        "24",
+        "26",
+        "28"
+      ],
+      "options_te": [
+        "22",
+        "24",
+        "26",
+        "28"
+      ],
+      "answer_index": 3,
+      "explanation_en": "Sum of 5 = 100. Sum of 4 = 72. Removed number = 100 - 72 = 28.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-023",
+      "channel": "SSC",
+      "topic": "Quantitative Aptitude - Algebra",
+      "q_en": "SSC CGL PYQ: If x + 1/x = 3, find the value of x^2 + 1/x^2.",
+      "q_te": "SSC CGL PYQ: x + 1/x = 3 అయితే, x^2 + 1/x^2 విలువ ఎంత?",
+      "options_en": [
+        "7",
+        "9",
+        "11",
+        "12"
+      ],
+      "options_te": [
+        "7",
+        "9",
+        "11",
+        "12"
+      ],
+      "answer_index": 0,
+      "explanation_en": "x^2 + 1/x^2 = (x + 1/x)^2 - 2 = 3^2 - 2 = 7.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-024",
+      "channel": "SSC",
+      "topic": "Quantitative Aptitude - Geometry",
+      "q_en": "SSC CGL PYQ: In a right triangle, two sides are 6 cm and 8 km hypotenuse side. What is hypotenuse?",
+      "q_te": "SSC CGL PYQ: లంబకోణ త్రిభుజంలో రెండు లంబ భుజాలు 6 సెం.మీ మరియు 8 సెం.మీ అయితే కర్ణం పొడవు ఎంత?",
+      "options_en": [
+        "9 cm",
+        "10 cm",
+        "12 cm",
+        "14 cm"
+      ],
+      "options_te": [
+        "9 సెం.మీ",
+        "10 సెం.మీ",
+        "12 సెం.మీ",
+        "14 సెం.మీ"
+      ],
+      "answer_index": 1,
+      "explanation_en": "Hypotenuse = sqrt(6^2 + 8^2) = sqrt(36 + 64) = 10 cm.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-025",
+      "channel": "SSC",
+      "topic": "Quantitative Aptitude - Mensuration",
+      "q_en": "SSC MTS PYQ: Find the area of a circle with radius 7 cm (take pi = 22/7).",
+      "q_te": "SSC MTS PYQ: రేడియస్ 7 సెం.మీ ఉన్న వృత్తం వైశాల్యం ఎంత? (pi = 22/7 తీసుకోండి)",
+      "options_en": [
+        "144 sq cm",
+        "148 sq cm",
+        "154 sq cm",
+        "160 sq cm"
+      ],
+      "options_te": [
+        "144 చ.సెం.మీ",
+        "148 చ.సెం.మీ",
+        "154 చ.సెం.మీ",
+        "160 చ.సెం.మీ"
+      ],
+      "answer_index": 2,
+      "explanation_en": "Area = pi * r^2 = (22/7) * 7 * 7 = 154 sq cm.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-026",
+      "channel": "SSC",
+      "topic": "Quantitative Aptitude - Trigonometry",
+      "q_en": "SSC CGL PYQ: If sin A = 3/5, find cos A for acute angle A.",
+      "q_te": "SSC CGL PYQ: sin A = 3/5 అయితే, అల్పకోణం A కి cos A విలువ ఎంత?",
+      "options_en": [
+        "1/5",
+        "2/5",
+        "3/4",
+        "4/5"
+      ],
+      "options_te": [
+        "1/5",
+        "2/5",
+        "3/4",
+        "4/5"
+      ],
+      "answer_index": 3,
+      "explanation_en": "cos A = sqrt(1 - sin^2 A) = sqrt(1 - 9/25) = sqrt(16/25) = 4/5.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-027",
+      "channel": "SSC",
+      "topic": "Quantitative Aptitude - Number System",
+      "q_en": "SSC CHSL PYQ: Find HCF of 36 and 84.",
+      "q_te": "SSC CHSL PYQ: 36 మరియు 84 ల యొక్క గరిష్ఠ సామాన్య గుణిజం (HCF) ఎంత?",
+      "options_en": [
+        "12",
+        "18",
+        "24",
+        "36"
+      ],
+      "options_te": [
+        "12",
+        "18",
+        "24",
+        "36"
+      ],
+      "answer_index": 0,
+      "explanation_en": "36 = 12 * 3, 84 = 12 * 7. Greatest common divisor is 12.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-028",
+      "channel": "SSC",
+      "topic": "Quantitative Aptitude - Mixture & Alligation",
+      "q_en": "SSC CGL PYQ: In what ratio must tea at Rs.62/kg be mixed with tea at Rs.72/kg so mixture costs Rs.65/kg?",
+      "q_te": "SSC CGL PYQ: కిలో రూ.62 ఉన్న టీని, కిలో రూ.72 ఉన్న టీతో ఏ నిష్పత్తిలో కలపడం ద్వారా మిశ్రమం రూ.65/కిలో అవుతుంది?",
+      "options_en": [
+        "5:2",
+        "7:3",
+        "3:1",
+        "4:1"
+      ],
+      "options_te": [
+        "5:2",
+        "7:3",
+        "3:1",
+        "4:1"
+      ],
+      "answer_index": 1,
+      "explanation_en": "By Alligation ratio = (72 - 65) : (65 - 62) = 7 : 3.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-029",
+      "channel": "SSC",
+      "topic": "Quantitative Aptitude - Data Interpretation",
+      "q_en": "SSC CPO PYQ: Total production is 3600 tons. Angle for steel in pie chart is 90 degrees. Find steel production.",
+      "q_te": "SSC CPO PYQ: మొత్తం ఉత్పత్తి 3600 టన్నులు. పై చార్ట్‌లో స్టీల్ కోణం 90 డిగ్రీలు అయితే స్టీల్ ఉత్పత్తి ఎంత?",
+      "options_en": [
+        "600 tons",
+        "800 tons",
+        "900 tons",
+        "1000 tons"
+      ],
+      "options_te": [
+        "600 టన్నులు",
+        "800 టన్నులు",
+        "900 టన్నులు",
+        "1000 టన్నులు"
+      ],
+      "answer_index": 2,
+      "explanation_en": "Steel production = (90/360) * 3600 = 1/4 * 3600 = 900 tons.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-030",
+      "channel": "SSC",
+      "topic": "Quantitative Aptitude - Simplification",
+      "q_en": "SSC GD PYQ: Evaluate: 25 - [40 ÷ {8 - (6 - 2)}]",
+      "q_te": "SSC GD PYQ: గణించండి: 25 - [40 ÷ {8 - (6 - 2)}]",
+      "options_en": [
+        "10",
+        "12",
+        "14",
+        "15"
+      ],
+      "options_te": [
+        "10",
+        "12",
+        "14",
+        "15"
+      ],
+      "answer_index": 3,
+      "explanation_en": "6-2=4; 8-4=4; 40/4=10; 25-10=15.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-031",
+      "channel": "SSC",
+      "topic": "English Comprehension - Spotting Errors",
+      "q_en": "SSC CGL PYQ: Spot error: 'One of the student (A) was absent (B) yesterday (C). No error (D)'",
+      "q_te": "SSC CGL PYQ: వాక్యంలో లోపాన్ని గుర్తించండి: 'One of the student (A) was absent (B) yesterday (C). No error (D)'",
+      "options_en": [
+        "One of the student",
+        "was absent",
+        "yesterday",
+        "No error"
+      ],
+      "options_te": [
+        "One of the student (తప్పు)",
+        "was absent (సరైనది)",
+        "yesterday (గత సమయం)",
+        "No error (ఏదీ లేదు)"
+      ],
+      "answer_index": 0,
+      "explanation_en": "'One of the' must be followed by a plural noun ('students').",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-032",
+      "channel": "SSC",
+      "topic": "English Comprehension - Fill in the Blanks",
+      "q_en": "SSC CHSL PYQ: She is proficient ___ speaking English and Telugu.",
+      "q_te": "SSC CHSL PYQ: ప్రొఫిషియెంట్ తరువాత సరైన ప్రిపోజిషన్ ఎంచుకోండి: She is proficient ___ speaking English and Telugu.",
+      "options_en": [
+        "on",
+        "in",
+        "at",
+        "with"
+      ],
+      "options_te": [
+        "on (పైన)",
+        "in (లో/నందు)",
+        "at (వద్ద)",
+        "with (తో)"
+      ],
+      "answer_index": 1,
+      "explanation_en": "The correct preposition after 'proficient' is 'in'.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-033",
+      "channel": "SSC",
+      "topic": "English Comprehension - Synonyms",
+      "q_en": "SSC CGL PYQ: Select the synonym of 'CANDID'.",
+      "q_te": "SSC CGL PYQ: 'CANDID' యొక్క సమానార్థక పదాన్ని (Synonym) ఎంచుకోండి.",
+      "options_en": [
+        "Secretive",
+        "Deceitful",
+        "Frank",
+        "Shy"
+      ],
+      "options_te": [
+        "Secretive (రహస్యపు)",
+        "Deceitful (వంచనల)",
+        "Frank (నిష్కపటమైన)",
+        "Shy (సిగ్గుపడే)"
+      ],
+      "answer_index": 2,
+      "explanation_en": "'Candid' means truthful and straightforward, i.e., Frank.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-034",
+      "channel": "SSC",
+      "topic": "English Comprehension - Antonyms",
+      "q_en": "SSC CGL PYQ: Select the antonym of 'OPTIMISTIC'.",
+      "q_te": "SSC CGL PYQ: 'OPTIMISTIC' యొక్క వ్యతిరేక పదాన్ని (Antonym) ఎంచుకోండి.",
+      "options_en": [
+        "Hopeful",
+        "Confident",
+        "Cheerful",
+        "Pessimistic"
+      ],
+      "options_te": [
+        "Hopeful (ఆశావాద)",
+        "Confident (నమ్మకమైన)",
+        "Cheerful (సంతోషకర)",
+        "Pessimistic (నిరాశావాద)"
+      ],
+      "answer_index": 3,
+      "explanation_en": "'Optimistic' (hopeful) is opposite to 'Pessimistic' (expecting bad outcomes).",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-035",
+      "channel": "SSC",
+      "topic": "English Comprehension - Idioms & Phrases",
+      "q_en": "SSC MTS PYQ: Meaning of idiom 'To spill the beans':",
+      "q_te": "SSC MTS PYQ: 'To spill the beans' అనే జాతీయానికి అర్థం ఏమిటి?",
+      "options_en": [
+        "To reveal a secret",
+        "To waste food",
+        "To cook meals",
+        "To perform well"
+      ],
+      "options_te": [
+        "రహస్యాన్ని బయటపెట్టడం",
+        "ఆహారాన్ని వృథా చేయడం",
+        "వంట చేయడం",
+        "బాగా రాణించడం"
+      ],
+      "answer_index": 0,
+      "explanation_en": "'Spill the beans' means to disclose confidential information prematurely.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-036",
+      "channel": "SSC",
+      "topic": "English Comprehension - One Word Substitution",
+      "q_en": "SSC CGL PYQ: One word for 'A person who looks at the bright side of things':",
+      "q_te": "SSC CGL PYQ: 'విషయాల సానుకూల కోణాన్ని చూసే వ్యక్తి' ని ఒకే పదంలో ఏమంటారు?",
+      "options_en": [
+        "Pessimist",
+        "Optimist",
+        "Atheist",
+        "Altruist"
+      ],
+      "options_te": [
+        "Pessimist (నిరాశావాది)",
+        "Optimist (ఆశావాది)",
+        "Atheist (నాస్తికుడు)",
+        "Altruist (పరోపకారి)"
+      ],
+      "answer_index": 1,
+      "explanation_en": "An Optimist is a person who expects good outcomes.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-037",
+      "channel": "SSC",
+      "topic": "English Comprehension - Sentence Improvement",
+      "q_en": "SSC CHSL PYQ: Improve bracketed part: 'He (has returned) from Delhi yesterday.'",
+      "q_te": "SSC CHSL PYQ: వాక్యాన్ని మెరుగుపరచండి: 'He (has returned) from Delhi yesterday.'",
+      "options_en": [
+        "returned",
+        "had returned",
+        "was returning",
+        "No improvement"
+      ],
+      "options_te": [
+        "returned (సరైన వర్బ్)",
+        "had returned (గత)",
+        "was returning (కొనసాగుతున్న)",
+        "No improvement (మార్పు లేదు)"
+      ],
+      "answer_index": 0,
+      "explanation_en": "Past time markers like 'yesterday' require Simple Past tense ('returned').",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-038",
+      "channel": "SSC",
+      "topic": "English Comprehension - Active Passive Voice",
+      "q_en": "SSC CGL PYQ: Passive voice of 'The teacher praised the student':",
+      "q_te": "SSC CGL PYQ: 'The teacher praised the student' యొక్క Passive voice ఏది?",
+      "options_en": [
+        "The student praises teacher",
+        "The student is praised",
+        "The student was praised by teacher",
+        "Teacher is praising"
+      ],
+      "options_te": [
+        "The student praises teacher (వర్తమానం)",
+        "The student is praised (ఈజ్)",
+        "The student was praised by teacher (పాసివ్)",
+        "Teacher is praising (కంటిన్యూయస్)"
+      ],
+      "answer_index": 2,
+      "explanation_en": "Simple past active becomes 'was/were + V3' in passive voice.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-039",
+      "channel": "SSC",
+      "topic": "English Comprehension - Direct Indirect Speech",
+      "q_en": "SSC CGL PYQ: Indirect speech: He said, 'I am reading a book.'",
+      "q_te": "SSC CGL PYQ: Indirect speech లోకి మార్చండి: He said, 'I am reading a book.'",
+      "options_en": [
+        "He says he reads a book",
+        "He said that he read a book",
+        "He told he reads a book",
+        "He said that he was reading a book"
+      ],
+      "options_te": [
+        "He says he reads a book (సెస్)",
+        "He said that he read a book (సింపుల్)",
+        "He told he reads a book (టోల్డ్)",
+        "He said that he was reading a book (ఇన్డైరెక్ట్)"
+      ],
+      "answer_index": 3,
+      "explanation_en": "Present continuous ('am reading') becomes Past continuous ('was reading').",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-040",
+      "channel": "SSC",
+      "topic": "English Comprehension - Spelling Check",
+      "q_en": "SSC MTS PYQ: Select the correctly spelt word:",
+      "q_te": "SSC MTS PYQ: సరిగ్గా స్పెల్లింగ్ ఉన్న పదాన్ని ఎంచుకోండి:",
+      "options_en": [
+        "Accommodation",
+        "Acommodation",
+        "Accomodation",
+        "Acomodation"
+      ],
+      "options_te": [
+        "Accommodation (సరైన నివాసం)",
+        "Acommodation (తప్పు)",
+        "Accomodation (తప్పు)",
+        "Acomodation (తప్పు)"
+      ],
+      "answer_index": 0,
+      "explanation_en": "Correct spelling is Accommodation (double 'c' and double 'm').",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-041",
+      "channel": "SSC",
+      "topic": "English Comprehension - Sentence Rearrangement",
+      "q_en": "SSC GD PYQ: Rearrange P: is a Q: honesty R: virtue. Order:",
+      "q_te": "SSC GD PYQ: పదాలను సరైన క్రమంలో అమర్చండి: P: is a Q: honesty R: virtue.",
+      "options_en": [
+        "PQR",
+        "QPR",
+        "RQP",
+        "PRQ"
+      ],
+      "options_te": [
+        "PQR",
+        "QPR",
+        "RQP",
+        "PRQ"
+      ],
+      "answer_index": 1,
+      "explanation_en": "Q (honesty) + P (is a) + R (virtue) = 'Honesty is a virtue'.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-042",
+      "channel": "SSC",
+      "topic": "English Comprehension - Cloze Test Vocabulary",
+      "q_en": "SSC CHSL PYQ: Education plays a vital ___ in human development.",
+      "q_te": "SSC CHSL PYQ: ఖాళీని పూరించండి: Education plays a vital ___ in human development.",
+      "options_en": [
+        "part",
+        "duty",
+        "role",
+        "place"
+      ],
+      "options_te": [
+        "part (భాగం)",
+        "duty (విధి)",
+        "role (పాత్ర)",
+        "place (స్థానం)"
+      ],
+      "answer_index": 2,
+      "explanation_en": "Collocation: 'play a vital role' means having an essential function.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-043",
+      "channel": "SSC",
+      "topic": "English Comprehension - Prepositions",
+      "q_en": "SSC CGL PYQ: He congratulated me ___ my success in the examination.",
+      "q_te": "SSC CGL PYQ: సరియైన ప్రిపోజిషన్ ఎంచుకోండి: He congratulated me ___ my success in the examination.",
+      "options_en": [
+        "for",
+        "about",
+        "at",
+        "on"
+      ],
+      "options_te": [
+        "for (కోసం)",
+        "about (గురించి)",
+        "at (వద్ద)",
+        "on (పైన/సందర్భంలో)"
+      ],
+      "answer_index": 3,
+      "explanation_en": "The verb 'congratulate' takes the fixed preposition 'on'.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-044",
+      "channel": "SSC",
+      "topic": "English Comprehension - Subject-Verb Agreement",
+      "q_en": "SSC CGL PYQ: Neither the teacher nor the students ___ present.",
+      "q_te": "SSC CGL PYQ: సబ్జెక్ట్-వర్బ్ ఒప్పందం ప్రకారం ఖాళీని పూరించండి: Neither the teacher nor the students ___ present.",
+      "options_en": [
+        "were",
+        "was",
+        "is",
+        "has"
+      ],
+      "options_te": [
+        "were (బహువచనం)",
+        "was (ఏకవచనం)",
+        "is (ఉంది)",
+        "has (కలిగి)"
+      ],
+      "answer_index": 0,
+      "explanation_en": "When subjects are joined by 'neither...nor', verb agrees with closest subject ('students' -> 'were').",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-045",
+      "channel": "SSC",
+      "topic": "English Comprehension - Articles",
+      "q_en": "SSC MTS PYQ: He is ___ honest officer in the state government.",
+      "q_te": "SSC MTS PYQ: సరియైన ఆర్టికల్ ని ఎంచుకోండి: He is ___ honest officer in the state government.",
+      "options_en": [
+        "a",
+        "an",
+        "the",
+        "no article"
+      ],
+      "options_te": [
+        "a (ఒక)",
+        "an (యాన్)",
+        "the (ది)",
+        "no article (ఏదీ కాదు)"
+      ],
+      "answer_index": 1,
+      "explanation_en": "'Honest' begins with a vowel sound (/ɒ/), so article 'an' is used.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-046",
+      "channel": "SSC",
+      "topic": "General Knowledge - Ancient History",
+      "q_en": "SSC CGL PYQ: Which Indus Valley Civilization site is famous for its Dockyard?",
+      "q_te": "SSC CGL PYQ: ఓడరేవు (డ్యాక్‌యార్డ్) కి ప్రసిద్ధి చెందిన సింధు లోయ నాగరికత ప్రాంతం ఏది?",
+      "options_en": [
+        "Harappa",
+        "Mohenjo-daro",
+        "Lothal",
+        "Kalibangan"
+      ],
+      "options_te": [
+        "హరప్పా",
+        "మొహెంజొదారో",
+        "లోథాల్",
+        "కాళీబంగన్"
+      ],
+      "answer_index": 2,
+      "explanation_en": "Lothal in Gujarat was the major port city and dockyard of the Indus Valley Civilization.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-047",
+      "channel": "SSC",
+      "topic": "General Knowledge - Medieval History",
+      "q_en": "SSC CGL PYQ: Who among the following Mughal emperors built the Taj Mahal at Agra?",
+      "q_te": "SSC CGL PYQ: ఆగ్రాలో తాజ్‌మహల్‌ను నిర్మించిన మొఘల్ చక్రవర్తి ఎవరు?",
+      "options_en": [
+        "Akbar",
+        "Jahangir",
+        "Humayun",
+        "Shah Jahan"
+      ],
+      "options_te": [
+        "అక్బర్",
+        "జహంగీర్",
+        "హుమాయూన్",
+        "షాజహాన్"
+      ],
+      "answer_index": 3,
+      "explanation_en": "Shah Jahan built the Taj Mahal in memory of his beloved wife Mumtaz Mahal.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-048",
+      "channel": "SSC",
+      "topic": "General Knowledge - Modern History",
+      "q_en": "SSC CGL PYQ: Who founded the Indian National Congress in 1885?",
+      "q_te": "SSC CGL PYQ: 1885లో ఇండియన్ నేషనల్ కాంగ్రెస్‌ను స్థాపించినది ఎవరు?",
+      "options_en": [
+        "A.O. Hume",
+        "W.C. Bonnerjee",
+        "Dadabhai Naoroji",
+        "Mahatma Gandhi"
+      ],
+      "options_te": [
+        "ఎ.ఓ. హ్యూమ్",
+        "డబ్ల్యూ.సి. బెనర్జీ",
+        "దాదాభాయ్ నౌరోజీ",
+        "మహాత్మా గాంధీ"
+      ],
+      "answer_index": 0,
+      "explanation_en": "Allan Octavian Hume (A.O. Hume) was the founder of Indian National Congress in 1885.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-049",
+      "channel": "SSC",
+      "topic": "General Knowledge - Indian Polity",
+      "q_en": "SSC CGL PYQ: Which Article of the Indian Constitution guarantees Right to Equality?",
+      "q_te": "SSC CGL PYQ: భారత రాజ్యాంగంలో సమానత్వ హక్కును ఏ ఆర్టికల్స్ హామీ ఇస్తాయి?",
+      "options_en": [
+        "Articles 12-13",
+        "Articles 14-18",
+        "Articles 19-22",
+        "Articles 25-28"
+      ],
+      "options_te": [
+        "ఆర్టికల్స్ 12-13",
+        "ఆర్టికల్స్ 14-18",
+        "ఆర్టికల్స్ 19-22",
+        "ఆర్టికల్స్ 25-28"
+      ],
+      "answer_index": 1,
+      "explanation_en": "Articles 14 to 18 of Part III guarantee Fundamental Right to Equality.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-050",
+      "channel": "SSC",
+      "topic": "General Knowledge - Indian Economy",
+      "q_en": "SSC CHSL PYQ: Which institution is known as the Central Bank of India?",
+      "q_te": "SSC CHSL PYQ: భారతదేశపు కేంద్ర బ్యాంక్ (Central Bank) అని ఏ సంస్థను పిలుస్తారు?",
+      "options_en": [
+        "SBI",
+        "SEBI",
+        "Reserve Bank of India",
+        "NABARD"
+      ],
+      "options_te": [
+        "SBI",
+        "SEBI",
+        "రిజర్వ్ బ్యాంక్ ఆఫ్ ఇండియా",
+        "నాబార్డ్"
+      ],
+      "answer_index": 2,
+      "explanation_en": "Reserve Bank of India (RBI) is the supreme monetary authority and central bank.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-051",
+      "channel": "SSC",
+      "topic": "General Knowledge - Physical Geography",
+      "q_en": "SSC MTS PYQ: Which planet is known as the 'Red Planet' in our Solar System?",
+      "q_te": "SSC MTS PYQ: మన సౌరవ్యవస్థలో 'ఎర్ర గ్రహం' (Red Planet) అని ఏ గ్రహాన్ని పిలుస్తారు?",
+      "options_en": [
+        "Venus",
+        "Jupiter",
+        "Mercury",
+        "Mars"
+      ],
+      "options_te": [
+        "శుక్రుడు",
+        "బృహస్పతి",
+        "బుధుడు",
+        "అంగారకుడు (మంగళ)"
+      ],
+      "answer_index": 3,
+      "explanation_en": "Mars appears red due to high concentration of iron oxide on its surface.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-052",
+      "channel": "SSC",
+      "topic": "General Knowledge - Indian Geography",
+      "q_en": "SSC CGL PYQ: Which is the longest river in Peninsular India?",
+      "q_te": "SSC CGL PYQ: ద్వీపకల్ప భారతదేశంలో అతి పొడవైన నది ఏది?",
+      "options_en": [
+        "Godavari",
+        "Krishna",
+        "Narmada",
+        "Mahanadi"
+      ],
+      "options_te": [
+        "గోదావరి",
+        "కృష్ణ",
+        "నర్మద",
+        "మహానది"
+      ],
+      "answer_index": 0,
+      "explanation_en": "Godavari (1465 km) is the longest river in South/Peninsular India (Dakshin Ganga).",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-053",
+      "channel": "SSC",
+      "topic": "General Knowledge - Physics",
+      "q_en": "SSC GD PYQ: What is the SI unit of Electric Current?",
+      "q_te": "SSC GD PYQ: విద్యుత్ ప్రవాహానికి (Electric Current) SI ప్రమాణం ఏమిటి?",
+      "options_en": [
+        "Volt",
+        "Ampere",
+        "Ohm",
+        "Watt"
+      ],
+      "options_te": [
+        "వోల్ట్",
+        "యాంపియర్",
+        "ఓమ్",
+        "వాట్"
+      ],
+      "answer_index": 1,
+      "explanation_en": "SI unit of electric current is Ampere (A).",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-054",
+      "channel": "SSC",
+      "topic": "General Knowledge - Chemistry",
+      "q_en": "SSC CPO PYQ: What is the chemical formula of Common Salt?",
+      "q_te": "SSC CPO PYQ: సాధారణ ఉప్పు రసాయన సంకేతం ఏమిటి?",
+      "options_en": [
+        "KCl",
+        "NaOH",
+        "NaCl",
+        "NaHCO3"
+      ],
+      "options_te": [
+        "KCl",
+        "NaOH",
+        "NaCl",
+        "NaHCO3"
+      ],
+      "answer_index": 2,
+      "explanation_en": "Sodium Chloride (NaCl) is common table salt.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-055",
+      "channel": "SSC",
+      "topic": "General Knowledge - Biology",
+      "q_en": "SSC CGL PYQ: Which organ in the human body is known as the 'Powerhouse of the Cell'?",
+      "q_te": "SSC CGL PYQ: మానవ శరీర కణంలో 'పవర్ హౌస్' అని దేనిని పిలుస్తారు?",
+      "options_en": [
+        "Ribosome",
+        "Lysosome",
+        "Nucleus",
+        "Mitochondria"
+      ],
+      "options_te": [
+        "రైబోజోమ్",
+        "లైసోజోమ్",
+        "కేంద్రకం",
+        "మైటోకాండ్రియా"
+      ],
+      "answer_index": 3,
+      "explanation_en": "Mitochondria generate energy (ATP) for cellular activity.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-056",
+      "channel": "SSC",
+      "topic": "General Knowledge - Space & ISRO",
+      "q_en": "SSC CGL PYQ: Where is ISRO's Satish Dhawan Space Centre located?",
+      "q_te": "SSC CGL PYQ: ఇస్రో యొక్క సతీష్ ధావన్ స్పేస్ సెంటర్ ఎక్కడ ఉంది?",
+      "options_en": [
+        "Sriharikota",
+        "Bengaluru",
+        "Thiruvananthapuram",
+        "Ahmedabad"
+      ],
+      "options_te": [
+        "శ్రీహరికోట",
+        "బెంగళూరు",
+        "తిరువనంతపురం",
+        "అహ్మదాబాద్"
+      ],
+      "answer_index": 0,
+      "explanation_en": "Satish Dhawan Space Centre (SDSC SHAR) is at Sriharikota, Andhra Pradesh.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-057",
+      "channel": "SSC",
+      "topic": "General Knowledge - Computer Awareness",
+      "q_en": "SSC CHSL PYQ: What does 'RAM' stand for in computer terms?",
+      "q_te": "SSC CHSL PYQ: కంప్యూటర్ పరిభాషలో 'RAM' పూర్తి రూపం ఏమిటి?",
+      "options_en": [
+        "Read Access Memory",
+        "Random Access Memory",
+        "Rapid Action Memory",
+        "Real Access Memory"
+      ],
+      "options_te": [
+        "Read Access Memory (తప్పు)",
+        "Random Access Memory (సరైన యాక్సెస్)",
+        "Rapid Action Memory (ర్యాపిడ్)",
+        "Real Access Memory (రియల్)"
+      ],
+      "answer_index": 1,
+      "explanation_en": "RAM stands for Random Access Memory, used for temporary working data.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-058",
+      "channel": "SSC",
+      "topic": "General Knowledge - Inventions",
+      "q_en": "SSC MTS PYQ: Who discovered Penicillin in 1928?",
+      "q_te": "SSC MTS PYQ: 1928లో పెన్సిలిన్‌ను కనుగొన్నది ఎవరు?",
+      "options_en": [
+        "Louis Pasteur",
+        "Edward Jenner",
+        "Alexander Fleming",
+        "Robert Koch"
+      ],
+      "options_te": [
+        "లూయీ పాశ్చర్",
+        "ఎడ్వర్డ్ జెన్నర్",
+        "అలెగ్జాండర్ ఫ్లెమింగ్",
+        "రాబర్ట్ కోచ్"
+      ],
+      "answer_index": 2,
+      "explanation_en": "Sir Alexander Fleming discovered the first antibiotic, Penicillin, in 1928.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-059",
+      "channel": "SSC",
+      "topic": "General Knowledge - Art & Culture",
+      "q_en": "SSC CGL PYQ: Kuchipudi is a classical dance form of which Indian state?",
+      "q_te": "SSC CGL PYQ: కూచిపూడి అనేది భారతదేశంలోని ఏ రాష్ట్ర సాంప్రదాయ నృత్య రూపం?",
+      "options_en": [
+        "Tamil Nadu",
+        "Kerala",
+        "Odisha",
+        "Andhra Pradesh"
+      ],
+      "options_te": [
+        "తమిళనాడు",
+        "కేరళ",
+        "ఒడిశా",
+        "ఆంధ్రప్రదేశ్"
+      ],
+      "answer_index": 3,
+      "explanation_en": "Kuchipudi originated in Kuchipudi village, Andhra Pradesh.",
+      "source": "pyq"
+    },
+    {
+      "id": "PYQ-SSC-060",
+      "channel": "SSC",
+      "topic": "General Knowledge - Environmental Science",
+      "q_en": "SSC CGL PYQ: Which atmospheric layer contains the Ozone layer that absorbs harmful UV rays?",
+      "q_te": "SSC CGL PYQ: హానికరమైన UV కిరణాలను పీల్చుకునే ఓజోన్ పొర ఏ వాతావరణ పొరలో ఉంటుంది?",
+      "options_en": [
+        "Stratosphere",
+        "Troposphere",
+        "Mesosphere",
+        "Thermosphere"
+      ],
+      "options_te": [
+        "స్ట్రాటోస్ఫియర్",
+        "ట్రోపోస్ఫియర్",
+        "మీసోస్ఫియర్",
+        "థర్మోస్ఫియర్"
+      ],
+      "answer_index": 0,
+      "explanation_en": "Ozone layer is concentrated in the Stratosphere, protecting Earth from solar UV radiation.",
+      "source": "pyq"
+    }
+  ]
+}

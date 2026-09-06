@@ -262,8 +262,9 @@ _CHANNEL_KEYWORDS = [
     ("RAILWAY", r"railway|rrb\b|ntpc|group[\s-]?d|alp|je[e]? exam"),
     ("POLICE", r"police|constable|sub[\s-]?inspector|\bsi\b|dsp"),
     ("DEFENCE", r"\bnda\b|cds|defen[cs]e|agniveer|army|navy|air[\s-]?force|capf"),
+    ("SSC", r"\bssc\b|cgl|chsl|\bmts\b|ssc[\s-]?gd|\bcpo\b|selection post"),
     ("BANKING", r"bank|ibps|sbi|rrb po|rrb clerk|po exam|clerk|insurance|lic|niacl|rbi assistant"),
-    ("CURRENT", r"current affairs|general awareness|static gk|gk quiz|upsc|ssc|polity|history|geograph|econom|science|biology|physics|chemistry"),
+    ("CURRENT", r"current affairs|general awareness|static gk|gk quiz|upsc|polity|history|geograph|econom|science|biology|physics|chemistry"),
 ]
 
 _TOPIC_KEYWORDS = [
