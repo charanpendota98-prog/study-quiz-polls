@@ -136,7 +136,24 @@ class Bot:
             return
 
         if low.startswith("/start"):
+            linked = self.members.link_if_pending(uid, self._name(who),
+                                                  name=who.get("first_name", ""))
             self.tg.send_message(chat_id, WELCOME, parse_mode="Markdown")
+            if linked:
+                self.tg.send_message(
+                    chat_id, "✅ Found your Google-Form registration — linked! "
+                             "Your +25 points are ready. Send /quiz to play.\n"
+                             "⤷ మీ Google ఫారమ్ రిజిస్ట్రేషన్ లింక్ అయింది! /quiz ఆడండి.")
+        elif low.startswith("/regform") or low.startswith("/form") or low.startswith("/googleform"):
+            self.tg.send_message(
+                chat_id,
+                "📋 *Full Registration (Google Form)*\n"
+                f"👉 {config.FORM_URL}\n\n"
+                "Use it for your complete profile (phone, district, WhatsApp, "
+                "target exam, language). For *points & the leaderboard*, also "
+                "send /register here and play /quiz.\n\n"
+                "⤷ పూర్తి వివరాల కోసం ఫారమ్ నింపండి; పాయింట్ల కోసం ఇక్కడ /register చేయండి.",
+                parse_mode="Markdown", disable_preview=False)
         elif low.startswith("/help"):
             self.tg.send_message(chat_id, HELP, parse_mode="Markdown")
         elif low.startswith("/levels") or low.startswith("/points"):
@@ -163,8 +180,11 @@ class Bot:
             self.tg.send_message(chat_id, self.members.render_leaderboard(),
                                  parse_mode="Markdown")
         elif low.startswith("/members") or low.startswith("/count"):
-            n = self.members.count()
-            self.tg.send_message(chat_id, f"👥 Registered members: {n}\n⤷ నమోదైన సభ్యులు: {n}")
+            n_bot = self.members.count()
+            n_all = self.members.count_form()
+            self.tg.send_message(chat_id,
+                f"👥 Registered members: {n_all} (in-bot active: {n_bot})\n"
+                f"⤷ నమోదైన సభ్యులు: {n_all}")
         elif low.startswith("/channels"):
             self.tg.send_message(chat_id, self._channels_list())
 

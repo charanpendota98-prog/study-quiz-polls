@@ -41,6 +41,30 @@ Defence (NDA/CDS/Agniveer), and Current Affairs GK** — plus a private
 > `/quiz` **in the bot / study group**. Add `@DailyQuizPosterbot` to your group so
 > everyone competes on the leaderboard.
 
+### 📋 Registration — two paths (hybrid, recommended)
+
+**Path A — in the bot (instant, for points):** users send `/register` → name →
+exam target → language. They get +25 points and appear on `/leaderboard`.
+
+**Path B — Google Form (rich data, for growth):** build the form in
+[`forms/GOOGLE_FORM_BLUEPRINT.md`](forms/GOOGLE_FORM_BLUEPRINT.md) (15 min), put
+its short link in `env/.env` as `FORM_URL=...`, and the bot's `/regform` command
+shares it. The form captures phone, district, WhatsApp, stage etc. — data the bot
+can't. Google Apps Script ([`forms/google_apps_script.gs`](forms/google_apps_script.gs))
+pings Telegram on every signup. Responses export to CSV, then:
+
+```bash
+cd scripts
+python3 import_members.py ~/Downloads/responses.csv          # preview
+python3 import_members.py ~/Downloads/responses.csv --commit  # import
+```
+
+Username-only form sign-ups auto-link the first time that user taps `/start` in
+the bot (matched by Telegram @username) — no duplicate accounts.
+
+> ⚠️ **You do these two things** (they need your accounts): create the Google
+> Form, and paste the BotFather token in `env/.env`. All code is provided.
+
 ---
 
 ## 📅 Daily schedule (IST)

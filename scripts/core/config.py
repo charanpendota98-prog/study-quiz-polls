@@ -85,6 +85,11 @@ BOT_TOKEN = env("BOT_TOKEN")
 ADMIN_ID = env("ADMIN_ID")
 DRY = env("STUDENTUP_DRY", "").lower() in ("1", "true", "yes")
 
+# Google Form for rich registration (phone/district/WhatsApp). Put your form URL
+# in env/.env as FORM_URL=... In-bot /register handles points; this handles
+# growth + detailed analytics. See forms/GOOGLE_FORM_BLUEPRINT.md.
+FORM_URL = env("FORM_URL", "https://forms.gle/your-studentup-registration")
+
 # ---------------------------------------------------------------------------
 # Channels — the 7 public + 1 private matrix
 # Chat ids come from env:  CHANNEL_TSPSC=@handlename  or  CHANNEL_TSPSC=-1001234567890

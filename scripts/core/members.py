@@ -58,6 +58,8 @@ class Members:
         self.data = self.kv.data
         self.members = self.data.setdefault("members", {})
         self.pending = self.data.setdefault("pending", {})
+        # Form sign-ups we couldn't link to a numeric id yet (keyed by @username)
+        self.form_pending = self.data.setdefault("form_pending", {})
 
     # ------------------------------------------------------------ profile
     def _get(self, uid):
@@ -161,6 +163,71 @@ class Members:
 
     def count(self):
         return len([m for m in self.members.values() if m.get("registered")])
+
+    def count_form(self):
+        """Total registered = in-bot + Google-Form signups."""
+        return self.count() + len(self.form_pending)
+
+    # ------------------------------------------------------------ form import
+    def import_form_signup(self, info: dict):
+        """
+        Record a Google-Form registration. `info` keys may include:
+        name, username (@handle), tg_id (numeric), phone, email, state, district,
+        exam, lang, stage, coaching, source.
+        If a numeric id is known, the member is created immediately; otherwise
+        it's held in form_pending keyed by @username until they /start the bot.
+        Returns ('linked', uid) or ('pending', username).
+        """
+        uname = (info.get("username") or "").lstrip("@").strip().lower()
+        tg_id = info.get("tg_id")
+        base = {
+            "name": info.get("name", ""), "username": uname,
+            "exam": info.get("exam", ""), "lang": info.get("lang", ""),
+            "phone": info.get("phone", ""), "email": info.get("email", ""),
+            "state": info.get("state", ""), "district": info.get("district", ""),
+            "stage": info.get("stage", ""), "coaching": info.get("coaching", ""),
+            "form_source": "google_form",
+        }
+        if tg_id:
+            m = self.register(tg_id, name=base["name"] or None, exam=base["exam"] or None,
+                              lang=base["lang"] or None, username=uname)
+            for k in ("phone", "email", "state", "district", "stage", "coaching", "form_source"):
+                if base.get(k):
+                    m[k] = base[k]
+            self.kv.save()
+            return "linked", str(tg_id)
+        # only a username — try to match an existing member by @username
+        for uid, m in self.members.items():
+            if (m.get("username") or "").lstrip("@").lower() == uname and uname:
+                for k, v in base.items():
+                    if v and not m.get(k):
+                        m[k] = v
+                m["registered"] = True
+                self.kv.save()
+                return "linked", uid
+        # hold until they appear in Telegram
+        if uname or base["phone"]:
+            key = uname or base["phone"]
+            self.form_pending[key] = {**base, "registered": True, "registered_at": now_iso()}
+            self.kv.save()
+            return "pending", key
+        return "ignored", None
+
+    def link_if_pending(self, uid, username, name=""):
+        """When a user /starts the bot, link any matching Google-Form signup."""
+        uname = (username or "").lstrip("@").strip().lower()
+        entry = self.form_pending.pop(uname, None) if uname else None
+        if not entry:
+            return False
+        m = self.register(uid, name=entry.get("name") or name or None,
+                          exam=entry.get("exam") or None,
+                          lang=entry.get("lang") or None, username=uname)
+        for k in ("phone", "email", "state", "district", "stage", "coaching"):
+            if entry.get(k):
+                m[k] = entry[k]
+        m["form_source"] = "google_form"
+        self.kv.save()
+        return True
 
     # ------------------------------------------------------------ rendering
     def render_profile(self, uid):

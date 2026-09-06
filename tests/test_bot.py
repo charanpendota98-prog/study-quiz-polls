@@ -91,6 +91,25 @@ class TestMembers(unittest.TestCase):
         self.assertIn(7, STREAK_BONUS)
         self.assertEqual(STREAK_BONUS[7], 75)
 
+    def test_form_import_and_autolink(self):
+        # numeric id -> immediately linked
+        status, _ = self.mb.import_form_signup({
+            "name": "Numeric", "tg_id": "424242", "exam": "TSPSC", "district": "Hyderabad"})
+        self.assertEqual(status, "linked")
+        p = self.mb.profile("424242")
+        self.assertEqual(p["district"], "Hyderabad")
+        self.assertEqual(p["points"], 25)  # registration bonus
+        # username only -> held pending
+        status, _ = self.mb.import_form_signup({
+            "name": "Handle", "username": "@wait_user", "exam": "Banking"})
+        self.assertEqual(status, "pending")
+        self.assertGreaterEqual(self.mb.count_form(), 2)
+        # when that user /starts the bot, they auto-link and keep data
+        linked = self.mb.link_if_pending(777, "wait_user", name="Handle")
+        self.assertTrue(linked)
+        p2 = self.mb.profile(777)
+        self.assertEqual(p2["exam"], "Banking")
+
 
 class TestPYQBank(unittest.TestCase):
     def test_pyq_loads_and_valid(self):
