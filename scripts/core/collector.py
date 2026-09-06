@@ -121,7 +121,49 @@ DEFAULT_SOURCES = [
      "title_must": r"quiz|questions?|practice|reasoning|gs set|general awareness",
      "title_not": _QUIZ_NOT},
 
+    # ---- More central / all-exam daily quiz feeds ---------------------------------
+    {"name": "Adda247 Quiz", "enabled": True, "type": "rss", "exam": "all",
+     "feed": "https://www.adda247.com/feed",
+     "title_must": r"quiz|questions?|practice set|mcq|reasoning|quant",
+     "title_not": _QUIZ_NOT},
+    {"name": "JagranJosh Quiz", "enabled": True, "type": "rss", "exam": "all",
+     "feed": "https://www.jagranjosh.com/rss/josh/feed.xml",
+     "title_must": r"quiz|questions?|mcq|general knowledge|gk|current affairs",
+     "title_not": _QUIZ_NOT},
+    {"name": "FreshersNow Quiz", "enabled": True, "type": "rss", "exam": "all",
+     "feed": "https://www.freshersnow.com/feed",
+     "title_must": r"quiz|questions?|mcq|practice|previous papers?",
+     "title_not": _QUIZ_NOT},
+    {"name": "Aglasem Quiz", "enabled": True, "type": "rss", "exam": "ssc-upsc",
+     "feed": "https://aglasem.com/feed",
+     "title_must": r"quiz|questions?|mcq|practice|previous year|model",
+     "title_not": _QUIZ_NOT},
+    {"name": "CompetitionExam", "enabled": True, "type": "rss", "exam": "ssc-railway",
+     "feed": "https://www.competitionexam.com/feeds/posts/default",
+     "title_must": r"quiz|questions?|mcq|practice|gk|general knowledge",
+     "title_not": _QUIZ_NOT},
+    {"name": "Study2Online", "enabled": True, "type": "rss", "exam": "all",
+     "feed": "https://www.study2online.com/feed",
+     "title_must": r"quiz|questions?|mcq|practice|reasoning|aptitude",
+     "title_not": _QUIZ_NOT},
+
     # ---- Deep static MCQ banks (HTML index/section pages, dedicated adapter) ------
+    {"name": "Examveda Arithmetic", "enabled": True, "type": "index",
+     "exam": "banking-ssc-railway", "adapter": "examveda",
+     "url": "https://www.examveda.com/arithmetic-ability/",
+     "link_re": r"^https://www\.examveda\.com/[a-z0-9\-]+/?$",
+     "max_links": 3},
+    {"name": "Examveda Reasoning", "enabled": True, "type": "index",
+     "exam": "all", "adapter": "examveda",
+     "url": "https://www.examveda.com/verbal-reasoning/",
+     "link_re": r"^https://www\.examveda\.com/[a-z0-9\-]+/?$",
+     "max_links": 3},
+    {"name": "Examveda General Knowledge", "enabled": True, "type": "index",
+     "exam": "ssc-upsc-railway", "adapter": "examveda",
+     "url": "https://www.examveda.com/general-knowledge/",
+     "link_re": r"^https://www\.examveda\.com/[a-z0-9\-]+/?$",
+     "max_links": 3},
+
     {"name": "IndiaBIX Aptitude", "enabled": True, "type": "index",
      "exam": "banking-ssc-railway", "adapter": "indiabix",
      "url": "https://www.indiabix.com/aptitude/questions-and-answers/",
@@ -688,17 +730,112 @@ def parse_indiabix(page_html, article_title="", url=""):
 ADAPTERS = {"indiabix": parse_indiabix}
 
 
+# ---------------------------------------------------------------------------
+# Answer-anchored adapter for UNNUMBERED MCQ banks (Examveda-style).
+# The generic parser needs a "1." question marker; these pages only mark the
+# OPTIONS (A. B. C. D.) and the ANSWER, so we split on answer markers and walk
+# back to recover the question stem. Very tolerant, fails safe (returns []).
+# ---------------------------------------------------------------------------
+_ANCHOR_ANS_RE = re.compile(
+    r"Answer\s*:?\s*(?:Option\s*)?([A-D])\b", re.I)
+_ANCHOR_OPT_RE = re.compile(r"^\s*[\(\[]?([A-D])[\)\].:\-]\s+(.+)$")
+
+
+def parse_answer_anchored(page_html, article_title="", url="",
+                          stem_max=300):
+    """Extract MCQs from HTML where questions are not numbered.
+
+    For every 'Answer: Option X' marker we take the preceding window, find the
+    last 4 A-D option lines and treat the longest suitable line before them as
+    the question stem. Explanation is taken from the following block when
+    present.
+    """
+    # Split the visible content into lines (script/style already ignored by
+    # our article extractor via html_to_lines fallback below).
+    lines = html_to_lines(page_html)
+    raws = []
+    n = len(lines)
+    for i, ln in enumerate(lines):
+        m = _ANCHOR_ANS_RE.search(ln)
+        if not m:
+            continue
+        # walk back to collect options
+        opts = {}          # label -> text
+        opt_idx = []       # line indices of options
+        for j in range(i - 1, max(-1, i - 12), -1):
+            mo = _ANCHOR_OPT_RE.match(lines[j])
+            if mo:
+                lab = mo.group(1).upper()
+                if lab not in opts and 0 < len(mo.group(2).strip()) <= 90:
+                    opts[lab] = mo.group(2).strip()
+                    opt_idx.append(j)
+            elif len(opts) >= 4:
+                break
+        if len(opts) < 4:
+            continue
+        ordered = [opts.get(k) for k in "ABCD"]
+        if not all(ordered) or len({o.lower() for o in ordered}) < 4:
+            continue
+        # stem: scan lines before the first option, pick the last long line
+        # that is not an answer/option/header line.
+        first_opt = min(opt_idx)
+        stem = ""
+        for j in range(first_opt - 1, max(-1, first_opt - 8), -1):
+            cand = lines[j].strip()
+            cl = cand.lower()
+            if len(cand) < 12 or len(cand) > stem_max:
+                continue
+            if cl.startswith(("answer", "option", "solution", "explanation",
+                              "explanation:", "home", "copyright")):
+                continue
+            if _ANCHOR_OPT_RE.match(cand) or _ANCHOR_ANS_RE.search(cand):
+                continue
+            # strip a leading question number if present
+            cand = re.sub(r"^\d{1,3}[\)\.:\-]\s*", "", cand)
+            stem = cand
+            break
+        if not stem:
+            continue
+        # explanation: next 1-3 lines after the answer marker
+        expl = ""
+        for j in range(i + 1, min(n, i + 4)):
+            cl = lines[j].lower()
+            if cl.startswith(("solution", "explanation", "explanation:")):
+                expl = re.sub(r"^(?:solution|explanation)\s*:?\s*", "",
+                              lines[j], flags=re.I)[:280]
+                break
+        ans = _ans_index(m.group(1).upper())
+        blocked, _ = is_blocked(stem + " " + " ".join(ordered))
+        if not blocked and ans is not None:
+            raws.append({"q_en": stem, "options_en": ordered,
+                         "answer_index": ans, "explanation_en": expl,
+                         "title": article_title, "url": url})
+    return raws
+
+
+def parse_examveda(page_html, article_title="", url=""):
+    return parse_answer_anchored(page_html, article_title, url)
+
+
+ADAPTERS["examveda"] = parse_examveda
+
+
 def parse_page(src, page_html, title, url):
-    """Dispatch to the source's dedicated adapter, else the generic parser."""
+    """Dispatch to the source's dedicated adapter, else the generic parser.
+    Every path fails safe: if a dedicated adapter returns nothing, fall back to
+    the generic WordPress parser so a source is never silently missed."""
     adapter = src.get("adapter")
+    raws = []
     if adapter and adapter in ADAPTERS:
         try:
-            return ADAPTERS[adapter](page_html, title, url)
+            raws = ADAPTERS[adapter](page_html, title, url)
         except Exception as e:
             print(f"   [collect] adapter {adapter} error: {e}")
-            return []
-    lines = html_to_lines(page_html)
-    return parse_quiz_lines(lines, article_title=title, url=url)
+            raws = []
+    if not raws:
+        lines = html_to_lines(page_html)
+        raws = parse_quiz_lines(lines, article_title=title, url=url)
+    return raws
 
 
 # ---------------------------------------------------------------------------

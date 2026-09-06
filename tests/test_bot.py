@@ -263,6 +263,7 @@ class TestCollector(unittest.TestCase):
     FIXTURE = ROOT / "tests" / "fixture_quiz.html"
     FIXTURE_INDIA = ROOT / "tests" / "fixture_indiabix.html"
     FIXTURE_INDEX = ROOT / "tests" / "fixture_index.html"
+    FIXTURE_EXAMVEDA = ROOT / "tests" / "fixture_examveda.html"
 
     def setUp(self):
         for f in ("question_bank.json", "question_bank_extra.json",
@@ -351,14 +352,21 @@ class TestCollector(unittest.TestCase):
         """Many sources, central exams covered, all well-formed + enabled."""
         from core import collector
         srcs = collector.DEFAULT_SOURCES
-        self.assertGreaterEqual(len(srcs), 14)
+        self.assertGreaterEqual(len(srcs), 20)
         names = {s["name"] for s in srcs}
         self.assertIn("IndiaBIX General Knowledge", names)
+        self.assertIn("Examveda General Knowledge", names)
         self.assertTrue(any(s.get("type") == "index" for s in srcs))
+        adapters = {s.get("adapter") for s in srcs if s.get("adapter")}
+        self.assertIn("examveda", adapters)
+        self.assertIn("indiabix", adapters)
         for s in srcs:
             self.assertIn(s["type"], ("rss", "index"))
             self.assertTrue(s["name"])
             self.assertTrue(s.get("feed") or s.get("url"))
+            # every deep index source must name a real adapter
+            if s["type"] == "index":
+                self.assertIn(s.get("adapter"), collector.ADAPTERS)
 
     def test_indiabix_adapter(self):
         """Dedicated IndiaBIX adapter parses its table markup correctly."""
@@ -375,6 +383,27 @@ class TestCollector(unittest.TestCase):
         self.assertEqual(raws[0]["answer_index"], 1)
         self.assertEqual(raws[1]["answer_index"], 3)
         self.assertEqual(raws[2]["answer_index"], 1)
+
+    def test_examveda_adapter_unnumbered(self):
+        """Unnumbered MCQ bank (Examveda) is recovered via answer anchors."""
+        from core import collector
+        ev = self.FIXTURE_EXAMVEDA.read_text(encoding="utf-8")
+        raws = collector.parse_examveda(ev, "Examveda Trains",
+                                        "https://www.examveda.com/problems-on-trains/")
+        self.assertGreaterEqual(len(raws), 3)
+        for r in raws:
+            self.assertEqual(len(r["options_en"]), 4)
+            self.assertIn(r["answer_index"], (0, 1, 2, 3))
+            self.assertIn("train", r["q_en"].lower())
+        # fixture answers: B(1), B(1), D(3)
+        self.assertEqual([r["answer_index"] for r in raws[:3]], [1, 1, 3])
+        # options match the fixture exactly
+        self.assertIn("50 km/hr", raws[0]["options_en"])
+        # adapter is wired into dispatch with generic fallback
+        via_dispatch = collector.parse_page(
+            {"name": "Examveda", "adapter": "examveda"}, ev,
+            "Examveda", "https://www.examveda.com/problems-on-trains/")
+        self.assertEqual(len(via_dispatch), len(raws))
 
     def test_index_link_extraction(self):
         """Deep index pages yield topic quiz links, not forum/sidebar junk."""

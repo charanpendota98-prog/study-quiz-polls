@@ -21,7 +21,7 @@ Defence (NDA/CDS/Agniveer), and Current Affairs GK** — plus a private
 | 🎯 **Exam-paper sources only** | Quiz questions come **only** from exam-aligned sources (`pyq`, `curated`, `llm-gen`, `offline-gen`). **Newspapers and articles never become quiz questions** — news feeds feed the Current-Affairs *digest* only, and soft headlines (opinion/blog/sports/lifestyle/etc.) are filtered out even there. |
 | **Previous-Year Questions first** | Authentic PYQ banks (`data/pyq_bank.json` + `data/pyq_bank_2.json`, TSPSC/APPSC/RRB/IBPS/SBI/Police/NDA/CDS/UPSC patterns, **60+ verified bilingual PYQs**) are **prioritised in every round**, then curated, then generated. |
 | 🧑‍🏫 **Daily expert coach lesson** | A friendly, professional expert posts a **reasoning/aptitude shortcut with a worked example** at **12:30 IST** to every channel (`data/coach_lessons.json`, 16 lessons EN+Telugu) — plus `/coach` any time in the bot DM. |
-| 🕷️ **Deep multi-source scraper** | `core/collector.py` pulls fresh exam **quiz/MCQ content from 15+ websites across all day (6 runs, incl. right after each quiz)** — AffairsCloud, GKToday, Insights, Testbook, BankersAdda, Guidely, Oliveboard, SSCAdda, CareerPower, RailwayAdda, plus **deep-crawled static MCQ banks (IndiaBIX)** via a dedicated adapter. Browser fetching, retries, **robots.txt**, polite pacing, seen-URL paging, per-site parsers & **LLM-API Telugu translation**. Everything merges into the same validated, no-repeat bank. |
+| 🕷️ **Deep multi-source scraper** | `core/collector.py` pulls fresh exam **quiz/MCQ content from 24 websites across all day (6 runs, incl. right after each quiz)** — 16 RSS quiz feeds (AffairsCloud, GKToday, Insights, Testbook, BankersAdda, Guidely, Oliveboard, SSCAdda, CareerPower, RailwayAdda, Adda247, JagranJosh, FreshersNow, Aglasem, CompetitionExam, Study2Online) plus **8 deep-crawled static MCQ banks** (IndiaBIX Aptitude/Reasoning/GK, Examveda Arithmetic/Reasoning/GK) each with its **own dedicated adapter**. Browser fetching, retries, **robots.txt**, polite pacing, seen-URL paging, per-site parsers & **LLM-API Telugu translation**. Everything merges into the same validated, no-repeat bank. |
 | **Member registration** | `/register` guided sign-up (name → exam target → language), +25 bonus points. Members stored in `data/members.json`. |
 | **Points, levels & ranks** | +10 per correct answer, +5 daily activity, streak bonuses (3/7/15/30/100 days), levels 🆕→🥉→🥈→🥇→💎→👑 Champion, weekly + all-time leaderboards. |
 | **Native quiz polls** | `sendPoll` type `quiz` with `correct_option_id` → instant right/wrong feedback + **explanation**. Bot quizzes are non-anonymous so they earn points. |
@@ -229,20 +229,24 @@ The validation gate (`finalize.py`) and the test suite (`tests/test_bot.py`)
 websites, apps and APIs**, with **careful per-site handling so nothing breaks**,
 and turns it into validated bilingual questions:
 
-- **Deep source registry (15+ sources, central exams weighted)** — two kinds:
-  - `type: rss` — AffairsCloud, GKToday, Insights on India, Testbook, BankersAdda,
-    Guidely, Oliveboard (banking); SSCAdda, CareerPower (SSC/UPSC); RailwayAdda
-    (RRB). Feeds are scanned for *quiz* pages (title `must`/`not` regexes skip
-    notifications, results, editorials, recruitment posts).
-  - `type: index` — **deep HTML crawl** of big static MCQ banks: IndiaBIX
-    Aptitude, Verbal Reasoning, Logical Reasoning, Non-Verbal Reasoning and
-    General Knowledge. The section page is parsed directly AND its per-topic
-    links are discovered (`link_re`) and crawled one level deep.
+- **Deep source registry (24 sources, central exams weighted)** — two kinds:
+  - `type: rss` (16) — AffairsCloud, GKToday, Insights on India, Testbook,
+    BankersAdda, Guidely, Oliveboard, Adda247, JagranJosh, FreshersNow, Study2Online
+    (banking/all-exam); SSCAdda, CareerPower, Aglasem, CompetitionExam (SSC/UPSC);
+    RailwayAdda (RRB). Feeds are scanned for *quiz* pages (title `must`/`not`
+    regexes skip notifications, results, editorials, recruitment posts).
+  - `type: index` (8) — **deep HTML crawl** of big static MCQ banks: IndiaBIX
+    (Aptitude, Verbal/Logical/Non-Verbal Reasoning, General Knowledge) and
+    Examveda (Arithmetic Ability, Verbal Reasoning, General Knowledge). The
+    section page is parsed directly AND its per-topic links are discovered
+    (`link_re`) and crawled one level deep.
   Add or tune any source without code via `data/collector_sources.json`.
-- **Per-site adapters** — the WordPress quiz parser handles most blogs; sites
-  with non-standard markup get a **dedicated adapter** (`ADAPTERS` registry,
-  e.g. `indiabix` reads `bix-div-container` / `bix-td-qtxt` / option cells /
-  `Answer: Option X` / Explanation blocks), so each source is parsed correctly.
+- **Per-site adapters (one per markup style)** — `ADAPTERS` registry:
+  `indiabix` reads `bix-div-container`/`bix-td-qtxt`/option cells; `examveda`
+  uses an **answer-anchored** extractor for unnumbered question banks (it finds
+  each "Answer: Option X", walks back to recover the 4 options and the stem);
+  the generic WordPress parser handles the rest — and every adapter **fails safe
+  with a generic-parser fallback**, so a source is never silently missed.
 - **Advanced, polite fetching** — browser `User-Agent`, retries with exponential
   backoff, per-host delay + jitter, **`robots.txt` enforcement** (robotparser),
   optional proxy, `feedparser` if installed.
