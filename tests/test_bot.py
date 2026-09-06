@@ -111,6 +111,76 @@ class TestMembers(unittest.TestCase):
         self.assertEqual(p2["exam"], "Banking")
 
 
+class TestAdaptiveLearning(unittest.TestCase):
+    def setUp(self):
+        import tempfile
+        from pathlib import Path as _P
+        self.tmp = _P(tempfile.gettempdir()) / "test_adaptive.json"
+        if self.tmp.exists():
+            self.tmp.unlink()
+        self.mb = Members()
+        self.mb.kv.path = self.tmp
+        self.mb.data = {"members": {}, "pending": {}, "form_pending": {}}
+        self.mb.members = self.mb.data["members"]
+        self.mb.pending = self.mb.data["pending"]
+        self.mb.form_pending = self.mb.data["form_pending"]
+        self.uid = 7007
+
+    def tearDown(self):
+        if self.tmp.exists():
+            self.tmp.unlink()
+
+    def test_weak_topics(self):
+        self.mb.register(self.uid, name="W")
+        for _ in range(3):
+            self.mb.award_answer(self.uid, correct=False, topic="percentage", qid="x1")
+        self.mb.award_answer(self.uid, correct=True, topic="percentage", qid="x2")  # 25%
+        for _ in range(4):
+            self.mb.award_answer(self.uid, correct=True, topic="ratio", qid="r1")  # 100%
+        weak = self.mb.weak_topics(self.uid)
+        self.assertIn("percentage", weak)
+        self.assertNotIn("ratio", weak)
+
+    def test_spaced_repetition_queues_missed(self):
+        self.mb.register(self.uid, name="S")
+        self.mb.award_answer(self.uid, correct=False, topic="coding", qid="MISS1")
+        due = self.mb.due_reviews(self.uid)
+        self.assertTrue(any(r["qid"] == "MISS1" for r in due))
+
+    def test_badges_unlock(self):
+        self.mb.register(self.uid, name="B")
+        for _ in range(10):
+            r = self.mb.award_answer(self.uid, correct=True, topic="series")
+        ids = set(self.mb.members[str(self.uid)]["badges"])
+        self.assertIn("first", ids)
+        self.assertIn("correct10", ids)
+
+    def test_analytics_structure(self):
+        self.mb.register(1, name="A", exam="TSPSC", state="Telangana", district="Hyderabad")
+        a = self.mb.analytics()
+        self.assertGreaterEqual(a["registered"], 1)
+        self.assertIn("by_exam", a)
+        self.assertEqual(a["by_exam"]["TSPSC"], 1)
+
+
+class TestWebhookNormalize(unittest.TestCase):
+    def test_form_payload_normalizes(self):
+        from core.formingest import normalize_signup
+        info = normalize_signup({
+            "Full name": "Kiran", "WhatsApp / Mobile number": "98765-43210",
+            "Telegram username": "@kirant", "State": "Andhra Pradesh",
+            "District": "AP · Guntur",
+            "Which exam are you preparing for?": "Police — Constable / SI (TS & AP)",
+            "Medium of preparation": "Telugu", "email": "k@x.com"})
+        self.assertEqual(info["phone"], "9876543210")
+        self.assertEqual(info["district"], "Guntur")
+        self.assertEqual(info["state"], "Andhra Pradesh")
+        self.assertEqual(info["exam"], "Police")
+        self.assertEqual(info["lang"], "Telugu")
+        self.assertEqual(info["username"], "kirant")
+        self.assertEqual(info["email"], "k@x.com")
+
+
 class TestPYQBank(unittest.TestCase):
     def test_pyq_loads_and_valid(self):
         data = load_json(config.BANK_PYQ_JSON, {"questions": []})
@@ -166,18 +236,12 @@ class TestFormDistricts(unittest.TestCase):
 
 class TestFormImportNormalize(unittest.TestCase):
     def test_district_and_exam_normalization(self):
-        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-        import importlib.util
-        spec = importlib.util.spec_from_file_location(
-            "import_members",
-            str(Path(__file__).resolve().parents[1] / "scripts" / "import_members.py"))
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        d, state = mod._norm_district("TS · Warangal")
+        from core.formingest import norm_district, norm_exam, norm_phone
+        d, state = norm_district("TS · Warangal")
         self.assertEqual(d, "Warangal")
         self.assertEqual(state, "Telangana")
-        self.assertEqual(mod._norm_exam("Banking — IBPS / SBI / RRB Clerk-PO"), "Banking")
-        self.assertEqual(mod._norm_phone("98765-43210"), "9876543210")
+        self.assertEqual(norm_exam("Banking — IBPS / SBI / RRB Clerk-PO"), "Banking")
+        self.assertEqual(norm_phone("98765-43210"), "9876543210")
 
 
 class TestBank(unittest.TestCase):

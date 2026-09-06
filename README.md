@@ -30,6 +30,19 @@ Defence (NDA/CDS/Agniveer), and Current Affairs GK** — plus a private
 | **Validation gate** | `finalize.py` machine-checks every question before deploy. 28 tests including answer-correctness proofs. |
 | **Telegram-safe pacing** | 2.2–3.2 s gaps; no links in public; IST scheduler with 10/5/1-min reminders. |
 
+### 🧠 Adaptive learning (100x mode)
+- **Weak-topic detection** — the bot tracks each member's per-topic accuracy and
+  auto-feeds practice questions on the topics they get wrong (`/quiz` adapts to them).
+- **Spaced-repetition revision** — a missed question comes back the same day
+  (`/review`), then at 3 days, then 7 days; answering correctly graduates it.
+- **Achievement badges** — 🎯 First Answer · ✅ 10 Correct · 💯 Century ·
+  🔥 3/7/30-day streaks · 🧠 Sharp Shooter (90%+) · 👑 Champion (`/badges`).
+- **Admin analytics** — `/analytics` (admin only): members by exam target, state,
+  district, medium, acquisition source, active-today count, aggregate accuracy.
+- **Auto-ingestion webhook** — Google Forms can push submissions straight into the
+  bot (no CSV): run `scripts/webhook_server.py` (stdlib, port 8080) and set
+  `POST_WEBHOOK_URL` in the Apps Script. CSV import also works.
+
 ### 🏆 Points system (in the bot)
 - **+25** completing `/register`
 - **+10** every correct answer

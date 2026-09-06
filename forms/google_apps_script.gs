@@ -19,6 +19,11 @@ var BOT_TOKEN    = "PUT_YOUR_BOTFATHER_TOKEN_HERE";
 var ADMIN_CHAT_ID = "PUT_YOUR_TELEGRAM_ID_HERE";   // e.g. 123456789
 var BOT_USERNAME  = "DailyQuizPosterbot";          // shown in the CTA
 
+// OPTIONAL — full automation. Set to your live webhook and each signup is
+// pushed straight into the bot's points system (no CSV import). Example:
+// var POST_WEBHOOK_URL = "http://80.225.205.135:8080/form?secret=CHANGE_ME";
+var POST_WEBHOOK_URL = "";   // leave "" to skip auto-ingestion
+
 function onFormSubmit(e) {
   try {
     var items = e.namedValues || {};
@@ -52,6 +57,29 @@ function onFormSubmit(e) {
       "\nTotal responses now: " + (e.range ? e.range.getRow() - 1 : "?");
 
     sendTelegram(msg);
+
+    // Optional: push the whole signup straight into the bot (no CSV import).
+    if (POST_WEBHOOK_URL) {
+      try {
+        var payload = {
+          name: name, phone: phone, telegram: tg, email: pick(["email"]),
+          state: state, district: district, exam: exam,
+          education: pick(["education", "చదువు"]),
+          target_year: pick(["target exam", "when is your target"]),
+          language: lang, study_mode: pick(["how do you study", "coaching"]),
+          hours: pick(["hours", "గంటలు"]), updates: pick(["free daily", "updates"]),
+          source: pick(["how did you find", "source"])
+        };
+        UrlFetchApp.fetch(POST_WEBHOOK_URL, {
+          method: "post",
+          contentType: "application/json",
+          payload: JSON.stringify(payload),
+          muteHttpExceptions: true
+        });
+      } catch (errWeb) {
+        Logger.log("webhook post error: " + errWeb);
+      }
+    }
 
     // Optional: auto-open the bot /start for users who gave a username is not
     // possible server-side, but we log the Telegram handle for points linking.

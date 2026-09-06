@@ -69,9 +69,14 @@ class Members:
             "points": 0, "correct": 0, "total": 0,
             "streak": 0, "best_streak": 0,
             "last_active": "", "last_correct": "", "claimed": [],
+            # adaptive learning
+            "topics": {},          # topic -> {"correct":n,"total":n}
+            "review": [],          # spaced-repetition queue (missed questions)
+            "badges": [],          # earned badge ids
+            "answers_today": 0,    # for daily cap / gamification
         })
 
-    def register(self, uid, name=None, exam=None, lang=None, username=""):
+    def register(self, uid, name=None, exam=None, lang=None, username="", **extra):
         m = self._get(uid)
         if name:
             m["name"] = name
@@ -81,6 +86,9 @@ class Members:
             m["exam"] = exam
         if lang:
             m["lang"] = lang
+        for k, v in extra.items():
+            if v and not m.get(k):
+                m[k] = v
         if not m["registered"]:
             m["registered"] = True
             m["registered_at"] = now_iso()
@@ -89,7 +97,7 @@ class Members:
         return m
 
     # ------------------------------------------------------------ points
-    def award_answer(self, uid, username="", correct=True):
+    def award_answer(self, uid, username="", correct=True, topic="", qid=""):
         """Award points for a poll answer. Returns a dict describing the award."""
         m = self._get(uid)
         if username:
@@ -97,10 +105,42 @@ class Members:
         if not m["name"]:
             m["name"] = username or f"player{uid}"
         m["total"] += 1
+        m["answers_today"] = m.get("answers_today", 0) + 1
         today = _day()
         yesterday = _day(datetime.now(config.IST) - timedelta(days=1))
         earned = 0
         events = []
+        new_badges = []
+
+        # ---- topic-level stats for adaptive learning
+        if topic:
+            t = m["topics"].setdefault(topic.lower(), {"correct": 0, "total": 0})
+            t["total"] += 1
+
+        # ---- spaced-repetition review queue
+        if qid:
+            m["review"] = [r for r in m.get("review", []) if r.get("qid") != qid]
+            if not correct:
+                # missed question -> due immediately (same-day /review), then
+                # spaced: 3d -> 7d as they answer it correctly.
+                m["review"].append({"qid": qid, "due": _day(),
+                                    "interval": 0, "topic": topic})
+            else:
+                # correct -> advance this spaced-repetition card
+                #   interval 0 (same-day) -> 3 days -> 7 days -> mastered (drop)
+                kept = []
+                for r in m.get("review", []):
+                    if r.get("qid") == qid:
+                        nxt = {0: 3, 3: 7}.get(r["interval"])
+                        if nxt:
+                            r["interval"] = nxt
+                            r["due"] = (datetime.now(config.IST) +
+                                       timedelta(days=nxt)).strftime("%Y-%m-%d")
+                            kept.append(r)
+                        # interval 7 correct -> mastered, drop
+                    else:
+                        kept.append(r)
+                m["review"] = kept
 
         if m["last_active"] != today:
             earned += P_DAILY_FIRST            # daily participation bonus
@@ -110,6 +150,8 @@ class Members:
         leveled_up = None
         if correct:
             m["correct"] += 1
+            if topic:
+                m["topics"][topic.lower()]["correct"] += 1
             before_level = level_for(m["points"])["index"]
             earned += P_CORRECT
             events.append(f"+{P_CORRECT} correct")
@@ -133,9 +175,59 @@ class Members:
         else:
             m["points"] += earned
 
+        # ---- badges (recompute deterministically)
+        before_badges = set(m.get("badges", []))
+        for b in self._earned_badges(m):
+            if b["id"] not in before_badges:
+                m.setdefault("badges", []).append(b["id"])
+                new_badges.append(b)
+
         self.kv.save()
         return {"earned": earned, "events": events, "level_up": leveled_up,
-                "points": m["points"], "streak": m["streak"]}
+                "points": m["points"], "streak": m["streak"],
+                "new_badges": new_badges}
+
+    # ------------------------------------------------------------ badges
+    def _earned_badges(self, m):
+        """Deterministic list of badges earned for a member's current stats."""
+        out = []
+        def has(bid): return bid in m.get("badges", [])
+        if not has("first") and m["total"] >= 1:
+            out.append({"id": "first", "icon": "🎯", "en": "First Answer", "te": "మొదటి సమాధానం"})
+        if not has("correct10") and m["correct"] >= 10:
+            out.append({"id": "correct10", "icon": "✅", "en": "10 Correct", "te": "10 సరైనవి"})
+        if not has("correct100") and m["correct"] >= 100:
+            out.append({"id": "correct100", "icon": "💯", "en": "Century — 100 Correct", "te": "100 సరైనవి"})
+        if not has("streak3") and m["best_streak"] >= 3:
+            out.append({"id": "streak3", "icon": "🔥", "en": "3-Day Streak", "te": "3 రోజుల స్ట్రీక్"})
+        if not has("streak7") and m["best_streak"] >= 7:
+            out.append({"id": "streak7", "icon": "🔥", "en": "7-Day Streak", "te": "7 రోజుల స్ట్రీక్"})
+        if not has("streak30") and m["best_streak"] >= 30:
+            out.append({"id": "streak30", "icon": "🔥", "en": "30-Day Streak", "te": "30 రోజుల స్ట్రీక్"})
+        if not has("sharp") and m["total"] >= 20 and (m["correct"] / m["total"]) >= 0.9:
+            out.append({"id": "sharp", "icon": "🧠", "en": "Sharp Shooter (90%+) — 20+ attempts", "te": "90%+ ఖచ్చితత్వం"})
+        if not has("champion") and m["points"] >= 3000:
+            out.append({"id": "champion", "icon": "👑", "en": "Champion Level", "te": "ఛాంపియన్"})
+        return out
+
+    # ------------------------------------------------------------ adaptive
+    def weak_topics(self, uid, limit=3, weak_below=0.75):
+        """Topics below 75% accuracy (min 2 attempts), weakest first."""
+        m = self.members.get(str(uid)) or {}
+        rows = []
+        for topic, st in (m.get("topics") or {}).items():
+            if st["total"] >= 2:
+                acc = st["correct"] / st["total"]
+                if acc < weak_below:
+                    rows.append((acc, st["total"], topic))
+        rows.sort()  # lowest accuracy first
+        return [t for _acc, _n, t in rows[:limit]]
+
+    def due_reviews(self, uid):
+        """Spaced-repetition questions due for re-asking today."""
+        m = self.members.get(str(uid)) or {}
+        today = _day()
+        return [r for r in m.get("review", []) if r.get("due", "9999") <= today]
 
     # ------------------------------------------------------------ queries
     def profile(self, uid):
@@ -154,6 +246,51 @@ class Members:
             if str(mid) == str(uid):
                 return i
         return len(order)
+
+    # ------------------------------------------------------------ analytics
+    def analytics(self):
+        """Aggregate member stats for admin reports."""
+        from collections import Counter
+        reg = [m for m in self.members.values() if m.get("registered")]
+        by_exam = Counter((m.get("exam") or "Unknown") for m in reg)
+        by_state = Counter((m.get("state") or "Unknown") for m in reg)
+        by_district = Counter((m.get("district") or "Unknown") for m in reg if m.get("district"))
+        by_lang = Counter((m.get("lang") or "Unknown") for m in reg)
+        by_source = Counter((m.get("source") or "Unknown") for m in reg if m.get("source"))
+        total_points = sum(m.get("points", 0) for m in reg)
+        total_correct = sum(m.get("correct", 0) for m in reg)
+        total_answers = sum(m.get("total", 0) for m in reg)
+        active_today = sum(1 for m in reg if m.get("last_active") == _day())
+        return {
+            "registered": len(reg), "form_pending": len(self.form_pending),
+            "by_exam": by_exam, "by_state": by_state, "by_district": by_district,
+            "by_lang": by_lang, "by_source": by_source,
+            "total_points": total_points, "total_correct": total_correct,
+            "total_answers": total_answers, "active_today": active_today,
+        }
+
+    def render_analytics(self):
+        a = self.analytics()
+        L = ["📊 *StudentUp — Member Analytics*", ""]
+        L.append(f"👥 Registered: *{a['registered']}*  (form pending: {a['form_pending']})")
+        L.append(f"✅ Answers: {a['total_correct']}/{a['total_answers']} correct  ·  ⭐ {a['total_points']} points")
+        L.append(f"⚡ Active today: {a['active_today']}")
+
+        def block(title, counter, limit=8):
+            if not counter:
+                return []
+            lines = [f"\n*{title}*"]
+            for name, n in counter.most_common(limit):
+                bar = "█" * min(n, 12)
+                lines.append(f"  {bar} {n}  {name}")
+            return lines
+
+        L += block("By exam target", a["by_exam"])
+        L += block("By state", a["by_state"])
+        L += block("Top districts", a["by_district"])
+        L += block("By medium", a["by_lang"])
+        L += block("How they found us", a["by_source"])
+        return "\n".join(L)
 
     def top(self, limit=10):
         rows = [(uid, m) for uid, m in self.members.items()
@@ -186,12 +323,17 @@ class Members:
             "phone": info.get("phone", ""), "email": info.get("email", ""),
             "state": info.get("state", ""), "district": info.get("district", ""),
             "stage": info.get("stage", ""), "coaching": info.get("coaching", ""),
+            "education": info.get("education", ""),
+            "target_year": info.get("target_year", ""),
+            "study_mode": info.get("study_mode", info.get("coaching", "")),
+            "hours": info.get("hours", ""),
+            "updates": info.get("updates", ""),
             "form_source": "google_form",
         }
         if tg_id:
             m = self.register(tg_id, name=base["name"] or None, exam=base["exam"] or None,
                               lang=base["lang"] or None, username=uname)
-            for k in ("phone", "email", "state", "district", "stage", "coaching", "form_source"):
+            for k in ("phone","email","state","district","stage","coaching","education","target_year","study_mode","hours","updates","form_source"):
                 if base.get(k):
                     m[k] = base[k]
             self.kv.save()
@@ -222,7 +364,7 @@ class Members:
         m = self.register(uid, name=entry.get("name") or name or None,
                           exam=entry.get("exam") or None,
                           lang=entry.get("lang") or None, username=uname)
-        for k in ("phone", "email", "state", "district", "stage", "coaching"):
+        for k in ("phone","email","state","district","stage","coaching","education","target_year","study_mode","hours","updates"):
             if entry.get(k):
                 m[k] = entry[k]
         m["form_source"] = "google_form"
@@ -246,12 +388,34 @@ class Members:
         ]
         if p.get("exam"):
             lines.append(f"🎯 Target: {p['exam']}")
+        if p.get("district"):
+            lines.append(f"📍 {p['district']}" + (f", {p['state']}" if p.get("state") else ""))
+        badges = p.get("badges", [])
+        if badges:
+            bdict = {b["id"]: b["icon"] for b in self._all_badge_defs()}
+            lines.append("🏅 Badges: " + " ".join(bdict.get(b, b) for b in badges))
+        weak = self.weak_topics(uid)
+        if weak:
+            lines.append("📌 Practice more: " + ", ".join(weak[:3]))
+        due = self.due_reviews(uid)
+        if due:
+            lines.append(f"🔁 {len(due)} revision question(s) due — send /review")
         if lvl["next"]:
             lines.append(f"📈 {lvl['next'] - p['points']} points to next level")
         else:
             lines.append("👑 Maximum level reached — Champion!")
-        lines.append("⤷ పాయింట్లు సంపాదించి ఛాంపియన్‌గా ఎదగండి! /quiz ఆడండి.")
+        lines.append("⤷ /quiz ఆడి పాయింట్లు సంపాదించండి!")
         return "\n".join(lines)
+
+    @staticmethod
+    def _all_badge_defs():
+        # single source for badge icons (mirror of _earned_badges)
+        return [
+            {"id": "first", "icon": "🎯"}, {"id": "correct10", "icon": "✅"},
+            {"id": "correct100", "icon": "💯"}, {"id": "streak3", "icon": "🔥"},
+            {"id": "streak7", "icon": "🔥"}, {"id": "streak30", "icon": "🔥"},
+            {"id": "sharp", "icon": "🧠"}, {"id": "champion", "icon": "👑"},
+        ]
 
     def render_leaderboard(self, weekly_note=True):
         top = self.top(10)

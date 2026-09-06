@@ -81,14 +81,32 @@ class Bot:
                 str(user.get("id")))
 
     # ------------------------------------------------------------ quiz
-    def send_quiz_to(self, chat_id, channel=None):
-        ch = channel if channel in config.PUBLIC_CHANNELS else "TSPSC"
-        qs = self.bank.pick(ch, 1)
-        if not qs:
+    def send_quiz_to(self, chat_id, channel=None, uid=None, adaptive=True):
+        ch = channel if channel in config.PUBLIC_CHANNELS else None
+        # Adaptive personalization in private chats (member has a profile).
+        weak = review = None
+        if adaptive and uid:
+            weak = self.members.weak_topics(uid)
+            review = [r["qid"] for r in self.members.due_reviews(uid)]
+        if ch is None:
+            # default channel = member's exam target mapped to a channel
+            prof = self.members.profile(uid) if uid else None
+            exam = (prof or {}).get("exam", "")
+            ch = self._exam_to_channel(exam)
+        q = None
+        tag = ""
+        if adaptive and uid and (review or weak):
+            q = self.bank.pick_adaptive(ch, weak_topics=weak, review_qids=review)
+            is_review = review and q and q["id"] in review
+            tag = "🔁 Revision" if is_review else ("📌 Focus (weak topic)" if weak else "📝 Practice")
+        if q is None:
+            qs = self.bank.pick(ch, 1)
+            q = qs[0] if qs else None
+        if not q:
             return
-        q = qs[0]
+        if not tag:
+            tag = "📜 PYQ" if q.get("source") == "pyq" else "📝 Practice"
         cfg = config.CHANNELS[ch]
-        tag = "📜 PYQ" if q.get("source") == "pyq" else "📝 Practice"
         text = f"{tag} {build_question_text(q, cfg)}"
         opts = build_options(q)
         expl = build_explanation(q)
@@ -104,8 +122,17 @@ class Bot:
         res = self.tg._call("sendPoll", payload)
         poll = res.get("result", {}).get("poll") or {}
         if poll.get("id"):
-            self._poll_q[poll["id"]] = (ch, q["id"], q["answer_index"])
+            # channel, qid, answer_index, topic
+            self._poll_q[poll["id"]] = (ch, q["id"], q["answer_index"],
+                                        q.get("topic", ""))
             self._save_polls()
+
+    @staticmethod
+    def _exam_to_channel(exam):
+        m = {"TSPSC": "TSPSC", "APPSC": "APPSC", "Banking": "BANKING",
+             "Railway": "RAILWAY", "Police": "POLICE", "Defence": "DEFENCE",
+             "SSC/UPSC": "CURRENT", "Current Affairs GK": "CURRENT"}
+        return m.get(exam, "TSPSC")
 
     _polls_file = config.DATA / "poll_state.json"
 
@@ -170,7 +197,25 @@ class Bot:
         elif low.startswith("/quiz"):
             parts = low.split()
             ch = parts[1].upper() if len(parts) > 1 else None
-            self.send_quiz_to(chat_id, ch)
+            if ch not in config.PUBLIC_CHANNELS:
+                ch = None
+            self.send_quiz_to(chat_id, ch, uid=uid)
+        elif low.startswith("/review") or low.startswith("/revise"):
+            due = self.members.due_reviews(uid) if uid else []
+            if not due:
+                self.tg.send_message(chat_id,
+                    "✅ No revision questions due — answer a few /quiz, missed ones come back automatically.\n"
+                    "⤷ రివిజన్ ప్రశ్నలు లేవు. /quiz ఆడండి.")
+            else:
+                self.send_quiz_to(chat_id, None, uid=uid, adaptive=True)
+        elif low.startswith("/badges"):
+            self.tg.send_message(chat_id, self._render_badges(uid))
+        elif low.startswith("/analytics") or low.startswith("/admin"):
+            if str(uid) == str(config.ADMIN_ID) or not config.ADMIN_ID:
+                self.tg.send_message(chat_id, self.members.render_analytics(),
+                                     parse_mode="Markdown")
+            else:
+                self.tg.send_message(chat_id, "🔒 Admin only.\n⤷ అడ్మిన్ కోసం మాత్రమే.")
         elif low.startswith("/stats") or low.startswith("/profile") or low.startswith("/me"):
             if not self.members.profile(uid):
                 self.tg.send_message(chat_id, "You're not registered yet — send /register to start! ⭐\n⤷ /register చేయండి.")
@@ -187,6 +232,35 @@ class Bot:
                 f"⤷ నమోదైన సభ్యులు: {n_all}")
         elif low.startswith("/channels"):
             self.tg.send_message(chat_id, self._channels_list())
+
+    def _render_badges(self, uid):
+        p = self.members.profile(uid) if uid else None
+        if not p:
+            return ("No profile yet — send /register to start earning badges! 🏅\n"
+                    "⤷ /register చేసి బ్యాడ్జ్‌లు సంపాదించండి!")
+        earned = {b["id"]: b for b in self.members._earned_badges(
+            self.members.members[str(uid)])}
+        # include already-earned stored
+        for b in self.members._all_badge_defs():
+            pass
+        profile_m = self.members.members[str(uid)]
+        earned_ids = set(profile_m.get("badges", []))
+        lines = ["🏅 *Your badges / మీ బ్యాడ్జ్‌లు*", ""]
+        all_defs = [
+            ("first", "🎯", "First Answer", "మొదటి సమాధానం"),
+            ("correct10", "✅", "10 Correct", "10 సరైనవి"),
+            ("correct100", "💯", "100 Correct (Century)", "100 సరైనవి"),
+            ("streak3", "🔥", "3-Day Streak", "3 రోజుల స్ట్రీక్"),
+            ("streak7", "🔥", "7-Day Streak", "7 రోజుల స్ట్రీక్"),
+            ("streak30", "🔥", "30-Day Streak", "30 రోజుల స్ట్రీక్"),
+            ("sharp", "🧠", "Sharp Shooter (90%+)", "90%+ ఖచ్చితత్వం"),
+            ("champion", "👑", "Champion", "ఛాంపియన్"),
+        ]
+        for bid, icon, en, te in all_defs:
+            mark = earned_ids and bid in earned_ids
+            lines.append(f"{'✅' if mark else '⬜'} {icon} {en} / {te}")
+        lines.append("\nKeep playing /quiz to unlock them all! ⭐")
+        return "\n".join(lines)
 
     def _channels_list(self):
         lines = ["📚 *StudentUp daily channels*\n"]
@@ -208,13 +282,19 @@ class Bot:
         meta = self._poll_q.get(str(poll_id))
         if not meta:
             return
-        _ch, _qid, correct_idx = meta
+        ch, qid, correct_idx = meta[0], meta[1], meta[2]
+        topic = meta[3] if len(meta) > 3 else ""
         is_correct = int(chosen[0]) == int(correct_idx)
-        result = self.members.award_answer(uid, username=self._name(pa.get("user", {})),
-                                           correct=is_correct)
+        result = self.members.award_answer(
+            uid, username=self._name(pa.get("user", {})),
+            correct=is_correct, topic=topic, qid=qid)
         # Private feedback to the player (DMs only — groups can't DM via poll)
         note = None
-        if result["level_up"]:
+        if result.get("new_badges"):
+            b = result["new_badges"][0]
+            note = (f"{b['icon']} Badge unlocked: *{b['en']}* / {b['te']}!\n"
+                    f"⤷ కొత్త బ్యాడ్జ్: {b['te']}! బాగుంది! 🏅")
+        elif result["level_up"]:
             lu = result["level_up"]
             note = (f"🎉 Level up! You are now {lu['icon']} {lu['title_en']} ({lu['title_te']})!\n"
                     f"⤷ మీరు ఇప్పుడు {lu['icon']} {lu['title_te']}! అభినందనలు!")
@@ -224,7 +304,8 @@ class Bot:
                     f"⤷ సరైనది! +{result['earned']} పాయింట్లు.")
         else:
             note = (f"❌ Not this time — but you earned +{result['earned']} activity points. "
-                    f"Try /quiz again!\n⤷ ఈసారి కాదు — మళ్లీ /quiz ఆడండి.")
+                    f"This question will come back for revision 🔁. Try /quiz again!\n"
+                    f"⤷ ఈసారి కాదు — ఇది రివిజన్‌కి తిరిగి వస్తుంది. మళ్లీ /quiz ఆడండి.")
         try:
             self.tg.send_message(pa.get("user", {}).get("id"), note)
         except TelegramError:

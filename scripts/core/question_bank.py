@@ -201,6 +201,44 @@ class Bank:
         save_json_atomic(config.STORE_USED, self.used)
         return chosen
 
+    def by_id(self, qid):
+        for q in self.questions:
+            if q["id"] == qid:
+                return q
+        return None
+
+    def pick_adaptive(self, channel, weak_topics=None, review_qids=None):
+        """
+        Pick one question for a member:
+          1) a due spaced-repetition question (missed earlier), if available;
+          2) a question from a weak topic, if available;
+          3) otherwise the normal diverse/balanced pick (single question).
+        Returns a question dict (does NOT record rotation for review/weak so they
+        can re-ask; normal picks use the standard rotation).
+        """
+        # 1) spaced repetition
+        if review_qids:
+            for rqid in review_qids:
+                q = self.by_id(rqid)
+                if q and q.get("channel") in (channel, "CURRENT"):
+                    return q
+            for rqid in review_qids:
+                q = self.by_id(rqid)
+                if q:
+                    return q
+        pool = self.unused(channel) or self.by_channel(channel)
+        # 2) weak topic
+        if weak_topics:
+            for wt in weak_topics:
+                for q in pool:
+                    if wt in (q.get("topic", "") or "").lower():
+                        return q
+        # 3) normal single pick (standard rotation)
+        qs = self.pick(channel, 1)
+        if qs:
+            return qs[0]
+        return pool[0] if pool else None
+
     def _key_count(self, channel, idx):
         return sum(1 for q in self.by_channel(channel)
                    if q["id"] in set(self.used.get(channel, []))

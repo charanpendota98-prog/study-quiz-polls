@@ -74,10 +74,13 @@ if [ "${1:-}" = "--systemd" ]; then
        "$DEPLOY_DIR/deploy/studentup.service" > /etc/systemd/system/studentup.service
   sudo sed "s#/home/ubuntu/studentup#$DEPLOY_DIR#g; s#^User=ubuntu#User=$USER#" \
        "$DEPLOY_DIR/deploy/studentup-bot.service" > /etc/systemd/system/studentup-bot.service
+  sudo sed "s#/home/ubuntu/studentup#$DEPLOY_DIR#g; s#^User=ubuntu#User=$USER#" \
+       "$DEPLOY_DIR/deploy/studentup-webhook.service" > /etc/systemd/system/studentup-webhook.service
   sudo systemctl daemon-reload
   sudo systemctl enable --now studentup.service studentup-bot.service
+  sudo systemctl enable --now studentup-webhook.service
   sudo systemctl restart studentup.service
-  echo "  services installed + started"
+  echo "  services installed + started (scheduler, bot, webhook)"
 else
   echo "[6/6] systemd not touched. To install:"
   echo "    sudo bash $DEPLOY_DIR/scripts/deploy.sh --systemd"
