@@ -157,7 +157,7 @@ def _dead_confirmed() -> list[dict]:
     """Confirmed-dead quiz sources (never auto-enabled)."""
     rows = [
         ("GKToday Quiz", "https://www.gktoday.in/feed/", "ssc-upsc",
-         "dead | HTTP 500 'Feed is temporarily not available' on 06 Sep 2026"),
+         "dead | HTTP 500 'Feed is temporarily not available' on 06 Sep 2026 — replaced by GKToday quizbase deep-index sources (live)"),
         ("Testbook Quizzes", "https://testbook.com/blog/feed/", "all",
          "dead | feed serves junk (Test post title / COVID spam) — not exam quiz content"),
         ("Guidely Quiz", "https://guidely.in/blog/feed", "banking",
@@ -290,6 +290,69 @@ def _archive_rows() -> list[dict]:
     return [_archive(n, u, note) for n, u, note in rows]
 
 
+# ---------------------------------------------------------------------------
+# Deep MCQ banks verified 06 Sep 2026 (page structure inspected by hand):
+#   GKToday /quizbase/<slug>  : "1. stem / [A] .. [D] / Correct Answer: X [..] /
+#                                Notes:" + ?pageno=N pagination (5 pages/topic)
+#   Examveda /<section>/practice-mcq-question-on-<topic>/ : "1. stem / A. .. D. /
+#                                Answer: Option X / Solution:" + ?page=N (83 Q/topic)
+#   Testmocks /practice/<section>/<topic>/start/ : 20 Q with explanations
+# All three are parsed by the generic state-machine parser (fixtures in tests/).
+# ---------------------------------------------------------------------------
+GKT = "https://www.gktoday.in/quizbase/"
+GKT_PAGE_RE = r"\?pageno=[0-9]+$"
+
+
+def _gktoday(slug: str, label: str, exam: str, note: str,
+             max_pages: int = 2) -> dict:
+    return {
+        "name": f"GKToday {label}",
+        "enabled": True, "type": "index", "exam": exam,
+        "url": GKT + slug,
+        # the topic page itself carries 10 MCQs; only paginated siblings link
+        "link_re": r"(?!)",
+        "page_re": GKT_PAGE_RE, "max_pages": max_pages, "max_links": 0,
+        "audit": {"status": "live", "checked": "2026-09-06",
+                  "note": f"verified 06 Sep 2026 — {note}"},
+    }
+
+
+EXV = "https://www.examveda.com"
+EXV_ESC = EXV.replace(".", r"\.")
+
+
+def _examveda(section_url: str, label: str, exam: str, note: str,
+              max_links: int = 3, max_pages: int = 2) -> dict:
+    return {
+        "name": f"Examveda {label}",
+        "enabled": True, "type": "index", "exam": exam,
+        "url": f"{EXV}/{section_url}/",
+        "link_re": rf"^{EXV_ESC}/[a-z0-9\-]+/practice-mcq-question-on-[a-z0-9\.\-]+/?$",
+        "page_re": r"\?page=[0-9]+$",
+        "max_links": max_links, "max_pages": max_pages,
+        "audit": {"status": "live", "checked": "2026-09-06",
+                  "note": f"verified 06 Sep 2026 — {note}"},
+    }
+
+
+TMK = "https://www.testmocks.com/practice"
+TMK_ESC = TMK.replace(".", r"\.")
+
+
+def _testmocks(section: str, label: str, exam: str, note: str,
+               max_links: int = 3) -> dict:
+    return {
+        "name": f"Testmocks {label}",
+        "enabled": True, "type": "index", "exam": exam,
+        "url": f"{TMK}/{section}/",
+        "link_re": rf"^{TMK_ESC}/{section}/[a-z0-9\-]+/?$",
+        "link_suffix": "start/",          # questions live on .../<topic>/start/
+        "max_links": max_links,
+        "audit": {"status": "live", "checked": "2026-09-06",
+                  "note": f"verified 06 Sep 2026 — {note}"},
+    }
+
+
 SOURCES: list[dict] = [
     # ---- LIVE, AUDITED 2026-09-06 (platform + content verified) ----------
     _rss("AffairsCloud", "https://affairscloud.com/feed", "all",
@@ -328,6 +391,83 @@ SOURCES: list[dict] = [
          "verified 06 Sep 2026 — English usage questions"),
     _ibx("current-affairs", "ssc-upsc-banking",
          "verified 06 Sep 2026 — CA Q&A on the verified IndiaBIX platform"),
+
+    # ---- GKToday quizbase — 40,000+ GK/GS MCQs (SSC/RRB/State PCS), topic-
+    #      wise CA MCQs, TS/AP state GK and Telugu CA (native Telugu stems) ----
+    _gktoday("indian-polity-constitution-mcqs", "Polity", "ssc-upsc-railway",
+             "Indian Polity & Constitution MCQs, 5 pages, Notes explanations"),
+    _gktoday("ancient-indian-history-multiple-choice-questions", "Ancient History",
+             "ssc-upsc-railway", "SSC/RRB level ancient history MCQs"),
+    _gktoday("medieval-indian-history", "Medieval History", "ssc-upsc-railway",
+             "medieval history MCQs"),
+    _gktoday("modern-indian-history-freedom-struggle", "Modern History",
+             "ssc-upsc-railway", "freedom struggle MCQs"),
+    _gktoday("indian-geography-mcqs", "Indian Geography", "ssc-upsc-railway",
+             "Indian geography MCQs"),
+    _gktoday("indian-economy-mcqs", "Indian Economy", "ssc-upsc-banking",
+             "Indian economy MCQs"),
+    _gktoday("general-science-for-competitive-examinations", "General Science",
+             "ssc-railway-police", "general science MCQs"),
+    _gktoday("general-science-physics-mcqs", "Physics", "ssc-railway-defence",
+             "physics MCQs"),
+    _gktoday("general-science-chemistry", "Chemistry", "ssc-railway-defence",
+             "chemistry MCQs"),
+    _gktoday("general-science-biology-mcqs", "Biology", "ssc-railway-police",
+             "biology MCQs"),
+    _gktoday("environment-ecology-biodiversity-mcqs", "Environment", "upsc-ssc",
+             "environment & ecology MCQs"),
+    _gktoday("indian-culture-general-studies-mcqs", "Art & Culture", "upsc-ssc",
+             "art & culture MCQs"),
+    _gktoday("telangana-gk-questions-for-telangana-state-public-service-commission",
+             "Telangana GK", "tspsc", "TSPSC state GK — 2 pages, statement-type Qs"),
+    _gktoday("appsc", "Andhra Pradesh GK", "appsc",
+             "APPSC state GK — 5 pages (3000-MCQ course sample)"),
+    _gktoday("government-schemes-current-affairs", "CA Schemes", "all",
+             "government schemes CA MCQs (topic-wise)"),
+    _gktoday("business-economy-banking-current-affairs", "CA Banking", "banking",
+             "economy & banking CA MCQs"),
+    _gktoday("defence-current-affairs", "CA Defence", "defence",
+             "defence CA MCQs — DRDO/INS/missiles"),
+    _gktoday("science-technology-current-affairs", "CA SciTech", "all",
+             "science & tech CA MCQs"),
+    _gktoday("india-government-politics-current-affairs", "CA India", "all",
+             "India government & politics CA MCQs"),
+    _gktoday("reports-and-indices-current-affairs", "CA Reports", "all",
+             "reports & indices CA MCQs"),
+    _gktoday("important-days-and-events-current-affairs", "CA Days", "all",
+             "important days CA MCQs"),
+    _gktoday("awards-honours-persons-in-news-current-affairs", "CA Awards", "all",
+             "awards & persons in news CA MCQs"),
+    _gktoday("telugu-current-affairs", "Telugu CA", "tspsc-appsc",
+             "NATIVE TELUGU current-affairs MCQs — no translation needed", max_pages=3),
+    _index("GKToday Daily CA Quiz", "https://www.gktoday.in/gk-current-affairs-quiz-questions-answers/",
+           "all", "live | verified 06 Sep 2026 — daily CA quiz posts (10 Q each, Notes)",
+           r"^https://www\.gktoday\.in/daily-current-affairs-quiz-[a-z0-9\-]+/?$",
+           max_links=3),
+
+    # ---- Examveda — huge topic-wise MCQ banks with worked solutions ----------
+    _examveda("mcq-question-on-competitive-reasoning", "Reasoning", "all",
+              "40+ reasoning topics (coding, series, syllogism, blood relation...), 83 Q/topic"),
+    _examveda("mcq-question-on-arithmetic-ability", "Aptitude", "banking-ssc-railway",
+              "35+ arithmetic topics (average, interest, ratio, trains, CI ...)"),
+    _examveda("mcq-question-on-non-verbal-reasoning", "Non-Verbal", "ssc-railway-police",
+              "non-verbal reasoning topics", max_links=2, max_pages=1),
+    _examveda("mcq-question-on-competitive-english", "English", "ssc-banking",
+              "synonyms/antonyms/error spotting/idioms", max_links=2),
+    _examveda("mcq-question-on-general-knowledge", "GK", "ssc-upsc-railway",
+              "history/geography/polity/economy/science GK sections"),
+    _examveda("mcq-question-on-data-interpretation", "DI", "banking-ssc",
+              "table/bar/pie DI sets", max_links=2, max_pages=1),
+
+    # ---- Testmocks — 2000+ practice Qs with explanations ---------------------
+    _testmocks("quantitative-aptitude", "Quant", "banking-ssc-railway",
+               "23 quant topics, 20 Q each with explanations"),
+    _testmocks("logical-reasoning", "Logical", "all",
+               "18 logical reasoning topics"),
+    _testmocks("verbal-reasoning", "Verbal Reasoning", "all",
+               "analogy/coding/blood relation/seating/direction"),
+    _testmocks("verbal-ability", "English", "ssc-banking",
+               "12 English topics (SSC/IBPS pattern)", max_links=2),
 
     # ---- DEAD / UNUSABLE — audited, never re-enabled --------------------
     *_dead_confirmed(),
@@ -439,6 +579,41 @@ SOURCES: list[dict] = [
                "legislative research — polity PYQ depth", must=CA_MUST, notp=CA_NOT),
 
     # Deep-index candidates (no reliable RSS — crawl listing pages)
+    _cand_index("Mockers SSC CGL Mock", "https://www.mockers.in/exam/ssc-cgl-mock-test",
+                "ssc", "mockers.in — free mock tests + PYQs; JS test player, "
+                "content gate decides", r"^https://www\.mockers\.in/(?:test|exam)/[a-z0-9\-]+/?$"),
+    _cand_index("Mockers RRB NTPC Mock", "https://www.mockers.in/exam/rrb-ntpc-mock-test",
+                "railway", "mockers.in railway mocks", r"^https://www\.mockers\.in/(?:test|exam)/[a-z0-9\-]+/?$"),
+    _cand_index("Mockers IBPS PO Mock", "https://www.mockers.in/exam/ibps-po-mock-test",
+                "banking", "mockers.in banking mocks", r"^https://www\.mockers\.in/(?:test|exam)/[a-z0-9\-]+/?$"),
+    _cand_index("Futurekul SSC CGL", "https://www.futurekul.com/free-mock-test/ssc-cgl",
+                "ssc", "futurekul free mock tests (Next.js app; content gate)",
+                r"^https://www\.futurekul\.com/free-mock-test/[a-z0-9\-]+/?$"),
+    _cand_index("Futurekul RRB NTPC", "https://www.futurekul.com/free-mock-test/rrb-ntpc",
+                "railway", "futurekul railway mocks",
+                r"^https://www\.futurekul\.com/free-mock-test/[a-z0-9\-]+/?$"),
+    _cand_index("TestRanking", "https://www.testranking.in/",
+                "all", "testranking.in — app-only practice platform (empty SSR page); tracked",
+                r"^https://www\.testranking\.in/[a-z0-9\-/]+$"),
+    _cand_index("Testmocks SSC Exams", "https://www.testmocks.com/exams/ssc/",
+                "ssc", "testmocks exam-wise sample papers",
+                r"^https://www\.testmocks\.com/exams/ssc/[a-z0-9\-]+/?$"),
+    _cand_index("Testmocks RRB Exams", "https://www.testmocks.com/exams/rrb/",
+                "railway", "testmocks railway sample papers",
+                r"^https://www\.testmocks\.com/exams/rrb/[a-z0-9\-]+/?$"),
+    _cand_index("Testmocks NDA CDS", "https://www.testmocks.com/exams/nda/",
+                "defence", "testmocks defence sample papers",
+                r"^https://www\.testmocks\.com/exams/nda/[a-z0-9\-]+/?$"),
+    _cand_index("Examveda State GK", "https://www.examveda.com/mcq-question-on-state-gk/",
+                "tspsc-appsc", "state-wise GK — TS/AP pages content-gated",
+                rf"^{EXV_ESC}/[a-z0-9\-]+/practice-mcq-question-on-(?:telangana|andhra)[a-z0-9\-]*/?$"),
+    _cand_index("Examveda Computer", "https://www.examveda.com/mcq-question-on-computer-fundamentals/",
+                "banking-ssc", "computer awareness (IBPS/SBI/SSC)",
+                rf"^{EXV_ESC}/[a-z0-9\-]+/practice-mcq-question-on-[a-z0-9\.\-]+/?$"),
+    _cand_index("Testmocks DI", "https://www.testmocks.com/practice/data-interpretation/",
+                "banking-ssc", "DI charts practice", rf"^{TMK_ESC}/data-interpretation/[a-z0-9\-]+/?$"),
+    _cand_index("Testmocks Non-Verbal", "https://www.testmocks.com/practice/non-verbal-reasoning/",
+                "ssc-railway-police", "non-verbal practice", rf"^{TMK_ESC}/non-verbal-reasoning/[a-z0-9\-]+/?$"),
     _cand_index("BankersAdda Reasoning",
                 "https://www.bankersadda.com/category/reasoning/",
                 "banking",
@@ -577,7 +752,7 @@ NEWS_FEEDS = {
 
 def build() -> dict:
     return {
-        "version": "4.0",
+        "version": "4.1",
         "description": ("STUDENTUP central source registry — 100+ exam-quiz sources, "
                         "CA/jobs feeds and tracked-dead/archive sources in one place. "
                         "Collector, auditor and feeds aggregator all read this file. "
@@ -585,6 +760,7 @@ def build() -> dict:
                         "Deep research Sep 2026: only previous-paper / syllabus-aligned "
                         "sources; candidates auto-enable only after content-gated audit."),
         "last_audit": "2026-09-06",
+        "blueprints": "data/exam_blueprints.json",
         "audit_note": ("Live sources checked 2026-09-06 with content-level audit. "
                        "Registry expanded to 100+ with deep specialist candidates "
                        "(UPSC/Banking/SSC/Railway/Defence/IndiaBIX JE sections) + "

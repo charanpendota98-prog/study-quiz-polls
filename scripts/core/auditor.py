@@ -71,11 +71,22 @@ def check_source(src, http_get=collector.http_get,
                 res["error"] = "index page fetch failed"
                 return res
             links = extract_links(page, src["url"], src.get("link_re", r"(?!)"))
-            res["links"] = len(links)
-            res["content_ok"] = len(links) > 0
+            pages = (extract_links(page, src["url"], src["page_re"])
+                     if src.get("page_re") else [])
+            res["links"] = len(links) + len(pages)
+            # CONTENT gate: the page must yield quiz links/pagination OR carry
+            # parseable MCQs itself (GKToday/Examveda topic pages do).
+            n_q = 0
+            try:
+                n_q = len(collector.parse_page(src, page, src.get("name", ""),
+                                               src["url"]))
+            except Exception:
+                n_q = 0
+            res["questions"] = n_q
+            res["content_ok"] = res["links"] > 0 or n_q > 0
             res["status"] = "live" if res["content_ok"] else "warn"
             if res["status"] == "warn":
-                res["error"] = "page fetched but no matching quiz links"
+                res["error"] = "page fetched but no quiz links and no parseable MCQs"
             return res
 
         # RSS / Atom

@@ -34,6 +34,8 @@ CLI:
   python3 -m core.collector --collect --dry    # fetch+parse, do not save
   python3 -m core.collector --fixture FILE.html TITLE   # offline parse test
   python3 -m core.collector --retry-pending    # translate parked questions
+  python3 -m core.collector --pdf paper.pdf    # ingest a PYQ / model-paper PDF
+  python3 -m core.collector --inbox            # ingest data/pdf_inbox/*.pdf|txt
 """
 from __future__ import annotations
 
@@ -555,10 +557,20 @@ def html_to_lines(page_html: str):
 QSTART_RE = re.compile(r"^(?:q(?:uestion)?\.?\s*)?(\d{1,3})[\)\.:\-]\s*(.+)$", re.I)
 OPT_RE = re.compile(r"^[\(\[]?([A-Da-d])[\)\].:\-]\s+(.+)$")
 OPT_INLINE_RE = re.compile(r"(?:^|\s)[\(\[]?([A-Da-d])[\)\].:\-]\s+")
+# "Answer: B" / "Ans- C" / "Correct Answer: C [1952]" / "Answer: Option D" /
+# "Correct option is (B)" — but NOT "Answer & Solution Discuss..." chrome.
 ANS_RE = re.compile(
-    r"(?:correct\s+answer|correct option|answer|ans)\b[^A-Da-d1-4]{0,15}"
-    r"([A-Da-d]|[1-4])(?:[\)\].]|\b)", re.I)
-EXPL_RE = re.compile(r"^(?:explanation|solution|sol|exp)[\.:\-]\s*(.+)$", re.I)
+    r"(?:correct\s+answer|correct\s+option|answer|ans)\s*(?:is|:|-|=|–)?\s*"
+    r"(?:option|\(|\[)?\s*([A-Da-d]|[1-4])(?:[\)\].\]]|\b)", re.I)
+EXPL_RE = re.compile(r"^(?:explanation|solution|sol|exp|notes?|hint)[\.:\-]\s*(.+)$", re.I)
+# label-only lines ("Notes:", "Explanation:") -> the body follows on the next line(s)
+EXPL_LABEL_RE = re.compile(r"^(?:explanation|solution|notes?|hint|answer\s*&\s*solution)\s*[\.:\-]?\s*$", re.I)
+# UI chrome that quiz sites render between questions (never content)
+_JUNK_LINE_RE = re.compile(
+    r"^(?:show answer|hide answer|view (?:answer|explanation|solution)|discuss in board|"
+    r"save for later|report(?: error)?|share|prev(?:ious)?|next|answer\s*&\s*solution"
+    r"(?:\s+discuss in board)?(?:\s+save for later)?|workspace|\d+\s*/\s*\d+|"
+    r"page \d+ of \d+|advertisement|sponsored)\s*[:\.]?$", re.I)
 _LABELS = "ABCD"
 
 
@@ -580,25 +592,43 @@ def _inline_options(rest: str):
 
 
 def parse_quiz_lines(lines, article_title="", url=""):
-    """Tolerant WordPress-quiz extractor. Returns list of raw question dicts."""
+    """Tolerant quiz extractor for WordPress / GKToday / Examveda-style pages.
+
+    Handles:
+      * "1) Q", "Q1. Q", "1. Q" stems, options as A) / (A) / [A] / A. lines,
+        or all four options inline on the stem line;
+      * numbered SUB-STATEMENTS inside a stem ("Consider the following: 1. ...
+        2. ...") -- a numbered line that breaks the running question sequence
+        while the current question has no options yet is a continuation;
+      * "Answer: B", "Correct Answer: C [1952]", "Answer: Option D",
+        "Correct option is (B)";
+      * "Explanation:/Solution:/Notes:" on the same or the NEXT line(s) --
+        multi-line explanations are joined (capped);
+      * UI chrome ("Show Answer", "Discuss in Board", "1 / 20") is ignored.
+    Returns list of raw question dicts.
+    """
     raw_qs = []
     cur = None
+    next_num = None            # expected number of the next question stem
+    in_expl = False            # collecting explanation body lines
 
     def finalize():
-        nonlocal cur
+        nonlocal cur, in_expl
+        in_expl = False
         if not cur:
             return
         opts = cur["opts"]
+        q = re.sub(r"\s+", " ", cur["q"]).strip()
         if (len(opts) == 4 and cur["ans"] is not None
-                and len(cur["q"]) >= 8 and len(cur["q"]) <= 300
+                and len(q) >= 8 and len(q) <= 300
                 and all(0 < len(o) <= 90 for o in opts)
                 and len({o.lower() for o in opts}) == 4):
-            blocked, _ = is_blocked(cur["q"] + " " + " ".join(opts))
+            blocked, _ = is_blocked(q + " " + " ".join(opts))
             if not blocked:
                 raw_qs.append({
-                    "q_en": cur["q"], "options_en": opts,
+                    "q_en": q, "options_en": opts,
                     "answer_index": cur["ans"],
-                    "explanation_en": cur["expl"][:280],
+                    "explanation_en": re.sub(r"\s+", " ", cur["expl"]).strip()[:280],
                     "title": article_title, "url": url,
                 })
         cur = None
@@ -606,31 +636,39 @@ def parse_quiz_lines(lines, article_title="", url=""):
     for line in lines:
         if len(line) > 400:
             line = line[:400]
+        if _JUNK_LINE_RE.match(line):
+            continue
         mo = OPT_RE.match(line)
         mq = QSTART_RE.match(line)
-
-        # Answer / explanation lines (may appear on their own)
         ma = ANS_RE.search(line)
         mex = EXPL_RE.match(line)
+        mlabel = EXPL_LABEL_RE.match(line)
 
         if mq and not mo:
+            num = int(mq.group(1))
             rest = mq.group(2).strip()
+            # numbered sub-statement inside the current stem?
+            if (cur is not None and not cur["opts"] and cur["ans"] is None
+                    and next_num is not None and num != next_num
+                    and len(cur["q"]) + len(rest) < 300):
+                cur["q"] += f" {num}. {rest}"
+                continue
             inline = _inline_options(rest)
             if inline:
-                # whole question + 4 options on one line
                 finalize()
                 qtext, opts = inline
                 cur = {"q": qtext, "opts": opts[:], "ans": None,
                        "expl": "", "labels": ["A", "B", "C", "D"]}
                 if ma:
                     cur["ans"] = _ans_index(ma.group(1))
+                next_num = num + 1
                 continue
-            # otherwise it is a new question stem
             finalize()
             cur = {"q": rest, "opts": [], "ans": None, "expl": "",
                    "labels": []}
             if ma:
                 cur["ans"] = _ans_index(ma.group(1))
+            next_num = num + 1
             continue
 
         if mo and cur is not None and len(cur["opts"]) < 4:
@@ -643,16 +681,38 @@ def parse_quiz_lines(lines, article_title="", url=""):
                 cur["ans"] = _ans_index(ma.group(1))
             continue
 
-        if cur is not None and ma and cur["ans"] is None:
+        if cur is None:
+            continue
+
+        # stem continuation: text between the stem and the first option
+        if (not cur["opts"] and cur["ans"] is None and not ma and not mex
+                and not mlabel and len(cur["q"]) + len(line) < 300
+                and not re.match(r"^(?:directions?|instructions?)\b", line, re.I)):
+            cur["q"] += " " + line
+            continue
+
+        if ma and cur["ans"] is None:
             cur["ans"] = _ans_index(ma.group(1))
-        if cur is not None and mex:
-            cur["expl"] = mex.group(1)
-        # explanation sometimes follows answer marker on the same/next lines
-        if cur is not None and not mex and cur["ans"] is not None and not cur["expl"]:
-            low = line.lower()
-            if low.startswith(("explanation", "solution", "sol:")):
-                cur["expl"] = re.sub(r"^(?:explanation|solution|sol)[:\.\-]\s*",
-                                     "", line, flags=re.I)
+            # "Correct Answer: C [1952]" may carry no explanation on this line
+            in_expl = False
+            tail = line[ma.end():].strip(" :-[]")
+            if mex:
+                cur["expl"] = mex.group(1)
+                in_expl = True
+            continue
+        if mex:
+            cur["expl"] = (cur["expl"] + " " + mex.group(1)).strip()
+            in_expl = True
+            continue
+        if mlabel:
+            in_expl = True
+            continue
+        if in_expl and cur["ans"] is not None and len(cur["expl"]) < 280:
+            # short heading-like lines (no sentence punctuation) end the body
+            if len(line) < 45 and not re.search(r"[\.;:,=%)]", line):
+                in_expl = False
+                continue
+            cur["expl"] = (cur["expl"] + " " + line).strip()
 
     finalize()
     return raw_qs
@@ -879,10 +939,19 @@ def normalize_raw(raw, source_name, idx, llm=None):
         "explanation_en": raw.get("explanation_en", ""),
         "note": "",
         "source": "scraped",
-        "bank": "scraped",
+        "bank": "pdf" if str(raw.get("url", "")).startswith("file://") else "scraped",
         "provenance": f"{source_name} :: {raw.get('url','')}",
         "collected_on": datetime.now(config.IST).strftime("%Y-%m-%d"),
     }
+    # Telugu-native source page (e.g. GKToday Telugu CA MCQs): the stem and
+    # options are already Telugu — keep them as both EN and TE (no LLM).
+    from .content import has_telugu as _has_te
+    if _has_te(raw["q_en"]):
+        q["q_te"] = raw["q_en"]
+        q["options_te"] = [str(o) for o in raw["options_en"]]
+        q["explanation_te"] = raw.get("explanation_en", "")
+        errs = validate_question(q)
+        return (q, False) if not errs else (None, False)
     # Translate worded content. Numeric/code options are language-neutral.
     worded_q = re.search(r"[a-z]{3,}", raw["q_en"]) is not None
     worded_opts = [re.search(r"[a-z]{3,}", str(o)) is not None for o in raw["options_en"]]
@@ -983,37 +1052,48 @@ def collect_daily(dry=False, llm=None, max_questions=MAX_QUESTIONS_PER_RUN,
                                           src.get("link_re", r"(?!)"))
                     limit = int(src.get("max_links", MAX_LINKS_PER_INDEX))
                     added = 0
+                    page_re = src.get("page_re")
+                    max_pages = int(src.get("max_pages", MAX_PAGES_PER_INDEX))
+                    suffix = src.get("link_suffix", "")   # e.g. "start/"
+                    p_added = 0
+                    sub_pages = []       # pages whose own pagination we follow
                     for lk in links:
                         if added >= limit:
                             break
-                        if lk["link"] in seen_urls or \
-                                lk["link"].split("#")[0].rstrip("/") == self_url:
+                        target = lk["link"]
+                        if suffix and not target.endswith(suffix):
+                            target = target.rstrip("/") + "/" + suffix
+                        if target in seen_urls or \
+                                target.split("#")[0].rstrip("/") == self_url:
                             continue
-                        seen_urls.add(lk["link"])
-                        sub = http_get(lk["link"])
+                        seen_urls.add(target)
+                        sub = http_get(target)
                         if sub:
-                            jobs.append((src, lk["title"], lk["link"], sub))
+                            jobs.append((src, lk["title"], target, sub))
+                            sub_pages.append((target, sub))
                             added += 1
                             stats["articles"] += 1
                             stats["per_source"][name]["articles"] += 1
-                    # numbered/query pagination pages (one level deeper)
-                    page_re = src.get("page_re")
-                    max_pages = int(src.get("max_pages", MAX_PAGES_PER_INDEX))
+                    # numbered/query pagination pages (one level deeper) —
+                    # discovered on the index page AND on each topic page
+                    # (GKToday ?pageno=N, Examveda ?page=N, IndiaBIX /N/).
                     if page_re and max_pages > 0:
-                        p_added = 0
-                        for lk in extract_links(page, src["url"], page_re):
+                        for base_url, base_html in [(src["url"], page)] + sub_pages:
+                            for lk in extract_links(base_html, base_url, page_re):
+                                if p_added >= max_pages:
+                                    break
+                                if lk["link"] in seen_urls:
+                                    continue
+                                seen_urls.add(lk["link"])
+                                sub = http_get(lk["link"])
+                                if sub:
+                                    jobs.append((src, lk["title"] or "page",
+                                                 lk["link"], sub))
+                                    p_added += 1
+                                    stats["articles"] += 1
+                                    stats["per_source"][name]["articles"] += 1
                             if p_added >= max_pages:
                                 break
-                            if lk["link"] in seen_urls:
-                                continue
-                            seen_urls.add(lk["link"])
-                            sub = http_get(lk["link"])
-                            if sub:
-                                jobs.append((src, lk["title"] or "page",
-                                             lk["link"], sub))
-                                p_added += 1
-                                stats["articles"] += 1
-                                stats["per_source"][name]["articles"] += 1
                 else:
                     entries = _feed_entries(src["feed"])
                     if not entries:
@@ -1094,6 +1174,100 @@ def collect_daily(dry=False, llm=None, max_questions=MAX_QUESTIONS_PER_RUN,
     return stats
 
 
+# ---------------------------------------------------------------------------
+# PDF / local-file ingestion — previous-year papers, coaching PDFs, model
+# papers. Text is extracted with the best available tool (pdftotext ->
+# pypdf -> PyPDF2) and pushed through the SAME parser + validation + no-repeat
+# pipeline as web content. Drop files into data/pdf_inbox/ (processed once,
+# tracked in collector_seen.json) or run:  python3 -m core.collector --pdf F
+# ---------------------------------------------------------------------------
+PDF_INBOX = config.DATA / "pdf_inbox"
+
+
+def pdf_to_text(path) -> str:
+    """Extract text from a PDF. Returns '' when no extractor is available."""
+    import shutil
+    import subprocess
+    path = str(path)
+    if shutil.which("pdftotext"):
+        try:
+            out = subprocess.run(["pdftotext", "-layout", "-enc", "UTF-8", path, "-"],
+                                 capture_output=True, timeout=120)
+            if out.returncode == 0 and out.stdout:
+                return out.stdout.decode("utf-8", errors="replace")
+        except Exception as e:
+            print(f"   [pdf] pdftotext note: {e}")
+    for mod in ("pypdf", "PyPDF2"):
+        try:
+            lib = __import__(mod)
+            reader = lib.PdfReader(path)
+            return "\n".join((pg.extract_text() or "") for pg in reader.pages)
+        except ImportError:
+            continue
+        except Exception as e:
+            print(f"   [pdf] {mod} note: {e}")
+    print("   [pdf] no PDF text extractor found — install poppler-utils "
+          "(pdftotext) or `pip install pypdf`")
+    return ""
+
+
+def text_to_lines(text: str):
+    """Plain text (PDF dump / pasted paper) -> clean lines for the parser.
+    Repairs the two classic PDF artefacts: options glued on one line
+    ('(a) 12 (b) 14 (c) 16 (d) 18') and lowercase option labels."""
+    lines = []
+    for ln in (text or "").splitlines():
+        ln = re.sub(r"\s+", " ", ln).strip()
+        if not ln:
+            continue
+        # split "(a) x (b) y (c) z (d) w" onto separate lines
+        parts = re.split(r"\s(?=[\(\[]?[a-dA-D][\)\]\.]\s)", " " + ln)
+        parts = [p.strip() for p in parts if p.strip()]
+        if len(parts) >= 4 and all(re.match(r"^[\(\[]?[a-dA-D][\)\]\.]\s", p)
+                                   for p in parts[-4:]):
+            lines.extend(parts)
+        else:
+            lines.append(ln)
+    return lines
+
+
+def ingest_pdf(path, title="", dry=False, llm=None):
+    """Parse one PDF / .txt file into the scraped bank. Returns stats."""
+    from pathlib import Path as _P
+    p = _P(path)
+    title = title or p.stem.replace("_", " ").replace("-", " ")
+    text = p.read_text(encoding="utf-8", errors="replace") if p.suffix.lower() == ".txt" \
+        else pdf_to_text(p)
+    if not text.strip():
+        return {"accepted": 0, "parsed": 0, "error": "no text extracted"}
+    lines = text_to_lines(text)
+    # reuse the fixture path: hand the parser pre-split lines
+    html_like = "<article>" + "".join(f"<p>{html.escape(l)}</p>" for l in lines) + "</article>"
+    return collect_daily(fixture=(html_like, title, f"file://{p.name}"), dry=dry, llm=llm)
+
+
+def ingest_inbox(dry=False, llm=None):
+    """Process every new PDF/TXT in data/pdf_inbox/ exactly once."""
+    PDF_INBOX.mkdir(parents=True, exist_ok=True)
+    seen = load_seen_urls()
+    total = {"files": 0, "accepted": 0, "parsed": 0}
+    for f in sorted(PDF_INBOX.glob("*")):
+        if f.suffix.lower() not in (".pdf", ".txt"):
+            continue
+        key = f"file://{f.name}"
+        if key in seen:
+            continue
+        st = ingest_pdf(f, dry=dry, llm=llm)
+        total["files"] += 1
+        total["accepted"] += st.get("accepted", 0)
+        total["parsed"] += st.get("parsed", 0)
+        if not dry:
+            seen.add(key)
+            save_seen_urls(seen)
+        print(f"   [pdf] {f.name}: parsed={st.get('parsed', 0)} accepted={st.get('accepted', 0)}")
+    return total
+
+
 def retry_pending(dry=False, llm=None):
     """Translate parked worded questions now that a key may be available."""
     pending = load_json(PENDING, {"questions": []}).get("questions", [])
@@ -1148,8 +1322,15 @@ if __name__ == "__main__":
     ap.add_argument("--dry", action="store_true", help="do not write files")
     ap.add_argument("--fixture", help="parse a local HTML quiz file offline")
     ap.add_argument("--title", default="Banking Current Affairs Quiz 2026")
+    ap.add_argument("--pdf", help="ingest one PDF/TXT question paper")
+    ap.add_argument("--inbox", action="store_true",
+                    help="ingest every new file in data/pdf_inbox/")
     args = ap.parse_args()
-    if args.fixture:
+    if args.pdf:
+        print(ingest_pdf(args.pdf, title=args.title, dry=args.dry))
+    elif args.inbox:
+        print(ingest_inbox(dry=args.dry))
+    elif args.fixture:
         htmltxt = open(args.fixture, encoding="utf-8").read()
         print(collect_daily(fixture=(htmltxt, args.title, "file://" + args.fixture),
                             dry=args.dry))

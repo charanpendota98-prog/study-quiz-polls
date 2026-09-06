@@ -25,7 +25,7 @@ class TestRegistryIntegrity(unittest.TestCase):
     def test_registry_exists_and_loads(self):
         reg = collector.load_registry()
         self.assertTrue(reg.get("sources"), "registry missing sources")
-        self.assertIn(reg["version"], ("3.0", "4.0"))
+        self.assertIn(reg["version"], ("3.0", "4.0", "4.1"))
 
     def test_many_sources_centrally(self):
         reg = collector.load_registry()

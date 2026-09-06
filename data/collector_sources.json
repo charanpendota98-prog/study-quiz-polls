@@ -1,7 +1,8 @@
 {
-  "version": "4.0",
+  "version": "4.1",
   "description": "STUDENTUP central source registry — 100+ exam-quiz sources, CA/jobs feeds and tracked-dead/archive sources in one place. Collector, auditor and feeds aggregator all read this file. Regenerate with scripts/rebuild_registry.py. Deep research Sep 2026: only previous-paper / syllabus-aligned sources; candidates auto-enable only after content-gated audit.",
   "last_audit": "2026-09-06",
+  "blueprints": "data/exam_blueprints.json",
   "audit_note": "Live sources checked 2026-09-06 with content-level audit. Registry expanded to 100+ with deep specialist candidates (UPSC/Banking/SSC/Railway/Defence/IndiaBIX JE sections) + full archive tracking. Candidates auto-enable only after a real content-gated check. No dummy, no sample, no junk.",
   "defaults": {
     "max_articles_per_source": 2,
@@ -394,6 +395,544 @@
       }
     },
     {
+      "name": "GKToday Polity",
+      "enabled": true,
+      "type": "index",
+      "exam": "ssc-upsc-railway",
+      "url": "https://www.gktoday.in/quizbase/indian-polity-constitution-mcqs",
+      "link_re": "(?!)",
+      "page_re": "\\?pageno=[0-9]+$",
+      "max_pages": 2,
+      "max_links": 0,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — Indian Polity & Constitution MCQs, 5 pages, Notes explanations"
+      }
+    },
+    {
+      "name": "GKToday Ancient History",
+      "enabled": true,
+      "type": "index",
+      "exam": "ssc-upsc-railway",
+      "url": "https://www.gktoday.in/quizbase/ancient-indian-history-multiple-choice-questions",
+      "link_re": "(?!)",
+      "page_re": "\\?pageno=[0-9]+$",
+      "max_pages": 2,
+      "max_links": 0,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — SSC/RRB level ancient history MCQs"
+      }
+    },
+    {
+      "name": "GKToday Medieval History",
+      "enabled": true,
+      "type": "index",
+      "exam": "ssc-upsc-railway",
+      "url": "https://www.gktoday.in/quizbase/medieval-indian-history",
+      "link_re": "(?!)",
+      "page_re": "\\?pageno=[0-9]+$",
+      "max_pages": 2,
+      "max_links": 0,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — medieval history MCQs"
+      }
+    },
+    {
+      "name": "GKToday Modern History",
+      "enabled": true,
+      "type": "index",
+      "exam": "ssc-upsc-railway",
+      "url": "https://www.gktoday.in/quizbase/modern-indian-history-freedom-struggle",
+      "link_re": "(?!)",
+      "page_re": "\\?pageno=[0-9]+$",
+      "max_pages": 2,
+      "max_links": 0,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — freedom struggle MCQs"
+      }
+    },
+    {
+      "name": "GKToday Indian Geography",
+      "enabled": true,
+      "type": "index",
+      "exam": "ssc-upsc-railway",
+      "url": "https://www.gktoday.in/quizbase/indian-geography-mcqs",
+      "link_re": "(?!)",
+      "page_re": "\\?pageno=[0-9]+$",
+      "max_pages": 2,
+      "max_links": 0,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — Indian geography MCQs"
+      }
+    },
+    {
+      "name": "GKToday Indian Economy",
+      "enabled": true,
+      "type": "index",
+      "exam": "ssc-upsc-banking",
+      "url": "https://www.gktoday.in/quizbase/indian-economy-mcqs",
+      "link_re": "(?!)",
+      "page_re": "\\?pageno=[0-9]+$",
+      "max_pages": 2,
+      "max_links": 0,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — Indian economy MCQs"
+      }
+    },
+    {
+      "name": "GKToday General Science",
+      "enabled": true,
+      "type": "index",
+      "exam": "ssc-railway-police",
+      "url": "https://www.gktoday.in/quizbase/general-science-for-competitive-examinations",
+      "link_re": "(?!)",
+      "page_re": "\\?pageno=[0-9]+$",
+      "max_pages": 2,
+      "max_links": 0,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — general science MCQs"
+      }
+    },
+    {
+      "name": "GKToday Physics",
+      "enabled": true,
+      "type": "index",
+      "exam": "ssc-railway-defence",
+      "url": "https://www.gktoday.in/quizbase/general-science-physics-mcqs",
+      "link_re": "(?!)",
+      "page_re": "\\?pageno=[0-9]+$",
+      "max_pages": 2,
+      "max_links": 0,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — physics MCQs"
+      }
+    },
+    {
+      "name": "GKToday Chemistry",
+      "enabled": true,
+      "type": "index",
+      "exam": "ssc-railway-defence",
+      "url": "https://www.gktoday.in/quizbase/general-science-chemistry",
+      "link_re": "(?!)",
+      "page_re": "\\?pageno=[0-9]+$",
+      "max_pages": 2,
+      "max_links": 0,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — chemistry MCQs"
+      }
+    },
+    {
+      "name": "GKToday Biology",
+      "enabled": true,
+      "type": "index",
+      "exam": "ssc-railway-police",
+      "url": "https://www.gktoday.in/quizbase/general-science-biology-mcqs",
+      "link_re": "(?!)",
+      "page_re": "\\?pageno=[0-9]+$",
+      "max_pages": 2,
+      "max_links": 0,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — biology MCQs"
+      }
+    },
+    {
+      "name": "GKToday Environment",
+      "enabled": true,
+      "type": "index",
+      "exam": "upsc-ssc",
+      "url": "https://www.gktoday.in/quizbase/environment-ecology-biodiversity-mcqs",
+      "link_re": "(?!)",
+      "page_re": "\\?pageno=[0-9]+$",
+      "max_pages": 2,
+      "max_links": 0,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — environment & ecology MCQs"
+      }
+    },
+    {
+      "name": "GKToday Art & Culture",
+      "enabled": true,
+      "type": "index",
+      "exam": "upsc-ssc",
+      "url": "https://www.gktoday.in/quizbase/indian-culture-general-studies-mcqs",
+      "link_re": "(?!)",
+      "page_re": "\\?pageno=[0-9]+$",
+      "max_pages": 2,
+      "max_links": 0,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — art & culture MCQs"
+      }
+    },
+    {
+      "name": "GKToday Telangana GK",
+      "enabled": true,
+      "type": "index",
+      "exam": "tspsc",
+      "url": "https://www.gktoday.in/quizbase/telangana-gk-questions-for-telangana-state-public-service-commission",
+      "link_re": "(?!)",
+      "page_re": "\\?pageno=[0-9]+$",
+      "max_pages": 2,
+      "max_links": 0,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — TSPSC state GK — 2 pages, statement-type Qs"
+      }
+    },
+    {
+      "name": "GKToday Andhra Pradesh GK",
+      "enabled": true,
+      "type": "index",
+      "exam": "appsc",
+      "url": "https://www.gktoday.in/quizbase/appsc",
+      "link_re": "(?!)",
+      "page_re": "\\?pageno=[0-9]+$",
+      "max_pages": 2,
+      "max_links": 0,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — APPSC state GK — 5 pages (3000-MCQ course sample)"
+      }
+    },
+    {
+      "name": "GKToday CA Schemes",
+      "enabled": true,
+      "type": "index",
+      "exam": "all",
+      "url": "https://www.gktoday.in/quizbase/government-schemes-current-affairs",
+      "link_re": "(?!)",
+      "page_re": "\\?pageno=[0-9]+$",
+      "max_pages": 2,
+      "max_links": 0,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — government schemes CA MCQs (topic-wise)"
+      }
+    },
+    {
+      "name": "GKToday CA Banking",
+      "enabled": true,
+      "type": "index",
+      "exam": "banking",
+      "url": "https://www.gktoday.in/quizbase/business-economy-banking-current-affairs",
+      "link_re": "(?!)",
+      "page_re": "\\?pageno=[0-9]+$",
+      "max_pages": 2,
+      "max_links": 0,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — economy & banking CA MCQs"
+      }
+    },
+    {
+      "name": "GKToday CA Defence",
+      "enabled": true,
+      "type": "index",
+      "exam": "defence",
+      "url": "https://www.gktoday.in/quizbase/defence-current-affairs",
+      "link_re": "(?!)",
+      "page_re": "\\?pageno=[0-9]+$",
+      "max_pages": 2,
+      "max_links": 0,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — defence CA MCQs — DRDO/INS/missiles"
+      }
+    },
+    {
+      "name": "GKToday CA SciTech",
+      "enabled": true,
+      "type": "index",
+      "exam": "all",
+      "url": "https://www.gktoday.in/quizbase/science-technology-current-affairs",
+      "link_re": "(?!)",
+      "page_re": "\\?pageno=[0-9]+$",
+      "max_pages": 2,
+      "max_links": 0,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — science & tech CA MCQs"
+      }
+    },
+    {
+      "name": "GKToday CA India",
+      "enabled": true,
+      "type": "index",
+      "exam": "all",
+      "url": "https://www.gktoday.in/quizbase/india-government-politics-current-affairs",
+      "link_re": "(?!)",
+      "page_re": "\\?pageno=[0-9]+$",
+      "max_pages": 2,
+      "max_links": 0,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — India government & politics CA MCQs"
+      }
+    },
+    {
+      "name": "GKToday CA Reports",
+      "enabled": true,
+      "type": "index",
+      "exam": "all",
+      "url": "https://www.gktoday.in/quizbase/reports-and-indices-current-affairs",
+      "link_re": "(?!)",
+      "page_re": "\\?pageno=[0-9]+$",
+      "max_pages": 2,
+      "max_links": 0,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — reports & indices CA MCQs"
+      }
+    },
+    {
+      "name": "GKToday CA Days",
+      "enabled": true,
+      "type": "index",
+      "exam": "all",
+      "url": "https://www.gktoday.in/quizbase/important-days-and-events-current-affairs",
+      "link_re": "(?!)",
+      "page_re": "\\?pageno=[0-9]+$",
+      "max_pages": 2,
+      "max_links": 0,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — important days CA MCQs"
+      }
+    },
+    {
+      "name": "GKToday CA Awards",
+      "enabled": true,
+      "type": "index",
+      "exam": "all",
+      "url": "https://www.gktoday.in/quizbase/awards-honours-persons-in-news-current-affairs",
+      "link_re": "(?!)",
+      "page_re": "\\?pageno=[0-9]+$",
+      "max_pages": 2,
+      "max_links": 0,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — awards & persons in news CA MCQs"
+      }
+    },
+    {
+      "name": "GKToday Telugu CA",
+      "enabled": true,
+      "type": "index",
+      "exam": "tspsc-appsc",
+      "url": "https://www.gktoday.in/quizbase/telugu-current-affairs",
+      "link_re": "(?!)",
+      "page_re": "\\?pageno=[0-9]+$",
+      "max_pages": 3,
+      "max_links": 0,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — NATIVE TELUGU current-affairs MCQs — no translation needed"
+      }
+    },
+    {
+      "name": "GKToday Daily CA Quiz",
+      "enabled": true,
+      "type": "index",
+      "exam": "all",
+      "url": "https://www.gktoday.in/gk-current-affairs-quiz-questions-answers/",
+      "link_re": "^https://www\\.gktoday\\.in/daily-current-affairs-quiz-[a-z0-9\\-]+/?$",
+      "max_links": 3,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 06 Sep 2026 — daily CA quiz posts (10 Q each, Notes)"
+      }
+    },
+    {
+      "name": "Examveda Reasoning",
+      "enabled": true,
+      "type": "index",
+      "exam": "all",
+      "url": "https://www.examveda.com/mcq-question-on-competitive-reasoning/",
+      "link_re": "^https://www\\.examveda\\.com/[a-z0-9\\-]+/practice-mcq-question-on-[a-z0-9\\.\\-]+/?$",
+      "page_re": "\\?page=[0-9]+$",
+      "max_links": 3,
+      "max_pages": 2,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — 40+ reasoning topics (coding, series, syllogism, blood relation...), 83 Q/topic"
+      }
+    },
+    {
+      "name": "Examveda Aptitude",
+      "enabled": true,
+      "type": "index",
+      "exam": "banking-ssc-railway",
+      "url": "https://www.examveda.com/mcq-question-on-arithmetic-ability/",
+      "link_re": "^https://www\\.examveda\\.com/[a-z0-9\\-]+/practice-mcq-question-on-[a-z0-9\\.\\-]+/?$",
+      "page_re": "\\?page=[0-9]+$",
+      "max_links": 3,
+      "max_pages": 2,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — 35+ arithmetic topics (average, interest, ratio, trains, CI ...)"
+      }
+    },
+    {
+      "name": "Examveda Non-Verbal",
+      "enabled": true,
+      "type": "index",
+      "exam": "ssc-railway-police",
+      "url": "https://www.examveda.com/mcq-question-on-non-verbal-reasoning/",
+      "link_re": "^https://www\\.examveda\\.com/[a-z0-9\\-]+/practice-mcq-question-on-[a-z0-9\\.\\-]+/?$",
+      "page_re": "\\?page=[0-9]+$",
+      "max_links": 2,
+      "max_pages": 1,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — non-verbal reasoning topics"
+      }
+    },
+    {
+      "name": "Examveda English",
+      "enabled": true,
+      "type": "index",
+      "exam": "ssc-banking",
+      "url": "https://www.examveda.com/mcq-question-on-competitive-english/",
+      "link_re": "^https://www\\.examveda\\.com/[a-z0-9\\-]+/practice-mcq-question-on-[a-z0-9\\.\\-]+/?$",
+      "page_re": "\\?page=[0-9]+$",
+      "max_links": 2,
+      "max_pages": 2,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — synonyms/antonyms/error spotting/idioms"
+      }
+    },
+    {
+      "name": "Examveda GK",
+      "enabled": true,
+      "type": "index",
+      "exam": "ssc-upsc-railway",
+      "url": "https://www.examveda.com/mcq-question-on-general-knowledge/",
+      "link_re": "^https://www\\.examveda\\.com/[a-z0-9\\-]+/practice-mcq-question-on-[a-z0-9\\.\\-]+/?$",
+      "page_re": "\\?page=[0-9]+$",
+      "max_links": 3,
+      "max_pages": 2,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — history/geography/polity/economy/science GK sections"
+      }
+    },
+    {
+      "name": "Examveda DI",
+      "enabled": true,
+      "type": "index",
+      "exam": "banking-ssc",
+      "url": "https://www.examveda.com/mcq-question-on-data-interpretation/",
+      "link_re": "^https://www\\.examveda\\.com/[a-z0-9\\-]+/practice-mcq-question-on-[a-z0-9\\.\\-]+/?$",
+      "page_re": "\\?page=[0-9]+$",
+      "max_links": 2,
+      "max_pages": 1,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — table/bar/pie DI sets"
+      }
+    },
+    {
+      "name": "Testmocks Quant",
+      "enabled": true,
+      "type": "index",
+      "exam": "banking-ssc-railway",
+      "url": "https://www.testmocks.com/practice/quantitative-aptitude/",
+      "link_re": "^https://www\\.testmocks\\.com/practice/quantitative-aptitude/[a-z0-9\\-]+/?$",
+      "link_suffix": "start/",
+      "max_links": 3,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — 23 quant topics, 20 Q each with explanations"
+      }
+    },
+    {
+      "name": "Testmocks Logical",
+      "enabled": true,
+      "type": "index",
+      "exam": "all",
+      "url": "https://www.testmocks.com/practice/logical-reasoning/",
+      "link_re": "^https://www\\.testmocks\\.com/practice/logical-reasoning/[a-z0-9\\-]+/?$",
+      "link_suffix": "start/",
+      "max_links": 3,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — 18 logical reasoning topics"
+      }
+    },
+    {
+      "name": "Testmocks Verbal Reasoning",
+      "enabled": true,
+      "type": "index",
+      "exam": "all",
+      "url": "https://www.testmocks.com/practice/verbal-reasoning/",
+      "link_re": "^https://www\\.testmocks\\.com/practice/verbal-reasoning/[a-z0-9\\-]+/?$",
+      "link_suffix": "start/",
+      "max_links": 3,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — analogy/coding/blood relation/seating/direction"
+      }
+    },
+    {
+      "name": "Testmocks English",
+      "enabled": true,
+      "type": "index",
+      "exam": "ssc-banking",
+      "url": "https://www.testmocks.com/practice/verbal-ability/",
+      "link_re": "^https://www\\.testmocks\\.com/practice/verbal-ability/[a-z0-9\\-]+/?$",
+      "link_suffix": "start/",
+      "max_links": 2,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "verified 06 Sep 2026 — 12 English topics (SSC/IBPS pattern)"
+      }
+    },
+    {
       "name": "GKToday Quiz",
       "enabled": false,
       "type": "rss",
@@ -404,7 +943,7 @@
       "audit": {
         "checked": "2026-09-06",
         "status": "dead",
-        "note": "dead | HTTP 500 'Feed is temporarily not available' on 06 Sep 2026"
+        "note": "dead | HTTP 500 'Feed is temporarily not available' on 06 Sep 2026 — replaced by GKToday quizbase deep-index sources (live)"
       }
     },
     {
@@ -1131,6 +1670,201 @@
         "status": "unverified",
         "checked": "2026-09-06",
         "note": "legislative research — polity PYQ depth"
+      }
+    },
+    {
+      "name": "Mockers SSC CGL Mock",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc",
+      "url": "https://www.mockers.in/exam/ssc-cgl-mock-test",
+      "link_re": "^https://www\\.mockers\\.in/(?:test|exam)/[a-z0-9\\-]+/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "mockers.in — free mock tests + PYQs; JS test player, content gate decides"
+      }
+    },
+    {
+      "name": "Mockers RRB NTPC Mock",
+      "enabled": false,
+      "type": "index",
+      "exam": "railway",
+      "url": "https://www.mockers.in/exam/rrb-ntpc-mock-test",
+      "link_re": "^https://www\\.mockers\\.in/(?:test|exam)/[a-z0-9\\-]+/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "mockers.in railway mocks"
+      }
+    },
+    {
+      "name": "Mockers IBPS PO Mock",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking",
+      "url": "https://www.mockers.in/exam/ibps-po-mock-test",
+      "link_re": "^https://www\\.mockers\\.in/(?:test|exam)/[a-z0-9\\-]+/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "mockers.in banking mocks"
+      }
+    },
+    {
+      "name": "Futurekul SSC CGL",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc",
+      "url": "https://www.futurekul.com/free-mock-test/ssc-cgl",
+      "link_re": "^https://www\\.futurekul\\.com/free-mock-test/[a-z0-9\\-]+/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "futurekul free mock tests (Next.js app; content gate)"
+      }
+    },
+    {
+      "name": "Futurekul RRB NTPC",
+      "enabled": false,
+      "type": "index",
+      "exam": "railway",
+      "url": "https://www.futurekul.com/free-mock-test/rrb-ntpc",
+      "link_re": "^https://www\\.futurekul\\.com/free-mock-test/[a-z0-9\\-]+/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "futurekul railway mocks"
+      }
+    },
+    {
+      "name": "TestRanking",
+      "enabled": false,
+      "type": "index",
+      "exam": "all",
+      "url": "https://www.testranking.in/",
+      "link_re": "^https://www\\.testranking\\.in/[a-z0-9\\-/]+$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "testranking.in — app-only practice platform (empty SSR page); tracked"
+      }
+    },
+    {
+      "name": "Testmocks SSC Exams",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc",
+      "url": "https://www.testmocks.com/exams/ssc/",
+      "link_re": "^https://www\\.testmocks\\.com/exams/ssc/[a-z0-9\\-]+/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "testmocks exam-wise sample papers"
+      }
+    },
+    {
+      "name": "Testmocks RRB Exams",
+      "enabled": false,
+      "type": "index",
+      "exam": "railway",
+      "url": "https://www.testmocks.com/exams/rrb/",
+      "link_re": "^https://www\\.testmocks\\.com/exams/rrb/[a-z0-9\\-]+/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "testmocks railway sample papers"
+      }
+    },
+    {
+      "name": "Testmocks NDA CDS",
+      "enabled": false,
+      "type": "index",
+      "exam": "defence",
+      "url": "https://www.testmocks.com/exams/nda/",
+      "link_re": "^https://www\\.testmocks\\.com/exams/nda/[a-z0-9\\-]+/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "testmocks defence sample papers"
+      }
+    },
+    {
+      "name": "Examveda State GK",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc-appsc",
+      "url": "https://www.examveda.com/mcq-question-on-state-gk/",
+      "link_re": "^https://www\\.examveda\\.com/[a-z0-9\\-]+/practice-mcq-question-on-(?:telangana|andhra)[a-z0-9\\-]*/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "state-wise GK — TS/AP pages content-gated"
+      }
+    },
+    {
+      "name": "Examveda Computer",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking-ssc",
+      "url": "https://www.examveda.com/mcq-question-on-computer-fundamentals/",
+      "link_re": "^https://www\\.examveda\\.com/[a-z0-9\\-]+/practice-mcq-question-on-[a-z0-9\\.\\-]+/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "computer awareness (IBPS/SBI/SSC)"
+      }
+    },
+    {
+      "name": "Testmocks DI",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking-ssc",
+      "url": "https://www.testmocks.com/practice/data-interpretation/",
+      "link_re": "^https://www\\.testmocks\\.com/practice/data-interpretation/[a-z0-9\\-]+/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "DI charts practice"
+      }
+    },
+    {
+      "name": "Testmocks Non-Verbal",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-railway-police",
+      "url": "https://www.testmocks.com/practice/non-verbal-reasoning/",
+      "link_re": "^https://www\\.testmocks\\.com/practice/non-verbal-reasoning/[a-z0-9\\-]+/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "non-verbal practice"
       }
     },
     {

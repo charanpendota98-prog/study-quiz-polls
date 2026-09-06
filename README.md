@@ -187,6 +187,33 @@ python3 -m unittest -v ../tests/test_bot.py       # run the test suite
 
 ---
 
+## 📐 Exam-paper blueprints (every round looks like the real paper)
+
+`data/exam_blueprints.json` + `core/blueprint.py` compose each 10-poll round the
+way the actual exam sets its paper, instead of picking 10 random items:
+
+| Channel | Subject mix per round | Hard share |
+|---|---|---|
+| SSC (CGL/CHSL/MTS Tier-I) | Reasoning 25 · Quant 25 · English 25 · GK 25 | ≥ 30 % |
+| BANKING (IBPS/SBI prelims) | Quant 40 · Reasoning 35 · English 10 · Banking GK 15 | ≥ 35 % |
+| RAILWAY (NTPC/Group-D) | GK+Science 40 · Maths 30 · Reasoning 30 | ≥ 25 % |
+| TSPSC / APPSC (Group I–IV) | GS + state GK 50 · Reasoning 30 · Quant 20 | ≥ 30 % |
+| POLICE (SI/Constable) | Reasoning 40 · GK 35 · Arithmetic 25 | ≥ 30 % |
+| DEFENCE (NDA/CDS/Agniveer) | GK 40 · Maths 30 · Reasoning 20 · English 10 | ≥ 30 % |
+| CURRENT | Current affairs 100 | — |
+
+Every question is classified into a subject (`subject_of`: topic keywords from the
+blueprint) and a difficulty (`difficulty_of`: statement-type stems, "which of the
+above", multi-step arithmetic, long option sets ⇒ *hard*). The composer fills
+each subject quota **PYQ-first**, balances topics inside a subject, guarantees
+the minimum hard share, **interleaves subjects randomly** (so a reasoning or
+aptitude item can land anywhere in the round — only for channels whose syllabus
+contains it) and ramps difficulty easy → hard through the round. If a subject
+runs short the shortfall is re-spread over the remaining subjects, and if the
+blueprint itself is unavailable `Bank.pick` falls back to the classic picker.
+
+---
+
 ## 🧠 How the bank never repeats and never runs dry
 
 1. **PYQ banks** — `data/pyq_bank.json` + `data/pyq_bank_2.json` (60+ authentic
@@ -232,7 +259,24 @@ The validation gate (`finalize.py`) and the test suite (`tests/test_bot.py`)
 websites, apps and APIs**, with **careful per-site handling so nothing breaks**,
 and turns it into validated bilingual questions:
 
-- **Deep source registry (15+ sources, central exams weighted)** — two kinds:
+- **Deep source registry (234 sources: 49 live, 94 auto-enable candidates,
+  91 archived)** — three families:
+  - `type: index` **deep MCQ banks** — **GKToday quizbase** (Polity, Ancient/
+    Medieval/Modern History, Geography, Economy, Physics/Chemistry/Biology,
+    Environment, Art & Culture, **Telangana GK**, **APPSC GK**, topic-wise CA
+    for Schemes/Banking/Defence/SciTech/Reports/Awards/Days and **native Telugu
+    Current Affairs**), **Examveda** (40+ reasoning topics, 35+ arithmetic
+    topics, non-verbal, English, GK, DI — 83 Q per topic, worked solutions),
+    **Testmocks** (quant/logical/verbal reasoning/English, 20 Q with
+    explanations per topic via `link_suffix: start/`) and IndiaBIX.
+    Paginated sections (`?pageno=N`, `?page=N`) are followed on the section
+    page **and** on every discovered topic page.
+  - Mock-test apps you asked for — **mockers.in, futurekul, testranking,
+    testmocks exam papers, sscgov-style portals** — are registered as
+    *candidates*: the daily auditor's **content gate** (must yield quiz links
+    or ≥1 parseable MCQ) auto-enables them the moment their pages serve
+    server-rendered questions, and auto-disables anything that dies.
+  - Also two kinds of feeds:
   - `type: rss` — AffairsCloud, GKToday, Insights on India, Testbook, BankersAdda,
     Guidely, Oliveboard (banking); SSCAdda, CareerPower (SSC/UPSC); RailwayAdda
     (RRB). Feeds are scanned for *quiz* pages (title `must`/`not` regexes skip
@@ -267,12 +311,22 @@ and turns it into validated bilingual questions:
   `validate_question`; saved to `data/scraped_bank.json` (`source: scraped`) and
   merged into the canonical bank.
 
+- **PDF / previous-paper ingestion** — drop any PYQ or model-paper PDF (or
+  `.txt`) into **`data/pdf_inbox/`** and run `--inbox`; text is extracted via
+  `pdftotext` → `pypdf` → `PyPDF2` (whichever is installed), glued options like
+  `(a) 2 (b) 3 (c) 6 (d) 9` are split, `Ans: (c)` / `Answer: b` keys are read,
+  and the file name becomes the provenance (`bank: pdf`, tagged as PYQ).
+- **Telugu-native sources** — pages whose stems are already Telugu (GKToday
+  Telugu CA) are accepted as-is with `q_te == q_en`, no LLM needed.
+
 ```bash
 python3 -m core.collector --collect          # live run (writes scraped_bank.json)
+python3 -m core.collector --pdf paper.pdf    # ingest one previous-paper PDF/TXT
+python3 -m core.collector --inbox            # ingest every file in data/pdf_inbox/
 python3 -m core.collector --collect --dry    # fetch + parse, don't save
 python3 -m core.collector --retry-pending    # translate parked questions
 python3 -m core.collector --fixture page.html --title "IBPS Quiz"  # offline parse
-python3 audit_sources.py                     # deep audit ALL 72 registry sources
+python3 audit_sources.py                     # deep audit ALL 234 registry sources
 python3 audit_sources.py --only-enabled      # audit only live sources (fast)
 python3 rebuild_registry.py --check          # validate the central registry
 python3 check.py --sources                   # registry + health summary

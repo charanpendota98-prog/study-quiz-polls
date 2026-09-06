@@ -229,43 +229,33 @@ class Bank:
             except Exception as e:
                 print(f"   [bank] auto top-up note: {e}")
                 break
-        src_rank = {"pyq": 0, "curated": 1, "llm-gen": 2, "offline-gen": 3}
+        # Compose the round like the REAL exam paper of this channel:
+        # subject weightage from data/exam_blueprints.json, random subject
+        # positions, easy->hard ramp, guaranteed share of advanced questions,
+        # PYQ-first, topic diversity and answer-key balance.
+        try:
+            from .blueprint import compose_round
+            chosen = compose_round(channel, pool, n)
+        except Exception as e:
+            print(f"   [bank] blueprint note: {e} — plain balanced pick")
+            chosen = self._plain_pick(pool, n)
+        self.mark_posted(channel, chosen)      # PERMANENT — never repeat
+        return chosen
+
+    @staticmethod
+    def _plain_pick(pool, n):
+        """Legacy balanced pick (PYQ-first, topic diversity, key balance)."""
         pyqs = [q for q in pool if q.get("source") == "pyq"]
         rest = [q for q in pool if q.get("source") != "pyq"]
-        ordered = pyqs + rest
+        candidates = pyqs + rest
         chosen, topics_used, keys_used = [], {}, [0, 0, 0, 0]
-        subjects_used = {}
-
-        def _ssc_subject(topic: str) -> str:
-            t = (topic or "").lower()
-            if any(k in t for k in ("reason", "analog", "coding", "series", "puzzle", "syllogism", "relation", "figure", "intelligence")):
-                return "reasoning"
-            if any(k in t for k in ("quant", "arith", "math", "ratio", "percent", "algebra", "geom", "trig", "number", "interest", "profit", "time", "average", "mensuration", "hcf")):
-                return "quant"
-            if any(k in t for k in ("english", "grammar", "vocab", "synonym", "antonym", "error", "fill", "idiom", "one word", "spelling", "sentence", "cloze")):
-                return "english"
-            return "gk"
-
-        candidates = ordered[:]
         while len(chosen) < n and candidates:
-            def score(q):
-                s_bonus = 0
-                if channel == "SSC":
-                    subj = _ssc_subject(q.get("topic", ""))
-                    s_bonus = subjects_used.get(subj, 0) * 3
-                return (src_rank.get(q.get("source", "offline-gen"), 3) * 0
-                        + topics_used.get(q.get("topic", ""), 0) * 2
-                        + s_bonus
-                        + keys_used[q["answer_index"]] + random.random())
-            candidates.sort(key=score)
+            candidates.sort(key=lambda q: topics_used.get(q.get("topic", ""), 0) * 2
+                            + keys_used[q["answer_index"]] + random.random())
             q = candidates.pop(0)
             chosen.append(q)
             topics_used[q.get("topic", "")] = topics_used.get(q.get("topic", ""), 0) + 1
-            if channel == "SSC":
-                subj = _ssc_subject(q.get("topic", ""))
-                subjects_used[subj] = subjects_used.get(subj, 0) + 1
             keys_used[q["answer_index"]] += 1
-        self.mark_posted(channel, chosen)      # PERMANENT — never repeat
         return chosen
 
     def by_id(self, qid):
