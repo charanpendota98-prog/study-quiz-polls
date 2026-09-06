@@ -21,6 +21,7 @@ Defence (NDA/CDS/Agniveer), and Current Affairs GK** — plus a private
 | 🎯 **Exam-paper sources only** | Quiz questions come **only** from exam-aligned sources (`pyq`, `curated`, `llm-gen`, `offline-gen`). **Newspapers and articles never become quiz questions** — news feeds feed the Current-Affairs *digest* only, and soft headlines (opinion/blog/sports/lifestyle/etc.) are filtered out even there. |
 | **Previous-Year Questions first** | Authentic PYQ banks (`data/pyq_bank.json` + `data/pyq_bank_2.json`, TSPSC/APPSC/RRB/IBPS/SBI/Police/NDA/CDS/UPSC patterns, **60+ verified bilingual PYQs**) are **prioritised in every round**, then curated, then generated. |
 | 🧑‍🏫 **Daily expert coach lesson** | A friendly, professional expert posts a **reasoning/aptitude shortcut with a worked example** at **12:30 IST** to every channel (`data/coach_lessons.json`, 16 lessons EN+Telugu) — plus `/coach` any time in the bot DM. |
+| 🕷️ **Multi-source exam scraper** | A daily collector (`core/collector.py`, **05:30 IST**) pulls fresh exam **quiz/MCQ content from many websites, apps & APIs** (AffairsCloud, GKToday, Insights, BankersAdda, SSCAdda, Testbook…) with browser-style fetching, retries, **robots.txt respect**, polite rate-limiting, RSS quiz-page discovery, a tolerant WordPress quiz parser, and **LLM-API translation** into Telugu. Results merge into the same validated, no-repeat bank. |
 | **Member registration** | `/register` guided sign-up (name → exam target → language), +25 bonus points. Members stored in `data/members.json`. |
 | **Points, levels & ranks** | +10 per correct answer, +5 daily activity, streak bonuses (3/7/15/30/100 days), levels 🆕→🥉→🥈→🥇→💎→👑 Champion, weekly + all-time leaderboards. |
 | **Native quiz polls** | `sendPoll` type `quiz` with `correct_option_id` → instant right/wrong feedback + **explanation**. Bot quizzes are non-anonymous so they earn points. |
@@ -87,6 +88,7 @@ the bot (matched by Telegram @username) — no duplicate accounts.
 
 | Time (IST) | What |
 |---|---|
+| 🕷️ **05:30** | **Multi-website/app exam-content scraping** — fresh quizzes collected, translated, validated |
 | 06:00 | Auto top-up question bank if any pool runs low |
 | 07:00 | Morning greeting + today's schedule (all 7 public channels) |
 | **⛅ 07:30** | **Morning quiz round** — 10 bilingual PYQ-first polls per channel |
@@ -110,8 +112,9 @@ study-quiz-polls/
 ├── scripts/
 │   ├── watch.py              # 24/7 IST scheduler (master service)
 │   ├── bot.py                # interactive bot: /quiz /coach /review /badges /stats (long-poll)
-│   ├── quiz_engine.py        # CLI: quiz|morning|tip|evening|jobs|reminder|leaderboard
+│   ├── quiz_engine.py        # CLI: quiz|morning|tip|coach|collect|evening|jobs|reminder|leaderboard
 │   ├── filler_gen.py         # auto top-up question bank
+│   └── core/collector.py     # daily multi-website/app exam-quiz scraper (robots, polite, LLM TE)
 │   ├── personal_news.py      # refresh jobs feeds + post (private channel)
 │   ├── finalize.py           # pre-deploy validation gate
 │   ├── check.py              # health check (env, bank, bot, feeds)
@@ -210,13 +213,51 @@ python3 -m unittest -v ../tests/test_bot.py       # run the test suite
 
 ### 🎯 Source policy (no news quizzes)
 
-`ALLOWED_QUIZ_SOURCES = {pyq, curated, llm-gen, offline-gen}` — the quiz bank
-loads only exam-paper-aligned sources. RSS/news feeds feed **only** the
+`ALLOWED_QUIZ_SOURCES = {pyq, curated, llm-gen, offline-gen, scraped}` — the quiz
+bank loads only exam-paper-aligned sources. RSS/news feeds feed **only** the
 Current-Affairs digest (and soft/opinion/entertainment headlines are dropped
 there by `feeds.is_weak_content`); they never produce quiz polls.
 
 The validation gate (`finalize.py`) and the test suite (`tests/test_bot.py`)
 **independently recompute** the numeric answers to prove correctness.
+
+---
+
+## 🕷️ Advanced exam-content collector (daily scraping)
+
+`core/collector.py` neatly gathers **fresh exam quiz content every day from many
+websites, apps and APIs** and turns it into validated bilingual questions:
+
+- **Sources registry** — exam-prep sites only (AffairsCloud, GKToday, Insights on
+  India, BankersAdda, SSCAdda, Testbook). RSS feeds are scanned for *quiz* pages
+  (title regex `must`/`not` filters skip notifications, results, editorials).
+  Add more sources/keys via `data/collector_sources.json` without touching code.
+- **Advanced fetching** — browser-like `User-Agent`, retries with exponential
+  backoff, per-host polite delay + jitter, `robots.txt` enforcement
+  (`urllib.robotparser`), optional proxy; `feedparser` used when installed.
+- **Tolerant quiz parser** — extracts `<article>` text, then a state-machine
+  parser reads `Q.. A) B) C) D) Correct Answer: B / Explanation:` blocks
+  (separate lines **or** inline), with answer-key and explanation capture.
+- **Bilingual** — worded questions/options are translated by the multi-key LLM
+  rotator (Groq→DeepSeek→OpenAI→Gemini). Numeric/aptitude stems get an **offline
+  Telugu template** so quant questions work even with no key. Worded questions
+  that can't be translated yet **park in `scraped_pending.json`** and are retried
+  automatically when a key is present.
+- **No-repeat + validation** — a stable content fingerprint (SHA1 of normalized
+  question+options) blocks re-scraped duplicates, and the content-signature gate
+  blocks dupes against the whole bank/history. Every question passes the same
+  `validate_question` gate; saved to `data/scraped_bank.json` (`source: scraped`)
+  and merged into the canonical bank.
+
+```bash
+python3 -m core.collector --collect          # live run (writes scraped_bank.json)
+python3 -m core.collector --collect --dry    # fetch + parse, don't save
+python3 -m core.collector --retry-pending    # translate parked questions
+python3 -m core.collector --fixture page.html --title "IBPS Quiz"  # offline parse
+```
+> In dev sandboxes outbound HTTPS may be blocked — the collector fails silently
+> there (never crashes) and runs from the production server. Verified offline via
+> a bundled fixture (`tests/fixture_quiz.html`).
 
 ---
 

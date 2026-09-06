@@ -77,7 +77,22 @@ def tick(eng, now, dry=False):
 
     if hhmm in config.SCHEDULE:
         task, meta = config.SCHEDULE[hhmm]
-        if task == "filler":
+        if task == "collect":
+            try:
+                from core.collector import collect_daily, retry_pending
+                st = collect_daily()
+                log(f"collect: +{st['accepted']} scraped, "
+                    f"{st['parsed']} parsed, {st['duplicates']} dup, "
+                    f"{st['parked']} parked")
+                if st["parked"] or True:
+                    try:
+                        retry_pending()  # translate parked when a key exists
+                    except Exception as e:
+                        log(f"collect retry note: {e}")
+                ran.append("collect")
+            except Exception as e:
+                log(f"collect error: {e}")
+        elif task == "filler":
             try:
                 from core.generator import top_up
                 added, errs = top_up()

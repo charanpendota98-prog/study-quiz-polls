@@ -224,6 +224,7 @@ def channel_chat_id(key: str) -> str:
 # TWO main quiz rounds a day (India No.1 cadence — morning + evening).
 # Add a line (e.g. "13:30": ("quiz", {"slot": 3})) to add more rounds anytime.
 SCHEDULE = {
+    "05:30": ("collect", {}),      # daily multi-website exam-quiz scraping
     "06:00": ("filler", {"reason": "morning top-up"}),
     "07:00": ("morning", {}),
     "07:30": ("quiz", {"slot": 1, "round": "Morning ⛅"}),

@@ -25,3 +25,5 @@ venv/
 extracted/
 *.tar.gz
 *.backup
+data/scraped_bank.json
+data/scraped_pending.json

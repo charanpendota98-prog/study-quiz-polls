@@ -25,7 +25,8 @@ _CHANNEL_HINT = {
 
 # Quiz questions may ONLY come from exam-paper-aligned sources — never from
 # news feeds/articles (those feed the CA digest, never the quiz polls).
-ALLOWED_QUIZ_SOURCES = {"pyq", "curated", "llm-gen", "offline-gen", ""}
+#   scraped  = collected from exam-prep websites/apps by core.collector
+ALLOWED_QUIZ_SOURCES = {"pyq", "curated", "llm-gen", "offline-gen", "scraped", ""}
 
 _OPT_SPLIT = re.compile(r"\s+([A-D])\)\s+")
 
@@ -122,6 +123,9 @@ def rebuild_json():
     # AI / offline generated extras
     extra = load_json(config.BANK_EXTRA_JSON, {"questions": []})
     questions.extend(extra.get("questions", []))
+    # Scraped from exam-prep websites/apps by core.collector (exam-only)
+    scraped = load_json(config.DATA / "scraped_bank.json", {"questions": []})
+    questions.extend(scraped.get("questions", []))
     # Validate
     valid, errors = [], []
     seen_ids = set()
@@ -205,16 +209,24 @@ class Bank:
         (top_up) so the channel NEVER repeats and NEVER runs dry.
         """
         pool = self.unused(channel)
-        if len(pool) < n:
-            # grow the bank with fresh, non-duplicate questions, then reload
+        # Grow until we have at least n unseen. Signature-dedup rejects some
+        # freshly generated questions, so top-up may need more than one pass;
+        # loop (bounded) so a round is never short and never repeats.
+        attempts = 0
+        while len(pool) < n and attempts < 4:
+            attempts += 1
             try:
                 from .generator import top_up
-                need_each = max(config.FILLER_TRIGGER_UNUSED, n * 3)
+                before = len(pool)
+                need_each = max(config.FILLER_TRIGGER_UNUSED, n * 4)
                 top_up(per_channel_min=need_each)
                 self.__init__()
                 pool = self.unused(channel)
+                if len(pool) <= before:
+                    break  # generator could not add distinct items; stop loop
             except Exception as e:
                 print(f"   [bank] auto top-up note: {e}")
+                break
         src_rank = {"pyq": 0, "curated": 1, "llm-gen": 2, "offline-gen": 3}
         pyqs = [q for q in pool if q.get("source") == "pyq"]
         rest = [q for q in pool if q.get("source") != "pyq"]

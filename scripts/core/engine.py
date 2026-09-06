@@ -139,6 +139,18 @@ class Engine:
             self.tg.polite_gap(not self.dry)
         print("[tip] study tip sent")
 
+    # ------------------------------------------------------- collector
+    def collect_exam_content(self):
+        """Daily scrape of exam-prep websites/apps -> bank (see core.collector)."""
+        try:
+            from .collector import collect_daily, retry_pending
+            stats = collect_daily()
+            retry_pending()
+            return stats
+        except Exception as e:
+            print(f"   [collect] error (non-fatal): {e}")
+            return {"accepted": 0, "error": str(e)}
+
     # ----------------------------------------------------------- coach
     def coach_lesson(self, channel=None):
         """Post a friendly expert reasoning/aptitude coaching trick."""

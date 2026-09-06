@@ -207,7 +207,8 @@ class TestNoRepeatAndSources(unittest.TestCase):
         # consume questions for other test classes (the store is permanent by
         # design — tests reset it explicitly).
         for f in ("question_bank.json", "question_bank_extra.json",
-                  "shown_signatures.json", "used_questions.json"):
+                  "shown_signatures.json", "used_questions.json",
+                  "scraped_bank.json", "scraped_pending.json"):
             p = config.DATA / f
             if p.exists():
                 p.unlink()
@@ -254,6 +255,94 @@ class TestNoRepeatAndSources(unittest.TestCase):
         for l in lessons:
             self.assertTrue(l.get("en") and l.get("te"), l.get("id"))
             self.assertFalse(l["te"].lstrip().startswith("⤷ ⤷"))
+
+
+class TestCollector(unittest.TestCase):
+    """Advanced multi-source exam-content collector (website/app scraping)."""
+
+    FIXTURE = ROOT / "tests" / "fixture_quiz.html"
+
+    def setUp(self):
+        for f in ("question_bank.json", "question_bank_extra.json",
+                  "shown_signatures.json", "used_questions.json",
+                  "scraped_bank.json", "scraped_pending.json"):
+            p = config.DATA / f
+            if p.exists():
+                p.unlink()
+
+    def tearDown(self):
+        self.setUp()
+
+    def test_fixture_parses_quiz_blocks(self):
+        from core import collector
+        html = self.FIXTURE.read_text(encoding="utf-8")
+        lines = collector.html_to_lines(html)
+        raws = collector.parse_quiz_lines(lines, article_title="IBPS Quiz", url="x")
+        self.assertGreaterEqual(len(raws), 4)
+        for r in raws:
+            self.assertEqual(len(r["options_en"]), 4)
+            self.assertIn(r["answer_index"], (0, 1, 2, 3))
+            self.assertTrue(r["q_en"])
+        # the inline-options question (Q2) was split correctly
+        inline = [r for r in raws if r["q_en"].lower().startswith("the simple interest")]
+        self.assertTrue(inline and inline[0]["options_en"] == ["750", "800", "850", "900"])
+
+    def test_aptitude_telugu_offline(self):
+        from core import collector
+        te = collector.aptitude_telugu("What is 15% of 240?")
+        self.assertIn("⤷", te)
+        self.assertTrue(content.has_telugu(te))
+        self.assertTrue(collector.aptitude_telugu(
+            "The simple interest on Rs.5000 at 8% for 2 years"))
+
+    def test_channel_topic_inference(self):
+        from core import collector
+        self.assertEqual(collector.infer_channel("RRB NTPC quiz", ""), "RAILWAY")
+        self.assertEqual(collector.infer_channel("IBPS Clerk quant", ""), "BANKING")
+        self.assertEqual(collector.infer_channel("NDA GK", ""), "DEFENCE")
+        self.assertEqual(collector.infer_topic("", "find the simple interest"),
+                         "simple interest")
+
+    def test_collect_accepts_and_dedupes(self):
+        from core import collector
+        html = self.FIXTURE.read_text(encoding="utf-8")
+        s1 = collector.collect_daily(
+            fixture=(html, "IBPS Clerk Quant Practice Quiz", "http://x/q1"))
+        self.assertGreaterEqual(s1["accepted"], 3)
+        self.assertEqual(s1["duplicates"], 0)
+        # re-scraping the same page must add nothing new
+        s2 = collector.collect_daily(
+            fixture=(html, "IBPS Clerk Quant Practice Quiz", "http://x/q1"))
+        self.assertEqual(s2["accepted"], 0)
+        self.assertGreaterEqual(s2["duplicates"], s1["accepted"])
+
+    def test_scraped_questions_are_exam_source(self):
+        from core import collector
+        from core.question_bank import ALLOWED_QUIZ_SOURCES, rebuild_json
+        self.assertIn("scraped", ALLOWED_QUIZ_SOURCES)
+        html = self.FIXTURE.read_text(encoding="utf-8")
+        collector.collect_daily(
+            fixture=(html, "IBPS Clerk Quant Practice Quiz", "http://x/q1"))
+        qs, errs = rebuild_json()
+        scraped = [q for q in qs if q.get("source") == "scraped"]
+        self.assertTrue(scraped)
+        for q in scraped:
+            self.assertEqual(validate_question(q), [], q["id"])
+        # every scraped question carries provenance and merges into the Bank
+        self.assertTrue(all(q.get("provenance") for q in scraped))
+        b = Bank()
+        self.assertTrue(any(q.get("source") == "scraped" for q in b.questions))
+
+    def test_sources_are_quiz_only_filters(self):
+        """RSS title filter must pick quiz pages, skip notifications."""
+        from core import collector
+        src = collector.DEFAULT_SOURCES[0]
+        import re
+        must = re.compile(src["title_must"], re.I)
+        notp = re.compile(src["title_not"], re.I)
+        self.assertTrue(must.search("IBPS Clerk Quantitative Aptitude Quiz 2026"))
+        self.assertTrue(notp.search("IBPS Clerk Notification 2026 Apply Online"))
+        self.assertFalse(notp.search("Reasoning Ability Practice Questions Set"))
 
 
 class TestSchedule(unittest.TestCase):
