@@ -243,6 +243,7 @@ SCHEDULE = {
     # seen-URL tracking mean each run pages forward to NEW content.
     # Failing sources auto-pause via collector_health.json; the 04:45 auditor
     # re-verifies all sources (content-gated) and auto-pauses/enables them.
+    "01:30": ("backfill", {}),     # deep archive sweep (3-month campaign; idle when done)
     "04:45": ("audit", {}),        # daily deep source audit (content-gated)
     "05:30": ("collect", {"reason": "pre-dawn scrape"}),
     "06:00": ("filler", {"reason": "morning top-up"}),

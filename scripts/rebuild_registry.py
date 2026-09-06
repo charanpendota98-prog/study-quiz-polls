@@ -69,8 +69,11 @@ def _ibx(section: str, exam: str, note: str, max_pages: int = 2) -> dict:
 def _index(name: str, url: str, exam: str, note: str,
            link_re: str, max_links: int = 2, page_re: str = "",
            max_pages: int = 0, enabled: bool = True,
-           adapter: str = "") -> dict:
-    """Deep index crawl (listing page -> article pages)."""
+           adapter: str = "", pdf_re: str = "", lang: str = "") -> dict:
+    """Deep index crawl (listing page -> article pages).
+    pdf_re: previous-paper PDFs linked from the page are downloaded into
+            data/pdf_inbox/ and ingested as PYQs.
+    lang:   'te' marks Telugu-native pages (kept verbatim, no LLM)."""
     s = {
         "name": name, "enabled": enabled, "type": "index", "exam": exam,
         "url": url, "link_re": link_re, "max_links": max_links,
@@ -79,6 +82,10 @@ def _index(name: str, url: str, exam: str, note: str,
     }
     if adapter:
         s["adapter"] = adapter
+    if pdf_re:
+        s["pdf_re"] = pdf_re
+    if lang:
+        s["lang"] = lang
     if page_re:
         s["page_re"] = page_re
         s["max_pages"] = max_pages
@@ -445,6 +452,111 @@ SOURCES: list[dict] = [
            r"^https://www\.gktoday\.in/daily-current-affairs-quiz-[a-z0-9\-]+/?$",
            max_links=3),
 
+    # ---- TELUGU-NATIVE, TS/AP-FIRST sources (verified 07 Sep 2026) ----------
+    # Sakshi Education: daily "Top 25 Current Affairs MCQs in Telugu"
+    # ("### 1. ప్రశ్న / A) .. D) / జవాబు: B) ..") + subject practice tests
+    # ("1. ప్రశ్న? ఎ) x / బి) y / సమాధానం: బి") — pure Telugu, no LLM needed.
+    _index("Sakshi Telugu Daily CA MCQs",
+           "https://education.sakshi.com/current-affairs/practice-test",
+           "tspsc-appsc", "live | verified 07 Sep 2026 — 25 Telugu CA MCQs per day, "
+           "listing paginated ?page=N (3 months deep)",
+           r"^https://education\.sakshi\.com/current-affairs/practice-test/[a-z0-9\-]+-\d+$",
+           max_links=4, page_re=r"[?&]page=\d+", max_pages=2, lang="te"),
+    _index("Sakshi TSPSC Groups Bitbank",
+           "https://education.sakshi.com/groups/tspsc-bitbank", "tspsc",
+           "live | verified 07 Sep 2026 — Telugu bit bank hub: physics/chemistry/biology/"
+           "S&T/TS history/TS geography/TS economy/polity, 25 Q per post "
+           "('1. ప్రశ్న? 1) .. 4) / సమాధానం: 2')",
+           r"^https://education\.sakshi\.com/groups/practice-test/[a-z0-9\-]+/[a-z0-9\-]+-\d+$",
+           max_links=5, lang="te"),
+    _index("Sakshi APPSC Groups Practice",
+           "https://education.sakshi.com/groups/practice-test", "appsc",
+           "live | verified 07 Sep 2026 — AP economy, sciences, S&T, disaster management "
+           "Telugu practice bits",
+           r"^https://education\.sakshi\.com/groups/practice-test/[a-z0-9\-]+/[a-z0-9\-]+-\d+$",
+           max_links=4, lang="te"),
+    _index("Sakshi TS Police Bitbank - Telangana History",
+           "https://education.sakshi.com/ts-police/bitbank/telangana-history", "police",
+           "live | verified 07 Sep 2026 — 30+ posts x 25 Telugu MCQs (Kakatiya, Qutb Shahi, "
+           "Asaf Jahi, Telangana movement)",
+           r"^https://education\.sakshi\.com/ts-police/bitbank/[a-z0-9\-]+/[a-z0-9\-]+-\d+$",
+           max_links=4, lang="te"),
+    _index("Sakshi TS Police Bitbank - Telangana Geography",
+           "https://education.sakshi.com/ts-police/bitbank/telangana-geography", "police",
+           "live | verified 07 Sep 2026 — TS geography Telugu MCQs",
+           r"^https://education\.sakshi\.com/ts-police/bitbank/[a-z0-9\-]+/[a-z0-9\-]+-\d+$",
+           max_links=3, lang="te"),
+    _index("Sakshi TS Police Bitbank - Polity",
+           "https://education.sakshi.com/ts-police/bitbank/polity", "police",
+           "live | verified 07 Sep 2026 — Indian polity Telugu MCQs",
+           r"^https://education\.sakshi\.com/ts-police/bitbank/[a-z0-9\-]+/[a-z0-9\-]+-\d+$",
+           max_links=3, lang="te"),
+    _index("Sakshi TS Police Bitbank - Science",
+           "https://education.sakshi.com/ts-police/bitbank/physics", "police",
+           "live | verified 07 Sep 2026 — physics (chemistry/biology siblings via link_re)",
+           r"^https://education\.sakshi\.com/ts-police/bitbank/(?:physics|chemistry|biology)/[a-z0-9\-]+-\d+$",
+           max_links=3, lang="te"),
+    _index("Sakshi TS Police Bitbank - Indian History & Economy",
+           "https://education.sakshi.com/ts-police/bitbank/indian-history", "police",
+           "live | verified 07 Sep 2026 — Indian history / economy Telugu MCQs",
+           r"^https://education\.sakshi\.com/ts-police/bitbank/(?:indian-history|indian-economy|geography)/[a-z0-9\-]+-\d+$",
+           max_links=3, lang="te"),
+    # MCQBits: TSPSC/APPSC/TSLPRB PREVIOUS PAPERS in English AND Telugu,
+    # 10-page posts ("1) q / A).. D) / View Answer / <repeated option>").
+    _index("MCQBits TSPSC Previous Papers",
+           "https://www.mcqbits.com/category/tspsc-mock-test/", "tspsc",
+           "live | verified 07 Sep 2026 — Group-1/2/4, TSHC PYQs with answers (EN + TE posts)",
+           r"^https://www\.mcqbits\.com/(?:tspsc|tgpsc|tshc|telangana)[a-z0-9\-]*previous[a-z0-9\-]*/?$",
+           max_links=3, page_re=r"/\d+/$", max_pages=4),
+    _index("MCQBits Previous Year Papers",
+           "https://www.mcqbits.com/category/previous-year-question-papers/", "tspsc-appsc",
+           "live | verified 07 Sep 2026 — TS/AP/central previous papers, paginated posts",
+           r"^https://www\.mcqbits\.com/[a-z0-9\-]*previous[a-z0-9\-]*/?$",
+           max_links=3, page_re=r"/\d+/$", max_pages=4),
+    _index("MCQBits APPSC",
+           "https://www.mcqbits.com/category/appsc/", "appsc",
+           "live | verified 07 Sep 2026 — APPSC Group/Grama Sachivalayam practice + PYQs",
+           r"^https://www\.mcqbits\.com/(?!category/|tag/)[a-z0-9\-]+/?$",
+           max_links=3, page_re=r"/\d+/$", max_pages=3),
+    _index("MCQBits TSLPRB Police",
+           "https://www.mcqbits.com/category/tslprb/", "police",
+           "live | verified 07 Sep 2026 — TS SI/Constable prelims papers + GS sets",
+           r"^https://www\.mcqbits\.com/(?!category/|tag/)[a-z0-9\-]+/?$",
+           max_links=3, page_re=r"/\d+/$", max_pages=3),
+    _index("MCQBits RRB NTPC",
+           "https://www.mcqbits.com/category/rrb-ntpc/", "railway",
+           "live | verified 07 Sep 2026 — RRB NTPC CBT-1/2 + previous papers",
+           r"^https://www\.mcqbits\.com/(?!category/|tag/)[a-z0-9\-]+/?$",
+           max_links=2, page_re=r"/\d+/$", max_pages=3),
+    _index("MCQBits Quantitative Aptitude",
+           "https://www.mcqbits.com/category/quantitative-aptitude/", "banking-ssc-railway",
+           "live | verified 07 Sep 2026 — number system/average/HCF-LCM/P&C sets",
+           r"^https://www\.mcqbits\.com/(?!category/|tag/)[a-z0-9\-]+/?$",
+           max_links=2, page_re=r"/\d+/$", max_pages=2),
+    # Eenadu Pratibha: OFFICIAL previous question papers WITH KEY as PDFs
+    # (TGPSC Group-1/2/3, APPSC Group-1/2, TS/AP SI & Constable, DSC) ->
+    # harvested into data/pdf_inbox/ and parsed by the answer-key resolver.
+    _index("Eenadu Pratibha PYQ PDFs (Groups)",
+           "https://pratibha.eenadu.net/previouspapers/paperslist/jobs/2-1001-41",
+           "tspsc-appsc", "live | verified 07 Sep 2026 — TGPSC/APPSC Group papers with key, "
+           "PDF per paper (pratibhaassets ... .pdf)",
+           r"^https://pratibha\.eenadu\.net/previouspapers/paper/jobs/[a-z0-9\-]+/[0-9\-]+$",
+           max_links=4,
+           pdf_re=r"^https://pratibhaassets\.eenadu\.net/uploadimages/[^\s]+\.pdf(?:#.*)?$"),
+    _index("Eenadu Pratibha PYQ PDFs (Police)",
+           "https://pratibha.eenadu.net/previouspapers/paperslist/jobs/2-1001-41-610",
+           "police", "live | verified 07 Sep 2026 — TS/AP SI & Constable prelims/mains papers "
+           "with key (2022-2023 + archive to 2005)",
+           r"^https://pratibha\.eenadu\.net/previouspapers/paper/jobs/[a-z0-9\-]+/[0-9\-]+$",
+           max_links=4,
+           pdf_re=r"^https://pratibhaassets\.eenadu\.net/uploadimages/[^\s]+\.pdf(?:#.*)?$"),
+    _index("Eenadu Pratibha Model Papers (Police)",
+           "https://pratibha.eenadu.net/modelpaper/paperslist/jobs/2-1002-275-625",
+           "police", "live | verified 07 Sep 2026 — SI/Constable model papers (Telugu)",
+           r"^https://pratibha\.eenadu\.net/modelpaper/paper/jobs/[a-z0-9\-]+/[0-9\-]+$",
+           max_links=3,
+           pdf_re=r"^https://pratibhaassets\.eenadu\.net/uploadimages/[^\s]+\.pdf(?:#.*)?$"),
+
     # ---- Examveda — huge topic-wise MCQ banks with worked solutions ----------
     _examveda("mcq-question-on-competitive-reasoning", "Reasoning", "all",
               "40+ reasoning topics (coding, series, syllogism, blood relation...), 83 Q/topic"),
@@ -579,6 +691,49 @@ SOURCES: list[dict] = [
                "legislative research — polity PYQ depth", must=CA_MUST, notp=CA_NOT),
 
     # Deep-index candidates (no reliable RSS — crawl listing pages)
+    _cand_index("Eenadu Pratibha TS Police Lessons",
+                "https://pratibha.eenadu.net/jobs/studymaterial/police-jobs/police-jobs-telangana/telugu-medium/2-1-10-427-724-1425",
+                "police", "Telugu arithmetic/reasoning lessons ending in practice bits",
+                r"^https://pratibha\.eenadu\.net/jobs/lesson/[a-z0-9\-/]+/[0-9\-]+$"),
+    _cand_index("Eenadu Pratibha PYQ PDFs (DSC/TET)",
+                "https://pratibha.eenadu.net/previouspapers/paperslist/jobs/2-1001-41-609",
+                "tspsc", "TS DSC/TET papers with key (pedagogy heavy; content gate)",
+                r"^https://pratibha\.eenadu\.net/previouspapers/paper/jobs/[a-z0-9\-]+/[0-9\-]+$"),
+    _cand_index("Sakshi APPSC Bitbank Hub", "https://education.sakshi.com/groups/appsc-bitbank",
+                "appsc", "AP-specific bit bank hub (path inferred from TSPSC twin; content gate)",
+                r"^https://education\.sakshi\.com/groups/practice-test/[a-z0-9\-]+/[a-z0-9\-]+-\d+$"),
+    _cand_index("Sakshi RRB Bitbank", "https://education.sakshi.com/rrb-exams",
+                "railway", "RRB section — bitbank links discovered by content gate",
+                r"^https://education\.sakshi\.com/rrb-exams/(?:bitbank|practice-test)/[a-z0-9\-]+/[a-z0-9\-]+-\d+$"),
+    _cand_index("Sakshi English Bank Bitbank - Reasoning",
+                "https://education.sakshi.com/en/bank-exams/study-material/reasoning", "banking-police",
+                "English reasoning bit bank linked from TG Police page",
+                r"^https://education\.sakshi\.com/en/bank-exams/study-material/reasoning/[a-z0-9\-]+-\d+$"),
+    _cand_index("Sakshi English Bank Bitbank - Quant",
+                "https://education.sakshi.com/en/bank-exams/study-material/quantitative-aptitude", "banking-police",
+                "English arithmetic bit bank linked from TG Police page",
+                r"^https://education\.sakshi\.com/en/bank-exams/study-material/quantitative-aptitude/[a-z0-9\-]+-\d+$"),
+    _cand_index("Sakshi TSPSC Previous Papers", "https://education.sakshi.com/tspsc-previous-papers",
+                "tspsc", "TSPSC previous papers listing (PDF/HTML mix; content gate)",
+                r"^https://education\.sakshi\.com/tspsc[a-z0-9\-/]*previous[a-z0-9\-/]*-\d+$"),
+    _cand_index("Sakshi Bit Bank (English)",
+                "https://education.sakshi.com/bitbank", "tspsc-appsc",
+                "legacy bit bank section — may redirect", r"^https://education\.sakshi\.com/bitbank/[a-z0-9\-/]+$"),
+    _cand_index("Vyoma Telugu MCQs", "https://vyoma.net/mcqs/", "tspsc-appsc",
+                "2 lakh Telugu MCQs (APPSC/TSPSC exam-wise) — fetch blocked from crawler on 07 Sep",
+                r"^https://vyoma\.net/mcqs/[a-z0-9\-/]+$"),
+    _cand_index("MCQAnswers TS/AP PYQs", "https://mcqanswers.com/appsc-tspsc-previous-year-papers/",
+                "tspsc-appsc", "3,500 APPSC/TSPSC PYQ MCQs in Telugu — fetch failed on 07 Sep",
+                r"^https://mcqanswers\.com/[a-z0-9\-]+/[a-z0-9\-]+/?$"),
+    _cand_index("Adda247 Telugu Quiz", "https://www.adda247.com/te/category/quiz/", "tspsc-appsc",
+                "Adda Telugu — quiz category 404 on 07 Sep 2026; re-check",
+                r"^https://www\.adda247\.com/te/jobs/[a-z0-9\-]*quiz[a-z0-9\-]*/?$"),
+    _cand_index("MCQBits Daily Quiz", "https://www.mcqbits.com/category/daily-quiz/", "all",
+                "daily mixed GK quiz posts", r"^https://www\.mcqbits\.com/(?!category/|tag/)[a-z0-9\-]+/?$"),
+    _cand_index("MCQBits SSC Reasoning", "https://www.mcqbits.com/category/ssc-reasoning/", "ssc",
+                "SSC reasoning sets", r"^https://www\.mcqbits\.com/(?!category/|tag/)[a-z0-9\-]+/?$"),
+    _cand_index("MCQBits SBI PO Clerk", "https://www.mcqbits.com/category/sbi-po-clerk/", "banking",
+                "banking practice sets", r"^https://www\.mcqbits\.com/(?!category/|tag/)[a-z0-9\-]+/?$"),
     _cand_index("Mockers SSC CGL Mock", "https://www.mockers.in/exam/ssc-cgl-mock-test",
                 "ssc", "mockers.in — free mock tests + PYQs; JS test player, "
                 "content gate decides", r"^https://www\.mockers\.in/(?:test|exam)/[a-z0-9\-]+/?$"),
@@ -752,7 +907,7 @@ NEWS_FEEDS = {
 
 def build() -> dict:
     return {
-        "version": "4.1",
+        "version": "4.2",
         "description": ("STUDENTUP central source registry — 100+ exam-quiz sources, "
                         "CA/jobs feeds and tracked-dead/archive sources in one place. "
                         "Collector, auditor and feeds aggregator all read this file. "

@@ -1,5 +1,5 @@
 {
-  "version": "4.1",
+  "version": "4.2",
   "description": "STUDENTUP central source registry — 100+ exam-quiz sources, CA/jobs feeds and tracked-dead/archive sources in one place. Collector, auditor and feeds aggregator all read this file. Regenerate with scripts/rebuild_registry.py. Deep research Sep 2026: only previous-paper / syllabus-aligned sources; candidates auto-enable only after content-gated audit.",
   "last_audit": "2026-09-06",
   "blueprints": "data/exam_blueprints.json",
@@ -775,6 +775,269 @@
         "checked": "2026-09-06",
         "note": "live | verified 06 Sep 2026 — daily CA quiz posts (10 Q each, Notes)"
       }
+    },
+    {
+      "name": "Sakshi Telugu Daily CA MCQs",
+      "enabled": true,
+      "type": "index",
+      "exam": "tspsc-appsc",
+      "url": "https://education.sakshi.com/current-affairs/practice-test",
+      "link_re": "^https://education\\.sakshi\\.com/current-affairs/practice-test/[a-z0-9\\-]+-\\d+$",
+      "max_links": 4,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — 25 Telugu CA MCQs per day, listing paginated ?page=N (3 months deep)"
+      },
+      "lang": "te",
+      "page_re": "[?&]page=\\d+",
+      "max_pages": 2
+    },
+    {
+      "name": "Sakshi TSPSC Groups Bitbank",
+      "enabled": true,
+      "type": "index",
+      "exam": "tspsc",
+      "url": "https://education.sakshi.com/groups/tspsc-bitbank",
+      "link_re": "^https://education\\.sakshi\\.com/groups/practice-test/[a-z0-9\\-]+/[a-z0-9\\-]+-\\d+$",
+      "max_links": 5,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — Telugu bit bank hub: physics/chemistry/biology/S&T/TS history/TS geography/TS economy/polity, 25 Q per post ('1. ప్రశ్న? 1) .. 4) / సమాధానం: 2')"
+      },
+      "lang": "te"
+    },
+    {
+      "name": "Sakshi APPSC Groups Practice",
+      "enabled": true,
+      "type": "index",
+      "exam": "appsc",
+      "url": "https://education.sakshi.com/groups/practice-test",
+      "link_re": "^https://education\\.sakshi\\.com/groups/practice-test/[a-z0-9\\-]+/[a-z0-9\\-]+-\\d+$",
+      "max_links": 4,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — AP economy, sciences, S&T, disaster management Telugu practice bits"
+      },
+      "lang": "te"
+    },
+    {
+      "name": "Sakshi TS Police Bitbank - Telangana History",
+      "enabled": true,
+      "type": "index",
+      "exam": "police",
+      "url": "https://education.sakshi.com/ts-police/bitbank/telangana-history",
+      "link_re": "^https://education\\.sakshi\\.com/ts-police/bitbank/[a-z0-9\\-]+/[a-z0-9\\-]+-\\d+$",
+      "max_links": 4,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — 30+ posts x 25 Telugu MCQs (Kakatiya, Qutb Shahi, Asaf Jahi, Telangana movement)"
+      },
+      "lang": "te"
+    },
+    {
+      "name": "Sakshi TS Police Bitbank - Telangana Geography",
+      "enabled": true,
+      "type": "index",
+      "exam": "police",
+      "url": "https://education.sakshi.com/ts-police/bitbank/telangana-geography",
+      "link_re": "^https://education\\.sakshi\\.com/ts-police/bitbank/[a-z0-9\\-]+/[a-z0-9\\-]+-\\d+$",
+      "max_links": 3,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — TS geography Telugu MCQs"
+      },
+      "lang": "te"
+    },
+    {
+      "name": "Sakshi TS Police Bitbank - Polity",
+      "enabled": true,
+      "type": "index",
+      "exam": "police",
+      "url": "https://education.sakshi.com/ts-police/bitbank/polity",
+      "link_re": "^https://education\\.sakshi\\.com/ts-police/bitbank/[a-z0-9\\-]+/[a-z0-9\\-]+-\\d+$",
+      "max_links": 3,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — Indian polity Telugu MCQs"
+      },
+      "lang": "te"
+    },
+    {
+      "name": "Sakshi TS Police Bitbank - Science",
+      "enabled": true,
+      "type": "index",
+      "exam": "police",
+      "url": "https://education.sakshi.com/ts-police/bitbank/physics",
+      "link_re": "^https://education\\.sakshi\\.com/ts-police/bitbank/(?:physics|chemistry|biology)/[a-z0-9\\-]+-\\d+$",
+      "max_links": 3,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — physics (chemistry/biology siblings via link_re)"
+      },
+      "lang": "te"
+    },
+    {
+      "name": "Sakshi TS Police Bitbank - Indian History & Economy",
+      "enabled": true,
+      "type": "index",
+      "exam": "police",
+      "url": "https://education.sakshi.com/ts-police/bitbank/indian-history",
+      "link_re": "^https://education\\.sakshi\\.com/ts-police/bitbank/(?:indian-history|indian-economy|geography)/[a-z0-9\\-]+-\\d+$",
+      "max_links": 3,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — Indian history / economy Telugu MCQs"
+      },
+      "lang": "te"
+    },
+    {
+      "name": "MCQBits TSPSC Previous Papers",
+      "enabled": true,
+      "type": "index",
+      "exam": "tspsc",
+      "url": "https://www.mcqbits.com/category/tspsc-mock-test/",
+      "link_re": "^https://www\\.mcqbits\\.com/(?:tspsc|tgpsc|tshc|telangana)[a-z0-9\\-]*previous[a-z0-9\\-]*/?$",
+      "max_links": 3,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — Group-1/2/4, TSHC PYQs with answers (EN + TE posts)"
+      },
+      "page_re": "/\\d+/$",
+      "max_pages": 4
+    },
+    {
+      "name": "MCQBits Previous Year Papers",
+      "enabled": true,
+      "type": "index",
+      "exam": "tspsc-appsc",
+      "url": "https://www.mcqbits.com/category/previous-year-question-papers/",
+      "link_re": "^https://www\\.mcqbits\\.com/[a-z0-9\\-]*previous[a-z0-9\\-]*/?$",
+      "max_links": 3,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — TS/AP/central previous papers, paginated posts"
+      },
+      "page_re": "/\\d+/$",
+      "max_pages": 4
+    },
+    {
+      "name": "MCQBits APPSC",
+      "enabled": true,
+      "type": "index",
+      "exam": "appsc",
+      "url": "https://www.mcqbits.com/category/appsc/",
+      "link_re": "^https://www\\.mcqbits\\.com/(?!category/|tag/)[a-z0-9\\-]+/?$",
+      "max_links": 3,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — APPSC Group/Grama Sachivalayam practice + PYQs"
+      },
+      "page_re": "/\\d+/$",
+      "max_pages": 3
+    },
+    {
+      "name": "MCQBits TSLPRB Police",
+      "enabled": true,
+      "type": "index",
+      "exam": "police",
+      "url": "https://www.mcqbits.com/category/tslprb/",
+      "link_re": "^https://www\\.mcqbits\\.com/(?!category/|tag/)[a-z0-9\\-]+/?$",
+      "max_links": 3,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — TS SI/Constable prelims papers + GS sets"
+      },
+      "page_re": "/\\d+/$",
+      "max_pages": 3
+    },
+    {
+      "name": "MCQBits RRB NTPC",
+      "enabled": true,
+      "type": "index",
+      "exam": "railway",
+      "url": "https://www.mcqbits.com/category/rrb-ntpc/",
+      "link_re": "^https://www\\.mcqbits\\.com/(?!category/|tag/)[a-z0-9\\-]+/?$",
+      "max_links": 2,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — RRB NTPC CBT-1/2 + previous papers"
+      },
+      "page_re": "/\\d+/$",
+      "max_pages": 3
+    },
+    {
+      "name": "MCQBits Quantitative Aptitude",
+      "enabled": true,
+      "type": "index",
+      "exam": "banking-ssc-railway",
+      "url": "https://www.mcqbits.com/category/quantitative-aptitude/",
+      "link_re": "^https://www\\.mcqbits\\.com/(?!category/|tag/)[a-z0-9\\-]+/?$",
+      "max_links": 2,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — number system/average/HCF-LCM/P&C sets"
+      },
+      "page_re": "/\\d+/$",
+      "max_pages": 2
+    },
+    {
+      "name": "Eenadu Pratibha PYQ PDFs (Groups)",
+      "enabled": true,
+      "type": "index",
+      "exam": "tspsc-appsc",
+      "url": "https://pratibha.eenadu.net/previouspapers/paperslist/jobs/2-1001-41",
+      "link_re": "^https://pratibha\\.eenadu\\.net/previouspapers/paper/jobs/[a-z0-9\\-]+/[0-9\\-]+$",
+      "max_links": 4,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — TGPSC/APPSC Group papers with key, PDF per paper (pratibhaassets ... .pdf)"
+      },
+      "pdf_re": "^https://pratibhaassets\\.eenadu\\.net/uploadimages/[^\\s]+\\.pdf(?:#.*)?$"
+    },
+    {
+      "name": "Eenadu Pratibha PYQ PDFs (Police)",
+      "enabled": true,
+      "type": "index",
+      "exam": "police",
+      "url": "https://pratibha.eenadu.net/previouspapers/paperslist/jobs/2-1001-41-610",
+      "link_re": "^https://pratibha\\.eenadu\\.net/previouspapers/paper/jobs/[a-z0-9\\-]+/[0-9\\-]+$",
+      "max_links": 4,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — TS/AP SI & Constable prelims/mains papers with key (2022-2023 + archive to 2005)"
+      },
+      "pdf_re": "^https://pratibhaassets\\.eenadu\\.net/uploadimages/[^\\s]+\\.pdf(?:#.*)?$"
+    },
+    {
+      "name": "Eenadu Pratibha Model Papers (Police)",
+      "enabled": true,
+      "type": "index",
+      "exam": "police",
+      "url": "https://pratibha.eenadu.net/modelpaper/paperslist/jobs/2-1002-275-625",
+      "link_re": "^https://pratibha\\.eenadu\\.net/modelpaper/paper/jobs/[a-z0-9\\-]+/[0-9\\-]+$",
+      "max_links": 3,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — SI/Constable model papers (Telugu)"
+      },
+      "pdf_re": "^https://pratibhaassets\\.eenadu\\.net/uploadimages/[^\\s]+\\.pdf(?:#.*)?$"
     },
     {
       "name": "Examveda Reasoning",
@@ -1670,6 +1933,216 @@
         "status": "unverified",
         "checked": "2026-09-06",
         "note": "legislative research — polity PYQ depth"
+      }
+    },
+    {
+      "name": "Eenadu Pratibha TS Police Lessons",
+      "enabled": false,
+      "type": "index",
+      "exam": "police",
+      "url": "https://pratibha.eenadu.net/jobs/studymaterial/police-jobs/police-jobs-telangana/telugu-medium/2-1-10-427-724-1425",
+      "link_re": "^https://pratibha\\.eenadu\\.net/jobs/lesson/[a-z0-9\\-/]+/[0-9\\-]+$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "Telugu arithmetic/reasoning lessons ending in practice bits"
+      }
+    },
+    {
+      "name": "Eenadu Pratibha PYQ PDFs (DSC/TET)",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc",
+      "url": "https://pratibha.eenadu.net/previouspapers/paperslist/jobs/2-1001-41-609",
+      "link_re": "^https://pratibha\\.eenadu\\.net/previouspapers/paper/jobs/[a-z0-9\\-]+/[0-9\\-]+$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "TS DSC/TET papers with key (pedagogy heavy; content gate)"
+      }
+    },
+    {
+      "name": "Sakshi APPSC Bitbank Hub",
+      "enabled": false,
+      "type": "index",
+      "exam": "appsc",
+      "url": "https://education.sakshi.com/groups/appsc-bitbank",
+      "link_re": "^https://education\\.sakshi\\.com/groups/practice-test/[a-z0-9\\-]+/[a-z0-9\\-]+-\\d+$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "AP-specific bit bank hub (path inferred from TSPSC twin; content gate)"
+      }
+    },
+    {
+      "name": "Sakshi RRB Bitbank",
+      "enabled": false,
+      "type": "index",
+      "exam": "railway",
+      "url": "https://education.sakshi.com/rrb-exams",
+      "link_re": "^https://education\\.sakshi\\.com/rrb-exams/(?:bitbank|practice-test)/[a-z0-9\\-]+/[a-z0-9\\-]+-\\d+$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "RRB section — bitbank links discovered by content gate"
+      }
+    },
+    {
+      "name": "Sakshi English Bank Bitbank - Reasoning",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking-police",
+      "url": "https://education.sakshi.com/en/bank-exams/study-material/reasoning",
+      "link_re": "^https://education\\.sakshi\\.com/en/bank-exams/study-material/reasoning/[a-z0-9\\-]+-\\d+$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "English reasoning bit bank linked from TG Police page"
+      }
+    },
+    {
+      "name": "Sakshi English Bank Bitbank - Quant",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking-police",
+      "url": "https://education.sakshi.com/en/bank-exams/study-material/quantitative-aptitude",
+      "link_re": "^https://education\\.sakshi\\.com/en/bank-exams/study-material/quantitative-aptitude/[a-z0-9\\-]+-\\d+$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "English arithmetic bit bank linked from TG Police page"
+      }
+    },
+    {
+      "name": "Sakshi TSPSC Previous Papers",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc",
+      "url": "https://education.sakshi.com/tspsc-previous-papers",
+      "link_re": "^https://education\\.sakshi\\.com/tspsc[a-z0-9\\-/]*previous[a-z0-9\\-/]*-\\d+$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "TSPSC previous papers listing (PDF/HTML mix; content gate)"
+      }
+    },
+    {
+      "name": "Sakshi Bit Bank (English)",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc-appsc",
+      "url": "https://education.sakshi.com/bitbank",
+      "link_re": "^https://education\\.sakshi\\.com/bitbank/[a-z0-9\\-/]+$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "legacy bit bank section — may redirect"
+      }
+    },
+    {
+      "name": "Vyoma Telugu MCQs",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc-appsc",
+      "url": "https://vyoma.net/mcqs/",
+      "link_re": "^https://vyoma\\.net/mcqs/[a-z0-9\\-/]+$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "2 lakh Telugu MCQs (APPSC/TSPSC exam-wise) — fetch blocked from crawler on 07 Sep"
+      }
+    },
+    {
+      "name": "MCQAnswers TS/AP PYQs",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc-appsc",
+      "url": "https://mcqanswers.com/appsc-tspsc-previous-year-papers/",
+      "link_re": "^https://mcqanswers\\.com/[a-z0-9\\-]+/[a-z0-9\\-]+/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "3,500 APPSC/TSPSC PYQ MCQs in Telugu — fetch failed on 07 Sep"
+      }
+    },
+    {
+      "name": "Adda247 Telugu Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc-appsc",
+      "url": "https://www.adda247.com/te/category/quiz/",
+      "link_re": "^https://www\\.adda247\\.com/te/jobs/[a-z0-9\\-]*quiz[a-z0-9\\-]*/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "Adda Telugu — quiz category 404 on 07 Sep 2026; re-check"
+      }
+    },
+    {
+      "name": "MCQBits Daily Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "all",
+      "url": "https://www.mcqbits.com/category/daily-quiz/",
+      "link_re": "^https://www\\.mcqbits\\.com/(?!category/|tag/)[a-z0-9\\-]+/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "daily mixed GK quiz posts"
+      }
+    },
+    {
+      "name": "MCQBits SSC Reasoning",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc",
+      "url": "https://www.mcqbits.com/category/ssc-reasoning/",
+      "link_re": "^https://www\\.mcqbits\\.com/(?!category/|tag/)[a-z0-9\\-]+/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "SSC reasoning sets"
+      }
+    },
+    {
+      "name": "MCQBits SBI PO Clerk",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking",
+      "url": "https://www.mcqbits.com/category/sbi-po-clerk/",
+      "link_re": "^https://www\\.mcqbits\\.com/(?!category/|tag/)[a-z0-9\\-]+/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "banking practice sets"
       }
     },
     {

@@ -213,10 +213,20 @@ class Engine:
     def collect_exam_content(self):
         """Daily scrape of exam-prep websites/apps -> bank (see core.collector)."""
         try:
-            from .collector import collect_daily, retry_pending
+            from .collector import collect_daily, retry_pending, ingest_inbox
             stats = collect_daily()
+            stats["pdf_inbox"] = ingest_inbox()      # harvested / dropped PDFs
             retry_pending()
             return stats
+        except Exception as e:
+            print(f"   [collect] error (non-fatal): {e}")
+            return {"accepted": 0, "error": str(e)}
+
+    def backfill_exam_content(self):
+        """Nightly deep archive sweep (3-month campaign, auto-completes)."""
+        try:
+            from .collector import backfill
+            return backfill()
         except Exception as e:
             print(f"   [collect] error (non-fatal): {e}")
             return {"accepted": 0, "error": str(e)}

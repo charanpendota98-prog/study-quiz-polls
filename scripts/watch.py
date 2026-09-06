@@ -82,11 +82,12 @@ def tick(eng, now, dry=False):
         task, meta = config.SCHEDULE[hhmm]
         if task == "collect":
             try:
-                from core.collector import collect_daily, retry_pending
+                from core.collector import collect_daily, retry_pending, ingest_inbox
                 st = collect_daily()
+                pdf = ingest_inbox()
                 log(f"collect: +{st['accepted']} scraped, "
                     f"{st['parsed']} parsed, {st['duplicates']} dup, "
-                    f"{st['parked']} parked")
+                    f"{st['parked']} parked, +{pdf.get('accepted', 0)} from PDFs")
                 if st["parked"] or True:
                     try:
                         retry_pending()  # translate parked when a key exists
@@ -95,6 +96,17 @@ def tick(eng, now, dry=False):
                 ran.append("collect")
             except Exception as e:
                 log(f"collect error: {e}")
+        elif task == "backfill":
+            # Nightly 3-month archive campaign: walks live sources 5x deeper
+            # and ingests harvested previous-paper PDFs; idles once complete.
+            try:
+                from core.collector import backfill
+                bs = backfill()
+                log(f"backfill: run {bs.get('runs')} +{bs.get('last_stats')} "
+                    f"total={bs.get('accepted')} done={bs.get('done')}")
+                ran.append("backfill")
+            except Exception as e:
+                log(f"backfill error: {e}")
         elif task == "audit":
             # Daily deep, content-gated source audit: dead sources auto-pause,
             # verified-clean candidates auto-enable. Never crashes the loop.

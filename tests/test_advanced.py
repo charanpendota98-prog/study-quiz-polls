@@ -192,5 +192,84 @@ class TestIndexAudit(unittest.TestCase):
         self.assertEqual(r["status"], "warn")
 
 
+class TestTeluguSources(unittest.TestCase):
+    """Sakshi / MCQBits layouts + backfill & PDF-harvest plumbing (offline)."""
+
+    def _parse(self, name, url):
+        html = (FX / name).read_text(encoding="utf-8")
+        return collector.parse_quiz_lines(collector.html_to_lines(html), "t", url)
+
+    def test_sakshi_bitbank_numeric_options_and_key(self):
+        qs = self._parse("fixture_sakshi_bitbank.html",
+                         "https://education.sakshi.com/ts-police/bitbank/telangana-history/x-1")
+        self.assertEqual(len(qs), 3)
+        self.assertEqual(qs[0]["q_en"], "కాకతీయ రాజ్య స్థాపకుడు ఎవరు?")
+        self.assertEqual(qs[0]["options_en"][0], "బేతరాజు")
+        self.assertEqual([q["answer_index"] for q in qs], [0, 1, 0])
+
+    def test_sakshi_practice_telugu_labels(self):
+        qs = self._parse("fixture_sakshi_practice.html",
+                         "https://education.sakshi.com/groups/practice-test/ap-economy/x-1")
+        self.assertEqual(len(qs), 2)
+        self.assertEqual([q["answer_index"] for q in qs], [1, 2])
+        self.assertEqual(qs[1]["options_en"][2], "కృష్ణా")
+
+    def test_mcqbits_repeated_answer_line(self):
+        qs = self._parse("fixture_mcqbits.html", "https://mcqbits.com/x/")
+        self.assertEqual(len(qs), 2)
+        self.assertEqual([q["answer_index"] for q in qs], [1, 2])
+        self.assertIn("86th Amendment", qs[0]["explanation_en"])
+
+    def test_numbered_substatements_not_mangled(self):
+        # only a full 1)..4) run is rewritten to A)..D); two sub-statements stay as-is
+        lines = ["1. Consider the following statements:", "1) India is a republic",
+                 "2) India has a President", "Which is correct?",
+                 "A) 1 only", "B) 2 only", "C) Both", "D) None", "Answer: C"]
+        self.assertEqual(collector._normalize_numeric_options(list(lines)), lines)
+
+    def test_channel_for_source_telugu_tags(self):
+        self.assertEqual(collector.channel_for_source({"exam": "police"}), "POLICE")
+        self.assertEqual(collector.channel_for_source({"exam": "tspsc"}), "TSPSC")
+        self.assertIsNone(collector.channel_for_source({"exam": "all"}))
+
+    def test_registry_has_sakshi_and_mcqbits_live(self):
+        reg = collector.load_registry()
+        live = {s["name"]: s for s in reg["sources"] if s.get("enabled")}
+        self.assertTrue(any(n.startswith("Sakshi TS Police Bitbank") for n in live))
+        self.assertTrue(any(n.startswith("MCQBits") for n in live))
+        pdfs = [s for s in reg["sources"] if s.get("enabled") and s.get("pdf_re")]
+        self.assertTrue(pdfs, "Eenadu Pratibha PDF sources must be live")
+        for s in live.values():
+            if "sakshi.com" in s.get("url", s.get("index", "")):
+                self.assertNotIn("/ts-police/practice-test", s["url"])
+
+    def test_backfill_state_dry_run(self):
+        import json
+        st_path = collector.BACKFILL_STATE
+        bak = st_path.read_text(encoding="utf-8") if st_path.exists() else None
+        try:
+            if st_path.exists():
+                st_path.unlink()
+            orig = collector.collect_daily
+            collector.collect_daily = lambda **kw: {"accepted": 0, "articles": 0}
+            orig_inbox = collector.ingest_inbox
+            collector.ingest_inbox = lambda **kw: {"accepted": 0, "files": 0}
+            try:
+                st = collector.backfill(days=90, dry=True)
+            finally:
+                collector.collect_daily = orig
+                collector.ingest_inbox = orig_inbox
+            self.assertEqual(st["runs"], 1)
+            self.assertFalse(st["done"])
+            self.assertEqual(st["idle_runs"], 1)
+            self.assertFalse(st_path.exists())   # dry run never persists
+        finally:
+            if bak is not None:
+                st_path.write_text(bak, encoding="utf-8")
+
+    def test_schedule_has_nightly_backfill(self):
+        self.assertIn("backfill", {v[0] for v in config.SCHEDULE.values()})
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
