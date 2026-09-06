@@ -659,6 +659,25 @@ _NUM_ANS_RE = re.compile(
     r"(?:option\s*)?\(?([1-4])\)?\s*$", re.I)
 
 
+# Examsbook / some blogs: a bare "Q :" / "Question:" label line followed by the
+# stem on the next line, with no numbering at all -> synthesise "N. stem".
+_BARE_Q_RE = re.compile(r"^(?:q|que|question|ప్రశ్న|प्रश्न)\s*[:.\-)]?\s*$", re.I)
+
+
+def _number_bare_questions(lines):
+    out, n, i = [], 0, 0
+    while i < len(lines):
+        if _BARE_Q_RE.match(lines[i]) and i + 1 < len(lines) \
+                and not OPT_RE.match(lines[i + 1]) and not QSTART_RE.match(lines[i + 1]):
+            n += 1
+            out.append(f"{n}. {lines[i + 1]}")
+            i += 2
+            continue
+        out.append(lines[i])
+        i += 1
+    return out if n else lines
+
+
 def _normalize_numeric_options(lines):
     """Convert '1)..4)' numbered options + numeric answer keys to A)-D) labels
     (only when a full 2)3)4) run follows, so numbered sub-statements are safe)."""
@@ -754,7 +773,7 @@ def parse_quiz_lines(lines, article_title="", url=""):
                 })
         cur = None
 
-    lines = _normalize_numeric_options(list(lines))
+    lines = _normalize_numeric_options(_number_bare_questions(list(lines)))
     for line in lines:
         if len(line) > 400:
             line = line[:400]

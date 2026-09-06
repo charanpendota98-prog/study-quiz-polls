@@ -267,6 +267,18 @@ class TestTeluguSources(unittest.TestCase):
             if bak is not None:
                 st_path.write_text(bak, encoding="utf-8")
 
+    def test_freshersnow_answer_with_text(self):
+        qs = self._parse("fixture_freshersnow.html", "https://www.freshersnow.com/telangana-gk-quiz/")
+        self.assertEqual(len(qs), 2)
+        self.assertEqual([q["answer_index"] for q in qs], [3, 0])
+        self.assertIn("Godavari", qs[0]["explanation_en"])
+
+    def test_examsbook_bare_q_label(self):
+        qs = self._parse("fixture_examsbook.html", "https://www.examsbook.com/reasoning-questions-and-answers")
+        self.assertEqual(len(qs), 2)
+        self.assertEqual([q["answer_index"] for q in qs], [2, 3])
+        self.assertTrue(qs[0]["q_en"].startswith("If PARTICLE"))
+
     def test_schedule_has_nightly_backfill(self):
         self.assertIn("backfill", {v[0] for v in config.SCHEDULE.values()})
 

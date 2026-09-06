@@ -228,17 +228,17 @@ class TestPYQBank(unittest.TestCase):
         ssc_qs = b.pick("SSC", 10)
         self.assertEqual(len(ssc_qs), 10)
 
-    def test_registry_265_sources(self):
-        """Central registry has 265 sources (66 live / 108 cand / 91 arch)."""
+    def test_registry_285_sources(self):
+        """Central registry has 285 sources (75 live / 119 cand / 91 arch)."""
         from core import collector
         reg = collector.load_registry()
         srcs = reg.get("sources", [])
-        self.assertEqual(len(srcs), 265)
+        self.assertEqual(len(srcs), 285)
         live = [s for s in srcs if s.get("enabled")]
         cand = [s for s in srcs if not s.get("enabled") and s.get("auto_enable_if_live")]
         arch = [s for s in srcs if not s.get("enabled") and not s.get("auto_enable_if_live")]
-        self.assertEqual(len(live), 66)
-        self.assertEqual(len(cand), 108)
+        self.assertEqual(len(live), 75)
+        self.assertEqual(len(cand), 119)
         self.assertEqual(len(arch), 91)
         names = {s["name"] for s in live}
         for must in ("GKToday Polity", "GKToday Telugu CA", "GKToday Telangana GK",

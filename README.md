@@ -91,7 +91,7 @@ the bot (matched by Telegram @username) — no duplicate accounts.
 | Time (IST) | What |
 |---|---|
 | 01:30 | **Backfill sweep** — walks every live source 5× deeper + ingests harvested PDFs until the 90-day archive is covered (`data/collector_backfill.json`) |
-| 04:45 | **Deep source audit** — content-gated check of all 265 registry sources; auto-pause dead, auto-enable fresh candidates |
+| 04:45 | **Deep source audit** — content-gated check of all 285 registry sources; auto-pause dead, auto-enable fresh candidates |
 | 🕷️ **05:30 / 07:40 / 08:15 / 11:00 / 16:00 / 19:40 / 20:15 / 22:30** | **Deep multi-source scraping (8× daily)** — fresh quizzes from websites/apps/APIs, translated & validated; **07:40 & 19:40 run immediately after each quiz round** |
 | 06:00 | Auto top-up question bank if any pool runs low |
 | 07:00 | Morning greeting + today's schedule (all 7 public channels) |
@@ -260,7 +260,7 @@ The validation gate (`finalize.py`) and the test suite (`tests/test_bot.py`)
 websites, apps and APIs**, with **careful per-site handling so nothing breaks**,
 and turns it into validated bilingual questions:
 
-- **Deep source registry (265 sources: 66 live, 108 auto-enable candidates,
+- **Deep source registry (285 sources: 75 live, 119 auto-enable candidates,
   91 archived)** — three families:
   - `type: index` **deep MCQ banks** — **GKToday quizbase** (Polity, Ancient/
     Medieval/Modern History, Geography, Economy, Physics/Chemistry/Biology,
@@ -330,6 +330,15 @@ and turns it into validated bilingual questions:
   Telugu labels `ఎ) బి) సి) డి)` and `జవాబు:/సమాధానం:` keys parse natively;
   a single-exam source tag (`exam: police|tspsc|appsc|…`) pins its questions to
   that channel, so questions land on the right exam's channel.
+- **More verified sources (07 Sep 2026)** — **Sakshi Daily Current Affairs
+  quiz** (30 Telugu MCQs/day), **FreshersNow** (Telangana GK, Andhra Pradesh GK,
+  60+ reasoning topic quizzes, 40+ aptitude topic quizzes, GK topic quizzes —
+  25 Q each with explanation), **Examsbook** reasoning articles (`Q :` label
+  format, `/2../4` pagination), **Target Defence Academy** 100-Q current-affairs
+  sets. Candidates queued for the auditor: CompetitiveExamsIndia,
+  SSC Study, LSR Updates (Telugu TS history), SRM Tutors, QuizDunia, ReadingRoomz
+  (APPSC bilingual CA), Careerride, AP Police Exams, QuestionPapersOnline
+  (AP Police PYQ PDFs via `pdf_re`).
 - **Bilingual policy** — Telugu pages are kept as-is; English/Hindi pages go
   through `translate_mcq` (exam-paper-style Telugu, stem + all options +
   explanation in one strict-JSON call, per-string fallback) and are posted with
@@ -348,7 +357,7 @@ python3 -m core.collector --retry-pending    # translate parked questions
 python3 -m core.collector --backfill --depth 5          # 90-day archive sweep (resumable)
 python3 -m core.collector --collect --only sakshi --dry # one source family, no writes
 python3 -m core.collector --fixture page.html --title "IBPS Quiz"  # offline parse
-python3 audit_sources.py                     # deep audit ALL 265 registry sources
+python3 audit_sources.py                     # deep audit ALL 285 registry sources
 python3 audit_sources.py --only-enabled      # audit only live sources (fast)
 python3 rebuild_registry.py --check          # validate the central registry
 python3 check.py --sources                   # registry + health summary

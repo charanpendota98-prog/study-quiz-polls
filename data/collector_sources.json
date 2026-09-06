@@ -899,6 +899,135 @@
       "lang": "te"
     },
     {
+      "name": "Sakshi Daily Current Affairs Quiz (Telugu)",
+      "enabled": true,
+      "type": "index",
+      "exam": "current-affairs",
+      "url": "https://education.sakshi.com/current-affairs/daily-current-affairs",
+      "link_re": "^https://education\\.sakshi\\.com/current-affairs/daily-current-affairs/[a-z0-9\\-]*(?:quiz|mcq)[a-z0-9\\-]*-\\d+$",
+      "max_links": 4,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — daily 'Current Affairs DD.MM.YY MCQs in Telugu' posts (Top 30 GK quiz) + prose digests; quiz gate keeps only MCQ posts"
+      },
+      "lang": "te"
+    },
+    {
+      "name": "FreshersNow Telangana GK Quiz",
+      "enabled": true,
+      "type": "index",
+      "exam": "tspsc-police",
+      "url": "https://www.freshersnow.com/telangana-gk-quiz/",
+      "link_re": "^https://www\\.freshersnow\\.com/telangana-[a-z0-9\\-]*quiz/$",
+      "max_links": 1,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — 25 TS GK MCQs with answers+explanations (English)"
+      }
+    },
+    {
+      "name": "FreshersNow Andhra Pradesh GK Quiz",
+      "enabled": true,
+      "type": "index",
+      "exam": "appsc-police",
+      "url": "https://www.freshersnow.com/andhra-pradesh-gk-quiz/",
+      "link_re": "^https://www\\.freshersnow\\.com/andhra-[a-z0-9\\-]*quiz/$",
+      "max_links": 1,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — 25 AP GK MCQs (Andhra history/polity) with answers"
+      }
+    },
+    {
+      "name": "FreshersNow Reasoning Topic Quizzes",
+      "enabled": true,
+      "type": "index",
+      "exam": "ssc-banking-railway-police",
+      "url": "https://www.freshersnow.com/reasoning-questions-answers/",
+      "link_re": "^https://www\\.freshersnow\\.com/[a-z0-9\\-]+-quiz/$",
+      "max_links": 6,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — 60+ topic pages (blood relations, syllogism, seating, coding, series, puzzles, non-verbal) x 25 Q with answer+explanation"
+      }
+    },
+    {
+      "name": "FreshersNow Aptitude Topic Quizzes",
+      "enabled": true,
+      "type": "index",
+      "exam": "ssc-banking-railway-police",
+      "url": "https://www.freshersnow.com/aptitude-questions-answers-solutions/",
+      "link_re": "^https://www\\.freshersnow\\.com/[a-z0-9\\-]+-aptitude-quiz/$",
+      "max_links": 6,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — 40+ arithmetic topic pages (percentage, time-work, trains, mensuration, probability...) x 25 Q with solutions"
+      }
+    },
+    {
+      "name": "FreshersNow GK Topic Quizzes",
+      "enabled": true,
+      "type": "index",
+      "exam": "ssc-railway-tspsc-appsc",
+      "url": "https://www.freshersnow.com/gk-questions-answers/",
+      "link_re": "^https://www\\.freshersnow\\.com/[a-z0-9\\-]+-gk-quiz/$",
+      "max_links": 4,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — Indian history/polity/economy/geography/science + state-wise GK quizzes"
+      }
+    },
+    {
+      "name": "Examsbook Reasoning Articles",
+      "enabled": true,
+      "type": "index",
+      "exam": "ssc-banking-railway",
+      "url": "https://www.examsbook.com/category/reasoning/page/1",
+      "link_re": "^https://www\\.examsbook\\.com/[a-z0-9\\-]*(?:reasoning|quiz|question)[a-z0-9\\-]*$",
+      "max_links": 4,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — reasoning quiz articles, 10 Q/page, up to 4 pages each"
+      },
+      "page_re": "^https://www\\.examsbook\\.com/[a-z0-9\\-]+/[2-9]$",
+      "max_pages": 4
+    },
+    {
+      "name": "Examsbook Reasoning Questions & Answers",
+      "enabled": true,
+      "type": "index",
+      "exam": "ssc-banking-railway",
+      "url": "https://www.examsbook.com/reasoning-questions-and-answers",
+      "link_re": "^https://www\\.examsbook\\.com/reasoning-questions-and-answers/[2-9]$",
+      "max_links": 3,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — 4 pages x 10 Q (series, coding, direction, puzzles)"
+      }
+    },
+    {
+      "name": "Target Classes Current Affairs 100 Q",
+      "enabled": true,
+      "type": "index",
+      "exam": "defence-ssc-current-affairs",
+      "url": "https://www.thetargetclasses.com/current-affairs/current-affairs-questions-and-answers/",
+      "link_re": "^https://www\\.thetargetclasses\\.com/current-affairs[a-z0-9\\-/]*/$",
+      "max_links": 2,
+      "audit": {
+        "status": "live",
+        "checked": "2026-09-06",
+        "note": "live | verified 07 Sep 2026 — 100 current-affairs MCQs (NDA/CDS/SSC), refreshed monthly"
+      }
+    },
+    {
       "name": "MCQBits TSPSC Previous Papers",
       "enabled": true,
       "type": "index",
@@ -1964,6 +2093,175 @@
         "checked": "2026-09-06",
         "note": "TS DSC/TET papers with key (pedagogy heavy; content gate)"
       }
+    },
+    {
+      "name": "CompetitiveExamsIndia Reasoning Tests",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking-ssc",
+      "url": "https://www.competitiveexamsindia.com/reasoning/",
+      "link_re": "^https://www\\.competitiveexamsindia\\.com/[a-z0-9\\-]*practice-test[a-z0-9\\-]*/$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "topic hubs -> 'Practice Test N' pages (quiz plugin renders options as plain lines; content gate decides)"
+      }
+    },
+    {
+      "name": "CompetitiveExamsIndia Quant Tests",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking-ssc",
+      "url": "https://www.competitiveexamsindia.com/quantitative-aptitude/",
+      "link_re": "^https://www\\.competitiveexamsindia\\.com/[a-z0-9\\-]*practice-test[a-z0-9\\-]*/$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "arithmetic topic hubs -> practice tests"
+      }
+    },
+    {
+      "name": "SSC Study Reasoning (English sets)",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-railway",
+      "url": "https://sscstudy.com/reasoning-topic-wise-questions/",
+      "link_re": "^https://sscstudy\\.com/[a-z0-9\\-]*(?:english|reasoning|questions)[a-z0-9\\-]*/$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "PYQ-based topic tests; options rendered by quiz plugin without labels — needs JS/answer key, content gate decides"
+      }
+    },
+    {
+      "name": "LSR Updates Telangana GK (Telugu)",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc-police",
+      "url": "https://lsrupdates.com/category/telangana-history/",
+      "link_re": "^https://lsrupdates\\.com/[a-z0-9\\-]*(?:telangana|gk|questions)[a-z0-9\\-]*/$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "Telugu 'Question No.N' + 'ఎ) బి) సి) డి)' + 'Answer : సి)' posts (fetch blocked from sandbox)"
+      },
+      "lang": "te"
+    },
+    {
+      "name": "SRM Tutors GK Bits Telugu",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc-appsc",
+      "url": "https://srmtutors.in/50-latest-gk-questions-in-telugu/",
+      "link_re": "^https://srmtutors\\.in/[a-z0-9\\-]*(?:gk|telugu|bits)[a-z0-9\\-]*/$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "'1000 GK bits in Telugu' PART-01..20 (Q + జవాబు one-liners; MCQ gate may reject)"
+      },
+      "lang": "te"
+    },
+    {
+      "name": "QuizDunia Telugu GK 100-bit sets",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc-appsc",
+      "url": "https://www.quizdunia.com/",
+      "link_re": "^https://www\\.quizdunia\\.com/20\\d\\d/\\d\\d/[a-z0-9\\-]+\\.html$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "Blogger site: 10 x 100-bit + 10 x 50-bit Telugu MCQ sets, monthly Telugu CA MCQs (A./B./C./D. labels; answers may be JS-only)"
+      },
+      "lang": "te"
+    },
+    {
+      "name": "ReadingRoomz APPSC Daily CA (bilingual)",
+      "enabled": false,
+      "type": "index",
+      "exam": "appsc",
+      "url": "https://readingroomz.com/category/daily-current-affairs/",
+      "link_re": "^https://readingroomz\\.com/[a-z0-9\\-]+/$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "AP-specific daily CA notes with Telugu+English MCQs (free daily posts)"
+      }
+    },
+    {
+      "name": "Careerride Reasoning Practice Tests",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking-ssc",
+      "url": "https://www.careerride.com/subject/logical-reasoning.aspx",
+      "link_re": "^https://www\\.careerride\\.com/practice/[a-z0-9\\-/]+\\.aspx$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "placement/competitive practice tests with explanations"
+      }
+    },
+    {
+      "name": "Careerride Aptitude Practice Tests",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking-ssc",
+      "url": "https://www.careerride.com/subject/aptitude.aspx",
+      "link_re": "^https://www\\.careerride\\.com/practice/[a-z0-9\\-/]+\\.aspx$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "arithmetic practice tests (25 Q, explanations)"
+      }
+    },
+    {
+      "name": "AP Police Exams (Telugu medium) Model Papers",
+      "enabled": false,
+      "type": "index",
+      "exam": "police",
+      "url": "https://www.appoliceexams.com/",
+      "link_re": "^https://www\\.appoliceexams\\.com/[a-z0-9\\-/]+$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "AP constable/SI Telugu chapter-wise tests (likely login/JS; gate decides)"
+      }
+    },
+    {
+      "name": "QuestionPapersOnline AP Police PYQ PDFs",
+      "enabled": false,
+      "type": "index",
+      "exam": "police",
+      "url": "https://www.questionpapersonline.com/ap-police-si-previous-papers/",
+      "link_re": "^https://www\\.questionpapersonline\\.com/ap-police[a-z0-9\\-]*/$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-06",
+        "note": "AP SI/constable previous paper PDFs (Telugu) — harvested via pdf_re when audited live"
+      },
+      "pdf_re": "^https?://[a-z0-9\\.\\-]*questionpapersonline\\.com/.+\\.pdf$"
     },
     {
       "name": "Sakshi APPSC Bitbank Hub",
