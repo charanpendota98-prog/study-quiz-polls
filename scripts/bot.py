@@ -5,7 +5,8 @@ Long-polls getUpdates. Member registration, points, levels, ranks, leaderboard.
 
 Commands:
   /start, /help       welcome (EN + Telugu)
-  /register           guided sign-up (name -> exam target -> language) = +25 pts
+  /register           guided sign-up (name -> state -> district -> exam -> language) = +25 pts
+  /district [name]    your district toppers   /districts  TS/AP district leaderboard
   /quiz [channel]     one NON-anonymous PYQ-first practice poll (earns points)
   /coach [channel]    a friendly expert reasoning/aptitude trick (EN+Telugu)
   /review             due spaced-repetition questions (missed ones come back)
@@ -38,6 +39,7 @@ WELCOME = (
     "⭐ Earn *points*, levels and ranks:\n"
     "• /register — join as a member (+25 pts)\n"
     "• /quiz — play a previous-paper question (+10 per correct)\n"
+    "• /district — your district toppers · /districts — TS/AP district ranking\n"
     "• /coach — a friendly expert trick that makes reasoning & aptitude easy 🧠\n"
     "• /stats — your level, rank, points & streak\n"
     "• /leaderboard — top players\n"
@@ -213,17 +215,43 @@ class Bot:
             self.members.start_registration(uid, username=self._name(who))
             self.tg.send_message(
                 chat_id,
-                "📝 Registration — step 1 of 3.\nWhat is your full name?\n"
+                "📝 Registration — step 1 of 5 (name → state → district → exam → language).\nWhat is your full name?\n"
                 "⤷ మీ పూర్తి పేరు పంపండి:")
         elif low.startswith("/cancel"):
             self.members.cancel_registration(uid)
             self.tg.send_message(chat_id, "Registration cancelled. /register to retry.\n⤷ రద్దు చేయబడింది.")
         elif low.startswith("/quiz"):
+            # Registration-first: the form (name → state → district → exam →
+            # language) must be completed once before playing.
+            if getattr(config, "REQUIRE_REGISTRATION", True) and uid \
+                    and not self.members.is_registered(uid):
+                self.members.start_registration(uid, username=self._name(who))
+                self.tg.send_message(
+                    chat_id,
+                    "🔐 First time? Complete the 30-second registration to play & earn points.\n"
+                    "⤷ ఆడటానికి ముందు ఒక్కసారి రిజిస్ట్రేషన్ పూర్తి చేయండి (30 సెకన్లు).\n\n"
+                    "📝 Step 1 of 5 — What is your full name?\n⤷ మీ పూర్తి పేరు పంపండి:")
+                return
             parts = low.split()
             ch = parts[1].upper() if len(parts) > 1 else None
             if ch not in config.PUBLIC_CHANNELS:
                 ch = None
             self.send_quiz_to(chat_id, ch, uid=uid)
+        elif low.startswith("/districts"):
+            self.tg.send_message(chat_id, self.members.render_district_board(), parse_mode="Markdown")
+        elif low.startswith("/district"):
+            parts = text.split(maxsplit=1)
+            d = None
+            if len(parts) > 1:
+                from core import districts as D
+                d = D.match_district("TS", parts[1]) or D.match_district("AP", parts[1])
+            if not d:
+                prof = self.members.profile(uid) if uid else None
+                d = (prof or {}).get("district")
+            if not d:
+                self.tg.send_message(chat_id, "Send /district <name> or /register with your district.\n⤷ /register లో జిల్లా ఇవ్వండి.")
+            else:
+                self.tg.send_message(chat_id, self.members.render_district_board(d), parse_mode="Markdown")
         elif low.startswith("/review") or low.startswith("/revise"):
             due = self.members.due_reviews(uid) if uid else []
             if not due:

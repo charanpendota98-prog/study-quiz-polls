@@ -46,6 +46,8 @@ class Leaderboard:
         if not poll:
             return None
         correct = int(poll["answer"]) == int(chosen_index)
+        poll["total"] = poll.get("total", 0) + 1
+        poll["correct"] = poll.get("correct", 0) + (1 if correct else 0)
         u = self.users.setdefault(str(user_id), {
             "name": user_name or f"user{user_id}", "total": 0, "correct": 0,
             "streak": 0, "last_day": "", "best_streak": 0})
@@ -69,6 +71,15 @@ class Leaderboard:
         return correct
 
     # ------------------------------------------------------------- queries
+    def stats_by_qid(self, qids):
+        """Best-effort per-question vote stats {qid: {correct,total}}."""
+        out = {}
+        for pid, meta in self.polls.items():
+            qid = meta.get("qid")
+            if qid in qids and meta.get("total"):
+                out[qid] = {"correct": meta.get("correct", 0), "total": meta.get("total", 0)}
+        return out
+
     def user_card(self, user_id):
         u = self.users.get(str(user_id))
         if not u:

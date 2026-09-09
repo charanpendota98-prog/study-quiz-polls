@@ -17,7 +17,7 @@ from . import config
 from .telegram import Telegram, TelegramError
 from .question_bank import Bank
 from .content import (build_question_text, build_options, build_explanation,
-                      build_answer_key)
+                      build_answer_key, build_round_report)
 from .leaderboard import Leaderboard
 from .members import Members
 from .store import load_json
@@ -132,10 +132,16 @@ class Engine:
                 self.tg.polite_gap(not self.dry)
             if paced:
                 self._pace_wait(step_secs + config.PACE_BUFFER_SEC)
-        # 4) closers
+        # 4) closers + advanced round report (Q-by-Q answers, difficulty,
+        #    subject split, toughest Q, revision tags). In delayed mode the
+        #    report doubles as the answer key (posted by post_answer_key).
         for ch, qs in rounds.items():
             try:
                 self.tg.send_message(config.channel_chat_id(ch), self._round_closer(qs, delayed))
+                if not delayed:
+                    stats = self._poll_stats_for(qs)
+                    self.tg.send_message(config.channel_chat_id(ch),
+                                         build_round_report(qs, round_label or "", config.CHANNELS[ch], stats))
             except TelegramError as e:
                 print(f"   [slot] {ch} closer failed: {e}")
             self.tg.polite_gap(not self.dry)
@@ -161,6 +167,15 @@ class Engine:
         print(f"[slot] posted {total} polls across {len(channels)} channels "
               f"(mode={getattr(config, 'ANSWER_MODE', 'instant')})")
         return total
+
+    def _poll_stats_for(self, qs):
+        """{qid: {correct, total}} from the leaderboard's poll registry when
+        vote counts are available (channel polls are anonymous, so this is
+        best-effort — the report simply omits % when unknown)."""
+        try:
+            return self.lb.stats_by_qid([q.get("id") for q in qs])
+        except Exception:
+            return {}
 
     # ------------------------------------------------- paced-round helpers
     def _pace_wait(self, secs: int):
@@ -227,7 +242,7 @@ class Engine:
             qs = by_ch.get(ch) or []
             if not qs:
                 continue
-            text = build_answer_key(qs, round_label=label)
+            text = build_round_report(qs, round_label=label, channel_cfg=config.CHANNELS.get(ch))
             try:
                 self.tg.send_message(config.channel_chat_id(ch), text)
                 posted += 1

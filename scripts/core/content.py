@@ -273,6 +273,63 @@ def build_answer_key(questions: list, round_label: str = "") -> str:
     return _clamp("\n".join(lines), 4000)
 
 
+def build_round_report(questions: list, round_label: str = "", channel_cfg: dict | None = None,
+                       poll_stats: dict | None = None) -> str:
+    """
+    Post-round REPORT CARD (posted right after the last poll closes):
+      • Q-by-Q line: number · topic · difficulty · correct letter + answer (TE/EN)
+        · % of voters who got it right (when poll stats available)
+      • Subject split, PYQ count, hardest question, quick revision tags
+    Always ≤ 4000 chars.
+    """
+    from .blueprint import difficulty_of, subject_of
+    letters = "ABCD"
+    icon = {"easy": "⚡", "medium": "🔶", "hard": "🔥"}
+    label = f"{round_label} " if round_label else ""
+    head = f"{channel_cfg['emoji']} " if channel_cfg else ""
+    lines = [f"{head}📋 {label}Round Report — రౌండ్ రిపోర్ట్", ""]
+    subs, hard, pyq = {}, [], 0
+    hardest = None
+    for i, q in enumerate(questions, 1):
+        idx = int(q.get("answer_index", 0))
+        letter = letters[idx] if 0 <= idx < 4 else "?"
+        opts = q.get("options_en") or []
+        tops = q.get("options_te") or []
+        en_opt = str(opts[idx]).strip() if 0 <= idx < len(opts) else ""
+        te_opt = str(tops[idx]).lstrip("⤷").strip() if 0 <= idx < len(tops) else ""
+        ans = te_opt or en_opt
+        if te_opt and en_opt and te_opt != en_opt:
+            ans = f"{te_opt} / {en_opt}"
+        d = difficulty_of(q)
+        sub = subject_of(q)
+        subs[sub] = subs.get(sub, 0) + 1
+        if q.get("source") == "pyq":
+            pyq += 1
+        topic = (q.get("topic") or sub).title()
+        pct = ""
+        st = (poll_stats or {}).get(q.get("id")) if poll_stats else None
+        if st and st.get("total"):
+            p = round(100 * st.get("correct", 0) / st["total"])
+            pct = f" · ✅{p}%"
+            if hardest is None or p < hardest[1]:
+                hardest = (i, p, topic)
+        src = " · 📜PYQ" if q.get("source") == "pyq" else ""
+        lines.append(f"{i}. {icon[d]} {topic}{src} → [{letter}] {ans[:60]}{pct}")
+    names = {"gk": "GK", "reasoning": "Reasoning", "quant": "Aptitude", "english": "English"}
+    split = " · ".join(f"{names.get(k, k.title())} {v}" for k, v in sorted(subs.items(), key=lambda kv: -kv[1]))
+    n_hard = sum(1 for q in questions if difficulty_of(q) == "hard")
+    lines += ["", f"📚 {split} · 📜 PYQ {pyq}/{len(questions)} · 🔥 Hard {n_hard}"]
+    if hardest:
+        lines.append(f"🧠 Toughest: Q{hardest[0]} ({hardest[2]}) — only {hardest[1]}% got it")
+    weak_topics = [(q.get("topic") or "").title() for q in questions
+                   if difficulty_of(q) == "hard" and q.get("topic")]
+    if weak_topics:
+        lines.append("🔁 Revise today / ఈరోజు రివిజన్: " + ", ".join(dict.fromkeys(weak_topics[:4])))
+    lines += ["", "🏆 Scores & district rank: /quiz · /district in our bot ⭐",
+              "— StudentUp | PYQ-first · no repeats ✅"]
+    return _clamp("\n".join(lines), 4000)
+
+
 # ---------------------------------------------------------------------------
 # Validation gate for a single question
 # ---------------------------------------------------------------------------

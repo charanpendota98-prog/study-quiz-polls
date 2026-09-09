@@ -49,6 +49,10 @@ class TestMembers(unittest.TestCase):
     def test_registration_flow(self):
         self.mb.start_registration(self.uid, username="tester")
         s, _ = self.mb.registration_input(self.uid, "Test User")
+        self.assertEqual(s, "ask_state")
+        s, _ = self.mb.registration_input(self.uid, "1")  # Telangana
+        self.assertEqual(s, "ask_district")
+        s, _ = self.mb.registration_input(self.uid, "Warangal")
         self.assertEqual(s, "ask_exam")
         s, _ = self.mb.registration_input(self.uid, "1")  # TSPSC
         self.assertEqual(s, "ask_lang")
@@ -59,6 +63,31 @@ class TestMembers(unittest.TestCase):
         self.assertEqual(p["exam"], "TSPSC")
         self.assertEqual(p["lang"], "Telugu")
         self.assertEqual(p["points"], 25)  # registration bonus
+        self.assertIn(p["state"], ("TS", "Telangana"))
+        self.assertEqual(p["district"], "Warangal")
+        self.assertTrue(self.mb.is_registered(self.uid))
+
+    def test_unregistered_is_gated(self):
+        self.assertFalse(self.mb.is_registered(self.uid))
+
+    def test_district_matching(self):
+        from core import districts as D
+        self.assertEqual(D.match_district("TS", "hyd"), "Hyderabad")
+        self.assertEqual(D.match_district("AP", "vijayawada"), "NTR")
+        self.assertEqual(D.match_district("TS", "కరీంనగర్"), "Karimnagar")
+        self.assertIsNone(D.match_district("TS", "mumbai"))
+        self.assertEqual(D.match_state("ఆంధ్ర"), "AP")
+
+    def test_district_board(self):
+        self.mb.register(self.uid, name="A", state="TS", district="Warangal")
+        self.mb.register(self.uid + 1, name="B", state="TS", district="Warangal")
+        self.mb.register(self.uid + 2, name="C", state="AP", district="Guntur")
+        self.mb.award_answer(self.uid + 1, correct=True)
+        board = self.mb.render_district_board()
+        self.assertIn("Warangal", board)
+        top = self.mb.render_district_board("Warangal")
+        self.assertIn("B", top)
+        self.assertNotIn("Guntur", top)
 
     def test_points_correct_answer(self):
         self.mb.register(self.uid, name="T")

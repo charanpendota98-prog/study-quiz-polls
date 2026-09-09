@@ -417,6 +417,66 @@ class Members:
             {"id": "sharp", "icon": "🧠"}, {"id": "champion", "icon": "👑"},
         ]
 
+    def is_registered(self, uid) -> bool:
+        m = self.members.get(str(uid))
+        return bool(m and m.get("registered"))
+
+    # ------------------------------------------------------------ districts
+    def district_board(self, limit=10):
+        """District-wise ranking: total points, members, avg accuracy."""
+        agg = {}
+        for m in self.members.values():
+            d = m.get("district")
+            if not d or not m.get("registered"):
+                continue
+            a = agg.setdefault(d, {"state": m.get("state", ""), "points": 0, "members": 0,
+                                   "correct": 0, "total": 0, "top": ("", 0)})
+            a["points"] += m.get("points", 0)
+            a["members"] += 1
+            a["correct"] += m.get("correct", 0)
+            a["total"] += m.get("total", 0)
+            if m.get("points", 0) > a["top"][1]:
+                a["top"] = (m.get("name") or "player", m.get("points", 0))
+        rows = sorted(agg.items(), key=lambda kv: kv[1]["points"], reverse=True)
+        return rows[:limit]
+
+    def top_in_district(self, district, limit=5):
+        rows = [(uid, m) for uid, m in self.members.items()
+                if m.get("district") == district and m.get("points", 0) > 0]
+        rows.sort(key=lambda kv: kv[1].get("points", 0), reverse=True)
+        return rows[:limit]
+
+    def render_district_board(self, district=None):
+        from . import districts as D
+        if district:
+            rows = self.top_in_district(district)
+            te = D.telugu_name(district)
+            if not rows:
+                return (f"📍 {district} / {te}\nNo scores yet — be the first! /quiz\n"
+                        f"⤷ ఇంకా స్కోర్లు లేవు — మీరే మొదటివారు అవ్వండి!")
+            medals = ["🥇", "🥈", "🥉"]
+            lines = [f"📍 *{district} / {te} — District Toppers*", ""]
+            for i, (uid, m) in enumerate(rows):
+                lvl = level_for(m.get("points", 0))
+                r = medals[i] if i < 3 else f"{i+1}."
+                lines.append(f"{r} {lvl['icon']} {m.get('name') or 'player'} — ⭐{m.get('points',0)}")
+            return "\n".join(lines)
+        board = self.district_board()
+        if not board:
+            return ("🗺 District Leaderboard\nNo district scores yet — /register with your district and play /quiz!\n"
+                    "⤷ /register లో మీ జిల్లా ఇచ్చి /quiz ఆడండి.")
+        medals = ["🥇", "🥈", "🥉"]
+        lines = ["🗺 *District Leaderboard — జిల్లాల ర్యాంకింగ్*", ""]
+        for i, (d, a) in enumerate(board):
+            r = medals[i] if i < 3 else f"{i+1}."
+            acc = round(100 * a["correct"] / a["total"]) if a["total"] else 0
+            st = "TS" if a["state"].startswith("Tel") else ("AP" if a["state"].startswith("Andhra") else "")
+            lines.append(f"{r} {d}{' (' + st + ')' if st else ''} — ⭐{a['points']} · 👥{a['members']} · 🎯{acc}%  "
+                         f"(top: {a['top'][0]})")
+        lines.append("")
+        lines.append("Your district: /district · Join: /register ⭐")
+        return "\n".join(lines)
+
     def render_leaderboard(self, weekly_note=True):
         top = self.top(10)
         if not top:
@@ -455,13 +515,42 @@ class Members:
         if not st:
             return None, None
         text = (text or "").strip()
+        from . import districts as D
         if st["step"] == "name":
+            if len(text) < 2 or len(text) > 60:
+                return "ask_name", "Please send your real name (2–60 letters).\n⤷ మీ పేరు పంపండి:"
             st["name"] = text
+            st["step"] = "state"
+            self.kv.save()
+            return "ask_state", ("📝 Step 2 of 5 — Your state / మీ రాష్ట్రం:\n"
+                                 f"{D.state_list_text()}\n⤷ నంబర్ పంపండి (1/2/3):")
+        if st["step"] == "state":
+            code = D.match_state(text)
+            if not code:
+                return "ask_state", "Send 1 (Telangana), 2 (Andhra Pradesh) or 3 (Other).\n⤷ 1/2/3 పంపండి."
+            st["state_code"] = code
+            st["state"] = D.STATES[code][0] if code in D.STATES else "Other"
+            if code == "OTHER":
+                st["district"] = ""
+                st["step"] = "exam"
+                self.kv.save()
+                exams = "\n".join(f"  {i+1}. {e}" for i, e in enumerate(EXAM_TARGETS))
+                return "ask_exam", ("🎯 Step 4 of 5 — exam target / పరీక్ష లక్ష్యం:\n"
+                                    f"{exams}\n⤷ నంబర్ పంపండి:")
+            st["step"] = "district"
+            self.kv.save()
+            return "ask_district", (f"📍 Step 3 of 5 — Your district / మీ జిల్లా ({st['state']}):\n"
+                                    f"{D.district_list_text(code)}\n⤷ నంబర్ లేదా జిల్లా పేరు పంపండి:")
+        if st["step"] == "district":
+            d = D.match_district(st.get("state_code", ""), text)
+            if not d:
+                return "ask_district", "District not recognised — send the number from the list.\n⤷ జాబితాలోని నంబర్ పంపండి."
+            st["district"] = d
             st["step"] = "exam"
             self.kv.save()
             exams = "\n".join(f"  {i+1}. {e}" for i, e in enumerate(EXAM_TARGETS))
-            return "ask_exam", ("🎯 Choose your exam target — send the number or name:\n"
-                                f"{exams}\n⤷ మీ పరీక్ష లక్ష్యాన్ని ఎంచుకోండి (నంబర్ పంపండి):")
+            return "ask_exam", (f"✅ {d} / {D.telugu_name(d)}\n\n🎯 Step 4 of 5 — exam target / పరీక్ష లక్ష్యం:\n"
+                                f"{exams}\n⤷ నంబర్ పంపండి:")
         if st["step"] == "exam":
             exam = self._match_exam(text)
             if not exam:
@@ -470,14 +559,16 @@ class Members:
             st["step"] = "lang"
             self.kv.save()
             langs = "\n".join(f"  {i+1}. {l}" for i, l in enumerate(LANGUAGES))
-            return "ask_lang", ("🗣 Choose language — send number or name:\n"
+            return "ask_lang", ("🗣 Step 5 of 5 — language / భాష:\n"
                                 f"{langs}\n⤷ భాష ఎంచుకోండి:")
         if st["step"] == "lang":
             lang = self._match_lang(text)
             if not lang:
                 return "ask_lang", "Please send 1, 2 or 3 (English / Telugu / Both)."
             self.register(uid, name=st.get("name"), exam=st.get("exam"),
-                          lang=lang, username=st.get("username", ""))
+                          lang=lang, username=st.get("username", ""),
+                          state=st.get("state", ""), district=st.get("district", ""),
+                          source="bot")
             self.pending.pop(str(uid), None)
             self.kv.save()
             p = self.profile(uid)
