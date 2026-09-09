@@ -102,11 +102,17 @@ class Members:
                 m.setdefault(k, v if v is not None else "")
         if not m.get("follow"):
             m["follow"] = list(dict.fromkeys([exam_channel(m.get("exam", "")), "CURRENT"]))
-        if not m["registered"]:
+        first = not m["registered"]
+        if first:
             m["registered"] = True
             m["registered_at"] = now_iso()
             m["points"] += 25  # registration bonus
         self.kv.save()
+        try:                       # mirror to Google Sheet CRM (no-op if not configured)
+            from . import crm
+            crm.push_member(uid, m)
+        except Exception as e:
+            print(f"   [members] crm note: {e}")
         return m
 
     # ------------------------------------------------------------ points
@@ -559,6 +565,10 @@ class Members:
                 rounds.pop(k, None)
         self.kv.save()
         return e
+
+    def sync_sheet_all(self):
+        from . import crm
+        return crm.push_all(self.members)
 
     def round_top(self, round_id, channel_key, limit=10):
         ch = self.data.get("rounds", {}).get(round_id, {}).get("by_channel", {}).get(channel_key, {})

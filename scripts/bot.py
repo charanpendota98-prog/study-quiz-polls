@@ -6,6 +6,7 @@ Long-polls getUpdates. Member registration, points, levels, ranks, leaderboard.
 Commands:
   /start, /help       welcome (EN + Telugu)
   /register           one-time sign-up (name -> district -> mobile) = +25 pts
+  /crm /export /syncsheet /broadcast   admin: member database, CSV, Google Sheet, segment DM
   /exam <name>        change exam target   /follow <channels>  which rounds come to your DM
   /district [name]    your district toppers   /districts  TS/AP district leaderboard
   /quiz [channel]     one NON-anonymous PYQ-first practice poll (earns points)
@@ -22,6 +23,7 @@ Usage:
   python3 bot.py           # production long-poll loop
   python3 bot.py --dry
 """
+from datetime import datetime
 import sys
 import time
 import argparse
@@ -322,6 +324,49 @@ class Bot:
         elif low.startswith("/rank") or low.startswith("/leaderboard") or low.startswith("/top"):
             self.tg.send_message(chat_id, self.members.render_leaderboard(),
                                  parse_mode="Markdown")
+        elif low.startswith("/crm") or low.startswith("/export") or low.startswith("/broadcast") \
+                or low.startswith("/syncsheet"):
+            if config.ADMIN_ID and str(uid) != str(config.ADMIN_ID):
+                self.tg.send_message(chat_id, "🔒 Admin only.\n⤷ అడ్మిన్ కోసం మాత్రమే.")
+                return
+            from core import crm
+            if low.startswith("/crm"):
+                self.tg.send_message(chat_id, crm.segment_summary(self.members.members), parse_mode="Markdown")
+            elif low.startswith("/syncsheet"):
+                n = self.members.sync_sheet_all()
+                self.tg.send_message(chat_id, f"📊 Sheet sync: {n} members pushed." if crm.sheet_enabled()
+                                     else "⚠️ SHEET_WEBAPP_URL not set — see docs/sheet_webapp.gs")
+            elif low.startswith("/export"):
+                data = crm.export_csv(self.members.members)
+                fn = f"studentup_members_{datetime.now(config.IST):%Y%m%d}.csv"
+                self.tg.send_document(chat_id, fn, data,
+                                      caption=f"👥 {self.members.count_form()} registered members — name, mobile, district, exam, points")
+            else:
+                # /broadcast district=Warangal exam=TSPSC <message text>
+                seg_part, _, msg = text.partition("\n") if "\n" in text else (text, "", "")
+                seg = crm.parse_segment(seg_part)
+                if not msg:
+                    # allow one-line form: /broadcast key=val key=val message words…
+                    words = text.split()[1:]
+                    kv = [w for w in words if "=" in w]
+                    msg = " ".join(w for w in words if "=" not in w)
+                    seg = crm.parse_segment(" ".join(kv))
+                if not msg.strip():
+                    self.tg.send_message(chat_id, "Usage:\n/broadcast district=Warangal exam=TSPSC active=7 mobile=yes\n<message>\n"
+                                                  "Filters optional: district, state (TS/AP), exam, active=<days>, minpoints, mobile=yes")
+                    return
+                targets = crm.select(self.members.members, seg)
+                sent = 0
+                for t in targets:
+                    try:
+                        self.tg.send_message(t, msg)
+                        sent += 1
+                    except TelegramError:
+                        self.members.mark_blocked(t)
+                    if sent % 25 == 0:
+                        import time as _t
+                        _t.sleep(1.2)
+                self.tg.send_message(chat_id, f"📣 Broadcast sent to {sent}/{len(targets)} members (segment: {seg or 'all'})")
         elif low.startswith("/members") or low.startswith("/count"):
             n_bot = self.members.count()
             n_all = self.members.count_form()

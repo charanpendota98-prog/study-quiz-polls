@@ -149,10 +149,18 @@ class Engine:
                     self.tg.send_message(config.channel_chat_id(ch),
                                          build_round_report(qs, round_label or "", config.CHANNELS[ch], stats))
                 # 🏆 Top-10 with name + district (registered members only)
-                top = self._members.reload().render_round_top(round_id, ch, round_label or "",
-                                                              config.CHANNELS[ch])
+                mem = self._members.reload()
+                top = mem.render_round_top(round_id, ch, round_label or "", config.CHANNELS[ch])
                 if top:
                     self.tg.send_message(config.channel_chat_id(ch), top)
+                    try:   # history of winners + refreshed member stats → Google Sheet
+                        from . import crm
+                        rows, _n = mem.round_top(round_id, ch)
+                        crm.push_round_top(round_id, ch, rows)
+                        for r in rows:
+                            crm.push_member(r["uid"], mem.members.get(str(r["uid"]), {}))
+                    except Exception as e:
+                        print(f"   [slot] crm note: {e}")
             except TelegramError as e:
                 print(f"   [slot] {ch} closer failed: {e}")
             self.tg.polite_gap(not self.dry)

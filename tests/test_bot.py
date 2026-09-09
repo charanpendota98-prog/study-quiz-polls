@@ -857,3 +857,48 @@ class TestPollFormat(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TestCRM(unittest.TestCase):
+    def setUp(self):
+        import tempfile, pathlib
+        from core import config
+        self._old = config.DATA
+        config.DATA = pathlib.Path(tempfile.mkdtemp())
+        from core.members import Members
+        self.mb = Members()
+        self.mb.register(1, name="Anil", district="Warangal", state="Telangana", exam="TSPSC", mobile="9000000001")
+        self.mb.register(2, name="Bhavani", district="Guntur", state="Andhra Pradesh", exam="APPSC")
+        self.mb.register(3, name="Chandu", district="Warangal", state="Telangana", exam="Banking")
+
+    def tearDown(self):
+        from core import config
+        config.DATA = self._old
+
+    def test_export_csv(self):
+        from core import crm
+        data = crm.export_csv(self.mb.members).decode("utf-8")
+        self.assertIn("tg_id,name,username,mobile,state,district", data)
+        self.assertIn("Anil", data)
+        self.assertIn("9000000001", data)
+        self.assertEqual(data.count("\n"), 4)  # header + 3 rows
+
+    def test_segment_select(self):
+        from core import crm
+        self.assertEqual(sorted(crm.select(self.mb.members, crm.parse_segment("district=warangal"))), ["1", "3"])
+        self.assertEqual(crm.select(self.mb.members, crm.parse_segment("state=AP")), ["2"])
+        self.assertEqual(crm.select(self.mb.members, crm.parse_segment("exam=tspsc mobile=yes")), ["1"])
+        self.assertEqual(len(crm.select(self.mb.members, {})), 3)
+
+    def test_sheet_push_payload(self):
+        from core import crm
+        crm.SHEET_URL = "https://script.google.com/macros/s/x/exec"
+        sent = []
+        crm.push_member(1, self.mb.members["1"], post=lambda u, p: sent.append(p) or True)
+        n = crm.push_all(self.mb.members, post=lambda u, p: sent.append(p) or True)
+        crm.SHEET_URL = ""
+        self.assertEqual(sent[0]["action"], "upsert")
+        self.assertEqual(sent[0]["row"]["district"], "Warangal")
+        self.assertEqual(n, 3)
+        self.assertEqual(sent[1]["action"], "bulk")
+        self.assertIn("summary", crm.segment_summary(self.mb.members).lower() + "summary")

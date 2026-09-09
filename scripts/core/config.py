@@ -88,6 +88,9 @@ DRY = env("STUDENTUP_DRY", "").lower() in ("1", "true", "yes")
 # Google Form for rich registration (phone/district/WhatsApp). Put your form URL
 # in env/.env as FORM_URL=... In-bot /register handles points; this handles
 # growth + detailed analytics. See forms/GOOGLE_FORM_BLUEPRINT.md.
+# Member CRM → Google Sheet (Apps Script web app, see docs/sheet_webapp.gs)
+SHEET_WEBAPP_URL = env("SHEET_WEBAPP_URL", "")
+SHEET_SECRET = env("SHEET_SECRET", "")
 FORM_URL = env("FORM_URL", "https://forms.gle/your-studentup-registration")
 
 # ---------------------------------------------------------------------------

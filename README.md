@@ -402,3 +402,14 @@ Weekly leaderboard (`/leaderboard`), daily streaks with 7-day celebrations,
 - After the round closes the channel gets a **🏆 Top-10 post with name + district** (e.g. `🥇 Anil · Warangal (వరంగల్) — 9/10`).
 - `/exam APPSC` changes target; `/follow TSPSC BANKING` picks which channel rounds arrive in DM;
   `/district`, `/districts` show district leaderboards. `REQUIRE_REGISTRATION=0` disables the gate.
+
+## Member CRM (reusable for every future project)
+Registered members are a permanent asset, not just for this channel:
+- **Google Sheet live sync** — every registration / round result is upserted into your own Sheet
+  (`members` + `rounds` tabs). One-time setup: paste `docs/sheet_webapp.gs` into Apps Script, deploy as
+  web app, set `SHEET_WEBAPP_URL` + `SHEET_SECRET` in `.env`. No Google API keys needed.
+- `/export` (admin) → CSV of all members (name, mobile, district, state, exam, points…), Excel-safe UTF-8.
+- `/crm` (admin) → counts by state / district / exam, mobile coverage.
+- `/broadcast district=Warangal exam=TSPSC active=7 mobile=yes <message>` (admin) → targeted DM to a
+  segment (new channel launch, job alert, event, prize). Blocked users auto-skipped.
+- `/syncsheet` (admin) → push the whole member base to the Sheet again.

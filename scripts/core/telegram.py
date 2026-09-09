@@ -125,6 +125,26 @@ class Telegram:
             payload["explanation"] = explanation[:config.TG_POLL_EXPLANATION_MAX]
         return self._call("sendPoll", payload)
 
+    def send_document(self, chat_id: str, filename: str, data: bytes, caption: str = "") -> dict:
+        """Upload a small file (CSV export) via multipart/form-data — stdlib only."""
+        if self.dry:
+            print(f"   [DRY] sendDocument -> {chat_id} :: {filename} ({len(data)} bytes)")
+            return {"ok": True, "result": {}}
+        import uuid
+        boundary = "----StudentUp" + uuid.uuid4().hex
+        parts = []
+        for k, v in (("chat_id", str(chat_id)), ("caption", caption[:1000])):
+            parts.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"{k}\"\r\n\r\n{v}\r\n".encode())
+        parts.append((f"--{boundary}\r\nContent-Disposition: form-data; name=\"document\"; "
+                      f"filename=\"{filename}\"\r\nContent-Type: text/csv\r\n\r\n").encode() + data + b"\r\n")
+        parts.append(f"--{boundary}--\r\n".encode())
+        body = b"".join(parts)
+        import urllib.request
+        req = urllib.request.Request(API.format(token=self.token, method="sendDocument"), data=body,
+                                     headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return json.loads(r.read().decode("utf-8"))
+
     def send_message(self, chat_id: str, text: str, disable_preview: bool = True,
                      parse_mode: str = "") -> dict:
         payload = {"chat_id": chat_id, "text": text[:config.TG_MSG_MAX],
