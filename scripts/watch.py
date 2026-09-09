@@ -151,6 +151,14 @@ def tick(eng, now, dry=False):
             elif meta.get("when") != "sunday":
                 eng.weekly_leaderboard(); ran.append("leaderboard")
 
+    # People-features (bot DMs + CURRENT hub only)
+    if hhmm == "20:30":
+        eng.streak_nudge(); ran.append("streak-nudge")
+    if hhmm == "21:40":
+        eng.daily_champions(); ran.append("champions")
+    if hhmm == "20:00" and now.weekday() == 6:
+        eng.district_cup(); ran.append("district-cup")
+
     rem = due_reminders(hhmm)
     if rem is not None:
         eng.reminder(rem); ran.append(f"reminder-{rem}")

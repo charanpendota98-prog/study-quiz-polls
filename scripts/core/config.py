@@ -314,6 +314,10 @@ PACED_ROUNDS = env("PACED_ROUNDS", "1").lower() not in ("0", "false", "no", "off
 # REQUIRE_REGISTRATION=1: /quiz in the bot works only after the 5-step form
 # (name, state, district, exam, language) — profile saved in data/members.json.
 REQUIRE_REGISTRATION = env("REQUIRE_REGISTRATION", "1").lower() not in ("0", "false", "no", "off")
+# Where the daily champions / district cup posts go (people-content, not polls).
+# Default: CURRENT hub only, so exam channels stay 100% polls.
+CHAMPION_CHANNELS = [c.strip().upper() for c in env("CHAMPION_CHANNELS", "CURRENT").split(",") if c.strip()]
+BOT_USERNAME = env("BOT_USERNAME", "")
 PUBLIC_POLLS_ONLY = env("PUBLIC_POLLS_ONLY", "1").lower() not in ("0", "false", "no", "off")
 QUIZ_PACE_SEC = {
     "easy": int(env("PACE_EASY_SEC", "60") or 60),

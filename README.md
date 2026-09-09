@@ -413,3 +413,14 @@ Registered members are a permanent asset, not just for this channel:
 - `/broadcast district=Warangal exam=TSPSC active=7 mobile=yes <message>` (admin) → targeted DM to a
   segment (new channel launch, job alert, event, prize). Blocked users auto-skipped.
 - `/syncsheet` (admin) → push the whole member base to the Sheet again.
+
+## Engagement engine (why people come back daily)
+| When | What | Where |
+|---|---|---|
+| After every round | 🏆 Top-10 with **name + district**, 👑 District of the round, ⚔️ rivalry line | that quiz channel |
+| After every round | 📊 Personal round card: score, rank, district rank, percentile, streak, next level, weak topics | player DM |
+| 20:30 daily | 🔥 Streak-at-risk nudge (played yesterday, not today) | player DM |
+| 21:40 daily | 🌟 Today's Champions (all rounds combined) | `CHAMPION_CHANNELS` (default CURRENT hub) |
+| Sunday 20:00 | 🏆 Weekly District Cup (TS/AP districts ranked) | `CHAMPION_CHANNELS` |
+| Any time | `/invite` referral link → +20 pts per new registration (`BOT_USERNAME` in .env) | bot |
+Exam channels remain polls + round summaries only; people-content goes to the hub channel and DMs.

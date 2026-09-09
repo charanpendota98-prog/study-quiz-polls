@@ -8,6 +8,7 @@ Commands:
   /register           one-time sign-up (name -> district -> mobile) = +25 pts
   /crm /export /syncsheet /broadcast   admin: member database, CSV, Google Sheet, segment DM
   /exam <name>        change exam target   /follow <channels>  which rounds come to your DM
+  /invite             referral link (+20 pts per friend)
   /district [name]    your district toppers   /districts  TS/AP district leaderboard
   /quiz [channel]     one NON-anonymous PYQ-first practice poll (earns points)
   /coach [channel]    a friendly expert reasoning/aptitude trick (EN+Telugu)
@@ -150,6 +151,14 @@ class Bot:
                                         q.get("topic", ""))
             self._save_polls()
 
+    def _me_username(self):
+        if getattr(self, "_me", None) is None:
+            try:
+                self._me = (self.tg._call("getMe", {}) or {}).get("result", {}).get("username", "")
+            except Exception:
+                self._me = ""
+        return self._me
+
     def _round_polls(self):
         from core.store import load_json
         import time as _t
@@ -217,7 +226,18 @@ class Bot:
         if low.startswith("/start"):
             linked = self.members.link_if_pending(uid, self._name(who),
                                                   name=who.get("first_name", ""))
+            # deep link: t.me/<bot>?start=ref<uid>
+            arg = text.split(maxsplit=1)[1] if len(text.split()) > 1 else ""
+            if arg.startswith("ref") and arg[3:].isdigit() and uid:
+                if self.members.add_referral(uid, arg[3:]):
+                    try:
+                        self.tg.send_message(arg[3:], "🎁 Your friend joined via your link — +20 points!\n⤷ మీ ఫ్రెండ్ join అయ్యారు — +20 పాయింట్లు!")
+                    except TelegramError:
+                        pass
             self.tg.send_message(chat_id, WELCOME, parse_mode="Markdown")
+            if uid and not self.members.is_registered(uid) and not self.members.pending_step(uid):
+                self.members.start_registration(uid, username=self._name(who))
+                self.tg.send_message(chat_id, FIRST_TIME_ASK)
             if linked:
                 self.tg.send_message(
                     chat_id, "✅ Found your Google-Form registration — linked! "
@@ -279,6 +299,14 @@ class Bot:
             else:
                 f = self.members.set_follow(uid, chans)
                 self.tg.send_message(chat_id, f"🔔 Following rounds: {', '.join(f)}\n⤷ ఈ ఛానల్ రౌండ్లు మీకు ఇక్కడ వస్తాయి.")
+        elif low.startswith("/invite") or low.startswith("/refer"):
+            bu = config.BOT_USERNAME or (self._me_username() or "")
+            link = f"https://t.me/{bu}?start=ref{uid}" if bu else "(set BOT_USERNAME in .env)"
+            p = self.members.profile(uid) or {}
+            self.tg.send_message(chat_id,
+                f"🎁 Invite friends — each new registration = +20 points for you.\n"
+                f"⤷ ఫ్రెండ్స్‌ని పిలవండి — ఒక్కొక్కరికి +20 పాయింట్లు.\n\n{link}\n\n"
+                f"Referrals so far: {p.get('referrals', 0)}")
         elif low.startswith("/districts"):
             self.tg.send_message(chat_id, self.members.render_district_board(), parse_mode="Markdown")
         elif low.startswith("/district"):

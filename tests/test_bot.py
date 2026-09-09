@@ -902,3 +902,53 @@ class TestCRM(unittest.TestCase):
         self.assertEqual(n, 3)
         self.assertEqual(sent[1]["action"], "bulk")
         self.assertIn("summary", crm.segment_summary(self.mb.members).lower() + "summary")
+
+
+class TestRoundIntel(unittest.TestCase):
+    def setUp(self):
+        import tempfile, pathlib
+        from core import config
+        self._old = config.DATA
+        config.DATA = pathlib.Path(tempfile.mkdtemp())
+        from core.members import Members, _day
+        self.mb = Members()
+        self.rid = _day().replace("-", "") + "-0730"
+        for i, (n, d) in enumerate([("Anil", "Warangal"), ("Bhavani", "Guntur"), ("Chandu", "Warangal"), ("Devi", "Guntur")]):
+            self.mb.register(100 + i, name=n, district=d, state="TS", exam="TSPSC")
+        sc = {100: [1, 1, 1], 101: [1, 1, 0], 102: [1, 0, 0], 103: [1, 1, 1]}
+        for uid, arr in sc.items():
+            for k, c in enumerate(arr):
+                self.mb.record_round_answer(uid, self.rid, "TSPSC", bool(c), qid=f"q{k}")
+
+    def tearDown(self):
+        from core import config
+        config.DATA = self._old
+
+    def test_personal_card(self):
+        card = self.mb.personal_round_card(101, self.rid, "TSPSC", "Morning")
+        self.assertIn("Score 2/3", card)
+        self.assertIn("Rank #3 of 4", card)
+        self.assertIn("Guntur", card)
+        self.assertEqual(self.mb.personal_round_card(999, self.rid, "TSPSC"), "")
+
+    def test_district_of_round_and_top(self):
+        dor = self.mb.district_of_round(self.rid, "TSPSC")
+        self.assertEqual(dor["district"], "Guntur")   # 5/6 vs Warangal 4/6
+        top = self.mb.render_round_top(self.rid, "TSPSC", "Morning")
+        self.assertIn("District of the round: Guntur", top)
+        self.assertIn("Rivalry", top)
+
+    def test_daily_champions_and_cup(self):
+        txt = self.mb.render_daily_champions()
+        self.assertIn("Champions", txt)
+        self.assertIn("Anil", txt)
+        cup = self.mb.weekly_district_cup()
+        self.assertTrue(cup.startswith("🏆 District Cup"))
+        self.assertIn("Guntur", cup.splitlines()[2])
+
+    def test_referral(self):
+        self.assertTrue(self.mb.add_referral(555, 100))
+        self.assertFalse(self.mb.add_referral(555, 101))   # only once
+        self.assertFalse(self.mb.add_referral(100, 100))   # self
+        self.assertEqual(self.mb.members["100"]["referrals"], 1)
+        self.assertEqual(self.mb.members["100"]["points"], 25 + 20)

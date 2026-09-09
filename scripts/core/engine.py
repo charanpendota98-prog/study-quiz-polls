@@ -153,6 +153,7 @@ class Engine:
                 top = mem.render_round_top(round_id, ch, round_label or "", config.CHANNELS[ch])
                 if top:
                     self.tg.send_message(config.channel_chat_id(ch), top)
+                    self._dm_round_cards(mem, round_id, ch, round_label or "")
                     try:   # history of winners + refreshed member stats → Google Sheet
                         from . import crm
                         rows, _n = mem.round_top(round_id, ch)
@@ -233,6 +234,70 @@ class Engine:
         except Exception as e:
             print(f"   [mirror] save note: {e}")
         return sent
+
+    def _dm_round_cards(self, mem, round_id, ch, label):
+        """Personal report card to every registered player of this round."""
+        sent = 0
+        for uid in list(mem.round_players(round_id, ch).keys()):
+            card = mem.personal_round_card(uid, round_id, ch, label)
+            if not card:
+                continue
+            try:
+                self.tg.send_message(uid, card)
+                sent += 1
+            except TelegramError:
+                mem.mark_blocked(uid)
+            if sent % 20 == 0:
+                time.sleep(0 if self.dry else 1.1)
+        if sent:
+            print(f"   [slot] {ch}: {sent} personal round cards sent")
+
+    def daily_champions(self):
+        """21:35 — one post per public channel? No: polls-only rule → post to
+        CURRENT only (it is the GK/all-exams hub) + Sheet. Others stay clean."""
+        mem = Members()
+        text = mem.render_daily_champions()
+        if not text:
+            print("[champions] nothing today")
+            return 0
+        targets = getattr(config, "CHAMPION_CHANNELS", ["CURRENT"])
+        for ch in targets:
+            try:
+                self.tg.send_message(config.channel_chat_id(ch), text)
+            except TelegramError as e:
+                print(f"   [champions] {ch} failed: {e}")
+        return 1
+
+    def district_cup(self):
+        """Sunday — weekly district championship."""
+        mem = Members()
+        text = mem.weekly_district_cup()
+        if not text:
+            return 0
+        for ch in getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
+            try:
+                self.tg.send_message(config.channel_chat_id(ch), text)
+            except TelegramError as e:
+                print(f"   [cup] {ch} failed: {e}")
+        return 1
+
+    def streak_nudge(self):
+        """Evening DM to members whose streak will break if they skip today."""
+        mem = Members()
+        n = 0
+        for uid in mem.streak_at_risk():
+            m = mem.members[str(uid)]
+            msg = (f"🔥 {m.get('name') or ''}, మీ {m['streak']}-day streak ఈరోజు break అవుతుంది!\n"
+                   f"Your {m['streak']}-day streak ends tonight — one /quiz keeps it alive (+bonus).")
+            try:
+                self.tg.send_message(uid, msg)
+                n += 1
+            except TelegramError:
+                mem.mark_blocked(uid)
+            if n % 20 == 0:
+                time.sleep(0 if self.dry else 1.1)
+        print(f"[streak-nudge] {n} sent")
+        return n
 
     def _poll_stats_for(self, qs):
         """{qid: {correct, total}} from the leaderboard's poll registry when

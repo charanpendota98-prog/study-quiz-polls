@@ -607,10 +607,172 @@ class Members:
         if dist_count:
             top_d = sorted(dist_count.items(), key=lambda kv: -kv[1])[:5]
             lines += ["", "📍 జిల్లాలు / Districts: " + " · ".join(f"{d} {n}" for d, n in top_d)]
+        dor = self.district_of_round(round_id, channel_key)
+        if dor:
+            lines.append(f"👑 District of the round: {dor['district']} ({D.telugu_name(dor['district'])}) — "
+                         f"{dor['avg']}% avg · {dor['players']} players")
+        if len(top_d := sorted(dist_count.items(), key=lambda kv: -kv[1])) >= 2 and top_d[0][1] == top_d[1][1]:
+            lines.append(f"⚔️ Rivalry: {top_d[0][0]} vs {top_d[1][0]} — tied! రేపు తేలుద్దాం.")
         lines += ["", "మీ పేరు + జిల్లా ఇక్కడ రావాలంటే → bot లో /start, ఒక్కసారి register 📝",
                   "Your name & district here → /start in our bot, register once ✅"]
         return "\n".join(lines)
 
+
+    # ------------------------------------------------------------ advanced round intel
+    def round_players(self, round_id, channel_key):
+        return self.data.get("rounds", {}).get(round_id, {}).get("by_channel", {}).get(channel_key, {})
+
+    def personal_round_card(self, uid, round_id, channel_key, round_label=""):
+        """Private DM report after a round: score, rank, district rank, percentile,
+        streak, next-level distance — the 'why I come back tomorrow' message."""
+        from . import districts as D
+        players = self.round_players(round_id, channel_key)
+        e = players.get(str(uid))
+        m = self.members.get(str(uid))
+        if not e or not m:
+            return ""
+        rows, n = self.round_top(round_id, channel_key, limit=10_000)
+        rank = next((i + 1 for i, r in enumerate(rows) if str(r["uid"]) == str(uid)), None)
+        pct = round(100 * (1 - (rank - 1) / max(n, 1))) if rank else 0
+        d = m.get("district", "")
+        d_rows = [r for r in rows if r["district"] == d] if d else []
+        d_rank = next((i + 1 for i, r in enumerate(d_rows) if str(r["uid"]) == str(uid)), None)
+        lvl = level_for(m.get("points", 0))
+        nxt = next((t for t, *_ in LEVELS if t > m.get("points", 0)), None)
+        label = f"{round_label} " if round_label else ""
+        score = f"{e['correct']}/{e['total']}"
+        mood = ("🔥 Outstanding!" if e["total"] and e["correct"] / e["total"] >= 0.9 else
+                "👏 Strong round" if e["total"] and e["correct"] / e["total"] >= 0.7 else
+                "💪 Keep going — PYQ practice pays")
+        lines = [f"📊 {label}Round card — {m.get('name') or 'you'}",
+                 f"✅ Score {score} · {mood}",
+                 f"🏅 Rank #{rank} of {n} players (top {max(100 - pct, 1)}%)"]
+        if d and d_rank:
+            lines.append(f"📍 {d} ({D.telugu_name(d)}) rank: #{d_rank} of {len(d_rows)}")
+            if d_rank == 1 and len(d_rows) > 1:
+                lines.append(f"👑 మీ జిల్లాలో మీరే టాపర్! You topped {d}!")
+        lines.append(f"⭐ Points {m.get('points', 0)} · {lvl['icon']} {lvl['title_en']}"
+                     + (f" · next level in {nxt - m.get('points', 0)} pts" if nxt else " · MAX level"))
+        if m.get("streak", 0) >= 2:
+            lines.append(f"🔥 Streak {m['streak']} days — రేపు కూడా ఆడితే {m['streak'] + 1}!")
+        else:
+            lines.append("🔥 Play again tomorrow to start a streak (+bonus points)")
+        weak = self._weak_topics(m)
+        if weak:
+            lines.append("🎯 Focus: " + ", ".join(t.title() for t in weak[:3]) + " → /review")
+        lines.append("Invite friends: /invite · District board: /district")
+        return "\n".join(lines)
+
+    def _weak_topics(self, m, min_total=2):
+        rows = [(t, v) for t, v in (m.get("topics") or {}).items() if v.get("total", 0) >= min_total]
+        rows.sort(key=lambda kv: (kv[1]["correct"] / max(kv[1]["total"], 1), -kv[1]["total"]))
+        return [t for t, v in rows if v["correct"] / max(v["total"], 1) < 0.6][:5]
+
+    def district_of_round(self, round_id, channel_key, min_players=2):
+        """District with the best average score this round (>= min_players)."""
+        rows, _ = self.round_top(round_id, channel_key, limit=10_000)
+        agg = {}
+        for r in rows:
+            if not r["district"]:
+                continue
+            a = agg.setdefault(r["district"], [0, 0, 0])
+            a[0] += r["correct"]; a[1] += r["total"]; a[2] += 1
+        best = [(d, c / max(t, 1), n) for d, (c, t, n) in agg.items() if n >= min_players]
+        if not best:
+            return None
+        best.sort(key=lambda x: (-x[1], -x[2]))
+        d, avg, n = best[0]
+        return {"district": d, "avg": round(100 * avg), "players": n}
+
+    def daily_champions(self, day=None, limit=10):
+        """Aggregate all rounds of a day → top scorers with district."""
+        day = day or _day()
+        agg = {}
+        for rid, r in self.data.get("rounds", {}).items():
+            if not rid.startswith(day.replace("-", "")):
+                continue
+            for ch, players in r.get("by_channel", {}).items():
+                for uid, e in players.items():
+                    a = agg.setdefault(uid, [0, 0, 0])
+                    a[0] += e["correct"]; a[1] += e["total"]; a[2] += 1
+        rows = []
+        for uid, (c, t, rounds) in agg.items():
+            m = self.members.get(str(uid)) or {}
+            if not m.get("registered"):
+                continue
+            rows.append({"uid": uid, "name": m.get("name") or "Player", "district": m.get("district", ""),
+                         "correct": c, "total": t, "rounds": rounds, "points": m.get("points", 0)})
+        rows.sort(key=lambda r: (-r["correct"], r["total"]))
+        return rows[:limit], len(agg)
+
+    def render_daily_champions(self, day=None):
+        from . import districts as D
+        rows, n = self.daily_champions(day)
+        if not rows:
+            return ""
+        medals = ["🥇", "🥈", "🥉"] + [f"{i}." for i in range(4, 11)]
+        lines = [f"🌟 Today's Champions — ఈరోజు ఛాంపియన్స్ ({(day or _day())})",
+                 f"👥 {n} players across all rounds", ""]
+        for i, r in enumerate(rows):
+            d = f" · {r['district']} ({D.telugu_name(r['district'])})" if r["district"] else ""
+            lines.append(f"{medals[i]} {r['name'][:24]}{d} — {r['correct']}/{r['total']} · {r['rounds']} rounds")
+        lines += ["", "రేపు మీ పేరు ఇక్కడ ఉండాలంటే — ప్రతి రౌండ్ ఆడండి 🔥",
+                  "Register once in our bot: /start ✅"]
+        return "\n".join(lines)
+
+    def weekly_district_cup(self, limit=10):
+        """District championship: sum of correct answers in last 7 days, with
+        per-player average so big districts don't automatically win."""
+        from . import districts as D
+        from datetime import timedelta
+        since = (datetime.now(config.IST) - timedelta(days=7)).strftime("%Y%m%d")
+        agg = {}
+        for rid, r in self.data.get("rounds", {}).items():
+            if rid[:8] < since:
+                continue
+            for ch, players in r.get("by_channel", {}).items():
+                for uid, e in players.items():
+                    m = self.members.get(str(uid)) or {}
+                    d = m.get("district")
+                    if not d:
+                        continue
+                    a = agg.setdefault(d, {"correct": 0, "total": 0, "players": set()})
+                    a["correct"] += e["correct"]; a["total"] += e["total"]; a["players"].add(uid)
+        rows = [(d, a["correct"], a["total"], len(a["players"])) for d, a in agg.items()]
+        rows.sort(key=lambda x: (-x[1], -x[3]))
+        if not rows:
+            return ""
+        lines = ["🏆 District Cup — వారపు జిల్లా ఛాంపియన్‌షిప్", ""]
+        medals = ["🥇", "🥈", "🥉"] + [f"{i}." for i in range(4, limit + 1)]
+        for i, (d, c, t, n) in enumerate(rows[:limit]):
+            acc = round(100 * c / max(t, 1))
+            lines.append(f"{medals[i]} {d} ({D.telugu_name(d)}) — {c} ✅ · {n} players · {acc}% acc")
+        lines += ["", "మీ జిల్లా ఎక్కడ? ఫ్రెండ్స్‌ని పిలవండి 👉 /invite",
+                  "Where is your district? Bring friends — register once in our bot ✅"]
+        return "\n".join(lines)
+
+    def streak_at_risk(self):
+        """Members who played yesterday but not today (for evening nudge)."""
+        from datetime import timedelta
+        today = _day()
+        yday = _day(datetime.now(config.IST) - timedelta(days=1))
+        return [uid for uid, m in self.members.items()
+                if m.get("registered") and not m.get("dm_blocked")
+                and m.get("last_active") == yday and m.get("streak", 0) >= 2]
+
+    def add_referral(self, new_uid, ref_uid):
+        """+20 pts to the referrer when a NEW member registers via their link."""
+        if str(new_uid) == str(ref_uid) or str(ref_uid) not in self.members:
+            return False
+        m = self._get(new_uid)
+        if m.get("referred_by"):
+            return False
+        m["referred_by"] = str(ref_uid)
+        r = self._get(ref_uid)
+        r["referrals"] = r.get("referrals", 0) + 1
+        r["points"] = r.get("points", 0) + 20
+        self.kv.save()
+        return True
 
     # ------------------------------------------------------------ register flow
     def start_registration(self, uid, username=""):
