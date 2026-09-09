@@ -96,6 +96,28 @@ def difficulty_of(q: dict) -> str:
     return "easy"
 
 
+def pace_seconds(q: dict) -> int:
+    """Exam-hall timer for one question: difficulty-based, with reasoning /
+    quant questions given the longer slot (they need working)."""
+    from . import config
+    pace = getattr(config, "QUIZ_PACE_SEC", {"easy": 60, "medium": 75, "hard": 90})
+    d = difficulty_of(q)
+    secs = int(pace.get(d, 60))
+    if d == "medium" and subject_of(q) in ("reasoning", "quant"):
+        secs = int(pace.get("hard", 90))
+    return max(30, min(secs, 600))
+
+
+def pace_label(q: dict) -> str:
+    """'⚡ Easy • ⏱ 1 min' style badge (Telugu-friendly, short)."""
+    d = difficulty_of(q)
+    icon = {"easy": "⚡ Easy", "medium": "🔶 Medium", "hard": "🔥 Hard"}[d]
+    secs = pace_seconds(q)
+    mins = secs / 60
+    t = f"{int(mins)} min" if mins == int(mins) else f"{mins:.1f} min"
+    return f"{icon} • ⏱ {t}"
+
+
 # ---------------------------------------------------------------------------
 # Round composition
 # ---------------------------------------------------------------------------

@@ -299,6 +299,32 @@ class TestTeluguSources(unittest.TestCase):
         self.assertEqual(qs[0]["answer_index"], 1)
         self.assertEqual(len(qs[0]["options_en"]), 4)
 
+    def test_paced_round_timing(self):
+        from core.blueprint import pace_seconds, pace_label
+        easy = {"q_en": "Capital of Telangana?", "options_en": ["A", "B", "C", "D"], "topic": "gk"}
+        hard = {"q_en": "Consider the following statements: 1. x 2. y 3. z. Which of the above are correct with respect to the Governor?", "options_en": ["1 and 2 only", "2 and 3 only", "1 and 3 only", "1, 2 and 3"], "topic": "polity"}
+        self.assertEqual(pace_seconds(easy), 60)
+        self.assertEqual(pace_seconds(hard), 90)
+        self.assertIn("⏱ 1 min", pace_label(easy))
+        self.assertIn("1.5 min", pace_label(hard))
+        # reasoning medium gets the long slot (needs working)
+        med = {"q_en": "In a certain code MOBILE is written as NPCJMF. How is PHONE coded?", "options_en": ["QIPOF", "QIPPF", "QJPOF", "OGNMD"], "topic": "reasoning - coding"}
+        self.assertEqual(pace_seconds(med), 90)
+
+    def test_two_reminders_only(self):
+        self.assertEqual(tuple(config.REMINDER_BEFORE_MIN), (5, 1))
+        import watch
+        self.assertEqual(watch.due_reminders("07:25"), 5)
+        self.assertEqual(watch.due_reminders("07:29"), 1)
+        self.assertIsNone(watch.due_reminders("07:20"))
+
+    def test_question_header_has_position_and_badge(self):
+        from core.content import build_question_text
+        q = {"q_en": "Capital of Telangana?", "q_te": "తెలంగాణ రాజధాని?", "topic": "gk"}
+        t = build_question_text(q, {"emoji": "📘", "subject": "TSPSC"}, position="Q 3/10", badge="⚡ Easy • ⏱ 1 min")
+        self.assertIn("Q 3/10 • ⚡ Easy • ⏱ 1 min", t)
+        self.assertLessEqual(len(t), 300)
+
     def test_schedule_has_nightly_backfill(self):
         self.assertIn("backfill", {v[0] for v in config.SCHEDULE.values()})
 

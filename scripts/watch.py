@@ -5,7 +5,7 @@ STUDENTUP — MASTER WATCH SERVICE (systemd: studentup.service)
 
 Schedule (IST):
   04:45  deep source audit (content-gated; auto-pause/enable sources)
-  05:30 / 07:40 / 08:15 / 11:00 / 16:00 / 19:40 / 20:15 / 22:30  collector
+  05:30 / 07:45 / 08:15 / 11:00 / 16:00 / 19:45 / 20:15 / 22:30  collector
   06:00  filler top-up
   07:00  morning greeting
   07:30 / 19:30  quiz slots (10 polls x 7 channels)
@@ -13,7 +13,7 @@ Schedule (IST):
   14:30  study tip
   21:30  CA digest
   every :00 / :30   jobs update (private channel)
-  10/5/1 min before each quiz slot  reminders
+  5/1 min before each quiz slot    reminders (T-5 preview, T-1 start)
 
 Modes:
   python3 watch.py            # run forever (production)
@@ -53,7 +53,7 @@ def current_hhmm(now):
 
 
 def due_reminders(hhmm):
-    """Return reminder lead-minutes if hhmm is 10/5/1 min before a quiz slot."""
+    """Return reminder lead-minutes if hhmm is 5 or 1 min before a quiz slot."""
     h, m = map(int, hhmm.split(":"))
     now_min = h * 60 + m
     for slot in QUIZ_SLOTS:

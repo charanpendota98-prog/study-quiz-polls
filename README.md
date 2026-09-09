@@ -21,7 +21,7 @@ Defence (NDA/CDS/Agniveer), and Current Affairs GK** — plus a private
 | 🎯 **Exam-paper sources only** | Quiz questions come **only** from exam-aligned sources (`pyq`, `curated`, `llm-gen`, `offline-gen`). **Newspapers and articles never become quiz questions** — news feeds feed the Current-Affairs *digest* only, and soft headlines (opinion/blog/sports/lifestyle/etc.) are filtered out even there. |
 | **Previous-Year Questions first** | Authentic PYQ banks (`data/pyq_bank.json` + `pyq_bank_2.json` + `pyq_bank_3.json` + `pyq_bank_4_ssc.json`, TSPSC/APPSC/RRB/IBPS/SBI/Police/NDA/CDS/SSC patterns, **170 verified bilingual PYQs**) are **prioritised in every round**, then curated, then generated. |
 | 🧑‍🏫 **Daily expert coach lesson** | A friendly, professional expert posts a **reasoning/aptitude shortcut with a worked example** at **12:30 IST** to every channel (`data/coach_lessons.json`, 16 lessons EN+Telugu) — plus `/coach` any time in the bot DM. |
-| 🕷️ **Deep multi-source scraper** | `core/collector.py` pulls fresh exam **quiz/MCQ content from 15 verified-live sources, 8×/day including immediately after each quiz** (`07:40` & `19:40`) — AffairsCloud, InsightsIndia, PracticeMock, Oliveboard, BankersAdda, SSCAdda, CareerPower + **8 deep-crawled IndiaBIX sections** (Aptitude, Verbal/Logical/Non-Verbal Reasoning, GK, Data Interpretation, Verbal Ability, Current Affairs) via a dedicated adapter. Browser fetching, retries, **robots.txt**, polite pacing, seen-URL paging, index pagination, per-site parsers & **LLM-API Telugu translation**. Everything merges into the same validated, no-repeat bank. |
+| 🕷️ **Deep multi-source scraper** | `core/collector.py` pulls fresh exam **quiz/MCQ content from 15 verified-live sources, 8×/day including immediately after each quiz** (`07:45` & `19:45`) — AffairsCloud, InsightsIndia, PracticeMock, Oliveboard, BankersAdda, SSCAdda, CareerPower + **8 deep-crawled IndiaBIX sections** (Aptitude, Verbal/Logical/Non-Verbal Reasoning, GK, Data Interpretation, Verbal Ability, Current Affairs) via a dedicated adapter. Browser fetching, retries, **robots.txt**, polite pacing, seen-URL paging, index pagination, per-site parsers & **LLM-API Telugu translation**. Everything merges into the same validated, no-repeat bank. |
 | 🗂️ **Central source registry + auto-auditor** | **187 sources in ONE registry** (`data/collector_sources.json` v4.0): 15 audited-live, 81 candidates (auto-enable), 91 archive/dead tracked. `scripts/audit_sources.py` daily (04:45) checks every source **with a content gate** (feed must be live *and* return quiz-matching items): dead sources auto-pause/disable after 3 failures, genuinely-fresh candidates auto-enable. No junk, no guesses. Regenerate the registry with `scripts/rebuild_registry.py`. |
 | **Member registration** | `/register` guided sign-up (name → exam target → language), +25 bonus points. Members stored in `data/members.json`. |
 | **Points, levels & ranks** | +10 per correct answer, +5 daily activity, streak bonuses (3/7/15/30/100 days), levels 🆕→🥉→🥈→🥇→💎→👑 Champion, weekly + all-time leaderboards. |
@@ -34,7 +34,9 @@ Defence (NDA/CDS/Agniveer), and Current Affairs GK** — plus a private
 | **Never silent** | If feeds/LLM/network fail → curated CA, curated jobs, PYQ and offline quizzes keep every round live. Atomic JSON, no database. |
 | **Smart round selection** | PYQ-first ordering + topic diversity + answer-key balance (never all-A) + rotation. |
 | **Validation gate** | `finalize.py` machine-checks every question before deploy. 28 tests including answer-correctness proofs. |
-| **Telegram-safe pacing** | 2.2–3.2 s gaps; no links in public; IST scheduler with 10/5/1-min reminders. |
+| **Exam-hall paced rounds** | One question at a time in every channel (lockstep across channels): ⚡ easy 60 s · 🔶 medium 75 s · 🔥 hard / reasoning / aptitude 90 s; each poll shows `Q 3/10 • 🔥 Hard • ⏱ 1.5 min`; next question posts only after the timer. 10 Q ≈ 13 min. `PACED_ROUNDS=0` = old burst mode. |
+| **Professional alerts** | Exactly two: **T-5** round preview (questions, subjects, pace) and **T-1** "starting now". No 10-min spam. |
+| **Telegram-safe pacing** | 2.2–3.2 s gaps; no links in public; IST scheduler. |
 
 ### 🧠 Adaptive learning (100x mode)
 - **Weak-topic detection** — the bot tracks each member's per-topic accuracy and
@@ -92,7 +94,7 @@ the bot (matched by Telegram @username) — no duplicate accounts.
 |---|---|
 | 01:30 | **Backfill sweep** — walks every live source 5× deeper + ingests harvested PDFs until the 90-day archive is covered (`data/collector_backfill.json`) |
 | 04:45 | **Deep source audit** — content-gated check of all 303 registry sources; auto-pause dead, auto-enable fresh candidates |
-| 🕷️ **05:30 / 07:40 / 08:15 / 11:00 / 16:00 / 19:40 / 20:15 / 22:30** | **Deep multi-source scraping (8× daily)** — fresh quizzes from websites/apps/APIs, translated & validated; **07:40 & 19:40 run immediately after each quiz round** |
+| 🕷️ **05:30 / 07:45 / 08:15 / 11:00 / 16:00 / 19:45 / 20:15 / 22:30** | **Deep multi-source scraping (8× daily)** — fresh quizzes from websites/apps/APIs, translated & validated; **07:45 & 19:45 run immediately after each quiz round** |
 | 06:00 | Auto top-up question bank if any pool runs low |
 | 07:00 | Morning greeting + today's schedule (all 7 public channels) |
 | **⛅ 07:30** | **Morning quiz round** — 10 bilingual PYQ-first polls per channel |

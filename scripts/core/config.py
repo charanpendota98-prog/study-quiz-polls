@@ -238,7 +238,7 @@ def channel_chat_id(key: str) -> str:
 # Add a line (e.g. "13:30": ("quiz", {"slot": 3})) to add more rounds anytime.
 SCHEDULE = {
     # Deep multi-source exam-quiz scraping — runs all day AND twice
-    # immediately after each quiz round (07:40 / 19:40), so fresh exam
+    # immediately after each quiz round (07:45 / 19:45), so fresh exam
     # content is collected right after every round. Small polite batches +
     # seen-URL tracking mean each run pages forward to NEW content.
     # Failing sources auto-pause via collector_health.json; the 04:45 auditor
@@ -250,7 +250,7 @@ SCHEDULE = {
     "07:00": ("morning", {}),
     "07:30": ("quiz", {"slot": 1, "round": "Morning ⛅"}),
     "08:00": ("answer_key", {"round": "Morning ⛅"}),  # delayed key (no-op if instant)
-    "07:40": ("collect", {"reason": "post-morning-quiz"}),
+    "07:45": ("collect", {"reason": "post-morning-quiz"}),   # after the ~13-min paced round
     "08:15": ("collect", {"reason": "post-morning deep scrape"}),
     "11:00": ("collect", {"reason": "late-morning scrape"}),
     "12:30": ("coach", {}),        # daily expert reasoning/aptitude trick
@@ -258,7 +258,7 @@ SCHEDULE = {
     "16:00": ("collect", {"reason": "pre-evening top-up scrape"}),
     "19:30": ("quiz", {"slot": 2, "round": "Evening 🌙"}),
     "20:00": ("answer_key", {"round": "Evening 🌙"}),  # delayed key (no-op if instant)
-    "19:40": ("collect", {"reason": "post-evening-quiz"}),
+    "19:45": ("collect", {"reason": "post-evening-quiz"}),   # after the ~13-min paced round
     "20:15": ("collect", {"reason": "post-evening deep scrape"}),
     "21:00": ("leaderboard", {"when": "sunday"}),   # weekly toppers, Sunday only
     "21:30": ("digest", {}),
@@ -269,8 +269,9 @@ SCHEDULE = {
 QUIZ_SLOT_TIMES = ["07:30", "19:30"]
 QUIZ_SLOT_HOURS = {t.split(":")[0]: 0 for t in []}  # placeholder
 
-# Reminders fire 10 / 5 / 1 minutes before each quiz slot.
-REMINDER_BEFORE_MIN = (10, 5, 1)
+# Reminders: exactly TWO professional alerts — 5 min before (round preview)
+# and 1 min before ("starting now"). No 10-min spam.
+REMINDER_BEFORE_MIN = (5, 1)
 
 # Jobs every 30 minutes (:00 / :30) — handled specially by watch loop.
 JOBS_INTERVAL_MIN = 30
@@ -291,7 +292,23 @@ TELUGU_FIRST = env("TELUGU_FIRST", "1").lower() not in ("0", "false", "no", "off
 ANSWER_MODE = (env("ANSWER_MODE", "instant") or "instant").strip().lower()
 if ANSWER_MODE not in ("instant", "delayed"):
     ANSWER_MODE = "instant"
-QUIZ_OPEN_PERIOD = int(env("QUIZ_OPEN_PERIOD", "300") or "300")  # seconds poll stays open
+QUIZ_OPEN_PERIOD = int(env("QUIZ_OPEN_PERIOD", "300") or "300")  # legacy default (unpaced)
+
+# ---------------------------------------------------------------------------
+# PACED ROUNDS (exam-hall timing) — one question at a time, not a dump.
+# Every question is posted alone, stays open for a difficulty-based timer
+# and the next one is posted only after the timer ends:
+#   easy 60 s · medium 75 s · hard 90 s   (reasoning/quant hard = 90 s)
+# 10 questions ≈ 12–13 min per round, exactly like a sectional mock.
+# PACED_ROUNDS=0 restores the old burst mode.
+# ---------------------------------------------------------------------------
+PACED_ROUNDS = env("PACED_ROUNDS", "1").lower() not in ("0", "false", "no", "off")
+QUIZ_PACE_SEC = {
+    "easy": int(env("PACE_EASY_SEC", "60") or 60),
+    "medium": int(env("PACE_MEDIUM_SEC", "75") or 75),
+    "hard": int(env("PACE_HARD_SEC", "90") or 90),
+}
+PACE_BUFFER_SEC = 4          # breathing gap after a poll closes before the next
 
 # Telegram limits
 TG_POLL_OPTION_MAX = 100    # chars per option

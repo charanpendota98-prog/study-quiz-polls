@@ -167,17 +167,21 @@ def _clamp(text: str, limit: int) -> str:
     return text[: limit - 1].rstrip() + "…"
 
 
-def build_question_text(q: dict, channel_cfg: dict, telugu_first: bool = True) -> str:
+def build_question_text(q: dict, channel_cfg: dict, telugu_first: bool = True,
+                        position: str = "", badge: str = "") -> str:
     """
     Compose the poll question (≤300 chars).
     Telugu-first (default for TS/AP aspirants):
-      {emoji} {subject} • {topic}
+      {emoji} {subject} • {topic}            ← + "Q 3/10 • 🔥 Hard • ⏱ 1.5 min" in paced rounds
       {Telugu question}
       {English question}
     """
     en = (q.get("q_en") or "").strip()
     te = (q.get("q_te") or "").lstrip("⤷").strip()
     header = f"{channel_cfg['emoji']} {channel_cfg['subject']} • {q.get('topic','').title()}"
+    meta = " • ".join(x for x in (position, badge) if x)
+    if meta:
+        header += f"\n{meta}"
     if telugu_first and te:
         body = f"{te}"
         if en:

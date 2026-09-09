@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import random
 import json
+import time
 from datetime import datetime
 
 from . import config
@@ -20,6 +21,7 @@ from .content import (build_question_text, build_options, build_explanation,
 from .leaderboard import Leaderboard
 from .members import Members
 from .store import load_json
+from .blueprint import pace_seconds, pace_label, difficulty_of, subject_of, round_profile
 
 
 WEEKDAYS_TE = ["సోమవారం", "మంగళవారం", "బుధవారం", "గురువారం", "శుక్రవారం", "శనివారం", "ఆదివారం"]
@@ -49,19 +51,26 @@ class Engine:
                 print(f"   [filler] top-up note: {e}")
 
     # ------------------------------------------------------------- quizzes
-    def send_quiz(self, channel_key, q):
+    @staticmethod
+    def _paced():
+        return bool(getattr(config, "PACED_ROUNDS", True))
+
+    def send_quiz(self, channel_key, q, position="", open_period=None):
         cfg = config.CHANNELS[channel_key]
         chat = config.channel_chat_id(channel_key)
         tf = bool(getattr(config, "TELUGU_FIRST", True))
-        text = build_question_text(q, cfg, telugu_first=tf)
+        badge = pace_label(q) if self._paced() else ""
+        text = build_question_text(q, cfg, telugu_first=tf, position=position, badge=badge)
         opts = build_options(q, telugu_first=tf)
         expl = build_explanation(q, telugu_first=tf)
         # Instant = show explanation with poll; delayed = withhold for answer-key post
         instant = getattr(config, "ANSWER_MODE", "instant") != "delayed"
+        if open_period is None:
+            open_period = pace_seconds(q) if self._paced() else getattr(config, "QUIZ_OPEN_PERIOD", 300)
         try:
             res = self.tg.send_quiz(
                 chat, text, opts, q["answer_index"], expl,
-                open_period=getattr(config, "QUIZ_OPEN_PERIOD", 300),
+                open_period=open_period,
                 with_explanation=instant,
             )
             poll = res.get("result", {}).get("poll") or {}
@@ -80,45 +89,53 @@ class Engine:
         # Track this round's questions so a delayed answer-key can be posted later.
         self._last_round = {"label": round_label or "", "by_channel": {}}
         delayed = getattr(config, "ANSWER_MODE", "instant") == "delayed"
+        paced = self._paced()
+        mode_note = ("సమాధానాలు రౌండ్ తర్వాత — answer key after round 🔑"
+                     if delayed else
+                     "సరైన/తప్పు వెంటనే — instant ✅/❌ feedback")
+        # 1) compose every channel's round up front
+        rounds = {}
         for ch in channels:
             qs = self.bank.pick(ch, config.POLLS_PER_SLOT)
             if not qs:
                 print(f"   [slot] {ch}: no questions available")
                 continue
+            rounds[ch] = qs
             self._last_round["by_channel"][ch] = qs
+        if not rounds:
+            return 0
+        # 2) openers
+        for ch, qs in rounds.items():
             cfg = config.CHANNELS[ch]
             n_pyq = sum(1 for q in qs if q.get("source") == "pyq")
-            mode_note = ("సమాధానాలు రౌండ్ తర్వాత — answer key after round 🔑"
-                         if delayed else
-                         "సరైన/తప్పు వెంటనే — instant ✅/❌ feedback")
-            # slot opener (Telugu-first)
-            opener = (f"{cfg['emoji']} {label}{cfg['subject']} — Quiz Round!\n"
-                      f"📝 {len(qs)} ప్రశ్నలు — వాటిలో {n_pyq} PYQ (మునుపటి ప్రశ్నపత్రాలు).\n"
-                      f"{len(qs)} questions — including {n_pyq} previous-paper (PYQ).\n"
-                      f"{mode_note}\n"
-                      f"Play in our bot group with /quiz to earn points & ranks! ⭐")
+            total_secs = sum(pace_seconds(q) + config.PACE_BUFFER_SEC for q in qs) if paced else 0
+            opener = self._round_opener(cfg, label, qs, n_pyq, mode_note, paced, total_secs)
             try:
                 self.tg.send_message(config.channel_chat_id(ch), opener)
             except TelegramError as e:
                 print(f"   [slot] {ch} opener failed: {e}")
-            for i, q in enumerate(qs, 1):
-                ok = self.send_quiz(ch, q)
+            self.tg.polite_gap(not self.dry)
+        # 3) questions — all channels move in LOCKSTEP: Q1 goes to every
+        #    channel, then we wait for the longest timer among them, then Q2…
+        #    So every channel gets true one-question-at-a-time pacing and the
+        #    whole slot still finishes in ~13 min instead of 8 × 13.
+        n_max = max(len(qs) for qs in rounds.values())
+        for i in range(n_max):
+            step_secs = 0
+            for ch, qs in rounds.items():
+                if i >= len(qs):
+                    continue
+                q = qs[i]
+                ok = self.send_quiz(ch, q, position=f"Q {i + 1}/{len(qs)}")
                 total += 1 if ok else 0
-                if i < len(qs):
-                    self.tg.polite_gap(not self.dry)
-            # completion message
-            if delayed:
-                done = (f"🎌 Round complete! {len(qs)} questions done.\n"
-                        f"🔑 Answer key posts shortly — సమాధానాలు కాసేపట్లో.\n"
-                        f"10/10 కొట్టినవారు కామెంట్‌లో 👇 రాయండి!\n"
-                        f"Points & ranks: /register in our quiz bot ⭐")
-            else:
-                done = (f"🎌 Round complete! {len(qs)} questions done.\n"
-                        f"10/10 కొట్టినవారు కామెంట్‌లో 👇 రాయండి!\n"
-                        f"Want points, ranks & streaks? Register with /register in our quiz bot ⭐\n"
-                        f"Next round: see the daily schedule. Keep your streak 🔥")
+                step_secs = max(step_secs, pace_seconds(q))
+                self.tg.polite_gap(not self.dry)
+            if paced:
+                self._pace_wait(step_secs + config.PACE_BUFFER_SEC)
+        # 4) closers
+        for ch, qs in rounds.items():
             try:
-                self.tg.send_message(config.channel_chat_id(ch), done)
+                self.tg.send_message(config.channel_chat_id(ch), self._round_closer(qs, delayed))
             except TelegramError as e:
                 print(f"   [slot] {ch} closer failed: {e}")
             self.tg.polite_gap(not self.dry)
@@ -144,6 +161,53 @@ class Engine:
         print(f"[slot] posted {total} polls across {len(channels)} channels "
               f"(mode={getattr(config, 'ANSWER_MODE', 'instant')})")
         return total
+
+    # ------------------------------------------------- paced-round helpers
+    def _pace_wait(self, secs: int):
+        """Sleep for one question's timer (skipped in dry/test runs)."""
+        if self.dry:
+            return
+        time.sleep(max(0, int(secs)))
+
+    @staticmethod
+    def _fmt_min(secs: int) -> str:
+        m = max(1, round(secs / 60))
+        return f"{m} min"
+
+    @staticmethod
+    def _subject_line(qs) -> str:
+        """'GK 5 · Reasoning 3 · Aptitude 2' — what this round covers."""
+        names = {"gk": "GK", "reasoning": "Reasoning", "quant": "Aptitude", "english": "English"}
+        prof = round_profile(qs)
+        subs = prof.get("subjects") or {}
+        parts = [f"{names.get(k, k.title())} {v}" for k, v in
+                 sorted(subs.items(), key=lambda kv: -kv[1]) if v]
+        return " · ".join(parts)
+
+    def _round_opener(self, cfg, label, qs, n_pyq, mode_note, paced, total_secs):
+        diff = round_profile(qs).get("difficulty") or {}
+        n_hard = diff.get("hard", 0)
+        lines = [f"{cfg['emoji']} {label}{cfg['subject']} — Quiz Round 📋",
+                 f"📝 {len(qs)} ప్రశ్నలు · {n_pyq} PYQ · {n_hard} hard",
+                 f"📚 {self._subject_line(qs)}"]
+        if paced:
+            lines += [f"⏱ ఒక్కో ప్రశ్న 1–1.5 నిమిషాలు (easy 1 · hard 1.5) — "
+                      f"one question at a time, exam-hall pace",
+                      f"🕒 Round ≈ {self._fmt_min(total_secs)}"]
+        lines += [mode_note,
+                  "Points & ranks: /quiz in our bot group ⭐"]
+        return "\n".join(lines)
+
+    @staticmethod
+    def _round_closer(qs, delayed):
+        head = f"🎌 Round complete — {len(qs)} questions done."
+        if delayed:
+            return (f"{head}\n🔑 Answer key posts shortly — సమాధానాలు కాసేపట్లో.\n"
+                    f"10/10 కొట్టినవారు కామెంట్‌లో 👇 రాయండి!\n"
+                    f"Points & ranks: /register in our quiz bot ⭐")
+        return (f"{head}\n10/10 కొట్టినవారు కామెంట్‌లో 👇 రాయండి!\n"
+                f"Points, ranks & streaks: /register in our quiz bot ⭐\n"
+                f"Next round: see the daily schedule. Keep your streak 🔥")
 
     def post_answer_key(self, round_label: str = "", channels=None):
         """Post the delayed bilingual answer key (no-op when ANSWER_MODE=instant)."""
@@ -265,10 +329,19 @@ class Engine:
 
     # ----------------------------------------------------------- reminder
     def reminder(self, slot_minutes):
+        """Two professional alerts only: T-5 (round preview) and T-1 (starting)."""
+        n = config.POLLS_PER_SLOT
         for ch in config.PUBLIC_CHANNELS:
             cfg = config.CHANNELS[ch]
-            msg = (f"⏰ {cfg['emoji']} Quiz starts in {slot_minutes} min!\n"
-                   f"క్విజ్ {slot_minutes} నిమిషాల్లో మొదలవుతుంది — ready? 🔥")
+            if slot_minutes >= 5:
+                msg = (f"🔔 {cfg['emoji']} {cfg['subject']} Quiz — {slot_minutes} నిమిషాల్లో\n"
+                       f"📋 {n} questions · exam-hall pace · one at a time\n"
+                       f"⏱ 1 min easy · 1.5 min hard — పెన్ను, పేపర్ సిద్ధం చేసుకోండి\n"
+                       f"Starts in {slot_minutes} min. Be ready ✍️")
+            else:
+                msg = (f"🚀 {cfg['emoji']} {cfg['subject']} Quiz — 1 నిమిషంలో మొదలు!\n"
+                       f"Starting in 1 minute. Q1 arrives at the top of the minute. "
+                       f"All the best 🔥")
             try:
                 self.tg.send_message(config.channel_chat_id(ch), msg)
             except TelegramError as e:
