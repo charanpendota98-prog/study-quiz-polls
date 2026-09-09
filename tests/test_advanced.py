@@ -8,6 +8,7 @@ Run:  python3 -m unittest -v tests.test_advanced
 """
 import sys
 import unittest
+import pathlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -324,6 +325,88 @@ class TestTeluguSources(unittest.TestCase):
         t = build_question_text(q, {"emoji": "📘", "subject": "TSPSC"}, position="Q 3/10", badge="⚡ Easy • ⏱ 1 min")
         self.assertIn("Q 3/10 • ⚡ Easy • ⏱ 1 min", t)
         self.assertLessEqual(len(t), 300)
+
+    # ------------------------------------------------------------ jobs desk
+    def _fx(self, name):
+        return (pathlib.Path(__file__).parent / name).read_text(encoding="utf-8")
+
+    def test_jobs_fja_table_and_filter(self):
+        from core import jobs
+        J = jobs.parse_fja_table(self._fx("fixture_fja_table.html"))
+        self.assertEqual(len(J), 4)
+        cats = {j.board: jobs.classify(j.title, f"{j.board} {j.extra.get('section','')}") for j in J}
+        self.assertEqual(cats["IBPS"], (True, "central"))
+        self.assertEqual(cats["NGRI"], (True, "ts-ap"))
+        self.assertEqual(cats["OPSC"][1], "drop:other-state")
+        self.assertEqual(cats["PGIMER"], (True, "central"))
+        ib = [j for j in J if j.board == "IBPS"][0]
+        self.assertEqual(ib.vacancies, "13706")
+        self.assertEqual(ib.last_date, "21-09-2026")
+
+    def test_jobs_fja_article_links_and_card(self):
+        from core import jobs
+        from datetime import date
+        j = jobs.Job(title="PGIMER Nursing Officer – 243 Posts", url="https://www.freejobalert.com/articles/x-1",
+                     source="FreeJobAlert", board="PGIMER", vacancies="243", last_date="03-10-2026",
+                     category="central")
+        jobs.parse_fja_article(self._fx("fixture_fja_article.html"), j)
+        self.assertEqual(j.apply_url, "https://pgimer.edu.in/PGIMER_PORTAL/PGIMERPORTAL/home.jsp")
+        self.assertIn("ViewAll.jsp", j.notification_url)
+        self.assertIn("44,900", j.salary)
+        card = jobs.render_card(j, date(2026, 10, 1))
+        self.assertIn("✅ Apply:", card)
+        self.assertIn("⏳ 2 days left", card)
+        self.assertLessEqual(len(card), 4096)
+
+    def test_jobs_eenadu_telugu(self):
+        from core import jobs
+        E = jobs.parse_eenadu_list(self._fx("fixture_eenadu_jobs.html"))
+        self.assertEqual(len(E), 2)
+        self.assertEqual(jobs.classify(E[0].title, E[0].board), (True, "ts-ap"))
+        e = E[0]
+        jobs.parse_eenadu_article(self._fx("fixture_eenadu_job_article.html"), e)
+        self.assertEqual(e.vacancies, "02")
+        self.assertTrue(e.notification_url.endswith(".pdf"))
+        self.assertIn("dcourts.gov.in", e.official_url)
+        self.assertEqual(jobs.parse_date(e.last_date).isoformat(), "2026-09-30")
+
+    def test_jobs_classifier_edges(self):
+        from core import jobs
+        self.assertEqual(jobs.classify("Infosys Off Campus Drive 2026 for Freshers – Hyderabad")[1], "ts-ap")
+        self.assertEqual(jobs.classify("TCS Walk-in Interview for BPO Executives – Chennai")[1], "walk-in")
+        self.assertFalse(jobs.classify("DAVV B.A.B.Ed Time Table 2026 Out")[0])
+        self.assertFalse(jobs.classify("MP Police Constable Recruitment 2026 – 7500 Posts")[0])
+        self.assertEqual(jobs.classify("SSC CHSL 2026 – 2536 Posts", "Puducherry")[1], "central")
+
+    def test_jobs_run_private_only_and_dedup(self):
+        from core import jobs
+        from datetime import date
+        fx = {jobs.JOB_SOURCES[0][2]: self._fx("fixture_fja_table.html"),
+              "https://www.freejobalert.com/articles/pgimer-nursing-officer-recruitment-2026-apply-online-for-243-posts-3067054":
+                  self._fx("fixture_fja_article.html")}
+        sent = []
+        class TG:
+            def send_message(self, chat, text, **kw): sent.append((chat, text))
+            def polite_gap(self, *a): pass
+        import tempfile, pathlib as _p
+        with tempfile.TemporaryDirectory() as td:
+            jobs.STATE = _p.Path(td) / "jobs_state.json"
+            n = jobs.run(TG(), dry=False, fetch=lambda u: fx.get(u), today=date(2026, 9, 10))
+            self.assertEqual(n, 3)            # OPSC dropped
+            self.assertTrue(all(c == config.channel_chat_id("JOBS") for c, _ in sent))
+            self.assertTrue(sent[0][1].startswith("🟢 TS/AP"))   # TS/AP first
+            sent.clear()
+            n2 = jobs.run(TG(), dry=False, fetch=lambda u: fx.get(u), today=date(2026, 9, 10))
+            self.assertEqual(n2, 0)           # nothing repeated
+
+    def test_public_channels_polls_only(self):
+        from core.engine import Engine
+        self.assertTrue(config.PUBLIC_POLLS_ONLY)
+        eng = Engine(dry=True)
+        sent = []
+        eng.tg.send_message = lambda chat, text, **kw: sent.append(chat)
+        eng.morning(); eng.tip(); eng.coach_broadcast(); eng.digest(); eng.weekly_leaderboard()
+        self.assertEqual(sent, [])
 
     def test_schedule_has_nightly_backfill(self):
         self.assertIn("backfill", {v[0] for v in config.SCHEDULE.values()})

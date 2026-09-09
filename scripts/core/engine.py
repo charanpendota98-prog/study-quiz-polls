@@ -238,7 +238,14 @@ class Engine:
         return posted
 
     # ------------------------------------------------------------ morning
+    @staticmethod
+    def _polls_only() -> bool:
+        return bool(getattr(config, "PUBLIC_POLLS_ONLY", True))
+
     def morning(self):
+        if self._polls_only():
+            print("[morning] skipped (PUBLIC_POLLS_ONLY — quiz channels carry polls only)")
+            return
         now = datetime.now(config.IST)
         wd = WEEKDAYS_TE[now.weekday()]
         sched = ("⛅ 07:30 — Morning quiz round\n🌙 19:30 — Evening quiz round\n"
@@ -259,6 +266,9 @@ class Engine:
 
     # --------------------------------------------------------------- tips
     def tip(self):
+        if self._polls_only():
+            print("[tip] skipped (PUBLIC_POLLS_ONLY)")
+            return
         tips = load_json(config.TIPS_JSON, {"tips": []}).get("tips", [])
         if not tips:
             return
@@ -310,6 +320,9 @@ class Engine:
 
     def coach_broadcast(self):
         """Post today's coaching trick to all public channels (topic-rotated)."""
+        if self._polls_only():
+            print("[coach] skipped (PUBLIC_POLLS_ONLY)")
+            return
         from datetime import datetime
         idx = datetime.now(config.IST).timetuple().tm_yday % 16
         lessons = load_json(config.DATA / "coach_lessons.json",
@@ -368,6 +381,9 @@ class Engine:
         return out[:6]
 
     def digest(self):
+        if self._polls_only():
+            print("[digest] skipped (PUBLIC_POLLS_ONLY)")
+            return []
         items = self._digest_items()
         now = datetime.now(config.IST)
         header = (f"🗞️ Daily Current Affairs — {now.strftime('%d %b %Y')}\n"
@@ -392,6 +408,16 @@ class Engine:
 
     # --------------------------------------------------------------- jobs
     def jobs(self):
+        """Structured job cards → PRIVATE jobs channel only (core/jobs.py).
+        Falls back to the legacy feed digest if the desk raises."""
+        try:
+            from . import jobs as jobsdesk
+            return jobsdesk.run(self.tg, dry=self.dry)
+        except Exception as e:
+            print(f"   [jobs] desk error → legacy digest: {e}")
+        return self._jobs_legacy()
+
+    def _jobs_legacy(self):
         agg = load_json(config.DATA / "aggregated_jobs.json", {"items": []})
         items = [i for i in agg.get("items", []) if i.get("en")]
         cfg = config.CHANNELS["JOBS"]
@@ -429,6 +455,9 @@ class Engine:
 
     def weekly_leaderboard(self, channels=None):
         """Post the points-based weekly member leaderboard to channels."""
+        if self._polls_only() and not channels:
+            print("[weekly-leaderboard] skipped (PUBLIC_POLLS_ONLY)")
+            return
         text = self.members.render_leaderboard()
         targets = channels or ["CURRENT"]
         for ch in targets:

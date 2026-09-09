@@ -303,6 +303,12 @@ QUIZ_OPEN_PERIOD = int(env("QUIZ_OPEN_PERIOD", "300") or "300")  # legacy defaul
 # PACED_ROUNDS=0 restores the old burst mode.
 # ---------------------------------------------------------------------------
 PACED_ROUNDS = env("PACED_ROUNDS", "1").lower() not in ("0", "false", "no", "off")
+
+# PUBLIC_POLLS_ONLY=1 (default): the public quiz channels carry ONLY the quiz
+# rounds (T-5/T-1 alert, opener, polls, closer, answer key). Morning greeting,
+# study tip, coach lesson, CA digest and leaderboard are suppressed there
+# (they still work in the bot group / on demand). Jobs never go public.
+PUBLIC_POLLS_ONLY = env("PUBLIC_POLLS_ONLY", "1").lower() not in ("0", "false", "no", "off")
 QUIZ_PACE_SEC = {
     "easy": int(env("PACE_EASY_SEC", "60") or 60),
     "medium": int(env("PACE_MEDIUM_SEC", "75") or 75),

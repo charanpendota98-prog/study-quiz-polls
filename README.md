@@ -35,6 +35,8 @@ Defence (NDA/CDS/Agniveer), and Current Affairs GK** — plus a private
 | **Smart round selection** | PYQ-first ordering + topic diversity + answer-key balance (never all-A) + rotation. |
 | **Validation gate** | `finalize.py` machine-checks every question before deploy. 28 tests including answer-correctness proofs. |
 | **Exam-hall paced rounds** | One question at a time in every channel (lockstep across channels): ⚡ easy 60 s · 🔶 medium 75 s · 🔥 hard / reasoning / aptitude 90 s; each poll shows `Q 3/10 • 🔥 Hard • ⏱ 1.5 min`; next question posts only after the timer. 10 Q ≈ 13 min. `PACED_ROUNDS=0` = old burst mode. |
+| **Polls-only public channels** | `PUBLIC_POLLS_ONLY=1` (default): quiz channels carry only alerts + rounds. Greeting/tip/coach/digest/leaderboard are suppressed there. |
+| **Jobs Desk (private channel only)** | `core/jobs.py` — structured job cards (Telugu + English) from FreeJobAlert latest-notifications table + RSS, Eenadu Pratibha (govt / walk-ins / private / freshers / scholarships, Telugu), SarkariResult, Sakshi jobs. Filter: TS/AP + Central/All-India + PSU/bank/rail/defence + private/IT/walk-in/outsourcing; other-state-only dropped. Each card: board, posts, vacancies, qualification, age, fee, salary, mode, last date (⏳ days left), **Apply / Notification PDF / Official / Details URLs**. URL+title dedup (7 days), closing-soon re-alert once. Every 30 min. |
 | **Professional alerts** | Exactly two: **T-5** round preview (questions, subjects, pace) and **T-1** "starting now". No 10-min spam. |
 | **Telegram-safe pacing** | 2.2–3.2 s gaps; no links in public; IST scheduler. |
 
