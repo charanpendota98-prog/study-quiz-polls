@@ -12,6 +12,8 @@ Pure JSON (atomic), stdlib only.
 """
 from __future__ import annotations
 
+import re
+
 from datetime import datetime, timedelta
 
 from . import config
@@ -52,6 +54,13 @@ def level_for(points: int):
             "next": next_thresh, "index": idx}
 
 
+def exam_channel(exam):
+    m = {"TSPSC": "TSPSC", "APPSC": "APPSC", "Banking": "BANKING", "Railway": "RAILWAY",
+         "Police": "POLICE", "Defence": "DEFENCE", "SSC": "SSC", "SSC/UPSC": "SSC",
+         "Current Affairs GK": "CURRENT"}
+    return m.get(exam or "", "TSPSC")
+
+
 class Members:
     def __init__(self):
         self.kv = KV(config.DATA / "members.json", default={"members": {}, "pending": {}})
@@ -89,6 +98,10 @@ class Members:
         for k, v in extra.items():
             if v and not m.get(k):
                 m[k] = v
+            else:
+                m.setdefault(k, v if v is not None else "")
+        if not m.get("follow"):
+            m["follow"] = list(dict.fromkeys([exam_channel(m.get("exam", "")), "CURRENT"]))
         if not m["registered"]:
             m["registered"] = True
             m["registered_at"] = now_iso()
@@ -494,6 +507,101 @@ class Members:
         lines.append("Play /quiz in this chat to climb! ⭐ | /register to join.")
         return "\n".join(lines)
 
+    # ------------------------------------------------------------ live rounds
+    # Channel polls are anonymous in Telegram, so the engine mirrors every
+    # round question into registered members' DMs (non-anonymous). Answers
+    # land here, keyed by round_id, and the Top-10 is posted back to the channel.
+    def reload(self):
+        self.kv = KV(config.DATA / "members.json", default={"members": {}, "pending": {}})
+        self.data = self.kv.data
+        self.members = self.data.setdefault("members", {})
+        self.pending = self.data.setdefault("pending", {})
+        self.form_pending = self.data.setdefault("form_pending", {})
+        return self
+
+    def recipients_for(self, channel_key):
+        """Registered members who should receive this channel's round in DM."""
+        out = []
+        for uid, m in self.members.items():
+            if not m.get("registered") or m.get("dm_blocked"):
+                continue
+            follow = m.get("follow") or [exam_channel(m.get("exam", "")), "CURRENT"]
+            if channel_key in follow:
+                out.append(uid)
+        return out
+
+    def set_follow(self, uid, channels):
+        m = self._get(uid)
+        m["follow"] = [c for c in channels if c in config.CHANNELS]
+        self.kv.save()
+        return m["follow"]
+
+    def mark_blocked(self, uid):
+        m = self._get(uid)
+        m["dm_blocked"] = True
+        self.kv.save()
+
+    def record_round_answer(self, uid, round_id, channel_key, correct, qid=""):
+        rounds = self.data.setdefault("rounds", {})
+        r = rounds.setdefault(round_id, {"ts": now_iso(), "by_channel": {}})
+        ch = r["by_channel"].setdefault(channel_key, {})
+        e = ch.setdefault(str(uid), {"correct": 0, "total": 0, "qids": [], "first": now_iso()})
+        if qid and qid in e["qids"]:
+            return e
+        e["total"] += 1
+        e["correct"] += 1 if correct else 0
+        if qid:
+            e["qids"].append(qid)
+        e["last"] = now_iso()
+        # keep only last 60 rounds
+        if len(rounds) > 60:
+            for k in sorted(rounds)[:-60]:
+                rounds.pop(k, None)
+        self.kv.save()
+        return e
+
+    def round_top(self, round_id, channel_key, limit=10):
+        ch = self.data.get("rounds", {}).get(round_id, {}).get("by_channel", {}).get(channel_key, {})
+        rows = []
+        for uid, e in ch.items():
+            m = self.members.get(str(uid)) or {}
+            if not m.get("registered"):
+                continue          # names/districts needed for the public list
+            rows.append({"uid": uid, "name": m.get("name") or m.get("username") or "Player",
+                         "district": m.get("district", ""), "state": m.get("state", ""),
+                         "correct": e["correct"], "total": e["total"],
+                         "points": m.get("points", 0), "first": e.get("first", ""),
+                         "last": e.get("last", "")})
+        # most correct, then fewest attempts, then who finished earliest
+        rows.sort(key=lambda r: (-r["correct"], r["total"], r["last"]))
+        return rows[:limit], len(ch)
+
+    def render_round_top(self, round_id, channel_key, round_label="", cfg=None, limit=10):
+        from . import districts as D
+        rows, n_players = self.round_top(round_id, channel_key, limit)
+        if not rows:
+            return ""
+        medals = ["🥇", "🥈", "🥉"] + [f"{i}." for i in range(4, limit + 1)]
+        head = f"{cfg['emoji']} " if cfg else ""
+        label = f"{round_label} " if round_label else ""
+        lines = [f"{head}🏆 {label}Round — Top {len(rows)} · టాప్ {len(rows)}",
+                 f"👥 {n_players} players · ఆడినవారు {n_players}", ""]
+        dist_count = {}
+        for i, r in enumerate(rows):
+            d = r["district"]
+            dte = D.telugu_name(d) if d else ""
+            place = f" · {d} ({dte})" if d and dte and dte != d else (f" · {d}" if d else "")
+            lines.append(f"{medals[i]} {r['name'][:24]}{place} — {r['correct']}/{r['total']} ✅ · ⭐{r['points']}")
+            if d:
+                dist_count[d] = dist_count.get(d, 0) + 1
+        if dist_count:
+            top_d = sorted(dist_count.items(), key=lambda kv: -kv[1])[:5]
+            lines += ["", "📍 జిల్లాలు / Districts: " + " · ".join(f"{d} {n}" for d, n in top_d)]
+        lines += ["", "మీ పేరు + జిల్లా ఇక్కడ రావాలంటే → bot లో /start, ఒక్కసారి register 📝",
+                  "Your name & district here → /start in our bot, register once ✅"]
+        return "\n".join(lines)
+
+
     # ------------------------------------------------------------ register flow
     def start_registration(self, uid, username=""):
         self.pending[str(uid)] = {"step": "name", "username": username}
@@ -506,10 +614,12 @@ class Members:
         self.pending.pop(str(uid), None)
         self.kv.save()
 
-    def registration_input(self, uid, text):
+    def registration_input(self, uid, text, default_exam=""):
         """
-        Feed a free-text message during registration. Returns (status, reply).
-        status: 'ask_exam' | 'ask_lang' | 'done'
+        One-time, 3-step registration (asked ONCE, never again):
+            name -> district (TS/AP, typed or number) -> mobile (10 digits / skip)
+        Exam target defaults to the channel the member came from (or TSPSC)
+        and can be changed later with /exam. Returns (status, reply).
         """
         st = self.pending.get(str(uid))
         if not st:
@@ -517,64 +627,65 @@ class Members:
         text = (text or "").strip()
         from . import districts as D
         if st["step"] == "name":
-            if len(text) < 2 or len(text) > 60:
-                return "ask_name", "Please send your real name (2–60 letters).\n⤷ మీ పేరు పంపండి:"
+            if len(text) < 2 or len(text) > 60 or text.startswith("/"):
+                return "ask_name", "Please send your real name (2–60 letters).\n⤷ మీ పూర్తి పేరు పంపండి:"
             st["name"] = text
-            st["step"] = "state"
-            self.kv.save()
-            return "ask_state", ("📝 Step 2 of 5 — Your state / మీ రాష్ట్రం:\n"
-                                 f"{D.state_list_text()}\n⤷ నంబర్ పంపండి (1/2/3):")
-        if st["step"] == "state":
-            code = D.match_state(text)
-            if not code:
-                return "ask_state", "Send 1 (Telangana), 2 (Andhra Pradesh) or 3 (Other).\n⤷ 1/2/3 పంపండి."
-            st["state_code"] = code
-            st["state"] = D.STATES[code][0] if code in D.STATES else "Other"
-            if code == "OTHER":
-                st["district"] = ""
-                st["step"] = "exam"
-                self.kv.save()
-                exams = "\n".join(f"  {i+1}. {e}" for i, e in enumerate(EXAM_TARGETS))
-                return "ask_exam", ("🎯 Step 4 of 5 — exam target / పరీక్ష లక్ష్యం:\n"
-                                    f"{exams}\n⤷ నంబర్ పంపండి:")
             st["step"] = "district"
             self.kv.save()
-            return "ask_district", (f"📍 Step 3 of 5 — Your district / మీ జిల్లా ({st['state']}):\n"
-                                    f"{D.district_list_text(code)}\n⤷ నంబర్ లేదా జిల్లా పేరు పంపండి:")
+            return "ask_district", (f"👍 {text}!\n\n📍 Step 2 of 3 — మీ జిల్లా? / Your district?\n"
+                                    "Type the name (e.g. Warangal, Guntur, Hyderabad, Nellore) — TS or AP.\n"
+                                    "⤷ జిల్లా పేరు టైప్ చేయండి (ఉదా: వరంగల్, గుంటూరు):")
         if st["step"] == "district":
-            d = D.match_district(st.get("state_code", ""), text)
+            code, d = D.match_any_district(text)
             if not d:
-                return "ask_district", "District not recognised — send the number from the list.\n⤷ జాబితాలోని నంబర్ పంపండి."
-            st["district"] = d
-            st["step"] = "exam"
+                return "ask_district", ("❓ District not recognised. Send the number or name:\n\n"
+                                        f"🟪 Telangana\n{D.district_list_text('TS')}\n\n"
+                                        f"🟦 Andhra Pradesh\n{D.district_list_text('AP')}\n"
+                                        "⤷ ఉదా: T12 / A5 / వరంగల్")
+            st["state_code"], st["state"], st["district"] = code, D.STATES[code][0], d
+            st["step"] = "mobile"
             self.kv.save()
-            exams = "\n".join(f"  {i+1}. {e}" for i, e in enumerate(EXAM_TARGETS))
-            return "ask_exam", (f"✅ {d} / {D.telugu_name(d)}\n\n🎯 Step 4 of 5 — exam target / పరీక్ష లక్ష్యం:\n"
-                                f"{exams}\n⤷ నంబర్ పంపండి:")
-        if st["step"] == "exam":
-            exam = self._match_exam(text)
-            if not exam:
-                return "ask_exam", "Please send a valid exam number/name (e.g. 1 or TSPSC).\n⤷ సరైన నంబర్ పంపండి."
-            st["exam"] = exam
-            st["step"] = "lang"
-            self.kv.save()
-            langs = "\n".join(f"  {i+1}. {l}" for i, l in enumerate(LANGUAGES))
-            return "ask_lang", ("🗣 Step 5 of 5 — language / భాష:\n"
-                                f"{langs}\n⤷ భాష ఎంచుకోండి:")
-        if st["step"] == "lang":
-            lang = self._match_lang(text)
-            if not lang:
-                return "ask_lang", "Please send 1, 2 or 3 (English / Telugu / Both)."
-            self.register(uid, name=st.get("name"), exam=st.get("exam"),
-                          lang=lang, username=st.get("username", ""),
+            return "ask_mobile", (f"✅ {d} / {D.telugu_name(d)}\n\n📱 Step 3 of 3 — Mobile number (10 digits) "
+                                  "for exam alerts & prizes. Send `skip` to skip.\n"
+                                  "⤷ మొబైల్ నంబర్ పంపండి (లేదా skip):")
+        if st["step"] == "mobile":
+            digits = re.sub(r"\D", "", text)
+            if text.lower() in ("skip", "no", "వద్దు", "-"):
+                mobile = ""
+            elif len(digits) == 12 and digits.startswith("91"):
+                mobile = digits[2:]
+            elif len(digits) == 10 and digits[0] in "6789":
+                mobile = digits
+            else:
+                return "ask_mobile", "Send a valid 10-digit mobile (starts 6–9) or `skip`.\n⤷ సరైన నంబర్ లేదా skip పంపండి."
+            exam = st.get("exam") or default_exam or "TSPSC"
+            self.register(uid, name=st.get("name"), exam=exam, lang="Both",
+                          username=st.get("username", ""),
                           state=st.get("state", ""), district=st.get("district", ""),
-                          source="bot")
+                          mobile=mobile, source="bot")
             self.pending.pop(str(uid), None)
             self.kv.save()
-            p = self.profile(uid)
-            return "done", ("✅ Registration complete! You earned +25 bonus points.\n\n"
+            return "done", ("🎉 Registration complete — +25 bonus points!\n"
+                            "⤷ రిజిస్ట్రేషన్ పూర్తయింది. ఇక మళ్లీ అడగము ✅\n\n"
+                            "Every round your name + district can appear in the channel Top-10 🏆\n"
+                            "⤷ ప్రతి రౌండ్ తర్వాత Top-10 లో మీ పేరు, జిల్లా ఛానల్‌లో వస్తుంది!\n\n"
                             + self.render_profile(uid))
         return None, None
+
+    def register_default_exam(self, uid, exam):
+        st = self.pending.get(str(uid))
+        if st is not None and exam:
+            st["exam"] = exam
+            self.kv.save()
+
+    def set_exam(self, uid, exam):
+        exam = self._match_exam(exam) if exam else None
+        if not exam:
+            return None
+        m = self._get(uid)
+        m["exam"] = exam
+        self.kv.save()
+        return exam
 
     @staticmethod
     def _match_exam(text):

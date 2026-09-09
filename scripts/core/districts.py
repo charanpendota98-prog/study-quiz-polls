@@ -59,7 +59,8 @@ def match_state(text: str):
 
 def district_list_text(state: str) -> str:
     _, _, rows = STATES[state]
-    return "\n".join(f"  {i+1}. {en} / {te}" for i, (en, te) in enumerate(rows))
+    pre = "T" if state == "TS" else ("A" if state == "AP" else "")
+    return "\n".join(f"  {pre}{i+1}. {en} / {te}" for i, (en, te) in enumerate(rows))
 
 
 def match_district(state: str, text: str):
@@ -89,3 +90,19 @@ def telugu_name(district: str) -> str:
             if en == district:
                 return te
     return district
+
+
+def match_any_district(text):
+    """Match against BOTH states. Accepts 'T12'/'A5' list codes, numbers are
+    ambiguous so plain digits try TS then AP. Returns (state_code, district)."""
+    t = (text or "").strip()
+    low = t.lower()
+    if len(low) >= 2 and low[0] in "ta" and low[1:].isdigit():
+        code = "TS" if low[0] == "t" else "AP"
+        d = match_district(code, low[1:])
+        return (code, d) if d else (None, None)
+    for code in ("TS", "AP"):
+        d = match_district(code, t)
+        if d:
+            return code, d
+    return None, None

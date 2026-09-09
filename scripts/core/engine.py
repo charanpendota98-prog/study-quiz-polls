@@ -18,9 +18,9 @@ from .telegram import Telegram, TelegramError
 from .question_bank import Bank
 from .content import (build_question_text, build_options, build_explanation,
                       build_answer_key, build_round_report)
-from .leaderboard import Leaderboard
 from .members import Members
-from .store import load_json
+from .leaderboard import Leaderboard
+from .store import load_json, save_json_atomic
 from .blueprint import pace_seconds, pace_label, difficulty_of, subject_of, round_profile
 
 
@@ -88,6 +88,9 @@ class Engine:
         label = f"{round_label} " if round_label else ""
         # Track this round's questions so a delayed answer-key can be posted later.
         self._last_round = {"label": round_label or "", "by_channel": {}}
+        round_id = datetime.now(config.IST).strftime("%Y%m%d-%H%M")
+        self._members = Members()
+        dm_map = {}       # poll_id -> (round_id, ch, qid, answer_index, uid)
         delayed = getattr(config, "ANSWER_MODE", "instant") == "delayed"
         paced = self._paced()
         mode_note = ("సమాధానాలు రౌండ్ తర్వాత — answer key after round 🔑"
@@ -130,6 +133,9 @@ class Engine:
                 total += 1 if ok else 0
                 step_secs = max(step_secs, pace_seconds(q))
                 self.tg.polite_gap(not self.dry)
+                # Named scoring: channel polls are anonymous, so the same
+                # question also goes to registered members' DMs (named polls).
+                self._mirror_to_members(ch, q, i + 1, len(qs), round_id, dm_map)
             if paced:
                 self._pace_wait(step_secs + config.PACE_BUFFER_SEC)
         # 4) closers + advanced round report (Q-by-Q answers, difficulty,
@@ -142,6 +148,11 @@ class Engine:
                     stats = self._poll_stats_for(qs)
                     self.tg.send_message(config.channel_chat_id(ch),
                                          build_round_report(qs, round_label or "", config.CHANNELS[ch], stats))
+                # 🏆 Top-10 with name + district (registered members only)
+                top = self._members.reload().render_round_top(round_id, ch, round_label or "",
+                                                              config.CHANNELS[ch])
+                if top:
+                    self.tg.send_message(config.channel_chat_id(ch), top)
             except TelegramError as e:
                 print(f"   [slot] {ch} closer failed: {e}")
             self.tg.polite_gap(not self.dry)
@@ -167,6 +178,53 @@ class Engine:
         print(f"[slot] posted {total} polls across {len(channels)} channels "
               f"(mode={getattr(config, 'ANSWER_MODE', 'instant')})")
         return total
+
+    def _mirror_to_members(self, ch, q, pos, n, round_id, dm_map):
+        """Send this round question as a NON-anonymous quiz poll to every
+        registered member following `ch`; record poll->answer map so the bot
+        can score it under round_id."""
+        members = self._members
+        uids = members.recipients_for(ch)
+        if not uids:
+            return 0
+        cfg = config.CHANNELS[ch]
+        tf = bool(getattr(config, "TELUGU_FIRST", True))
+        text = build_question_text(q, cfg, telugu_first=tf, position=f"Q {pos}/{n}")
+        opts = build_options(q, telugu_first=tf)
+        expl = build_explanation(q, telugu_first=tf)
+        sent = 0
+        for uid in uids:
+            payload = {"chat_id": uid, "question": text[:300],
+                       "options": [{"text": o} for o in opts], "type": "quiz",
+                       "is_anonymous": False, "allows_multiple_answers": False,
+                       "correct_option_id": q["answer_index"],
+                       "open_period": pace_seconds(q) if self._paced() else getattr(config, "QUIZ_OPEN_PERIOD", 300)}
+            if expl.strip():
+                payload["explanation"] = expl[:config.TG_POLL_EXPLANATION_MAX]
+            try:
+                res = self.tg._call("sendPoll", payload)
+            except TelegramError as e:
+                if "blocked" in str(e).lower() or "chat not found" in str(e).lower():
+                    members.mark_blocked(uid)
+                continue
+            poll = (res or {}).get("result", {}).get("poll") or {}
+            if poll.get("id"):
+                dm_map[str(poll["id"])] = [round_id, ch, q["id"], int(q["answer_index"]), str(uid), q.get("topic", "")]
+                sent += 1
+            if sent % 20 == 0:
+                time.sleep(0 if self.dry else 1.1)   # ~20 msg/s Telegram limit
+        # merge into the bot's poll registry (shared file)
+        try:
+            path = config.DATA / "round_polls.json"
+            cur = load_json(path, {})
+            cur.update(dm_map)
+            if len(cur) > 5000:
+                for k in list(cur)[:-5000]:
+                    cur.pop(k, None)
+            save_json_atomic(path, cur)
+        except Exception as e:
+            print(f"   [mirror] save note: {e}")
+        return sent
 
     def _poll_stats_for(self, qs):
         """{qid: {correct, total}} from the leaderboard's poll registry when

@@ -34,3 +34,4 @@ data/pdf_inbox/*
 !data/pdf_inbox/README.txt
 data/last_round.json
 data/jobs_state.json
+data/round_polls.json

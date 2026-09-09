@@ -392,3 +392,13 @@ Weekly leaderboard (`/leaderboard`), daily streaks with 7-day celebrations,
 ---
 
 *Built for TS & AP aspirants. 🇮🇳 — Source: StudentUp.*
+
+## Registration & Round Top-10 (name + district)
+- First time a person answers any quiz (bot DM or mirrored round poll) the bot asks a **one-time**
+  3-step registration: **name → district (TS/AP) → mobile (or skip)**. Never asked again; saved in `data/members.json`
+  (Telegram id, name, district, state, mobile, exam target, follow list).
+- During every channel round the engine mirrors each question as a **named** quiz poll to registered
+  members' DMs (channel polls are anonymous). Answers are scored per round.
+- After the round closes the channel gets a **🏆 Top-10 post with name + district** (e.g. `🥇 Anil · Warangal (వరంగల్) — 9/10`).
+- `/exam APPSC` changes target; `/follow TSPSC BANKING` picks which channel rounds arrive in DM;
+  `/district`, `/districts` show district leaderboards. `REQUIRE_REGISTRATION=0` disables the gate.

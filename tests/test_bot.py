@@ -48,24 +48,59 @@ class TestMembers(unittest.TestCase):
 
     def test_registration_flow(self):
         self.mb.start_registration(self.uid, username="tester")
+        self.mb.register_default_exam(self.uid, "APPSC")
         s, _ = self.mb.registration_input(self.uid, "Test User")
-        self.assertEqual(s, "ask_state")
-        s, _ = self.mb.registration_input(self.uid, "1")  # Telangana
         self.assertEqual(s, "ask_district")
+        s, r = self.mb.registration_input(self.uid, "mumbai")
+        self.assertEqual(s, "ask_district")
+        self.assertIn("T1.", r)
         s, _ = self.mb.registration_input(self.uid, "Warangal")
-        self.assertEqual(s, "ask_exam")
-        s, _ = self.mb.registration_input(self.uid, "1")  # TSPSC
-        self.assertEqual(s, "ask_lang")
-        s, _ = self.mb.registration_input(self.uid, "2")  # Telugu
+        self.assertEqual(s, "ask_mobile")
+        s, _ = self.mb.registration_input(self.uid, "12345")
+        self.assertEqual(s, "ask_mobile")
+        s, _ = self.mb.registration_input(self.uid, "+91 98765 43210")
         self.assertEqual(s, "done")
         p = self.mb.profile(self.uid)
         self.assertTrue(p["registered"])
-        self.assertEqual(p["exam"], "TSPSC")
-        self.assertEqual(p["lang"], "Telugu")
-        self.assertEqual(p["points"], 25)  # registration bonus
-        self.assertIn(p["state"], ("TS", "Telangana"))
+        self.assertEqual(p["exam"], "APPSC")
         self.assertEqual(p["district"], "Warangal")
+        self.assertEqual(p["mobile"], "9876543210")
+        self.assertEqual(p["points"], 25)  # registration bonus
+        self.assertIn("APPSC", p["follow"])
         self.assertTrue(self.mb.is_registered(self.uid))
+        self.assertIsNone(self.mb.pending_step(self.uid))  # never asked again
+
+    def test_registration_skip_mobile_and_code(self):
+        self.mb.start_registration(self.uid)
+        self.mb.registration_input(self.uid, "Ravi")
+        s, _ = self.mb.registration_input(self.uid, "A5")
+        self.assertEqual(s, "ask_mobile")
+        s, _ = self.mb.registration_input(self.uid, "skip")
+        self.assertEqual(s, "done")
+        p = self.mb.profile(self.uid)
+        self.assertEqual(p["state"], "Andhra Pradesh")
+        self.assertEqual(p["mobile"], "")
+
+    def test_round_top10(self):
+        for i, (n, d) in enumerate([("Anil", "Warangal"), ("Bhavani", "Guntur"), ("Chandu", "Nellore")]):
+            self.mb.register(self.uid + i, name=n, district=d, state="TS", exam="TSPSC")
+        self.mb.record_round_answer(self.uid, "r1", "TSPSC", True, qid="q1")
+        self.mb.record_round_answer(self.uid, "r1", "TSPSC", True, qid="q2")
+        self.mb.record_round_answer(self.uid + 1, "r1", "TSPSC", True, qid="q1")
+        self.mb.record_round_answer(self.uid + 1, "r1", "TSPSC", False, qid="q2")
+        self.mb.record_round_answer(self.uid + 1, "r1", "TSPSC", False, qid="q2")  # dup ignored
+        self.mb.record_round_answer(self.uid + 2, "r1", "TSPSC", False, qid="q1")
+        self.mb.record_round_answer(999999, "r1", "TSPSC", True, qid="q1")  # unregistered: hidden
+        rows, n = self.mb.round_top("r1", "TSPSC")
+        self.assertEqual(n, 4)
+        self.assertEqual([r["name"] for r in rows], ["Anil", "Bhavani", "Chandu"])
+        self.assertEqual(rows[1]["total"], 2)
+        txt = self.mb.render_round_top("r1", "TSPSC", "Morning")
+        self.assertIn("🥇 Anil · Warangal (వరంగల్) — 2/2", txt)
+        self.assertIn("Guntur", txt)
+        self.assertEqual(self.mb.render_round_top("r1", "APPSC"), "")
+        self.assertIn(self.uid.__str__(), self.mb.recipients_for("TSPSC"))
+        self.assertNotIn(str(self.uid), self.mb.recipients_for("BANKING"))
 
     def test_unregistered_is_gated(self):
         self.assertFalse(self.mb.is_registered(self.uid))

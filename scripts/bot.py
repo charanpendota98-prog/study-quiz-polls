@@ -5,7 +5,8 @@ Long-polls getUpdates. Member registration, points, levels, ranks, leaderboard.
 
 Commands:
   /start, /help       welcome (EN + Telugu)
-  /register           guided sign-up (name -> state -> district -> exam -> language) = +25 pts
+  /register           one-time sign-up (name -> district -> mobile) = +25 pts
+  /exam <name>        change exam target   /follow <channels>  which rounds come to your DM
   /district [name]    your district toppers   /districts  TS/AP district leaderboard
   /quiz [channel]     one NON-anonymous PYQ-first practice poll (earns points)
   /coach [channel]    a friendly expert reasoning/aptitude trick (EN+Telugu)
@@ -45,6 +46,14 @@ WELCOME = (
     "• /leaderboard — top players\n"
     "• /levels — how points & ranks work\n\n"
     "⤷ రిజిస్టర్ చేసుకోండి, రోజూ క్విజ్ ఆడి పాయింట్లు సంపాదించి, ఛాంపియన్‌గా ఎదగండి! 🏆"
+)
+
+FIRST_TIME_ASK = (
+    "👋 First time here? One-time registration (30 seconds) — asked only once, never again.\n"
+    "⤷ మొదటిసారా? ఒక్కసారి రిజిస్టర్ చేసుకోండి — మళ్లీ అడగము.\n\n"
+    "🏆 Registered players' NAME + DISTRICT appear in the channel Top-10 after every round!\n"
+    "⤷ ప్రతి రౌండ్ తర్వాత Top-10 లో మీ పేరు + జిల్లా ఛానల్‌లో పోస్ట్ అవుతుంది!\n\n"
+    "📝 Step 1 of 3 — What is your full name?\n⤷ మీ పూర్తి పేరు పంపండి:"
 )
 
 HELP = (
@@ -139,6 +148,21 @@ class Bot:
                                         q.get("topic", ""))
             self._save_polls()
 
+    def _round_polls(self):
+        from core.store import load_json
+        import time as _t
+        now = _t.time()
+        if now - getattr(self, "_rp_ts", 0) > 5:
+            self._rp = load_json(config.DATA / "round_polls.json", {})
+            self._rp_ts = now
+        return self._rp
+
+    @staticmethod
+    def _channel_to_exam(ch):
+        m = {"TSPSC": "TSPSC", "APPSC": "APPSC", "BANKING": "Banking", "RAILWAY": "Railway",
+             "POLICE": "Police", "DEFENCE": "Defence", "SSC": "SSC/UPSC", "CURRENT": "Current Affairs GK"}
+        return m.get(ch, "TSPSC")
+
     @staticmethod
     def _exam_to_channel(exam):
         m = {"TSPSC": "TSPSC", "APPSC": "APPSC", "Banking": "BANKING",
@@ -215,7 +239,7 @@ class Bot:
             self.members.start_registration(uid, username=self._name(who))
             self.tg.send_message(
                 chat_id,
-                "📝 Registration — step 1 of 5 (name → state → district → exam → language).\nWhat is your full name?\n"
+                "📝 One-time registration (name → district → mobile).\nStep 1 of 3 — What is your full name?\n"
                 "⤷ మీ పూర్తి పేరు పంపండి:")
         elif low.startswith("/cancel"):
             self.members.cancel_registration(uid)
@@ -226,17 +250,33 @@ class Bot:
             if getattr(config, "REQUIRE_REGISTRATION", True) and uid \
                     and not self.members.is_registered(uid):
                 self.members.start_registration(uid, username=self._name(who))
-                self.tg.send_message(
-                    chat_id,
-                    "🔐 First time? Complete the 30-second registration to play & earn points.\n"
-                    "⤷ ఆడటానికి ముందు ఒక్కసారి రిజిస్ట్రేషన్ పూర్తి చేయండి (30 సెకన్లు).\n\n"
-                    "📝 Step 1 of 5 — What is your full name?\n⤷ మీ పూర్తి పేరు పంపండి:")
+                self.tg.send_message(chat_id, FIRST_TIME_ASK)
                 return
             parts = low.split()
             ch = parts[1].upper() if len(parts) > 1 else None
             if ch not in config.PUBLIC_CHANNELS:
                 ch = None
             self.send_quiz_to(chat_id, ch, uid=uid)
+        elif low.startswith("/exam"):
+            parts = text.split(maxsplit=1)
+            if len(parts) < 2:
+                self.tg.send_message(chat_id, "Usage: /exam TSPSC | APPSC | Banking | Railway | Police | Defence | SSC | GK\n⤷ ఉదా: /exam APPSC")
+            else:
+                ex = self.members.set_exam(uid, parts[1])
+                if ex:
+                    self.members.set_follow(uid, [self._exam_to_channel(ex), "CURRENT"])
+                    self.tg.send_message(chat_id, f"🎯 Target updated: {ex}. Round questions for this exam will come to you here.\n⤷ లక్ష్యం మార్చబడింది: {ex}")
+                else:
+                    self.tg.send_message(chat_id, "Exam not recognised. Try /exam TSPSC")
+        elif low.startswith("/follow"):
+            parts = low.split()[1:]
+            chans = [p.upper() for p in parts if p.upper() in config.PUBLIC_CHANNELS]
+            if not chans:
+                self.tg.send_message(chat_id, "Usage: /follow TSPSC APPSC BANKING … (channels whose rounds you want here)\n"
+                                              f"Available: {' '.join(config.PUBLIC_CHANNELS)}")
+            else:
+                f = self.members.set_follow(uid, chans)
+                self.tg.send_message(chat_id, f"🔔 Following rounds: {', '.join(f)}\n⤷ ఈ ఛానల్ రౌండ్లు మీకు ఇక్కడ వస్తాయి.")
         elif low.startswith("/districts"):
             self.tg.send_message(chat_id, self.members.render_district_board(), parse_mode="Markdown")
         elif low.startswith("/district"):
@@ -337,15 +377,35 @@ class Bot:
         chosen = pa.get("option_ids")
         if not (uid and poll_id is not None and chosen):
             return
+        user = pa.get("user", {})
         meta = self._poll_q.get(str(poll_id))
+        round_id = None
         if not meta:
-            return
-        ch, qid, correct_idx = meta[0], meta[1], meta[2]
-        topic = meta[3] if len(meta) > 3 else ""
+            # Round poll mirrored to DM by the engine (data/round_polls.json)
+            rp = self._round_polls().get(str(poll_id))
+            if not rp:
+                return
+            round_id, ch, qid, correct_idx, topic = rp[0], rp[1], rp[2], rp[3], (rp[5] if len(rp) > 5 else "")
+        else:
+            ch, qid, correct_idx = meta[0], meta[1], meta[2]
+            topic = meta[3] if len(meta) > 3 else ""
         is_correct = int(chosen[0]) == int(correct_idx)
+        # First-time player? Ask for registration ONCE (name → district → mobile).
+        # The answer still counts; the ask is never repeated after completion.
+        if uid and not self.members.is_registered(uid) and not self.members.pending_step(uid):
+            self.members.start_registration(uid, username=self._name(user))
+            self.members.register_default_exam(uid, self._channel_to_exam(ch))
+            try:
+                self.tg.send_message(uid, FIRST_TIME_ASK)
+            except TelegramError:
+                pass
+        if round_id:
+            self.members.record_round_answer(uid, round_id, ch, is_correct, qid=qid)
         result = self.members.award_answer(
-            uid, username=self._name(pa.get("user", {})),
+            uid, username=self._name(user),
             correct=is_correct, topic=topic, qid=qid)
+        if round_id:
+            return   # DM round poll: Telegram already shows ✅/❌ + explanation
         # Private feedback to the player (DMs only — groups can't DM via poll)
         note = None
         if result.get("new_badges"):
