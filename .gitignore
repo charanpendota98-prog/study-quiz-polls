@@ -32,3 +32,4 @@ data/collector_seen.json
 studentup_deploy_v3.zip
 data/pdf_inbox/*
 !data/pdf_inbox/README.txt
+data/last_round.json
