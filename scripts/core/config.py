@@ -312,6 +312,14 @@ ANSWER_MODE = (env("ANSWER_MODE", "instant") or "instant").strip().lower()
 if ANSWER_MODE not in ("instant", "delayed"):
     ANSWER_MODE = "instant"
 QUIZ_OPEN_PERIOD = int(env("QUIZ_OPEN_PERIOD", "300") or "300")  # legacy default (unpaced)
+# REVEAL POLICY — the correct option must NEVER show before a person answers.
+# A Telegram quiz poll with open_period auto-CLOSES when the timer ends and a
+# closed quiz reveals ✅ to everyone (even non-voters). So polls are posted
+# WITHOUT open_period: the pace timer only decides when the NEXT poll goes out;
+# each poll stays open and reveals ✅/❌ privately, only after that person votes.
+POLL_AUTO_CLOSE = env("POLL_AUTO_CLOSE", "0").lower() in ("1", "true", "yes", "on")
+# Balance the correct option across A/B/C/D (deterministic per question+day)
+BALANCE_OPTIONS = env("BALANCE_OPTIONS", "1").lower() not in ("0", "false", "no", "off")
 
 # ---------------------------------------------------------------------------
 # PACED ROUNDS (exam-hall timing) — one question at a time, not a dump.

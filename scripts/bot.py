@@ -168,8 +168,9 @@ class Bot:
             "is_anonymous": False,               # track members for points
             "allows_multiple_answers": False,
             "correct_option_id": q["answer_index"],
-            "open_period": getattr(config, "QUIZ_OPEN_PERIOD", 300),
         }
+        if getattr(config, "POLL_AUTO_CLOSE", False):
+            payload["open_period"] = getattr(config, "QUIZ_OPEN_PERIOD", 300)
         if expl.strip():
             payload["explanation"] = expl[:config.TG_POLL_EXPLANATION_MAX]
         res = self.tg._call("sendPoll", payload)

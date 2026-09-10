@@ -10,6 +10,7 @@ All regexes use the lessons hard-won in production (word boundaries, lookarounds
 from __future__ import annotations
 
 import re
+from . import config
 import unicodedata
 
 # ---------------------------------------------------------------------------
@@ -393,3 +394,87 @@ def validate_question(q: dict) -> list:
     if len({str(x).strip().lower() for x in oe}) < 4:
         errs.append(f"{qid}: duplicate EN options")
     return errs
+
+
+# ---------------------------------------------------------------------------
+# ANSWER-LEAK GUARD + OPTION BALANCING (applied at send time, never stored)
+# ---------------------------------------------------------------------------
+_MARK_RE = re.compile(r"(✅|✔|☑|✓|\(\s*correct\s*\)|\[\s*correct\s*\]|\*\s*$|"
+                      r"\bans(?:wer)?\s*[:\-–]\s*[A-Da-d]\b)", re.I)
+_FIXED_ORDER_RE = re.compile(r"\b(all|none|both|neither|either)\b.*\b(above|these|them|a|b|c|d)\b|"
+                             r"\bonly\s+[a-d1-4]\b|\b[1-4a-d]\s*(and|&|,)\s*[1-4a-d]\b|"
+                             r"\bcannot be determined|\bdata (in)?adequate", re.I)
+
+
+def strip_answer_markers(text: str) -> str:
+    """Remove any tick/'(correct)'/'Ans: B' markers that would betray the key."""
+    return _MARK_RE.sub("", text or "").strip()
+
+
+def answer_leaks(q: dict) -> str:
+    """'' if safe, else a short reason the poll would expose its own answer."""
+    opts = q.get("options_en") or []
+    ai = q.get("answer_index")
+    if not isinstance(ai, int) or not 0 <= ai < len(opts):
+        return "bad_answer_index"
+    for o in list(opts) + list(q.get("options_te") or []):
+        if _MARK_RE.search(str(o or "")):
+            return "marker_in_option"
+    stem = f"{q.get('q_en','')} {q.get('q_te','')}".lower()
+    ans = str(opts[ai] or "").strip().lower()
+    if len(ans) > 3 and re.search(r"\b" + re.escape(ans) + r"\b", stem):
+        return "answer_in_stem"
+    if _MARK_RE.search(stem):
+        return "marker_in_stem"
+    return ""
+
+
+def _is_fixed_order(opts) -> bool:
+    """Options that must keep their order: 'All of the above', 'Both A and B',
+    strictly sorted numeric ladders (10/20/30/40), year ladders."""
+    txt = [str(o or "").strip() for o in opts]
+    if any(_FIXED_ORDER_RE.search(o) for o in txt):
+        return True
+    nums = []
+    for o in txt:
+        m = re.fullmatch(r"[\s₹$]*(-?\d[\d,]*(?:\.\d+)?)\s*[%a-zA-Z/²³]*", o)
+        if not m:
+            return False
+        nums.append(float(m.group(1).replace(",", "")))
+    return nums == sorted(nums) or nums == sorted(nums, reverse=True)
+
+
+def balance_options(q: dict, seed: str = "") -> dict:
+    """Return a COPY of q with options shuffled so the key isn't predictably 'B'.
+    Deterministic for (question id, seed) so channel poll, DM mirror, report and
+    answer-key all agree. Fixed-order option sets are left untouched."""
+    opts = list(q.get("options_en") or [])
+    ai = q.get("answer_index")
+    if len(opts) != 4 or not isinstance(ai, int) or not 0 <= ai < 4 or _is_fixed_order(opts):
+        return dict(q)
+    import hashlib
+    import random as _r
+    h = hashlib.sha256(f"{q.get('id','')}|{seed}".encode()).hexdigest()
+    rng = _r.Random(int(h[:12], 16))
+    perm = [0, 1, 2, 3]
+    rng.shuffle(perm)                    # perm[new_pos] = old_pos
+    te = list(q.get("options_te") or [])
+    out = dict(q)
+    out["options_en"] = [strip_answer_markers(opts[i]) for i in perm]
+    if len(te) == 4:
+        out["options_te"] = [strip_answer_markers(te[i]) for i in perm]
+    out["answer_index"] = perm.index(ai)
+    out["_perm"] = perm
+    return out
+
+
+def poll_safe(q: dict, seed: str = "") -> dict | None:
+    """Send-time gate: strip markers, balance the key position, refuse leaky
+    questions. Returns the safe copy or None (caller picks another question)."""
+    q2 = balance_options(q, seed) if getattr(config, "BALANCE_OPTIONS", True) else dict(q)
+    q2["q_en"] = strip_answer_markers(q2.get("q_en", ""))
+    q2["q_te"] = strip_answer_markers(q2.get("q_te", ""))
+    q2["options_en"] = [strip_answer_markers(o) for o in q2.get("options_en") or []]
+    if q2.get("options_te"):
+        q2["options_te"] = [strip_answer_markers(o) for o in q2["options_te"]]
+    return None if answer_leaks(q2) else q2

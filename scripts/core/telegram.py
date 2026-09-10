@@ -105,7 +105,7 @@ class Telegram:
     # ------------------------------------------------------------- high-level
     def send_quiz(self, chat_id: str, question: str, options: list,
                   correct_index: int, explanation: str = "",
-                  open_period: int = 300, with_explanation: bool = True) -> dict:
+                  open_period=None, with_explanation: bool = True) -> dict:
         """Native Telegram quiz poll.
 
         Instant mode (default): correct_option_id + explanation → Telegram
@@ -123,8 +123,11 @@ class Telegram:
             "is_anonymous": True,
             "allows_multiple_answers": False,
             "correct_option_id": int(correct_index),
-            "open_period": open_period,
         }
+        # open_period → Telegram auto-closes and REVEALS the key to everyone.
+        # Only set when POLL_AUTO_CLOSE is explicitly on.
+        if open_period and getattr(config, "POLL_AUTO_CLOSE", False):
+            payload["open_period"] = int(open_period)
         if with_explanation and explanation.strip():
             payload["explanation"] = explanation[:config.TG_POLL_EXPLANATION_MAX]
         return self._call("sendPoll", payload)

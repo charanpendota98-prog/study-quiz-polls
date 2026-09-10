@@ -67,6 +67,8 @@ class Engine:
         instant = getattr(config, "ANSWER_MODE", "instant") != "delayed"
         if open_period is None:
             open_period = pace_seconds(q) if self._paced() else getattr(config, "QUIZ_OPEN_PERIOD", 300)
+        if not getattr(config, "POLL_AUTO_CLOSE", False):
+            open_period = None        # never auto-close → never auto-reveal ✅ to non-voters
         try:
             res = self.tg.send_quiz(
                 chat, text, opts, q["answer_index"], expl,
@@ -95,11 +97,22 @@ class Engine:
         paced = self._paced()
         mode_note = ("సమాధానాలు రౌండ్ తర్వాత — answer key after round 🔑"
                      if delayed else
-                     "సరైన/తప్పు వెంటనే — instant ✅/❌ feedback")
+                     "మీరు answer చేసిన తర్వాతే ✅/❌ కనిపిస్తుంది — key shows only after YOU answer")
         # 1) compose every channel's round up front
         rounds = {}
         for ch in channels:
             qs = self.bank.pick(ch, config.POLLS_PER_SLOT)
+            # Send-time safety: never expose the key (markers / answer-in-stem)
+            # and balance the correct option across A-D for this round.
+            from .content import poll_safe
+            safe = []
+            for q in qs:
+                sq = poll_safe(q, seed=round_id)
+                if sq is None:
+                    print(f"   [slot] {ch}: skipped {q.get('id')} (answer leak guard)")
+                    continue
+                safe.append(sq)
+            qs = safe
             if not qs:
                 print(f"   [slot] {ch}: no questions available")
                 continue
@@ -107,6 +120,8 @@ class Engine:
             self._last_round["by_channel"][ch] = qs
         if not rounds:
             return 0
+        # 2a) previous round's Q-by-Q key (only now — every earlier poll had its full window)
+        self.post_previous_key(channels=list(rounds))
         # 2) openers
         for ch, qs in rounds.items():
             cfg = config.CHANNELS[ch]
@@ -144,10 +159,9 @@ class Engine:
         for ch, qs in rounds.items():
             try:
                 self.tg.send_message(config.channel_chat_id(ch), self._round_closer(qs, delayed))
-                if not delayed:
-                    stats = self._poll_stats_for(qs)
-                    self.tg.send_message(config.channel_chat_id(ch),
-                                         build_round_report(qs, round_label or "", config.CHANNELS[ch], stats))
+                # Q-by-Q key report is NOT posted now: polls stay open so
+                # late players can still answer without seeing the key. It is
+                # posted by post_previous_key() right before the NEXT round.
                 # 🏆 Top-10 with name + district (registered members only)
                 mem = self._members.reload()
                 bonuses = mem.settle_round(round_id, ch)
@@ -173,8 +187,11 @@ class Engine:
             from .store import save_json_atomic
             snap = {
                 "label": self._last_round.get("label", ""),
+                "key_posted": False,
                 "by_channel": {
-                    ch: [{"id": q.get("id"), "topic": q.get("topic"),
+                    ch: [{"id": q.get("id"), "topic": q.get("topic"), "q_en": q.get("q_en"),
+                          "q_te": q.get("q_te"), "difficulty": q.get("difficulty"),
+                          "source": q.get("source"), "exam": q.get("exam"), "year": q.get("year"),
                           "answer_index": q.get("answer_index"),
                           "options_en": q.get("options_en"),
                           "options_te": q.get("options_te"),
@@ -209,8 +226,9 @@ class Engine:
             payload = {"chat_id": uid, "question": text[:300],
                        "options": [{"text": o} for o in opts], "type": "quiz",
                        "is_anonymous": False, "allows_multiple_answers": False,
-                       "correct_option_id": q["answer_index"],
-                       "open_period": pace_seconds(q) if self._paced() else getattr(config, "QUIZ_OPEN_PERIOD", 300)}
+                       "correct_option_id": q["answer_index"]}
+            if getattr(config, "POLL_AUTO_CLOSE", False):
+                payload["open_period"] = pace_seconds(q) if self._paced() else getattr(config, "QUIZ_OPEN_PERIOD", 300)
             if expl.strip():
                 payload["explanation"] = expl[:config.TG_POLL_EXPLANATION_MAX]
             try:
@@ -370,6 +388,39 @@ class Engine:
         return (f"{head}\n10/10 కొట్టినవారు కామెంట్‌లో 👇 రాయండి!\n"
                 f"Points, ranks & streaks: /register in our quiz bot ⭐\n"
                 f"Next round: see the daily schedule. Keep your streak 🔥")
+
+    def post_previous_key(self, channels=None):
+        """Post the previous round's Q-by-Q key report (from last_round.json)
+        exactly once, right before a new round begins. Never raises."""
+        try:
+            snap = load_json(config.DATA / "last_round.json", {})
+        except Exception:
+            snap = {}
+        if not snap or snap.get("key_posted"):
+            return 0
+        by_ch = snap.get("by_channel") or {}
+        label = snap.get("label") or ""
+        posted = 0
+        for ch in (channels or config.PUBLIC_CHANNELS):
+            qs = by_ch.get(ch) or []
+            if not qs:
+                continue
+            try:
+                stats = self._poll_stats_for(qs)
+                self.tg.send_message(config.channel_chat_id(ch),
+                                     "🔑 Previous round key — గత రౌండ్ సమాధానాలు\n" +
+                                     build_round_report(qs, label, config.CHANNELS[ch], stats))
+                posted += 1
+                self.tg.polite_gap(not self.dry)
+            except Exception as e:
+                print(f"   [prev_key] {ch}: {e}")
+        try:
+            snap["key_posted"] = True
+            from .store import save_json_atomic
+            save_json_atomic(config.DATA / "last_round.json", snap)
+        except Exception:
+            pass
+        return posted
 
     def post_answer_key(self, round_label: str = "", channels=None):
         """Post the delayed bilingual answer key (no-op when ANSWER_MODE=instant)."""
