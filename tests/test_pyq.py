@@ -57,3 +57,40 @@ class TestPyq(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestOfficialPaperFormat(unittest.TestCase):
+    """TSPSC/APPSC/SSC official PDFs use (1)-(4) option labels + numeric key."""
+    PAPER = (
+        "1. The Kakatiya dynasty had its capital at\n"
+        "(1) Warangal (2) Golconda (3) Bidar (4) Devagiri\n"
+        "2. Which Article deals with the Election Commission?\n"
+        "(1) Article 280\n(2) Article 324\n(3) Article 356\n(4) Article 370\n"
+        "3. Godavari river enters Telangana at\n"
+        "(1) Basara (2) Kandakurthi (3) Bhadrachalam (4) Nizamabad\n"
+        "4. Bathukamma is celebrated mainly in the month of\n"
+        "(1) Sravana (2) Aswayuja (3) Karthika (4) Chaitra\n"
+        "5. The first Chief Minister of Telangana State was\n"
+        "(1) K. Chandrashekar Rao (2) A. Revanth Reddy (3) N. Kiran Kumar Reddy (4) Etela Rajender\n"
+        "ANSWER KEY\n1. 1  2. 2  3. 2  4. 2  5. 1\n")
+
+    def test_numeric_options_and_key(self):
+        qs = collector.parse_quiz_lines(collector.text_to_lines(self.PAPER),
+                                        "TSPSC Group-2 2024 Paper-1", "file://p1.pdf")
+        self.assertEqual(len(qs), 5)
+        self.assertEqual([q["options_en"][q["answer_index"]] for q in qs],
+                         ["Warangal", "Article 324", "Kandakurthi", "Aswayuja", "K. Chandrashekar Rao"])
+
+    def test_gktoday_quizbase_html_parses(self):
+        html = ("<div class='wp_quiz_question'>1. In which year was Andhra Pradesh created?</div>"
+                "<div>[A] 1950<br>[B] 1952<br>[C] 1956<br>[D] 1960</div>"
+                "<div><b>Correct Answer:</b> C [1956]</div>")
+        qs = collector.parse_page({"name": "GKToday", "exam": "tspsc", "type": "index"}, html,
+                                  "Telangana GK", "https://www.gktoday.in/quizbase/telangana")
+        self.assertEqual(len(qs), 1); self.assertEqual(qs[0]["answer_index"], 2)
+
+    def test_registry_has_verified_direct_pdfs_per_channel(self):
+        direct = [p for p in pyq.load_papers() if p.get("url")]
+        self.assertGreaterEqual(len(direct), 80)
+        for ch in ("TSPSC", "APPSC", "SSC", "RAILWAY", "BANKING", "DEFENCE"):
+            self.assertTrue(any(p["channel"] == ch for p in direct), ch)

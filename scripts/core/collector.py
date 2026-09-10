@@ -1533,9 +1533,44 @@ def text_to_lines(text: str):
         if len(parts) >= 4 and all(re.match(r"^[\(\[]?[a-dA-D][\)\]\.]\s", p)
                                    for p in parts[-4:]):
             lines.extend(parts)
-        else:
-            lines.append(ln)
-    return lines
+            continue
+        # TSPSC / APPSC / SSC / RRB official papers: numeric option labels
+        # "(1) x (2) y (3) z (4) w" (glued or one per line) -> A)-D)
+        nparts = re.split(r"\s(?=\(([1-4])\)\s)", " " + ln)
+        nparts = [p.strip() for p in nparts if p and p.strip() and not re.fullmatch(r"[1-4]", p.strip())]
+        if len(nparts) >= 4 and all(re.match(r"^\([1-4]\)\s", p) for p in nparts[-4:]) and \
+                [re.match(r"^\(([1-4])\)", p).group(1) for p in nparts[-4:]] == ["1", "2", "3", "4"]:
+            head = nparts[:-4]
+            lines.extend(head)
+            for p in nparts[-4:]:
+                n = int(p[1]); lines.append("ABCD"[n - 1] + ") " + p[3:].strip())
+            continue
+        m1 = re.match(r"^\(([1-4])\)\s+(.+)$", ln)
+        if m1:
+            lines.append("ABCD"[int(m1.group(1)) - 1] + ") " + m1.group(2).strip())
+            continue
+        lines.append(ln)
+    return _numeric_key_rows(lines)
+
+
+def _numeric_key_rows(lines):
+    """Official-paper answer keys often read '1. 1  2. 2  3. 4' (question ->
+    option NUMBER). _KEY_PAIR_RE already accepts 1-4 tokens, but a row like
+    'Q.No 1 2 3 / Key 1 2 4' (two-line table) is folded into 'N. k' pairs."""
+    out, i = [], 0
+    while i < len(lines):
+        ln = lines[i]
+        if re.match(r"^(q\.?\s*no\.?|question\s*no\.?)\b", ln, re.I) and i + 1 < len(lines) \
+                and re.match(r"^(key|ans(wer)?s?)\b", lines[i + 1], re.I):
+            qn = re.findall(r"\d{1,3}", ln)
+            ks = re.findall(r"\b[1-4A-Da-d]\b", lines[i + 1])
+            if len(qn) >= 3 and len(qn) == len(ks):
+                out.append("  ".join(f"{a}. {b}" for a, b in zip(qn, ks)))
+                i += 2
+                continue
+        out.append(ln)
+        i += 1
+    return out
 
 
 def ingest_pdf(path, title="", dry=False, llm=None, stamp=None):
