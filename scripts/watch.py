@@ -154,8 +154,6 @@ def tick(eng, now, dry=False):
     # People-features (bot DMs + CURRENT hub only)
     if hhmm == "20:30":
         eng.streak_nudge(); ran.append("streak-nudge")
-    if hhmm == "22:00":
-        eng.nightly_member_file(); ran.append("member-file")
     if hhmm == "21:40":
         eng.daily_champions(); ran.append("champions")
     import calendar

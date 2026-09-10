@@ -297,29 +297,6 @@ class Engine:
                 print(f"   [hof] {ch} failed: {e}")
         return 1
 
-    def nightly_member_file(self):
-        """22:00 — send the full member list (CSV, Excel/Google-Sheet ready) to
-        ADMIN_ID by DM. Zero setup: no Apps Script, no permissions. Also pushes
-        to the Sheet web app if it is configured."""
-        from . import crm
-        mem = Members()
-        if not config.ADMIN_ID:
-            print("[member-file] ADMIN_ID not set")
-            return 0
-        data = crm.export_csv(mem.members)
-        fn = f"studentup_members_{datetime.now(config.IST):%Y%m%d}.csv"
-        n = sum(1 for m in mem.members.values() if m.get("registered"))
-        cap = (f"👥 {n} registered members — name, mobile, district, exam, points\n"
-               f"Open in Google Sheets: File → Import → Upload → Replace")
-        try:
-            self.tg.send_document(config.ADMIN_ID, fn, data, caption=cap)
-        except TelegramError as e:
-            print(f"   [member-file] failed: {e}")
-            return 0
-        if crm.sheet_enabled():
-            mem.sync_sheet_all()
-        return n
-
     def streak_nudge(self):
         """Evening DM to members whose streak will break if they skip today."""
         mem = Members()
