@@ -72,8 +72,8 @@ function setupSheet() {
   sheet_("daily", DAILY_COLS);
   sheet_("log", LOG_COLS);
   buildDashboard_();
-  installTriggers_();
-  SpreadsheetApp.getUi && SpreadsheetApp.getUi().alert("StudentUp CRM ready ✅  Now deploy as Web app and set SHEET_WEBAPP_URL in .env");
+  try { installTriggers_(); } catch (e) { Logger.log("trigger will be created later: " + e); }
+  Logger.log("StudentUp CRM ready ✅  Now deploy as Web app and set SHEET_WEBAPP_URL in .env");
 }
 
 function installTriggers_() {
