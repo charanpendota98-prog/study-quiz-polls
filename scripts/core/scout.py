@@ -317,9 +317,9 @@ def _harvest_page(url, channel_default, st, cands, seen_urls, budget):
         if re.search(r"\.pdf(\?|$)", u, re.I):
             if u in seen_urls or u in cands["items"]:
                 continue
-            if PDF_BAD_RE.search(blob) and not PDF_GOOD_RE.search(blob):
-                continue
-            if not PDF_GOOD_RE.search(blob):
+            # hard reject: syllabus / admit card / hindi-only etc. always lose,
+            # even if the same link also says "paper" (URLs often carry exam slugs)
+            if PDF_BAD_RE.search(blob) or not PDF_GOOD_RE.search(blob):
                 continue
             if budget["new"] >= MAX_NEW_PER_RUN:
                 continue
