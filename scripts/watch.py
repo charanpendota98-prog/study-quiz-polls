@@ -109,6 +109,18 @@ def tick(eng, now, dry=False):
                 log(f"backfill error: {e}")
         elif task == "verify":
             eng.verify_questions(limit=int(meta.get("limit", 120))); ran.append("verify")
+        elif task == "scout":
+            # Continuous deep source discovery: crawls exam hubs, probes PDFs,
+            # appends verified papers to pyq_papers.json. Time-boxed + capped.
+            try:
+                from core.scout import run as scout_run
+                ss = scout_run()
+                log(f"scout: pages={ss.get('pages')} new={ss.get('new')} "
+                    f"promoted={ss.get('promoted')} rejected={ss.get('rejected')} "
+                    f"inbox_deleted={ss.get('inbox_deleted')} {ss.get('seconds')}s")
+                ran.append("scout")
+            except Exception as e:
+                log(f"scout error: {e}")
         elif task == "pyq":
             eng.harvest_pyq(); ran.append("pyq")
         elif task == "audit":

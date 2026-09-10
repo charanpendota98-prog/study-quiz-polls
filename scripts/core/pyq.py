@@ -174,9 +174,18 @@ def harvest(dry=False, only=None, limit=None, llm=None):
             llm = None
     """Download + ingest every pending paper. Returns stats."""
     from . import collector
+    import time as _t
+    try:                                   # storage hygiene before downloading more
+        from .scout import enforce_inbox_cap
+        enforce_inbox_cap(dry=dry)
+    except Exception:
+        pass
+    deadline = _t.time() + 20 * 60         # never hold the scheduler > 20 min
     st = _state()
     stats = {"papers": 0, "pdfs": 0, "questions": 0, "skipped": 0, "errors": 0}
     for entry in _papers():
+        if _t.time() > deadline:
+            break
         if only and entry["channel"].upper() != only.upper():
             continue
         key = entry.get("url") or entry.get("index")

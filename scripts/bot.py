@@ -443,6 +443,9 @@ class Bot:
                 self.tg.send_message(chat_id, f"🔎 verify run: {st}")
             else:
                 self.tg.send_message(chat_id, vstat())
+        elif low.startswith("/scout"):
+            from core.scout import status_text as _scout_status
+            self.tg.send_message(chat_id, _scout_status())
         elif low.startswith("/pyq"):
             from core.pyq import status_text
             from core.question_bank import Bank

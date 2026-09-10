@@ -244,6 +244,8 @@ def channel_chat_id(key: str) -> str:
 # ---------------------------------------------------------------------------
 # TWO main quiz rounds a day (India No.1 cadence — morning + evening).
 # Add a line (e.g. "13:30": ("quiz", {"slot": 3})) to add more rounds anytime.
+PDF_INBOX_CAP_MB = 400   # hard disk cap for downloaded papers (oldest ingested deleted first)
+
 SCHEDULE = {
     # Deep multi-source exam-quiz scraping — runs all day AND twice
     # immediately after each quiz round (07:45 / 19:45), so fresh exam
@@ -252,6 +254,7 @@ SCHEDULE = {
     # Failing sources auto-pause via collector_health.json; the 04:45 auditor
     # re-verifies all sources (content-gated) and auto-pauses/enables them.
     "01:30": ("backfill", {}),     # deep archive sweep (3-month campaign; idle when done)
+    "01:00": ("scout", {}),        # continuous source discovery → ready queue (time-boxed, capped)
     "02:15": ("pyq", {}),          # official previous-paper PDFs → provenance-stamped questions
     "04:45": ("audit", {}),        # daily deep source audit (content-gated)
     "03:00": ("verify", {}),       # API-key answer + Telugu audit of new questions

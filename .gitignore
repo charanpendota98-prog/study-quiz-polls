@@ -35,3 +35,7 @@ data/pdf_inbox/*
 data/last_round.json
 data/jobs_state.json
 data/round_polls.json
+
+data/scout_candidates.json
+data/scout_state.json
+data/pyq_state.json
