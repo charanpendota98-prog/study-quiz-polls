@@ -259,6 +259,10 @@ SCHEDULE = {
     "04:45": ("audit", {}),        # daily deep source audit (content-gated)
     "03:00": ("verify", {}),       # API-key answer + Telugu audit of new questions
     "05:30": ("collect", {"reason": "pre-dawn scrape"}),
+    "05:45": ("telegram", {}),     # public Telegram exam channels (2nd independent content path)
+    "17:15": ("telegram", {}),
+    "06:15": ("supply", {}),       # supply guard: escalates fallbacks when runway < 3 days
+    "18:15": ("supply", {}),
     "06:30": ("verify", {"limit": 60}),
     "18:30": ("verify", {"limit": 60}),
     "06:00": ("filler", {"reason": "morning top-up"}),

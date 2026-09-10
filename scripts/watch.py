@@ -109,6 +109,26 @@ def tick(eng, now, dry=False):
                 log(f"backfill error: {e}")
         elif task == "verify":
             eng.verify_questions(limit=int(meta.get("limit", 120))); ran.append("verify")
+        elif task == "telegram":
+            try:
+                from core.resilience import collect_telegram, solve_pending
+                ts = collect_telegram()
+                sv = solve_pending()
+                log(f"telegram: ch={ts.get('channels')} keyed={ts.get('keyed')} "
+                    f"polls={ts.get('parked_polls')} accepted={ts.get('accepted')} "
+                    f"solved={sv.get('solved')}")
+                ran.append("telegram")
+            except Exception as e:
+                log(f"telegram error: {e}")
+        elif task == "supply":
+            try:
+                from core.resilience import supply_guard
+                rep = supply_guard(notify=getattr(eng.tg, "admin_notify", None))
+                log(f"supply: low={rep.get('low_before')} after={rep.get('low_after')} "
+                    f"steps={len(rep.get('did', []))}")
+                ran.append("supply")
+            except Exception as e:
+                log(f"supply error: {e}")
         elif task == "scout":
             # Continuous deep source discovery: crawls exam hubs, probes PDFs,
             # appends verified papers to pyq_papers.json. Time-boxed + capped.
