@@ -92,5 +92,5 @@ class TestOfficialPaperFormat(unittest.TestCase):
     def test_registry_has_verified_direct_pdfs_per_channel(self):
         direct = [p for p in pyq.load_papers() if p.get("url")]
         self.assertGreaterEqual(len(direct), 80)
-        for ch in ("TSPSC", "APPSC", "SSC", "RAILWAY", "BANKING", "DEFENCE"):
+        for ch in ("TSPSC", "APPSC", "SSC", "RAILWAY", "BANKING", "DEFENCE", "POLICE"):
             self.assertTrue(any(p["channel"] == ch for p in direct), ch)

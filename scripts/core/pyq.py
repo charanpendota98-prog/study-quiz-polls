@@ -45,7 +45,9 @@ MAX_PDF = 30 * 1024 * 1024
 _PDF_HOSTS = ("careerpower.in", "adda247.com", "bankersadda.com", "sscadda.com",
               "sakshi.com", "eenadu.net", "pratibhaassets.eenadu.net", "tspsc.gov.in",
               "psc.ap.gov.in", "ssc.gov.in", "ssc.nic.in", "rrbcdg.gov.in", "upsc.gov.in",
-              "ibps.in", "sbi.co.in", "tslprb.in", "slprb.ap.gov.in", "wp.com", "cloudfront.net")
+              "ibps.in", "sbi.co.in", "tslprb.in", "slprb.ap.gov.in", "wp.com", "cloudfront.net",
+              "files.freshersnow.com", "cdn-images.prepp.in", "images.collegedunia.com",
+              "studybizz.com", "testbook.com")
 
 
 # ----------------------------------------------------------------- helpers
