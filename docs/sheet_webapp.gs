@@ -16,6 +16,7 @@
  *        SHEET_WEBAPP_URL=<that url>
  *        SHEET_SECRET=<same SECRET as below>
  *  5. Run once from the editor: select "setupSheet" → ▶ Run  (creates tabs + dashboard)
+ *     Permission popup: Review permissions → your account → Advanced → Go to … → Allow
  *  6. In Telegram bot: /syncsheet
  *
  *  ⚠ After ANY later code edit: Deploy → Manage deployments → ✏ → Version: New → Deploy
@@ -72,14 +73,12 @@ function setupSheet() {
   sheet_("daily", DAILY_COLS);
   sheet_("log", LOG_COLS);
   buildDashboard_();
-  try { installTriggers_(); } catch (e) { Logger.log("trigger will be created later: " + e); }
   Logger.log("StudentUp CRM ready ✅  Now deploy as Web app and set SHEET_WEBAPP_URL in .env");
 }
 
-function installTriggers_() {
-  ScriptApp.getProjectTriggers().forEach(function (t) { ScriptApp.deleteTrigger(t); });
-  ScriptApp.newTrigger("dailySnapshot").timeBased().atHour(23).nearMinute(50).inTimezone("Asia/Kolkata").everyDays(1).create();
-}
+// OPTIONAL (later): nightly growth snapshot — add via ⏰ Triggers menu:
+//   function: dailySnapshot · event: Time-driven · Day timer · 11pm–midnight.
+// (Kept out of setupSheet so first-run needs only the Sheets permission.)
 
 // ─────────────────────────────────────────────────────────── writers
 function sheet_(name, cols) {
