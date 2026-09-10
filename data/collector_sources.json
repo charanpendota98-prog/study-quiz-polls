@@ -1,9 +1,9 @@
 {
-  "version": "4.2",
+  "version": "4.3",
   "description": "STUDENTUP central source registry — 100+ exam-quiz sources, CA/jobs feeds and tracked-dead/archive sources in one place. Collector, auditor and feeds aggregator all read this file. Regenerate with scripts/rebuild_registry.py. Deep research Sep 2026: only previous-paper / syllabus-aligned sources; candidates auto-enable only after content-gated audit.",
   "last_audit": "2026-09-06",
   "blueprints": "data/exam_blueprints.json",
-  "audit_note": "Live sources checked 2026-09-06 with content-level audit. Registry expanded to 100+ with deep specialist candidates (UPSC/Banking/SSC/Railway/Defence/IndiaBIX JE sections) + full archive tracking. Candidates auto-enable only after a real content-gated check. No dummy, no sample, no junk.",
+  "audit_note": "Live sources checked 2026-09-06 with content-level audit. Registry expanded to 100+ with deep specialist candidates (UPSC/Banking/SSC/Railway/Defence/IndiaBIX JE sections) + full archive tracking. Candidates auto-enable only after a real content-gated check. No dummy, no sample, no junk. | 11 Sep 2026: +99 exam-specific candidates (TS/AP Telugu bit banks, SSC/RRB/Bank/Defence quiz + PYQ PDF indexes, advanced reasoning); content-gated auto-enable.",
   "defaults": {
     "max_articles_per_source": 2,
     "max_links_per_index": 3,
@@ -4652,6 +4652,1566 @@
       "feed": "https://www.qmaths.in/feed/",
       "title_must": "quiz|mcq|questions?|practice set|practice questions|model paper|mock|reasoning|quant|aptitude|general awareness|general knowledge|\\bgk\\b|previous year|memory based|current affairs",
       "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|exam analysis|answer key|apply online|registration|motivation|topper|schedule|mindmap|test series launch|webinar|course|success stor"
+    },
+    {
+      "name": "MCQBits Telugu CA Mock Tests",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc-appsc-police",
+      "url": "https://www.mcqbits.com/category/current-affairs/",
+      "link_re": "^https://www\\.mcqbits\\.com/[a-z0-9\\-]*(telugu|current-affairs)[a-z0-9\\-]*/?$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "live 07 May 2026 — daily Telugu CA MCQs, APPSC/TSPSC/Police"
+      },
+      "page_re": "/page/\\d+/?$",
+      "max_pages": 3
+    },
+    {
+      "name": "MCQBits Reasoning & Aptitude",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-banking-railway-police",
+      "url": "https://www.mcqbits.com/category/reasoning-questions-with-answers/",
+      "link_re": "^https://www\\.mcqbits\\.com/[a-z0-9\\-]+/?$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "SRM Tutors Telugu GK Bits",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc-appsc",
+      "url": "https://srmtutors.in/category/gk/",
+      "link_re": "^https://srmtutors\\.in/[a-z0-9\\-]+/?$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "Telugu one-liner/MCQ bit bank"
+      },
+      "page_re": "/page/\\d+/?$",
+      "max_pages": 2
+    },
+    {
+      "name": "SRM Tutors feed",
+      "enabled": false,
+      "type": "rss",
+      "exam": "tspsc-appsc",
+      "feed": "https://srmtutors.in/feed/",
+      "title_must": "quiz|mcq|questions?|bits?|bit ?bank|practice|mock|previous|pyq|model paper|reasoning|aptitude|general (awareness|knowledge|studies)|\\bgk\\b|current affairs|polity|history|geography|economy|science",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|analysis|apply online|registration|motivation|topper|schedule|webinar|course|success stor|job",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "GKGigs Telangana GK",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc-police",
+      "url": "https://gkgigs.com/telangana-gk/",
+      "link_re": "^https://gkgigs\\.com/(telangana|andhra|hyderabad)[a-z0-9\\-]*/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "200+ TS GK MCQs, updated 2025"
+      }
+    },
+    {
+      "name": "GKGigs Andhra Pradesh GK",
+      "enabled": false,
+      "type": "index",
+      "exam": "appsc-police",
+      "url": "https://gkgigs.com/andhra-pradesh-gk/",
+      "link_re": "^https://gkgigs\\.com/(telangana|andhra)[a-z0-9\\-]*/?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "GKToday Andhra Pradesh Quizbase",
+      "enabled": false,
+      "type": "index",
+      "exam": "appsc",
+      "url": "https://www.gktoday.in/quizbase/andhra-pradesh-gk-questions-for-appsc",
+      "link_re": "^https://www\\.gktoday\\.in/quizbase/andhra[a-z0-9\\-]*/?(\\?pageno=\\d+)?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "page_re": "\\?pageno=\\d+$",
+      "max_pages": 6
+    },
+    {
+      "name": "Sakshi Education Bitbank (EN)",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc-appsc",
+      "url": "https://education.sakshi.com/en/bitbank",
+      "link_re": "^https://education\\.sakshi\\.com/en/[a-z0-9\\-/]*(bitbank|practice|quiz|mcq)[a-z0-9\\-/]*$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "page_re": "\\?page=\\d+$",
+      "max_pages": 3
+    },
+    {
+      "name": "Sakshi Education Group-2 Practice (TE)",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc-appsc",
+      "url": "https://education.sakshi.com/te/tags/group-2-practice-tests",
+      "link_re": "^https://education\\.sakshi\\.com/te/[a-z0-9\\-/]+$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "page_re": "\\?page=\\d+$",
+      "max_pages": 3
+    },
+    {
+      "name": "Sakshi Education Police Constable Bitbank (TE)",
+      "enabled": false,
+      "type": "index",
+      "exam": "police",
+      "url": "https://education.sakshi.com/te/tags/police-constable-bit-bank",
+      "link_re": "^https://education\\.sakshi\\.com/te/[a-z0-9\\-/]+$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "page_re": "\\?page=\\d+$",
+      "max_pages": 3
+    },
+    {
+      "name": "Sakshi Education Reasoning (TE)",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-banking-railway-police",
+      "url": "https://education.sakshi.com/te/tags/reasoning",
+      "link_re": "^https://education\\.sakshi\\.com/te/[a-z0-9\\-/]+$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "page_re": "\\?page=\\d+$",
+      "max_pages": 2
+    },
+    {
+      "name": "Sakshi Education Arithmetic (TE)",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-banking-railway-police",
+      "url": "https://education.sakshi.com/te/tags/arithmetic",
+      "link_re": "^https://education\\.sakshi\\.com/te/[a-z0-9\\-/]+$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "page_re": "\\?page=\\d+$",
+      "max_pages": 2
+    },
+    {
+      "name": "Eenadu Pratibha Bitbank (TE)",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc-appsc-police",
+      "url": "https://pratibha.eenadu.net/bitbank",
+      "link_re": "^https://pratibha\\.eenadu\\.net/[a-z0-9\\-/]*(bitbank|bit-bank|practice)[a-z0-9\\-/]*$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Eenadu Pratibha Groups Previous Papers PDF",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc-appsc",
+      "url": "https://pratibha.eenadu.net/groups/previous-papers",
+      "link_re": "(?!)",
+      "max_links": 1,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "PDF harvest only"
+      },
+      "pdf_re": "https?://[^\\\"'\\s]+\\.pdf"
+    },
+    {
+      "name": "Eenadu Pratibha SSC/RRB Previous Papers PDF",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-railway",
+      "url": "https://pratibha.eenadu.net/ssc-rrb/previous-papers",
+      "link_re": "(?!)",
+      "max_links": 1,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "PDF harvest only"
+      },
+      "pdf_re": "https?://[^\\\"'\\s]+\\.pdf"
+    },
+    {
+      "name": "Eenadu Pratibha Bank Previous Papers PDF",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking",
+      "url": "https://pratibha.eenadu.net/bank/previous-papers",
+      "link_re": "(?!)",
+      "max_links": 1,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "PDF harvest only"
+      },
+      "pdf_re": "https?://[^\\\"'\\s]+\\.pdf"
+    },
+    {
+      "name": "Andhra Jyothy Education Bits",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc-appsc",
+      "url": "https://www.andhrajyothy.com/education",
+      "link_re": "^https://www\\.andhrajyothy\\.com/[a-z0-9\\-/]*(bit|quiz|practice|model)[a-z0-9\\-/]*$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Vyoma Daily Telugu Bits",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc-appsc-police",
+      "url": "https://vyoma.net/telugu-gk-bits/",
+      "link_re": "^https://vyoma\\.net/[a-z0-9\\-]*(bits?|quiz|practice)[a-z0-9\\-]*/?$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "re-check (homepage failed Sep 2026)"
+      }
+    },
+    {
+      "name": "KPIAS Academy APPSC Previous Papers",
+      "enabled": false,
+      "type": "index",
+      "exam": "appsc",
+      "url": "https://kpiasacademy.com/appsc-previous-papers/",
+      "link_re": "^https://kpiasacademy\\.com/[a-z0-9\\-]*(appsc|group)[a-z0-9\\-]*/?$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "APPSC Group-2 2016/2018 papers"
+      },
+      "pdf_re": "https?://[^\\\"'\\s]+\\.pdf"
+    },
+    {
+      "name": "AP Police Exams Practice",
+      "enabled": false,
+      "type": "index",
+      "exam": "police",
+      "url": "https://www.appoliceexams.com/practice",
+      "link_re": "^https://www\\.appoliceexams\\.com/[a-z0-9\\-/]+$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "TS Police Bits (10minutetelugu)",
+      "enabled": false,
+      "type": "index",
+      "exam": "police",
+      "url": "https://10minutetelugu.com/category/police/",
+      "link_re": "^https://10minutetelugu\\.com/[a-z0-9\\-]+/?$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "page_re": "/page/\\d+/?$",
+      "max_pages": 2
+    },
+    {
+      "name": "10minutetelugu Groups Bits",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc-appsc",
+      "url": "https://10minutetelugu.com/category/groups/",
+      "link_re": "^https://10minutetelugu\\.com/[a-z0-9\\-]+/?$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "page_re": "/page/\\d+/?$",
+      "max_pages": 2
+    },
+    {
+      "name": "Adda247 Telugu Daily Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc-appsc-police",
+      "url": "https://www.adda247.com/te/category/daily-quiz/",
+      "link_re": "^https://www\\.adda247\\.com/te/[a-z0-9\\-]*(quiz|mcq|bits)[a-z0-9\\-]*/?$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "re-check (dead Sep 2026)"
+      },
+      "page_re": "/page/\\d+/?$",
+      "max_pages": 3
+    },
+    {
+      "name": "Adda247 Telugu Reasoning Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-banking-railway-police",
+      "url": "https://www.adda247.com/te/category/reasoning/",
+      "link_re": "^https://www\\.adda247\\.com/te/[a-z0-9\\-]+/?$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "page_re": "/page/\\d+/?$",
+      "max_pages": 2
+    },
+    {
+      "name": "Adda247 Telugu Aptitude Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-banking-railway-police",
+      "url": "https://www.adda247.com/te/category/quantitative-aptitude/",
+      "link_re": "^https://www\\.adda247\\.com/te/[a-z0-9\\-]+/?$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "page_re": "/page/\\d+/?$",
+      "max_pages": 2
+    },
+    {
+      "name": "Testbook Telugu Bits",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc-appsc-police",
+      "url": "https://testbook.com/objective-questions/te/",
+      "link_re": "^https://testbook\\.com/objective-questions/te/[a-z0-9\\-]+$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Testbook Telangana GK Objective",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc",
+      "url": "https://testbook.com/objective-questions/mcq-on-telangana--5eea6a1039140f30f369ee14",
+      "link_re": "^https://testbook\\.com/objective-questions/mcq-on-[a-z0-9\\-]+$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Testbook Andhra Pradesh GK Objective",
+      "enabled": false,
+      "type": "index",
+      "exam": "appsc",
+      "url": "https://testbook.com/objective-questions/mcq-on-andhra-pradesh--5eea6a1339140f30f369f84e",
+      "link_re": "^https://testbook\\.com/objective-questions/mcq-on-[a-z0-9\\-]+$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Testbook Reasoning Objective",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-banking-railway-police",
+      "url": "https://testbook.com/objective-questions/mcq-on-logical-reasoning--5eea6a0e39140f30f369d9a3",
+      "link_re": "^https://testbook\\.com/objective-questions/mcq-on-[a-z0-9\\-]+$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Testbook Quant Objective",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-banking-railway-police",
+      "url": "https://testbook.com/objective-questions/mcq-on-quantitative-aptitude--5eea6a0e39140f30f369d9a0",
+      "link_re": "^https://testbook\\.com/objective-questions/mcq-on-[a-z0-9\\-]+$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Testbook Polity Objective",
+      "enabled": false,
+      "type": "index",
+      "exam": "tspsc-appsc-ssc-upsc",
+      "url": "https://testbook.com/objective-questions/mcq-on-indian-polity--5eea6a0e39140f30f369d99b",
+      "link_re": "^https://testbook\\.com/objective-questions/mcq-on-[a-z0-9\\-]+$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "DailyGK SSC CGL GA",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc",
+      "url": "https://dailygk.indgovtjobs.net/ssc-cgl-current-affairs/",
+      "link_re": "^https://dailygk\\.indgovtjobs\\.net/[a-z0-9\\-/]+$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "live Apr 2026 — 20 GA MCQs daily w/ explanations"
+      }
+    },
+    {
+      "name": "DailyGK daily quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-upsc-railway",
+      "url": "https://dailygk.indgovtjobs.net/",
+      "link_re": "^https://dailygk\\.indgovtjobs\\.net/(quiz|daily|gk)[a-z0-9\\-/]*$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "SSCStudy GK Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-railway-police",
+      "url": "https://sscstudy.com/category/gk/",
+      "link_re": "^https://sscstudy\\.com/[a-z0-9\\-]*(quiz|mcq|question|gk)[a-z0-9\\-]*/?$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "live Jul 2026 — bilingual EN/HI"
+      },
+      "page_re": "/page/\\d+/?$",
+      "max_pages": 2
+    },
+    {
+      "name": "SSCAdda GA Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc",
+      "url": "https://www.sscadda.com/general-awareness/",
+      "link_re": "^https://www\\.sscadda\\.com/[a-z0-9\\-]*(quiz|questions?|mcq)[a-z0-9\\-]*/?$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "page_re": "/page/\\d+/?$",
+      "max_pages": 2
+    },
+    {
+      "name": "SSCAdda Reasoning Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc",
+      "url": "https://www.sscadda.com/reasoning/",
+      "link_re": "^https://www\\.sscadda\\.com/[a-z0-9\\-]*(quiz|questions?|mcq)[a-z0-9\\-]*/?$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "SSCAdda Quant Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc",
+      "url": "https://www.sscadda.com/quantitative-aptitude/",
+      "link_re": "^https://www\\.sscadda\\.com/[a-z0-9\\-]*(quiz|questions?|mcq)[a-z0-9\\-]*/?$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Adda247 SSC CGL PYQ index",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc",
+      "url": "https://www.adda247.com/jobs/ssc-cgl-previous-year-question-paper/",
+      "link_re": "(?!)",
+      "max_links": 1,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "live — 2024 36 shifts EN/HI PDFs"
+      },
+      "pdf_re": "https?://[^\\\"'\\s]+\\.pdf"
+    },
+    {
+      "name": "Adda247 SSC CHSL PYQ index",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc",
+      "url": "https://www.adda247.com/jobs/ssc-chsl-previous-year-question-paper/",
+      "link_re": "(?!)",
+      "max_links": 1,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "pdf_re": "https?://[^\\\"'\\s]+\\.pdf"
+    },
+    {
+      "name": "Adda247 SSC MTS PYQ index",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc",
+      "url": "https://www.adda247.com/jobs/ssc-mts-previous-year-question-paper/",
+      "link_re": "(?!)",
+      "max_links": 1,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "pdf_re": "https?://[^\\\"'\\s]+\\.pdf"
+    },
+    {
+      "name": "Examcart SSC CGL shift PDFs",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc",
+      "url": "https://www.examcart.in/blogs/ssc-cgl-previous-year-question-paper",
+      "link_re": "(?!)",
+      "max_links": 1,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "pdf_re": "https?://[^\\\"'\\s]+\\.pdf"
+    },
+    {
+      "name": "Qmaths SSC PYQ PDFs",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc",
+      "url": "https://www.qmaths.in/p/ssc-cgl-previous-year-papers.html",
+      "link_re": "(?!)",
+      "max_links": 1,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "pdf_re": "https?://[^\\\"'\\s]+\\.pdf"
+    },
+    {
+      "name": "SSCPortal Papers",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc",
+      "url": "https://sscportal.in/ssc-cgl-exam-papers",
+      "link_re": "^https://sscportal\\.in/[a-z0-9\\-/]*(paper|question)[a-z0-9\\-/]*$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "pdf_re": "https?://[^\\\"'\\s]+\\.pdf"
+    },
+    {
+      "name": "Jagran Josh SSC GK Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc",
+      "url": "https://www.jagranjosh.com/general-knowledge/gk-questions-and-answers-1447397318-1",
+      "link_re": "^https://www\\.jagranjosh\\.com/general-knowledge/[a-z0-9\\-]*(quiz|questions|mcq)[a-z0-9\\-]*$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "DailyGK RRB NTPC GA",
+      "enabled": false,
+      "type": "index",
+      "exam": "railway",
+      "url": "https://dailygk.indgovtjobs.net/rrb-ntpc-current-affairs/",
+      "link_re": "^https://dailygk\\.indgovtjobs\\.net/[a-z0-9\\-/]+$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "live Apr 2026"
+      }
+    },
+    {
+      "name": "FreshersNow RRB NTPC GA Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "railway",
+      "url": "https://www.freshersnow.com/rrb-ntpc-general-awareness-questions-and-answers/",
+      "link_re": "^https://www\\.freshersnow\\.com/rrb[a-z0-9\\-]+/?$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "RRBAdda GA Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "railway",
+      "url": "https://www.rrbadda.com/general-awareness/",
+      "link_re": "^https://www\\.rrbadda\\.com/[a-z0-9\\-]*(quiz|questions?|mcq)[a-z0-9\\-]*/?$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "RRBAdda Reasoning Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "railway",
+      "url": "https://www.rrbadda.com/reasoning/",
+      "link_re": "^https://www\\.rrbadda\\.com/[a-z0-9\\-]*(quiz|questions?)[a-z0-9\\-]*/?$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "RRBAdda Maths Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "railway",
+      "url": "https://www.rrbadda.com/quantitative-aptitude/",
+      "link_re": "^https://www\\.rrbadda\\.com/[a-z0-9\\-]*(quiz|questions?)[a-z0-9\\-]*/?$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Adda247 RRB NTPC PYQ index",
+      "enabled": false,
+      "type": "index",
+      "exam": "railway",
+      "url": "https://www.adda247.com/jobs/rrb-ntpc-previous-year-question-paper/",
+      "link_re": "(?!)",
+      "max_links": 1,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "pdf_re": "https?://[^\\\"'\\s]+\\.pdf"
+    },
+    {
+      "name": "Adda247 RRB Group-D PYQ index",
+      "enabled": false,
+      "type": "index",
+      "exam": "railway",
+      "url": "https://www.adda247.com/jobs/rrb-group-d-previous-year-question-paper/",
+      "link_re": "(?!)",
+      "max_links": 1,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "pdf_re": "https?://[^\\\"'\\s]+\\.pdf"
+    },
+    {
+      "name": "Examveda Railway GK",
+      "enabled": false,
+      "type": "index",
+      "exam": "railway",
+      "url": "https://www.examveda.com/general-knowledge/practice-mcq-question-on-indian-railways/",
+      "link_re": "^https://www\\.examveda\\.com/general-knowledge/[a-z0-9\\-]+/(\\?page=\\d+)?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "page_re": "\\?page=\\d+$",
+      "max_pages": 4
+    },
+    {
+      "name": "BankersAdda Quant Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking",
+      "url": "https://www.bankersadda.com/quantitative-aptitude/",
+      "link_re": "^https://www\\.bankersadda\\.com/[a-z0-9\\-]*(quiz|questions?)[a-z0-9\\-]*/?$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "page_re": "/page/\\d+/?$",
+      "max_pages": 2
+    },
+    {
+      "name": "BankersAdda Reasoning Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking",
+      "url": "https://www.bankersadda.com/reasoning/",
+      "link_re": "^https://www\\.bankersadda\\.com/[a-z0-9\\-]*(quiz|questions?)[a-z0-9\\-]*/?$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "page_re": "/page/\\d+/?$",
+      "max_pages": 2
+    },
+    {
+      "name": "BankersAdda Banking Awareness Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking",
+      "url": "https://www.bankersadda.com/banking-awareness/",
+      "link_re": "^https://www\\.bankersadda\\.com/[a-z0-9\\-]*(quiz|questions?)[a-z0-9\\-]*/?$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "IBPSGuide Daily Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking",
+      "url": "https://www.ibpsguide.com/category/quiz/",
+      "link_re": "^https://www\\.ibpsguide\\.com/[a-z0-9\\-]+/?$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "page_re": "/page/\\d+/?$",
+      "max_pages": 2
+    },
+    {
+      "name": "Guidely Daily Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking",
+      "url": "https://guidely.in/blog/category/quiz",
+      "link_re": "^https://guidely\\.in/blog/[a-z0-9\\-]*(quiz|questions)[a-z0-9\\-]*/?$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "BankExamsToday Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking",
+      "url": "https://www.bankexamstoday.com/search/label/Quiz",
+      "link_re": "^https://www\\.bankexamstoday\\.com/\\d{4}/\\d{2}/[a-z0-9\\-]+\\.html$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Smartkeeda Banking Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking",
+      "url": "https://www.smartkeeda.com/Banking_Awareness/Banking_Awareness_Quiz/",
+      "link_re": "^https://www\\.smartkeeda\\.com/[A-Za-z_]+/[A-Za-z_]+/[A-Za-z0-9_\\-]+/?$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Smartkeeda Reasoning Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking-ssc",
+      "url": "https://www.smartkeeda.com/Reasoning_Aptitude/",
+      "link_re": "^https://www\\.smartkeeda\\.com/Reasoning_Aptitude/[A-Za-z_]+/[A-Za-z0-9_\\-]+/?$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Smartkeeda Quant Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking-ssc",
+      "url": "https://www.smartkeeda.com/Quantitative_Aptitude/",
+      "link_re": "^https://www\\.smartkeeda\\.com/Quantitative_Aptitude/[A-Za-z_]+/[A-Za-z0-9_\\-]+/?$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Adda247 IBPS PO PYQ index",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking",
+      "url": "https://www.bankersadda.com/ibps-po-previous-year-question-paper/",
+      "link_re": "(?!)",
+      "max_links": 1,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "pdf_re": "https?://[^\\\"'\\s]+\\.pdf"
+    },
+    {
+      "name": "Adda247 SBI Clerk PYQ index",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking",
+      "url": "https://www.bankersadda.com/sbi-clerk-previous-year-question-paper/",
+      "link_re": "(?!)",
+      "max_links": 1,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "pdf_re": "https?://[^\\\"'\\s]+\\.pdf"
+    },
+    {
+      "name": "Cracku Banking PYQ PDFs",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking",
+      "url": "https://cracku.in/blog/category/banking/",
+      "link_re": "(?!)",
+      "max_links": 1,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "pdf_re": "https?://[^\\\"'\\s]+\\.pdf"
+    },
+    {
+      "name": "Target Classes NDA CA Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "defence",
+      "url": "https://www.thetargetclasses.com/current-affairs-for-nda/",
+      "link_re": "^https://www\\.thetargetclasses\\.com/current-affairs-\\d+-[a-z]+-\\d{4}[a-z0-9\\-]*/?$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "live 07 Sep 2026 — daily NDA/CDS/AFCAT quiz"
+      }
+    },
+    {
+      "name": "SSBCrack Exams Daily GK",
+      "enabled": false,
+      "type": "index",
+      "exam": "defence",
+      "url": "https://www.ssbcrackexams.com/category/current-affairs/",
+      "link_re": "^https://www\\.ssbcrackexams\\.com/[a-z0-9\\-]*(quiz|mcq|questions)[a-z0-9\\-]*/?$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "page_re": "/page/\\d+/?$",
+      "max_pages": 2
+    },
+    {
+      "name": "SSBCrack Defence Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "defence",
+      "url": "https://www.ssbcrack.com/category/quiz",
+      "link_re": "^https://www\\.ssbcrack\\.com/\\d{4}/\\d{2}/[a-z0-9\\-]+\\.html$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Major Kalshi NDA Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "defence",
+      "url": "https://www.majorkalshiclasses.com/blog/category/nda/",
+      "link_re": "^https://www\\.majorkalshiclasses\\.com/blog/[a-z0-9\\-]*(quiz|questions|mcq|gk)[a-z0-9\\-]*/?$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Adda247 NDA PYQ index",
+      "enabled": false,
+      "type": "index",
+      "exam": "defence",
+      "url": "https://www.adda247.com/defence-jobs/nda-previous-year-question-paper/",
+      "link_re": "(?!)",
+      "max_links": 1,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "pdf_re": "https?://[^\\\"'\\s]+\\.pdf"
+    },
+    {
+      "name": "Adda247 CDS PYQ index",
+      "enabled": false,
+      "type": "index",
+      "exam": "defence",
+      "url": "https://www.adda247.com/defence-jobs/cds-previous-year-question-paper/",
+      "link_re": "(?!)",
+      "max_links": 1,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "pdf_re": "https?://[^\\\"'\\s]+\\.pdf"
+    },
+    {
+      "name": "Adda247 Agniveer PYQ index",
+      "enabled": false,
+      "type": "index",
+      "exam": "defence",
+      "url": "https://www.adda247.com/defence-jobs/army-agniveer-previous-year-question-paper/",
+      "link_re": "(?!)",
+      "max_links": 1,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "pdf_re": "https?://[^\\\"'\\s]+\\.pdf"
+    },
+    {
+      "name": "Examveda Defence GK",
+      "enabled": false,
+      "type": "index",
+      "exam": "defence",
+      "url": "https://www.examveda.com/general-knowledge/practice-mcq-question-on-indian-defence/",
+      "link_re": "^https://www\\.examveda\\.com/general-knowledge/[a-z0-9\\-]+/(\\?page=\\d+)?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "page_re": "\\?page=\\d+$",
+      "max_pages": 4
+    },
+    {
+      "name": "IndiaBIX Puzzles",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-banking-railway-police",
+      "url": "https://www.indiabix.com/puzzles/",
+      "link_re": "^https://www\\.indiabix\\.com/puzzles/[a-z0-9\\-]+/?$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "page_re": "/\\d+/?$",
+      "max_pages": 3,
+      "adapter": "indiabix"
+    },
+    {
+      "name": "IndiaBIX Online Reasoning Tests",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-banking-railway-police",
+      "url": "https://www.indiabix.com/online-test/logical-reasoning-test/",
+      "link_re": "^https://www\\.indiabix\\.com/online-test/logical-reasoning-test/[a-z0-9\\-]+/?$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "adapter": "indiabix"
+    },
+    {
+      "name": "Examveda Data Sufficiency",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking-ssc",
+      "url": "https://www.examveda.com/competitive-reasoning/practice-mcq-question-on-data-sufficiency/",
+      "link_re": "^https://www\\.examveda\\.com/competitive-reasoning/[a-z0-9\\-]+/(\\?page=\\d+)?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "page_re": "\\?page=\\d+$",
+      "max_pages": 4
+    },
+    {
+      "name": "Examveda Arithmetic Reasoning",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-railway-police",
+      "url": "https://www.examveda.com/competitive-reasoning/practice-mcq-question-on-arithmetic-reasoning/",
+      "link_re": "^https://www\\.examveda\\.com/competitive-reasoning/[a-z0-9\\-]+/(\\?page=\\d+)?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "page_re": "\\?page=\\d+$",
+      "max_pages": 4
+    },
+    {
+      "name": "Examveda Number Series",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-banking-railway-police",
+      "url": "https://www.examveda.com/competitive-reasoning/practice-mcq-question-on-number-series/",
+      "link_re": "^https://www\\.examveda\\.com/competitive-reasoning/[a-z0-9\\-]+/(\\?page=\\d+)?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "page_re": "\\?page=\\d+$",
+      "max_pages": 4
+    },
+    {
+      "name": "Examveda Syllogism",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-banking-railway-police",
+      "url": "https://www.examveda.com/competitive-reasoning/practice-mcq-question-on-syllogism/",
+      "link_re": "^https://www\\.examveda\\.com/competitive-reasoning/[a-z0-9\\-]+/(\\?page=\\d+)?$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      },
+      "page_re": "\\?page=\\d+$",
+      "max_pages": 4
+    },
+    {
+      "name": "Examsbook Quant Questions",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-banking-railway-police",
+      "url": "https://www.examsbook.com/quantitative-aptitude-questions-and-answers",
+      "link_re": "^https://www\\.examsbook\\.com/[a-z0-9\\-]+$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Hitbullseye Reasoning",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-banking",
+      "url": "https://www.hitbullseye.com/Reasoning-Questions.php",
+      "link_re": "^https://www\\.hitbullseye\\.com/[A-Za-z0-9\\-]+\\.php$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Pendulum Edu Reasoning Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-banking-railway",
+      "url": "https://pendulumedu.com/quiz/reasoning",
+      "link_re": "^https://pendulumedu\\.com/quiz/[a-z0-9\\-/]+$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Pendulum Edu Daily CA Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "current-affairs",
+      "url": "https://pendulumedu.com/quiz/current-affairs",
+      "link_re": "^https://pendulumedu\\.com/quiz/[a-z0-9\\-/]+$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Careericons Reasoning Practice",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-banking-railway-police",
+      "url": "https://www.careericons.com/logical-reasoning-mcq/",
+      "link_re": "^https://www\\.careericons\\.com/[a-z0-9\\-]+/[a-z0-9\\-/]+$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Careericons Quant Practice",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-banking-railway-police",
+      "url": "https://www.careericons.com/quantitative-aptitude-mcq/",
+      "link_re": "^https://www\\.careericons\\.com/[a-z0-9\\-]+/[a-z0-9\\-/]+$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Careericons GK Practice",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-railway-tspsc-appsc",
+      "url": "https://www.careericons.com/general-knowledge-mcq/",
+      "link_re": "^https://www\\.careericons\\.com/[a-z0-9\\-]+/[a-z0-9\\-/]+$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "GKToday Monthly CA Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "current-affairs",
+      "url": "https://www.gktoday.in/quiz/current-affairs-quiz/",
+      "link_re": "^https://www\\.gktoday\\.in/quiz/[a-z0-9\\-]+/?(\\?pageno=\\d+)?$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "live"
+      },
+      "page_re": "\\?pageno=\\d+$",
+      "max_pages": 4
+    },
+    {
+      "name": "Jagran Josh Daily CA Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "current-affairs",
+      "url": "https://www.jagranjosh.com/current-affairs/quiz",
+      "link_re": "^https://www\\.jagranjosh\\.com/current-affairs/[a-z0-9\\-]*quiz[a-z0-9\\-]*$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "re-check"
+      }
+    },
+    {
+      "name": "Adda247 CA Daily Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "current-affairs",
+      "url": "https://currentaffairs.adda247.com/category/daily-quiz/",
+      "link_re": "^https://currentaffairs\\.adda247\\.com/[a-z0-9\\-]*quiz[a-z0-9\\-]*/?$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Oliveboard Daily CA Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking-ssc",
+      "url": "https://www.oliveboard.in/blog/category/current-affairs-quiz/",
+      "link_re": "^https://www\\.oliveboard\\.in/blog/[a-z0-9\\-]*quiz[a-z0-9\\-]*/?$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Career Launcher Daily Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking-ssc",
+      "url": "https://www.careerlauncher.com/bank/daily-quiz/",
+      "link_re": "^https://www\\.careerlauncher\\.com/bank/[a-z0-9\\-]*quiz[a-z0-9\\-/]*$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Mahendras Daily Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking-ssc",
+      "url": "https://www.mahendras.org/blogs/",
+      "link_re": "^https://www\\.mahendras\\.org/blogs/[a-z0-9\\-]*(quiz|questions)[a-z0-9\\-]*/?$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Studyiq Daily CA Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "ssc-upsc",
+      "url": "https://www.studyiq.com/articles/daily-current-affairs-quiz/",
+      "link_re": "^https://www\\.studyiq\\.com/articles/[a-z0-9\\-]*quiz[a-z0-9\\-]*/?$",
+      "max_links": 4,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Vision IAS Daily Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "upsc",
+      "url": "https://www.visionias.in/resources/daily_quiz.php",
+      "link_re": "^https://www\\.visionias\\.in/resources/[a-z0-9_\\-/]+$",
+      "max_links": 2,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Cracku Daily GK Quiz",
+      "enabled": false,
+      "type": "index",
+      "exam": "banking-ssc-railway",
+      "url": "https://cracku.in/blog/category/current-affairs/",
+      "link_re": "^https://cracku\\.in/blog/[a-z0-9\\-]*(quiz|questions)[a-z0-9\\-]*/?$",
+      "max_links": 3,
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "SSCStudy feed",
+      "enabled": false,
+      "type": "rss",
+      "exam": "ssc-railway-police",
+      "feed": "https://sscstudy.com/feed/",
+      "title_must": "quiz|mcq|questions?|bits?|bit ?bank|practice|mock|previous|pyq|model paper|reasoning|aptitude|general (awareness|knowledge|studies)|\\bgk\\b|current affairs|polity|history|geography|economy|science",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|analysis|apply online|registration|motivation|topper|schedule|webinar|course|success stor|job",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Target Classes feed",
+      "enabled": false,
+      "type": "rss",
+      "exam": "defence-ssc-current-affairs",
+      "feed": "https://www.thetargetclasses.com/feed/",
+      "title_must": "quiz|mcq|questions?|bits?|bit ?bank|practice|mock|previous|pyq|model paper|reasoning|aptitude|general (awareness|knowledge|studies)|\\bgk\\b|current affairs|polity|history|geography|economy|science",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|analysis|apply online|registration|motivation|topper|schedule|webinar|course|success stor|job",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "Examsbook feed",
+      "enabled": false,
+      "type": "rss",
+      "exam": "ssc-banking-railway-police",
+      "feed": "https://www.examsbook.com/feed",
+      "title_must": "quiz|mcq|questions?|bits?|bit ?bank|practice|mock|previous|pyq|model paper|reasoning|aptitude|general (awareness|knowledge|studies)|\\bgk\\b|current affairs|polity|history|geography|economy|science",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|analysis|apply online|registration|motivation|topper|schedule|webinar|course|success stor|job",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "MCQBits feed",
+      "enabled": false,
+      "type": "rss",
+      "exam": "tspsc-appsc-police",
+      "feed": "https://www.mcqbits.com/feed/",
+      "title_must": "quiz|mcq|questions?|bits?|bit ?bank|practice|mock|previous|pyq|model paper|reasoning|aptitude|general (awareness|knowledge|studies)|\\bgk\\b|current affairs|polity|history|geography|economy|science",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|analysis|apply online|registration|motivation|topper|schedule|webinar|course|success stor|job",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
+    },
+    {
+      "name": "GKGigs feed",
+      "enabled": false,
+      "type": "rss",
+      "exam": "tspsc-appsc",
+      "feed": "https://gkgigs.com/feed/",
+      "title_must": "quiz|mcq|questions?|bits?|bit ?bank|practice|mock|previous|pyq|model paper|reasoning|aptitude|general (awareness|knowledge|studies)|\\bgk\\b|current affairs|polity|history|geography|economy|science",
+      "title_not": "notification|admit card|hall ticket|result|cut[\\s-]?off|syllabus|editorial|interview|recruitment|vacancy|salary|eligibility|exam date|analysis|apply online|registration|motivation|topper|schedule|webinar|course|success stor|job",
+      "auto_enable_if_live": true,
+      "audit": {
+        "status": "unverified",
+        "checked": "2026-09-11",
+        "note": "deep research 11 Sep 2026 — content-gated candidate"
+      }
     }
-  ]
+  ],
+  "last_expansion": "2026-09-11"
 }

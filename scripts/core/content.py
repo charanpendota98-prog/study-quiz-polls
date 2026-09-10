@@ -235,12 +235,18 @@ def build_explanation(q: dict, telugu_first: bool = True) -> str:
     te = (q.get("explanation_te") or "").lstrip("⤷").strip()
     if not expl and not te:
         return ""
+    try:
+        from .verifier import status_of
+        verified = status_of(q.get("id", "")) in ("ok", "fixed")
+    except Exception:
+        verified = False
+    tick = "✅" if not verified else "✅✔"   # ✔ = API-key audited answer + Telugu
     if telugu_first and te:
-        text = f"✅ {te}"
+        text = f"{tick} {te}"
         if expl:
             text += f"\n{expl}"
     else:
-        text = f"✅ {expl}" if expl else "✅"
+        text = f"{tick} {expl}" if expl else tick
         if te:
             text += f"\n⤷ {te}"
     return _clamp(text, 200)

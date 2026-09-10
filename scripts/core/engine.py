@@ -458,6 +458,15 @@ class Engine:
             print(f"   [collect] error (non-fatal): {e}")
             return {"accepted": 0, "error": str(e)}
 
+    def verify_questions(self, limit=120):
+        """API-key audit: solve blind, compare key, audit Telugu; quarantine bad ones."""
+        try:
+            from .verifier import run
+            return run(limit=limit, dry=self.dry)
+        except Exception as e:
+            print(f"   [verify] error (non-fatal): {e}")
+            return {"error": str(e)}
+
     def harvest_pyq(self):
         """Nightly: download + ingest official previous-paper PDFs (pyq_papers.json)."""
         try:

@@ -438,3 +438,17 @@ round wins / district tops / perfect rounds (new badges 🥇🏆👑💎🤝), a
 - Manual: `python3 -m core.pyq harvest [--only TSPSC] [--limit N] [--dry]`, `python3 -m core.pyq status`, `python3 -m core.pyq add CHANNEL "Exam" YEAR "Paper" URL`.
 - Admin: `/pyq` in the bot shows harvest state + how many bank questions carry exam+year provenance.
 - Untranslated questions are parked in `pending` **with their stamp** and picked up when a key becomes available.
+
+## 🔎 API-key question verifier (`core/verifier.py`)
+
+No scraped / generated question reaches a poll unchecked:
+
+1. **Structural gate** (offline): 4 distinct options, valid key, Telugu present, no Devanagari, no answer leak in the stem, numbers preserved EN↔TE.
+2. **Blind answer audit** (LLM keys): the model solves the question without seeing our key. Disagreement → second opinion; two high-confidence agreeing models **correct** a scraped key (`fixed`), while PYQ/curated keys are never auto-changed — only quarantined for review.
+3. **Telugu audit**: the translation must be faithful exam-paper Telugu; certain fixes are applied, unclear ones quarantine.
+
+States live in `data/verify_state.json`; quarantined questions are never posted. `VERIFY_STRICT=auto` (default) means scraped/generated questions post only after verification whenever at least one API key is configured; PYQ/curated post immediately. Scheduled 03:00 / 06:30 / 18:30; admin `/verify` and `/verify run`. Verified answers show `✅✔` in the poll explanation.
+
+## 🌐 Source registry v4.3 — 402 sources
+
+`data/collector_sources.json` now tracks **402** exam sources (84 live, 227 content-gated candidates, 91 archived). The 11 Sep 2026 expansion added 99 candidates: Telugu bit banks (MCQBits, Sakshi, Eenadu Pratibha, SRM Tutors, 10minutetelugu, Adda247-Telugu, Testbook-TE, GKGigs TS/AP), SSC/RRB/Bank/Defence daily quizzes (DailyGK, SSCStudy, SSCAdda, RRBAdda, BankersAdda, IBPSGuide, Guidely, Smartkeeda, Target Classes, SSBCrack, GKToday Defence) and PYQ PDF indexes (Adda247 CGL/CHSL/MTS/NTPC/Group-D/NDA/CDS/Agniveer, Examcart, Qmaths, SSCPortal, Cracku, KPIAS). The auditor now **deep-checks** index candidates — a source is enabled only when its page or a linked quiz page actually parses into MCQs (or it exposes paper PDFs).

@@ -180,8 +180,14 @@ class Bank:
         used = set(self.used.get(channel, []))
         sigs = self._sig_set
         out = []
+        try:
+            from .verifier import postable
+        except Exception:
+            postable = None
         for q in self.by_channel(channel):
             if q["id"] in used:
+                continue
+            if postable and not postable(q):
                 continue
             sig = q_signature(q)
             # never repeat a question with the same content signature

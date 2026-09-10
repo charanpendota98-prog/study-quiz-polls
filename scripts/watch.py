@@ -107,6 +107,8 @@ def tick(eng, now, dry=False):
                 ran.append("backfill")
             except Exception as e:
                 log(f"backfill error: {e}")
+        elif task == "verify":
+            eng.verify_questions(limit=int(meta.get("limit", 120))); ran.append("verify")
         elif task == "pyq":
             eng.harvest_pyq(); ran.append("pyq")
         elif task == "audit":

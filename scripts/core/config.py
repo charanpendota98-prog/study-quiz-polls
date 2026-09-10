@@ -254,7 +254,10 @@ SCHEDULE = {
     "01:30": ("backfill", {}),     # deep archive sweep (3-month campaign; idle when done)
     "02:15": ("pyq", {}),          # official previous-paper PDFs → provenance-stamped questions
     "04:45": ("audit", {}),        # daily deep source audit (content-gated)
+    "03:00": ("verify", {}),       # API-key answer + Telugu audit of new questions
     "05:30": ("collect", {"reason": "pre-dawn scrape"}),
+    "06:30": ("verify", {"limit": 60}),
+    "18:30": ("verify", {"limit": 60}),
     "06:00": ("filler", {"reason": "morning top-up"}),
     "07:00": ("morning", {}),
     "07:30": ("quiz", {"slot": 1, "round": "Morning ⛅"}),
@@ -342,3 +345,14 @@ TG_MSG_MAX = 4096
 TTL_CA = 48
 TTL_JOBS = 12
 TTL_GLOBAL = 6
+
+
+# Question verification gate (core/verifier.py):
+#   True  -> scraped/generated questions post ONLY after the API-key audit
+#   False -> lenient (post once structurally valid)
+#   "auto"-> strict whenever at least one LLM key is configured
+VERIFY_STRICT = os.environ.get("VERIFY_STRICT", "auto")
+if VERIFY_STRICT.lower() in ("1", "true", "yes"):
+    VERIFY_STRICT = True
+elif VERIFY_STRICT.lower() in ("0", "false", "no"):
+    VERIFY_STRICT = False

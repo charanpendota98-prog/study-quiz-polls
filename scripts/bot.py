@@ -435,6 +435,14 @@ class Bot:
         elif low.startswith("/rank") or low.startswith("/leaderboard") or low.startswith("/top"):
             self.tg.send_message(chat_id, self.members.render_leaderboard(),
                                  parse_mode="Markdown")
+        elif low.startswith("/verify"):
+            from core.verifier import status_text as vstat, run as vrun
+            parts = low.split()
+            if len(parts) > 1 and parts[1] == "run":
+                st = vrun(limit=40)
+                self.tg.send_message(chat_id, f"🔎 verify run: {st}")
+            else:
+                self.tg.send_message(chat_id, vstat())
         elif low.startswith("/pyq"):
             from core.pyq import status_text
             from core.question_bank import Bank
