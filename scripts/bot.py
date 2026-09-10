@@ -65,12 +65,14 @@ SHEET_SETUP = (
     "Sheet: {view}\n\n"
     "One-time bridge setup (3 min, no API keys):\n"
     "1️⃣ Open the Sheet → Extensions → Apps Script\n"
-    "2️⃣ Delete the sample code, paste docs/sheet_webapp.gs from the repo\n"
-    "3️⃣ Set SECRET = a long random string (line 14)\n"
-    "4️⃣ Deploy → New deployment → type: Web app → Execute as: Me · Access: Anyone → Deploy → Authorize\n"
-    "5️⃣ Copy the URL ending in /exec → .env:\n"
+    "2️⃣ Delete the sample code, paste docs/sheet_webapp.gs from the repo → Save\n"
+    "3️⃣ Change SECRET = \"...\" to a long random string\n"
+    "4️⃣ Run ▶ setupSheet once (creates 📊 Dashboard, members, rounds, daily, log tabs + nightly snapshot)\n"
+    "5️⃣ Deploy → New deployment → Web app → Execute as: Me · Access: Anyone → Deploy → Authorize\n"
+    "6️⃣ Copy the URL ending in /exec → .env:\n"
     "   SHEET_WEBAPP_URL=<that url>\n   SHEET_SECRET=<same secret>\n"
-    "6️⃣ Restart bot → /syncsheet pushes everyone. Tabs 'members' & 'rounds' appear automatically.\n"
+    "7️⃣ Restart bot → /setupsheet shows ✅ connected → /syncsheet pushes everyone.\n"
+    "🔁 After editing the script later: Deploy → Manage deployments → ✏ → New version.\n"
     "⤷ Sheet link మాత్రమే సరిపోదు — Google rule ప్రకారం write చేయాలంటే ఈ web-app URL కావాలి."
 )
 
@@ -376,8 +378,10 @@ class Bot:
                 return
             from core import crm
             if low.startswith("/setupsheet"):
-                self.tg.send_message(chat_id, SHEET_SETUP.format(view=config.SHEET_URL_VIEW,
-                                     status="✅ connected" if crm.sheet_enabled() else "⚠️ not connected yet"))
+                pg = crm.ping()
+                status = (f"✅ connected — {pg.get('members', 0)} rows in Sheet" if pg.get("ok")
+                          else f"⚠️ not connected ({pg.get('error')})")
+                self.tg.send_message(chat_id, SHEET_SETUP.format(view=config.SHEET_URL_VIEW, status=status))
                 return
             if low.startswith("/crm"):
                 self.tg.send_message(chat_id, crm.segment_summary(self.members.members), parse_mode="Markdown")

@@ -87,6 +87,25 @@ def push_round_top(round_id, channel, rows, post=None) -> bool:
          "total": r["total"], "points": r["points"]} for i, r in enumerate(rows)]}, post)
 
 
+def ping(post=None) -> dict:
+    """Health check → {'ok': bool, 'members': n} (n from the Sheet)."""
+    if not sheet_enabled():
+        return {"ok": False, "error": "SHEET_WEBAPP_URL not set"}
+    try:
+        data = json.dumps({"action": "ping", "secret": SHEET_SECRET}).encode("utf-8")
+        req = urllib.request.Request(SHEET_URL, data=data, headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            body = json.loads(r.read().decode("utf-8", "ignore") or "{}")
+        if not body.get("ok"):
+            return {"ok": False, "error": body.get("error", "unknown")}
+        # GET returns member count
+        with urllib.request.urlopen(SHEET_URL, timeout=15) as r:
+            info = json.loads(r.read().decode("utf-8", "ignore") or "{}")
+        return {"ok": True, "members": info.get("members", 0)}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:120]}
+
+
 def _post(payload: dict, post=None) -> bool:
     payload["secret"] = SHEET_SECRET
     payload["ts"] = datetime.now(config.IST).isoformat(timespec="seconds")
