@@ -106,6 +106,10 @@ class Members:
         if first:
             m["registered"] = True
             m["registered_at"] = now_iso()
+            # 🔓 release escrowed points earned before registering
+            if m.get("locked_points"):
+                m["unlocked_on_register"] = m["locked_points"]
+                m["points"] += m.pop("locked_points")
             m["points"] += 25  # registration bonus
         self.kv.save()
         try:                       # mirror to Google Sheet CRM (no-op if not configured)
@@ -201,10 +205,17 @@ class Members:
                 m.setdefault("badges", []).append(b["id"])
                 new_badges.append(b)
 
+        # 🔒 Not registered yet → points go to escrow ("locked") and are
+        # released the moment registration completes (see register()).
+        locked = 0
+        if not m.get("registered") and earned:
+            m["points"] -= earned
+            m["locked_points"] = m.get("locked_points", 0) + earned
+            locked = m["locked_points"]
         self.kv.save()
         return {"earned": earned, "events": events, "level_up": leveled_up,
                 "points": m["points"], "streak": m["streak"],
-                "new_badges": new_badges}
+                "new_badges": new_badges, "locked": locked}
 
     # ------------------------------------------------------------ badges
     def _earned_badges(self, m):
@@ -921,7 +932,9 @@ class Members:
                           mobile=mobile, source="bot")
             self.pending.pop(str(uid), None)
             self.kv.save()
-            return "done", ("🎉 Registration complete — +25 bonus points!\n"
+            unlocked = (self.members.get(str(uid)) or {}).get("unlocked_on_register", 0)
+            unlock_line = (f"🔓 {unlocked} locked points released!\n⤷ లాక్ అయిన {unlocked} పాయింట్లు విడుదల!\n" if unlocked else "")
+            return "done", (unlock_line + "🎉 Registration complete — +25 bonus points!\n"
                             "⤷ రిజిస్ట్రేషన్ పూర్తయింది. ఇక మళ్లీ అడగము ✅\n\n"
                             "Every round your name + district can appear in the channel Top-10 🏆\n"
                             "⤷ ప్రతి రౌండ్ తర్వాత Top-10 లో మీ పేరు, జిల్లా ఛానల్‌లో వస్తుంది!\n\n"

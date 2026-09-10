@@ -965,3 +965,33 @@ class TestHallOfFame(TestRoundIntel):
         self.assertIn("Hall of Fame", hof)
         self.assertIn("Anil", hof)
         self.assertIn("Round wins: 1", self.mb.personal_round_card(100, self.rid, "TSPSC"))
+
+
+class TestPointsEscrow(unittest.TestCase):
+    def setUp(self):
+        import tempfile, pathlib
+        from core import config
+        self._old = config.DATA
+        config.DATA = pathlib.Path(tempfile.mkdtemp())
+        from core.members import Members
+        self.mb = Members()
+
+    def tearDown(self):
+        from core import config
+        config.DATA = self._old
+
+    def test_locked_until_registered(self):
+        r1 = self.mb.award_answer(777, correct=True)
+        self.assertEqual(self.mb.members["777"]["points"], 0)
+        self.assertEqual(r1["locked"], 15)          # 10 correct + 5 daily
+        r2 = self.mb.award_answer(777, correct=True)
+        self.assertEqual(r2["locked"], 25)
+        self.mb.start_registration(777)
+        self.mb.registration_input(777, "Ravi"); self.mb.registration_input(777, "Nellore")
+        s, reply = self.mb.registration_input(777, "skip")
+        self.assertEqual(s, "done")
+        self.assertIn("🔓 25", reply)
+        self.assertEqual(self.mb.members["777"]["points"], 25 + 25)   # unlocked + bonus
+        r3 = self.mb.award_answer(777, correct=True)
+        self.assertEqual(r3["locked"], 0)
+        self.assertEqual(self.mb.members["777"]["points"], 60)

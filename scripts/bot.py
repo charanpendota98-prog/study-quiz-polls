@@ -76,6 +76,18 @@ SHEET_SETUP = (
     "⤷ Sheet link మాత్రమే సరిపోదు — Google rule ప్రకారం write చేయాలంటే ఈ web-app URL కావాలి."
 )
 
+LOCKED_FIRST = (
+    "🔒 +{pts} points earned — but LOCKED.\n"
+    "⤷ మీరు {pts} పాయింట్లు సంపాదించారు — కానీ లాక్ అయ్యాయి.\n\n"
+    "Register once (30 sec) to UNLOCK them and enter the Top-10 with your name + district 🏆\n"
+    "⤷ ఒక్కసారి రిజిస్టర్ చేస్తే అన్‌లాక్ + Top-10 లో మీ పేరు, జిల్లా!\n\n"
+    "📝 Step 1 of 3 — What is your full name?\n⤷ మీ పూర్తి పేరు పంపండి:"
+)
+LOCKED_NUDGE = (
+    "🔒 {pts} points waiting for you. Finish registration to unlock — just send your name.\n"
+    "⤷ {pts} పాయింట్లు లాక్‌లో ఉన్నాయి — పేరు పంపి రిజిస్ట్రేషన్ పూర్తి చేయండి."
+)
+
 HELP = (
     "ℹ️ *How it works*\n"
     "1️⃣ /register once (name, exam target, language) — +25 bonus points.\n"
@@ -490,18 +502,26 @@ class Bot:
         is_correct = int(chosen[0]) == int(correct_idx)
         # First-time player? Ask for registration ONCE (name → district → mobile).
         # The answer still counts; the ask is never repeated after completion.
+        first_ask = False
         if uid and not self.members.is_registered(uid) and not self.members.pending_step(uid):
             self.members.start_registration(uid, username=self._name(user))
             self.members.register_default_exam(uid, self._channel_to_exam(ch))
-            try:
-                self.tg.send_message(uid, FIRST_TIME_ASK)
-            except TelegramError:
-                pass
+            first_ask = True
         if round_id:
             self.members.record_round_answer(uid, round_id, ch, is_correct, qid=qid)
         result = self.members.award_answer(
             uid, username=self._name(user),
             correct=is_correct, topic=topic, qid=qid)
+        if result.get("locked"):
+            # 🔒 unregistered: points are held. First time → full ask; later → short nudge.
+            try:
+                if first_ask:
+                    self.tg.send_message(uid, LOCKED_FIRST.format(pts=result["locked"]))
+                elif self.members.pending_step(uid) and result["locked"] % 30 == 0:
+                    self.tg.send_message(uid, LOCKED_NUDGE.format(pts=result["locked"]))
+            except TelegramError:
+                pass
+            return
         if round_id:
             return   # DM round poll: Telegram already shows ✅/❌ + explanation
         # Private feedback to the player (DMs only — groups can't DM via poll)
