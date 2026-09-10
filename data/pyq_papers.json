@@ -1,0 +1,75 @@
+{
+  "_doc": [
+    "Official / verified previous-year question paper PDFs. Each entry is harvested",
+    "ONCE into data/pdf_inbox/ and ingested with exam/year/paper provenance stamped",
+    "on every question (poll header shows e.g. '📜 TSPSC Group-2 2024 · Paper-1').",
+    "Sources: board sites + Sakshi/Eenadu/CareerPower mirrors that host the same",
+    "official PDF. lang=te means a Telugu-medium paper (kept verbatim).",
+    "Add more: python3 -m core.pyq add <channel> <exam> <year> <paper> <url>"
+  ],
+  "papers": [
+    {"channel": "TSPSC", "exam": "TSPSC Group-2", "year": 2024, "paper": "Paper-1 General Studies & Abilities", "date": "2024-12-15",
+     "url": "https://www.careerpower.in/blog/wp-content/uploads/2024/12/15132724/TSPSC-Group-2-Question-Paper-2024.pdf", "lang": "en", "via": "careerpower mirror of official TSPSC paper"},
+    {"channel": "TSPSC", "exam": "TSPSC Group-2", "year": 2024, "paper": "Paper-2 History, Polity & Society", "date": "2024-12-15",
+     "url": "https://www.careerpower.in/blog/wp-content/uploads/2024/12/15180359/TSPSC-Group-1-Question-Paper-2.pdf", "lang": "en", "via": "careerpower mirror"},
+    {"channel": "TSPSC", "exam": "TSPSC Group-2", "year": 2024, "paper": "Paper-3 Economy & Development", "date": "2024-12-16",
+     "url": "https://www.careerpower.in/blog/wp-content/uploads/2024/12/16134357/TSPSC-Group-2-Question-Paper-2024-Paper-3-1.pdf", "lang": "en", "via": "careerpower mirror"},
+    {"channel": "TSPSC", "exam": "TSPSC Group-2", "year": 2024, "paper": "Paper-4 Telangana Movement & State Formation", "date": "2024-12-16",
+     "url": "https://www.careerpower.in/blog/wp-content/uploads/2024/12/16183635/TSPSC-Group-2-Question-Paper-2024-Paper-4.pdf", "lang": "en", "via": "careerpower mirror"},
+    {"channel": "TSPSC", "exam": "TSPSC Group-2", "year": 2016, "paper": "Paper-1 General Studies & Abilities", "date": "2016-11-11",
+     "url": "https://www.careerpower.in/blog/wp-content/uploads/2025/01/30005251/tspsc-group-2-2016-paper-1.pdf", "lang": "en", "via": "careerpower mirror"},
+    {"channel": "TSPSC", "exam": "TSPSC Group-2", "year": 2016, "paper": "Paper-2 History, Polity & Society", "date": "2016-11-11",
+     "url": "https://www.careerpower.in/blog/wp-content/uploads/2025/01/30005404/TSPSC-Group-2-Paper-2-2016.pdf", "lang": "en", "via": "careerpower mirror"},
+    {"channel": "TSPSC", "exam": "TSPSC Group-2", "year": 2016, "paper": "Paper-3 Economy & Development", "date": "2016-11-12",
+     "url": "https://www.careerpower.in/blog/wp-content/uploads/2025/01/30005539/TSPSC-Group2-Paper-3-2016.pdf", "lang": "en", "via": "careerpower mirror"},
+    {"channel": "TSPSC", "exam": "TSPSC Group-2", "year": 2016, "paper": "Paper-4 Telangana Movement (Telugu)", "date": "2016-11-12",
+     "url": "https://www.careerpower.in/blog/wp-content/uploads/2025/01/30005252/TSPSC-Group-II-2016-Paper-4-Telangana-Movement-State-Formation-Telugu.pdf", "lang": "te", "via": "careerpower mirror"},
+
+    {"channel": "APPSC", "exam": "APPSC Group-2 Mains", "year": 2025, "paper": "Paper-1 AP History & Indian Constitution (Series C)", "date": "2025-02-23",
+     "url": "https://education.sakshi.com/sites/default/files/pdf/2025/04/05/GroupII_Mains_Paper_I_%20Series_C.pdf", "lang": "en", "via": "Sakshi Education mirror of official APPSC paper + final key"},
+    {"channel": "APPSC", "exam": "APPSC Group-2 Mains", "year": 2025, "paper": "Paper-2 Indian & AP Economy, Science & Technology", "date": "2025-02-23",
+     "index": "https://education.sakshi.com/en/group-2/previous-papers-2025/appsc-group-2-paper-2-previous-papers-2024-pdfs-download-174635", "lang": "en", "via": "Sakshi Education (PDF link resolved from page)"},
+
+    {"channel": "SSC", "exam": "SSC CGL Tier-1", "year": 2024, "paper": "All shifts (memory-based, official-key aligned)", "date": "2024-09-09",
+     "index": "https://www.adda247.com/jobs/ssc-cgl-previous-year-question-paper/", "lang": "en", "via": "Adda247 index page → PDF links", "max_pdfs": 6},
+    {"channel": "SSC", "exam": "SSC CHSL Tier-1", "year": 2024, "paper": "All shifts", "date": "2024-07-01",
+     "index": "https://www.adda247.com/jobs/ssc-chsl-previous-year-question-paper/", "lang": "en", "via": "Adda247 index page → PDF links", "max_pdfs": 4},
+    {"channel": "SSC", "exam": "SSC MTS", "year": 2024, "paper": "All shifts", "date": "2024-09-30",
+     "index": "https://www.adda247.com/jobs/ssc-mts-previous-year-question-paper/", "lang": "en", "via": "Adda247 index page → PDF links", "max_pdfs": 4},
+
+    {"channel": "RAILWAY", "exam": "RRB NTPC CBT-1", "year": 2024, "paper": "All shifts", "date": "2024-06-01",
+     "index": "https://www.adda247.com/jobs/rrb-ntpc-previous-year-question-paper/", "lang": "en", "via": "Adda247 index page → PDF links", "max_pdfs": 4},
+    {"channel": "RAILWAY", "exam": "RRB Group-D", "year": 2022, "paper": "All shifts", "date": "2022-08-17",
+     "index": "https://www.adda247.com/jobs/rrb-group-d-previous-year-question-paper/", "lang": "en", "via": "Adda247 index page → PDF links", "max_pdfs": 4},
+
+    {"channel": "BANKING", "exam": "IBPS PO Prelims", "year": 2024, "paper": "Memory-based paper", "date": "2024-10-19",
+     "index": "https://www.bankersadda.com/ibps-po-previous-year-question-paper/", "lang": "en", "via": "BankersAdda index page → PDF links", "max_pdfs": 3},
+    {"channel": "BANKING", "exam": "SBI Clerk Prelims", "year": 2024, "paper": "Memory-based paper", "date": "2024-01-05",
+     "index": "https://www.bankersadda.com/sbi-clerk-previous-year-question-papers/", "lang": "en", "via": "BankersAdda index page → PDF links", "max_pdfs": 3},
+    {"channel": "BANKING", "exam": "IBPS Clerk Prelims", "year": 2024, "paper": "Memory-based paper", "date": "2024-08-24",
+     "index": "https://www.bankersadda.com/ibps-clerk-previous-year-question-paper/", "lang": "en", "via": "BankersAdda index page → PDF links", "max_pdfs": 3},
+
+    {"channel": "POLICE", "exam": "TS Police Constable Prelims", "year": 2022, "paper": "Preliminary Written Test", "date": "2022-08-28",
+     "index": "https://www.careerpower.in/ts-police-constable-previous-year-question-papers.html", "lang": "en", "via": "careerpower index → PDF", "max_pdfs": 3},
+    {"channel": "POLICE", "exam": "TS Police SI Prelims", "year": 2022, "paper": "Preliminary Written Test", "date": "2022-08-07",
+     "index": "https://www.careerpower.in/ts-police-si-previous-year-question-papers.html", "lang": "en", "via": "careerpower index → PDF", "max_pdfs": 3},
+    {"channel": "POLICE", "exam": "AP Police Constable Prelims", "year": 2023, "paper": "Preliminary Written Test", "date": "2023-01-22",
+     "index": "https://www.careerpower.in/ap-police-constable-previous-year-question-papers.html", "lang": "en", "via": "careerpower index → PDF", "max_pdfs": 3},
+
+    {"channel": "DEFENCE", "exam": "NDA", "year": 2024, "paper": "GAT (General Ability Test)", "date": "2024-04-21",
+     "index": "https://www.adda247.com/defence-jobs/nda-previous-year-question-paper/", "lang": "en", "via": "Adda247 defence index → PDF", "max_pdfs": 3},
+    {"channel": "DEFENCE", "exam": "Agniveer Army GD", "year": 2024, "paper": "CEE", "date": "2024-04-22",
+     "index": "https://www.adda247.com/defence-jobs/agniveer-army-previous-year-question-paper/", "lang": "en", "via": "Adda247 defence index → PDF", "max_pdfs": 3},
+    {"channel": "DEFENCE", "exam": "CDS", "year": 2024, "paper": "General Knowledge", "date": "2024-04-21",
+     "index": "https://www.adda247.com/defence-jobs/cds-previous-year-question-paper/", "lang": "en", "via": "Adda247 defence index → PDF", "max_pdfs": 3},
+
+    {"channel": "TSPSC", "exam": "TSPSC Group-4", "year": 2023, "paper": "Paper-1 General Knowledge", "date": "2023-07-01",
+     "index": "https://www.careerpower.in/tspsc-group-4-previous-year-question-papers.html", "lang": "en", "via": "careerpower index → PDF", "max_pdfs": 4},
+    {"channel": "TSPSC", "exam": "TSPSC Group-1 Prelims", "year": 2024, "paper": "General Studies & Mental Ability", "date": "2024-06-09",
+     "index": "https://www.careerpower.in/tspsc-group-1-previous-year-question-papers.html", "lang": "en", "via": "careerpower index → PDF", "max_pdfs": 3},
+    {"channel": "APPSC", "exam": "APPSC Group-1 Prelims", "year": 2024, "paper": "Paper-1 & 2", "date": "2024-03-17",
+     "index": "https://www.careerpower.in/appsc-group-1-previous-year-question-papers.html", "lang": "en", "via": "careerpower index → PDF", "max_pdfs": 4},
+    {"channel": "APPSC", "exam": "APPSC Group-2 Screening", "year": 2024, "paper": "Screening Test", "date": "2024-02-25",
+     "index": "https://www.careerpower.in/appsc-group-2-previous-year-question-papers.html", "lang": "en", "via": "careerpower index → PDF", "max_pdfs": 4}
+  ]
+}

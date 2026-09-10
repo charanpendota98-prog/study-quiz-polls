@@ -1166,7 +1166,7 @@ def _id_for(n):
     return f"S{n:04d}"
 
 
-def normalize_raw(raw, source_name, idx, llm=None, src=None):
+def normalize_raw(raw, source_name, idx, llm=None, src=None, stamp=None):
     """Build a canonical question dict from a parsed raw item.
     Returns (question_or_None, needs_translation_bool).
 
@@ -1198,6 +1198,12 @@ def normalize_raw(raw, source_name, idx, llm=None, src=None):
         "provenance": f"{source_name} :: {raw.get('url','')}",
         "collected_on": datetime.now(config.IST).strftime("%Y-%m-%d"),
     }
+    if stamp:
+        # official previous-paper provenance: exam / year / paper / url
+        q.update({k: v for k, v in stamp.items() if k not in ("channel_pin", "lang_hint")})
+        if stamp.get("channel_pin") in config.CHANNELS:
+            q["channel"] = stamp["channel_pin"]
+        q["bank"] = "pyq"
     # Telugu-native source page (e.g. GKToday Telugu CA MCQs): the stem and
     # options are already Telugu — keep them as both EN and TE (no LLM).
     from .content import has_telugu as _has_te
@@ -1267,7 +1273,7 @@ def _sources():
 
 
 def collect_daily(dry=False, llm=None, max_questions=MAX_QUESTIONS_PER_RUN,
-                  fixture=None, depth=1.0, only=None):
+                  fixture=None, depth=1.0, only=None, stamp=None):
     """
     Collect fresh exam questions from all enabled sources.
     fixture=(html, title, url) -> parse local content offline (tests/demo).
@@ -1433,12 +1439,13 @@ def collect_daily(dry=False, llm=None, max_questions=MAX_QUESTIONS_PER_RUN,
             if fp in existing_fps or sig in existing_sigs:
                 stats["duplicates"] += 1
                 continue
-            q, needs_tx = normalize_raw(raw, source_name, next_id, llm=llm,
+            q, needs_tx = normalize_raw(raw, source_name, next_id, llm=llm, stamp=stamp,
                                         src=src if isinstance(src, dict) else None)
             if q is None:
                 if needs_tx:
                     pending.append({**raw, "_fp": fp, "source_name": source_name,
-                                    "provenance": f"{source_name} :: {url}"})
+                                    "provenance": f"{source_name} :: {url}",
+                                    **({"_stamp": stamp} if stamp else {})})
                     existing_fps.add(fp)
                     stats["parked"] += 1
                 else:
@@ -1531,7 +1538,7 @@ def text_to_lines(text: str):
     return lines
 
 
-def ingest_pdf(path, title="", dry=False, llm=None):
+def ingest_pdf(path, title="", dry=False, llm=None, stamp=None):
     """Parse one PDF / .txt file into the scraped bank. Returns stats."""
     from pathlib import Path as _P
     p = _P(path)
@@ -1543,7 +1550,7 @@ def ingest_pdf(path, title="", dry=False, llm=None):
     lines = text_to_lines(text)
     # reuse the fixture path: hand the parser pre-split lines
     html_like = "<article>" + "".join(f"<p>{html.escape(l)}</p>" for l in lines) + "</article>"
-    return collect_daily(fixture=(html_like, title, f"file://{p.name}"), dry=dry, llm=llm)
+    return collect_daily(fixture=(html_like, title, f"file://{p.name}"), dry=dry, llm=llm, stamp=stamp)
 
 
 def ingest_inbox(dry=False, llm=None):
@@ -1661,7 +1668,8 @@ def retry_pending(dry=False, llm=None):
         q, needs_tx = normalize_raw(
             {k: raw[k] for k in ("q_en", "options_en", "answer_index",
                                 "explanation_en", "title", "url")
-             if k in raw}, raw.get("source_name", "scraped"), next_id, llm=llm)
+             if k in raw}, raw.get("source_name", "scraped"), next_id, llm=llm,
+            stamp=raw.get("_stamp"))
         if q:
             q["_fp"] = fp
             accepted.append(q)

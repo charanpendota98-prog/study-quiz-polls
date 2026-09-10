@@ -458,6 +458,15 @@ class Engine:
             print(f"   [collect] error (non-fatal): {e}")
             return {"accepted": 0, "error": str(e)}
 
+    def harvest_pyq(self):
+        """Nightly: download + ingest official previous-paper PDFs (pyq_papers.json)."""
+        try:
+            from .pyq import harvest
+            return harvest(dry=self.dry, limit=6, llm=getattr(self, 'llm', None))
+        except Exception as e:
+            print(f"   [pyq] error (non-fatal): {e}")
+            return {"error": str(e)}
+
     def backfill_exam_content(self):
         """Nightly deep archive sweep (3-month campaign, auto-completes)."""
         try:

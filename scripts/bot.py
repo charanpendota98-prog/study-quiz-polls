@@ -435,6 +435,13 @@ class Bot:
         elif low.startswith("/rank") or low.startswith("/leaderboard") or low.startswith("/top"):
             self.tg.send_message(chat_id, self.members.render_leaderboard(),
                                  parse_mode="Markdown")
+        elif low.startswith("/pyq"):
+            from core.pyq import status_text
+            from core.question_bank import Bank
+            b = self.bank
+            qs = getattr(b, "questions", None) or getattr(b, "_questions", None) or []
+            npyq = sum(1 for q in qs if q.get("source") == "pyq" and q.get("year"))
+            self.tg.send_message(chat_id, status_text() + f"\n\n🏦 Bank: {len(qs)} questions · {npyq} with exam+year provenance")
         elif low.startswith("/hof") or low.startswith("/halloffame"):
             self.tg.send_message(chat_id, self.members.monthly_hall_of_fame() or "No rounds yet this month.")
         elif low.startswith("/crm") or low.startswith("/export") or low.startswith("/broadcast") \

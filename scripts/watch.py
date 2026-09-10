@@ -107,6 +107,8 @@ def tick(eng, now, dry=False):
                 ran.append("backfill")
             except Exception as e:
                 log(f"backfill error: {e}")
+        elif task == "pyq":
+            eng.harvest_pyq(); ran.append("pyq")
         elif task == "audit":
             # Daily deep, content-gated source audit: dead sources auto-pause,
             # verified-clean candidates auto-enable. Never crashes the loop.

@@ -179,7 +179,12 @@ def build_question_text(q: dict, channel_cfg: dict, telugu_first: bool = True,
     en = (q.get("q_en") or "").strip()
     te = (q.get("q_te") or "").lstrip("⤷").strip()
     header = f"{channel_cfg['emoji']} {channel_cfg['subject']} • {q.get('topic','').title()}"
-    meta = " • ".join(x for x in (position, badge) if x)
+    try:
+        from .pyq import pyq_label
+        prov = pyq_label(q)
+    except Exception:
+        prov = ""
+    meta = " • ".join(x for x in (position, badge, prov) if x)
     if meta:
         header += f"\n{meta}"
     if telugu_first and te:

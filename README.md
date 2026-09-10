@@ -429,3 +429,12 @@ Exam channels remain polls + round summaries only; people-content goes to the hu
 After each round `settle_round` awards 🥇+30 🥈+20 🥉+10 and +10 to each district's topper, tracks
 round wins / district tops / perfect rounds (new badges 🥇🏆👑💎🤝), and the last day of every month
 21:00 posts the monthly **Hall of Fame** (`/hof` any time). Sheet bridge guide: `/setupsheet` (admin).
+
+## 📜 Official previous-paper harvester (`core/pyq.py`)
+
+`data/pyq_papers.json` is a registry of real previous-year papers (TSPSC Group-1/2/4, APPSC Group-1/2, TS/AP Police, SSC CGL/CHSL/MTS, RRB NTPC/Group-D, IBPS/SBI, NDA/CDS/Agniveer). Each entry is either a **direct PDF URL** or an **index page** the harvester scans for PDF links. Every question extracted from a paper is stamped with `source="pyq"`, `exam`, `year`, `paper`, `paper_url`, and the poll header shows it (e.g. `📜 TSPSC Group-2 2024 · Paper-1`).
+
+- Runs nightly at 02:15 (`watch.py` task `pyq`) — downloads each PDF once, extracts MCQs, translates EN/HI → Telugu via the rotating API keys (`GROQ_*`, `GEMINI_*`, `OPENAI_*`, `DEEPSEEK_*`), then adds to the bank.
+- Manual: `python3 -m core.pyq harvest [--only TSPSC] [--limit N] [--dry]`, `python3 -m core.pyq status`, `python3 -m core.pyq add CHANNEL "Exam" YEAR "Paper" URL`.
+- Admin: `/pyq` in the bot shows harvest state + how many bank questions carry exam+year provenance.
+- Untranslated questions are parked in `pending` **with their stamp** and picked up when a key becomes available.
