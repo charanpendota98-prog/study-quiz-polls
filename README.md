@@ -424,3 +424,8 @@ Registered members are a permanent asset, not just for this channel:
 | Sunday 20:00 | 🏆 Weekly District Cup (TS/AP districts ranked) | `CHAMPION_CHANNELS` |
 | Any time | `/invite` referral link → +20 pts per new registration (`BOT_USERNAME` in .env) | bot |
 Exam channels remain polls + round summaries only; people-content goes to the hub channel and DMs.
+
+### Hall of Fame & podium bonuses
+After each round `settle_round` awards 🥇+30 🥈+20 🥉+10 and +10 to each district's topper, tracks
+round wins / district tops / perfect rounds (new badges 🥇🏆👑💎🤝), and the last day of every month
+21:00 posts the monthly **Hall of Fame** (`/hof` any time). Sheet bridge guide: `/setupsheet` (admin).

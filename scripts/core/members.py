@@ -225,6 +225,16 @@ class Members:
             out.append({"id": "streak30", "icon": "🔥", "en": "30-Day Streak", "te": "30 రోజుల స్ట్రీక్"})
         if not has("sharp") and m["total"] >= 20 and (m["correct"] / m["total"]) >= 0.9:
             out.append({"id": "sharp", "icon": "🧠", "en": "Sharp Shooter (90%+) — 20+ attempts", "te": "90%+ ఖచ్చితత్వం"})
+        if not has("round_top1") and m.get("round_wins", 0) >= 1:
+            out.append({"id": "round_top1", "icon": "🥇", "en": "Round Winner", "te": "రౌండ్ విజేత"})
+        if not has("round_top5") and m.get("round_wins", 0) >= 5:
+            out.append({"id": "round_top5", "icon": "🏆", "en": "5× Round Winner", "te": "5 సార్లు విజేత"})
+        if not has("district_king") and m.get("district_tops", 0) >= 3:
+            out.append({"id": "district_king", "icon": "👑", "en": "District Topper ×3", "te": "జిల్లా టాపర్ ×3"})
+        if not has("perfect") and m.get("perfect_rounds", 0) >= 1:
+            out.append({"id": "perfect", "icon": "💎", "en": "Perfect Round 10/10", "te": "పర్ఫెక్ట్ రౌండ్"})
+        if not has("referrer3") and m.get("referrals", 0) >= 3:
+            out.append({"id": "referrer3", "icon": "🤝", "en": "Brought 3 Friends", "te": "3 ఫ్రెండ్స్ తెచ్చారు"})
         if not has("champion") and m["points"] >= 3000:
             out.append({"id": "champion", "icon": "👑", "en": "Champion Level", "te": "ఛాంపియన్"})
         return out
@@ -660,6 +670,7 @@ class Members:
         weak = self._weak_topics(m)
         if weak:
             lines.append("🎯 Focus: " + ", ".join(t.title() for t in weak[:3]) + " → /review")
+        lines.append(self.render_hall_of_fame_card(uid))
         lines.append("Invite friends: /invite · District board: /district")
         return "\n".join(lines)
 
@@ -773,6 +784,77 @@ class Members:
         r["points"] = r.get("points", 0) + 20
         self.kv.save()
         return True
+
+    # ------------------------------------------------------------ hall of fame
+    def settle_round(self, round_id, channel_key):
+        """Called once after a round: record wins / district tops / perfect
+        rounds on member profiles (feeds badges + monthly hall of fame) and
+        award round-place bonus points (🥇+30 🥈+20 🥉+10, district top +10)."""
+        rows, n = self.round_top(round_id, channel_key, limit=10_000)
+        if not rows:
+            return {}
+        awarded = {}
+        seen_d = set()
+        for i, r in enumerate(rows):
+            m = self._get(r["uid"])
+            bonus = 0
+            if i == 0 and n >= 3:
+                m["round_wins"] = m.get("round_wins", 0) + 1
+                bonus += 30
+            elif i == 1 and n >= 3:
+                bonus += 20
+            elif i == 2 and n >= 3:
+                bonus += 10
+            if r["district"] and r["district"] not in seen_d:
+                seen_d.add(r["district"])
+                if sum(1 for x in rows if x["district"] == r["district"]) >= 2:
+                    m["district_tops"] = m.get("district_tops", 0) + 1
+                    bonus += 10
+            if r["total"] >= 8 and r["correct"] == r["total"]:
+                m["perfect_rounds"] = m.get("perfect_rounds", 0) + 1
+            if bonus:
+                m["points"] = m.get("points", 0) + bonus
+                awarded[str(r["uid"])] = bonus
+            for b in self._earned_badges(m):
+                m.setdefault("badges", []).append(b["id"])
+        hist = self.data.setdefault("round_history", [])
+        hist.append({"round_id": round_id, "channel": channel_key, "players": n,
+                     "winner": rows[0]["name"], "district": rows[0]["district"]})
+        del hist[:-500]
+        self.kv.save()
+        return awarded
+
+    def monthly_hall_of_fame(self, limit=10):
+        from . import districts as D
+        month = datetime.now(config.IST).strftime("%Y%m")
+        agg = {}
+        for rid, r in self.data.get("rounds", {}).items():
+            if not rid.startswith(month):
+                continue
+            for ch, players in r.get("by_channel", {}).items():
+                for uid, e in players.items():
+                    a = agg.setdefault(uid, [0, 0, 0])
+                    a[0] += e["correct"]; a[1] += e["total"]; a[2] += 1
+        rows = []
+        for uid, (c, t, rn) in agg.items():
+            m = self.members.get(str(uid)) or {}
+            if m.get("registered"):
+                rows.append((m.get("name") or "Player", m.get("district", ""), c, t, rn, m.get("round_wins", 0)))
+        rows.sort(key=lambda x: (-x[2], x[3]))
+        if not rows:
+            return ""
+        lines = [f"🏛 Hall of Fame — {datetime.now(config.IST):%B %Y}", ""]
+        medals = ["🥇", "🥈", "🥉"] + [f"{i}." for i in range(4, limit + 1)]
+        for i, (nm, d, c, t, rn, w) in enumerate(rows[:limit]):
+            dd = f" · {d} ({D.telugu_name(d)})" if d else ""
+            lines.append(f"{medals[i]} {nm[:24]}{dd} — {c} ✅ / {rn} rounds · 🥇×{w}")
+        lines += ["", "Consistency wins — రోజూ ఆడినవారే ఇక్కడ ఉంటారు 🔥"]
+        return "\n".join(lines)
+
+    def render_hall_of_fame_card(self, uid):
+        m = self.members.get(str(uid)) or {}
+        return (f"🥇 Round wins: {m.get('round_wins', 0)} · 👑 District tops: {m.get('district_tops', 0)} · "
+                f"💎 Perfect rounds: {m.get('perfect_rounds', 0)} · 🤝 Referrals: {m.get('referrals', 0)}")
 
     # ------------------------------------------------------------ register flow
     def start_registration(self, uid, username=""):

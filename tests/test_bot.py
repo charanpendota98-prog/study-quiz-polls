@@ -952,3 +952,16 @@ class TestRoundIntel(unittest.TestCase):
         self.assertFalse(self.mb.add_referral(100, 100))   # self
         self.assertEqual(self.mb.members["100"]["referrals"], 1)
         self.assertEqual(self.mb.members["100"]["points"], 25 + 20)
+
+
+class TestHallOfFame(TestRoundIntel):
+    def test_settle_round_bonuses(self):
+        b = self.mb.settle_round(self.rid, "TSPSC")
+        self.assertEqual(b["100"], 30 + 10)   # winner + Warangal top
+        self.assertEqual(b["103"], 20 + 10)   # 2nd + Guntur top
+        self.assertEqual(self.mb.members["100"]["round_wins"], 1)
+        self.assertIn("round_top1", self.mb.members["100"]["badges"])
+        hof = self.mb.monthly_hall_of_fame()
+        self.assertIn("Hall of Fame", hof)
+        self.assertIn("Anil", hof)
+        self.assertIn("Round wins: 1", self.mb.personal_round_card(100, self.rid, "TSPSC"))

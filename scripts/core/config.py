@@ -90,6 +90,11 @@ DRY = env("STUDENTUP_DRY", "").lower() in ("1", "true", "yes")
 # growth + detailed analytics. See forms/GOOGLE_FORM_BLUEPRINT.md.
 # Member CRM → Google Sheet (Apps Script web app, see docs/sheet_webapp.gs)
 SHEET_WEBAPP_URL = env("SHEET_WEBAPP_URL", "")
+# The owner's Sheet (view link). Data is written via the Apps Script web app
+# deployed FROM this sheet (SHEET_WEBAPP_URL) — Google does not allow direct
+# writes from a bot without OAuth, the web app is the zero-key bridge.
+SHEET_ID = env("SHEET_ID", "1XXeHg9rym05O_4a0-5vjbUxHTNW57MAok8H7uod3C0A")
+SHEET_URL_VIEW = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit"
 SHEET_SECRET = env("SHEET_SECRET", "")
 FORM_URL = env("FORM_URL", "https://forms.gle/your-studentup-registration")
 

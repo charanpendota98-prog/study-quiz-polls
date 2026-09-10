@@ -156,6 +156,9 @@ def tick(eng, now, dry=False):
         eng.streak_nudge(); ran.append("streak-nudge")
     if hhmm == "21:40":
         eng.daily_champions(); ran.append("champions")
+    import calendar
+    if hhmm == "21:00" and now.day == calendar.monthrange(now.year, now.month)[1]:
+        eng.hall_of_fame(); ran.append("hall-of-fame")
     if hhmm == "20:00" and now.weekday() == 6:
         eng.district_cup(); ran.append("district-cup")
 

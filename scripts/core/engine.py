@@ -150,7 +150,10 @@ class Engine:
                                          build_round_report(qs, round_label or "", config.CHANNELS[ch], stats))
                 # 🏆 Top-10 with name + district (registered members only)
                 mem = self._members.reload()
+                bonuses = mem.settle_round(round_id, ch)
                 top = mem.render_round_top(round_id, ch, round_label or "", config.CHANNELS[ch])
+                if top and bonuses:
+                    top += "\n🎁 Podium bonus: 🥇+30 · 🥈+20 · 🥉+10 · జిల్లా టాపర్ +10 pts"
                 if top:
                     self.tg.send_message(config.channel_chat_id(ch), top)
                     self._dm_round_cards(mem, round_id, ch, round_label or "")
@@ -279,6 +282,19 @@ class Engine:
                 self.tg.send_message(config.channel_chat_id(ch), text)
             except TelegramError as e:
                 print(f"   [cup] {ch} failed: {e}")
+        return 1
+
+    def hall_of_fame(self):
+        """Last day of month 21:00 — monthly Hall of Fame to hub channel."""
+        mem = Members()
+        text = mem.monthly_hall_of_fame()
+        if not text:
+            return 0
+        for ch in getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
+            try:
+                self.tg.send_message(config.channel_chat_id(ch), text)
+            except TelegramError as e:
+                print(f"   [hof] {ch} failed: {e}")
         return 1
 
     def streak_nudge(self):

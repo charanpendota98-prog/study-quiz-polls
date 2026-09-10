@@ -6,7 +6,8 @@ Long-polls getUpdates. Member registration, points, levels, ranks, leaderboard.
 Commands:
   /start, /help       welcome (EN + Telugu)
   /register           one-time sign-up (name -> district -> mobile) = +25 pts
-  /crm /export /syncsheet /broadcast   admin: member database, CSV, Google Sheet, segment DM
+  /hof                monthly Hall of Fame
+  /setupsheet /crm /export /syncsheet /broadcast   admin: member database, CSV, Google Sheet, segment DM
   /exam <name>        change exam target   /follow <channels>  which rounds come to your DM
   /invite             referral link (+20 pts per friend)
   /district [name]    your district toppers   /districts  TS/AP district leaderboard
@@ -57,6 +58,20 @@ FIRST_TIME_ASK = (
     "🏆 Registered players' NAME + DISTRICT appear in the channel Top-10 after every round!\n"
     "⤷ ప్రతి రౌండ్ తర్వాత Top-10 లో మీ పేరు + జిల్లా ఛానల్‌లో పోస్ట్ అవుతుంది!\n\n"
     "📝 Step 1 of 3 — What is your full name?\n⤷ మీ పూర్తి పేరు పంపండి:"
+)
+
+SHEET_SETUP = (
+    "📊 Google Sheet CRM — status: {status}\n"
+    "Sheet: {view}\n\n"
+    "One-time bridge setup (3 min, no API keys):\n"
+    "1️⃣ Open the Sheet → Extensions → Apps Script\n"
+    "2️⃣ Delete the sample code, paste docs/sheet_webapp.gs from the repo\n"
+    "3️⃣ Set SECRET = a long random string (line 14)\n"
+    "4️⃣ Deploy → New deployment → type: Web app → Execute as: Me · Access: Anyone → Deploy → Authorize\n"
+    "5️⃣ Copy the URL ending in /exec → .env:\n"
+    "   SHEET_WEBAPP_URL=<that url>\n   SHEET_SECRET=<same secret>\n"
+    "6️⃣ Restart bot → /syncsheet pushes everyone. Tabs 'members' & 'rounds' appear automatically.\n"
+    "⤷ Sheet link మాత్రమే సరిపోదు — Google rule ప్రకారం write చేయాలంటే ఈ web-app URL కావాలి."
 )
 
 HELP = (
@@ -352,12 +367,18 @@ class Bot:
         elif low.startswith("/rank") or low.startswith("/leaderboard") or low.startswith("/top"):
             self.tg.send_message(chat_id, self.members.render_leaderboard(),
                                  parse_mode="Markdown")
+        elif low.startswith("/hof") or low.startswith("/halloffame"):
+            self.tg.send_message(chat_id, self.members.monthly_hall_of_fame() or "No rounds yet this month.")
         elif low.startswith("/crm") or low.startswith("/export") or low.startswith("/broadcast") \
-                or low.startswith("/syncsheet"):
+                or low.startswith("/syncsheet") or low.startswith("/setupsheet"):
             if config.ADMIN_ID and str(uid) != str(config.ADMIN_ID):
                 self.tg.send_message(chat_id, "🔒 Admin only.\n⤷ అడ్మిన్ కోసం మాత్రమే.")
                 return
             from core import crm
+            if low.startswith("/setupsheet"):
+                self.tg.send_message(chat_id, SHEET_SETUP.format(view=config.SHEET_URL_VIEW,
+                                     status="✅ connected" if crm.sheet_enabled() else "⚠️ not connected yet"))
+                return
             if low.startswith("/crm"):
                 self.tg.send_message(chat_id, crm.segment_summary(self.members.members), parse_mode="Markdown")
             elif low.startswith("/syncsheet"):
