@@ -61,6 +61,43 @@ def exam_channel(exam):
     return m.get(exam or "", "TSPSC")
 
 
+# Qualification options (button text EN / TE) -> stored code
+QUALIFICATIONS = [
+    ("SSC",    "10th / SSC",              "పదో తరగతి"),
+    ("INTER",  "Intermediate / 10+2",     "ఇంటర్"),
+    ("ITI",    "ITI / Diploma",           "ఐటీఐ / డిప్లొమా"),
+    ("UG",     "Graduation (Degree/B.Tech)", "డిగ్రీ / బీటెక్"),
+    ("PG",     "Post Graduation",         "పీజీ"),
+    ("OTHER",  "Other / Studying",        "ఇతర / చదువుతున్నాను"),
+]
+QUAL_LABEL = {c: f"{en} / {te}" for c, en, te in QUALIFICATIONS}
+
+
+def match_qualification(text):
+    t = (text or "").strip().lower()
+    if not t:
+        return None
+    if t.isdigit() and 1 <= int(t) <= len(QUALIFICATIONS):
+        return QUALIFICATIONS[int(t) - 1][0]
+    codes = {c.lower(): c for c, _, _ in QUALIFICATIONS}
+    if t in codes:
+        return codes[t]
+    alias = {"10th": "SSC", "10": "SSC", "ssc": "SSC", "tenth": "SSC", "పదో": "SSC",
+             "12": "INTER", "10+2": "INTER", "inter": "INTER", "intermediate": "INTER", "ఇంటర్": "INTER",
+             "iti": "ITI", "diploma": "ITI", "polytechnic": "ITI",
+             "degree": "UG", "graduation": "UG", "graduate": "UG", "b.tech": "UG", "btech": "UG",
+             "bsc": "UG", "b.sc": "UG", "ba": "UG", "bcom": "UG", "b.com": "UG", "ug": "UG", "డిగ్రీ": "UG",
+             "pg": "PG", "post graduation": "PG", "postgraduation": "PG", "mtech": "PG", "m.tech": "PG",
+             "msc": "PG", "m.sc": "PG", "ma": "PG", "mba": "PG", "mca": "PG", "పీజీ": "PG",
+             "other": "OTHER", "studying": "OTHER"}
+    if t in alias:
+        return alias[t]
+    for k, v in sorted(alias.items(), key=lambda kv: -len(kv[0])):   # most specific first
+        if len(k) > 2 and k in t:
+            return v
+    return None
+
+
 class Members:
     def __init__(self):
         self.kv = KV(config.DATA / "members.json", default={"members": {}, "pending": {}})
@@ -428,6 +465,8 @@ class Members:
         ]
         if p.get("exam"):
             lines.append(f"🎯 Target: {p['exam']}")
+        if p.get("qualification"):
+            lines.append(f"🎓 {QUAL_LABEL.get(p['qualification'], p['qualification'])}")
         if p.get("district"):
             lines.append(f"📍 {p['district']}" + (f", {p['state']}" if p.get("state") else ""))
         badges = p.get("badges", [])
@@ -899,7 +938,7 @@ class Members:
             st["name"] = text
             st["step"] = "district"
             self.kv.save()
-            return "ask_district", (f"👍 {text}!\n\n📍 Step 2 of 3 — మీ జిల్లా? / Your district?\n"
+            return "ask_district", (f"👍 {text}!\n\n📍 Step 2 of 4 — మీ జిల్లా? / Your district?\n"
                                     "Type the name (e.g. Warangal, Guntur, Hyderabad, Nellore) — TS or AP.\n"
                                     "⤷ జిల్లా పేరు టైప్ చేయండి (ఉదా: వరంగల్, గుంటూరు):")
         if st["step"] == "district":
@@ -910,9 +949,19 @@ class Members:
                                         f"🟦 Andhra Pradesh\n{D.district_list_text('AP')}\n"
                                         "⤷ ఉదా: T12 / A5 / వరంగల్")
             st["state_code"], st["state"], st["district"] = code, D.STATES[code][0], d
+            st["step"] = "qualification"
+            self.kv.save()
+            return "ask_qualification", (f"✅ {d} / {D.telugu_name(d)}\n\n🎓 Step 3 of 4 — Highest qualification / అర్హత\n"
+                                         "Tap a button below (or send the number):\n"
+                                         + "\n".join(f"  {i+1}. {en} / {te}" for i, (c, en, te) in enumerate(QUALIFICATIONS)))
+        if st["step"] == "qualification":
+            q = match_qualification(text)
+            if not q:
+                return "ask_qualification", ("❓ Please tap a button or send 1–6.\n⤷ బటన్ నొక్కండి లేదా 1–6 పంపండి.")
+            st["qualification"] = q
             st["step"] = "mobile"
             self.kv.save()
-            return "ask_mobile", (f"✅ {d} / {D.telugu_name(d)}\n\n📱 Step 3 of 3 — Mobile number (10 digits) "
+            return "ask_mobile", (f"✅ {QUAL_LABEL[q]}\n\n📱 Step 4 of 4 — Mobile number (10 digits) "
                                   "for exam alerts & prizes. Send `skip` to skip.\n"
                                   "⤷ మొబైల్ నంబర్ పంపండి (లేదా skip):")
         if st["step"] == "mobile":
@@ -929,7 +978,7 @@ class Members:
             self.register(uid, name=st.get("name"), exam=exam, lang="Both",
                           username=st.get("username", ""),
                           state=st.get("state", ""), district=st.get("district", ""),
-                          mobile=mobile, source="bot")
+                          qualification=st.get("qualification", ""), mobile=mobile, source="bot")
             self.pending.pop(str(uid), None)
             self.kv.save()
             unlocked = (self.members.get(str(uid)) or {}).get("unlocked_on_register", 0)

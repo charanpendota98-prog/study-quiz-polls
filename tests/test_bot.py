@@ -55,6 +55,10 @@ class TestMembers(unittest.TestCase):
         self.assertEqual(s, "ask_district")
         self.assertIn("T1.", r)
         s, _ = self.mb.registration_input(self.uid, "Warangal")
+        self.assertEqual(s, "ask_qualification")
+        s, _ = self.mb.registration_input(self.uid, "xyz")
+        self.assertEqual(s, "ask_qualification")
+        s, _ = self.mb.registration_input(self.uid, "UG")
         self.assertEqual(s, "ask_mobile")
         s, _ = self.mb.registration_input(self.uid, "12345")
         self.assertEqual(s, "ask_mobile")
@@ -65,6 +69,7 @@ class TestMembers(unittest.TestCase):
         self.assertEqual(p["exam"], "APPSC")
         self.assertEqual(p["district"], "Warangal")
         self.assertEqual(p["mobile"], "9876543210")
+        self.assertEqual(p["qualification"], "UG")
         self.assertEqual(p["points"], 25)  # registration bonus
         self.assertIn("APPSC", p["follow"])
         self.assertTrue(self.mb.is_registered(self.uid))
@@ -74,6 +79,8 @@ class TestMembers(unittest.TestCase):
         self.mb.start_registration(self.uid)
         self.mb.registration_input(self.uid, "Ravi")
         s, _ = self.mb.registration_input(self.uid, "A5")
+        self.assertEqual(s, "ask_qualification")
+        s, _ = self.mb.registration_input(self.uid, "2")   # Inter
         self.assertEqual(s, "ask_mobile")
         s, _ = self.mb.registration_input(self.uid, "skip")
         self.assertEqual(s, "done")
@@ -878,7 +885,7 @@ class TestCRM(unittest.TestCase):
     def test_export_csv(self):
         from core import crm
         data = crm.export_csv(self.mb.members).decode("utf-8")
-        self.assertIn("tg_id,name,username,mobile,state,district", data)
+        self.assertIn("tg_id,name,username,mobile,state,district,qualification", data)
         self.assertIn("Anil", data)
         self.assertIn("9000000001", data)
         self.assertEqual(data.count("\n"), 4)  # header + 3 rows
@@ -988,6 +995,7 @@ class TestPointsEscrow(unittest.TestCase):
         self.assertEqual(r2["locked"], 25)
         self.mb.start_registration(777)
         self.mb.registration_input(777, "Ravi"); self.mb.registration_input(777, "Nellore")
+        self.mb.registration_input(777, "post graduation")
         s, reply = self.mb.registration_input(777, "skip")
         self.assertEqual(s, "done")
         self.assertIn("🔓 25", reply)
@@ -995,3 +1003,16 @@ class TestPointsEscrow(unittest.TestCase):
         r3 = self.mb.award_answer(777, correct=True)
         self.assertEqual(r3["locked"], 0)
         self.assertEqual(self.mb.members["777"]["points"], 60)
+
+
+class TestQualification(unittest.TestCase):
+    def test_match(self):
+        from core.members import match_qualification as q
+        self.assertEqual(q("10th"), "SSC"); self.assertEqual(q("10+2"), "INTER"); self.assertEqual(q("B.Tech"), "UG")
+        self.assertEqual(q("Post Graduation"), "PG"); self.assertEqual(q("4"), "UG"); self.assertIsNone(q("zzz"))
+        self.assertEqual(q("డిగ్రీ"), "UG")
+
+    def test_csv_has_qualification(self):
+        from core import crm
+        self.assertIn("qualification", crm.COLUMNS)
+        self.assertEqual(crm.COLUMNS.index("qualification"), crm.COLUMNS.index("district") + 1)

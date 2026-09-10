@@ -129,6 +129,9 @@ class Telegram:
             payload["explanation"] = explanation[:config.TG_POLL_EXPLANATION_MAX]
         return self._call("sendPoll", payload)
 
+    def answer_callback(self, callback_id: str, text: str = "") -> dict:
+        return self._call("answerCallbackQuery", {"callback_query_id": callback_id, "text": text[:200]})
+
     def send_document(self, chat_id: str, filename: str, data: bytes, caption: str = "") -> dict:
         """Upload a small file (CSV export) via multipart/form-data — stdlib only."""
         if self.dry:
@@ -150,15 +153,19 @@ class Telegram:
             return json.loads(r.read().decode("utf-8"))
 
     def send_message(self, chat_id: str, text: str, disable_preview: bool = True,
-                     parse_mode: str = "") -> dict:
+                     parse_mode: str = "", buttons=None) -> dict:
+        """buttons: list of rows, each row a list of (label, callback_data)."""
         payload = {"chat_id": chat_id, "text": text[:config.TG_MSG_MAX],
                    "disable_web_page_preview": disable_preview}
         if parse_mode:
             payload["parse_mode"] = parse_mode
+        if buttons:
+            payload["reply_markup"] = {"inline_keyboard": [
+                [{"text": lab, "callback_data": str(cb)[:64]} for lab, cb in row] for row in buttons]}
         return self._call("sendMessage", payload)
 
     def get_updates(self, timeout: int = 0):
-        payload = {"timeout": timeout, "allowed_updates": ["poll_answer", "poll", "message"]}
+        payload = {"timeout": timeout, "allowed_updates": ["poll_answer", "poll", "message", "callback_query"]}
         if self._offset is not None:
             payload["offset"] = self._offset
         try:

@@ -32,7 +32,7 @@
 
 var SECRET = "CHANGE-ME-long-random-string";
 
-var MEMBER_COLS = ["tg_id", "name", "username", "mobile", "state", "district", "exam", "lang",
+var MEMBER_COLS = ["tg_id", "name", "username", "mobile", "state", "district", "qualification", "exam", "lang",
   "registered_at", "source", "points", "correct", "total", "accuracy", "streak", "best_streak",
   "level", "last_active", "follow", "updated_at"];
 var ROUND_COLS = ["ts", "round_id", "channel", "rank", "tg_id", "name", "district", "correct", "total", "points"];
@@ -94,9 +94,20 @@ function sheet_(name, cols) {
   return sh;
 }
 
+function migrate_(sh) {
+  // Older sheets (before the qualification column) get the column inserted in place.
+  var hdr = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0].map(String);
+  if (hdr.indexOf("qualification") < 0 && hdr.indexOf("district") >= 0) {
+    var at = hdr.indexOf("district") + 2;          // 1-based column after district
+    sh.insertColumnBefore(at);
+    sh.getRange(1, at).setValue("qualification").setFontWeight("bold").setBackground("#1a73e8").setFontColor("#ffffff");
+  }
+}
+
 function upsert_(rows, ts) {
   if (!rows.length) return 0;
   var sh = sheet_("members", MEMBER_COLS);
+  migrate_(sh);
   var last = sh.getLastRow();
   var ids = last > 1 ? sh.getRange(2, 1, last - 1, 1).getValues().map(function (r) { return String(r[0]); }) : [];
   var appendBuf = [];
@@ -148,8 +159,8 @@ function dailySnapshot() {
   var c = { members: vals.length, mobile: 0, active: 0, newm: 0, ts: 0, ap: 0 };
   vals.forEach(function (r) {
     if (r[3]) c.mobile++;
-    if (String(r[17]) === today) c.active++;
-    if (String(r[8]).slice(0, 10) === today) c.newm++;
+    if (String(r[18]) === today) c.active++;
+    if (String(r[9]).slice(0, 10) === today) c.newm++;
     if (r[4] === "Telangana") c.ts++;
     if (r[4] === "Andhra Pradesh") c.ap++;
   });
@@ -166,12 +177,12 @@ function buildDashboard_() {
     ["StudentUp CRM — Live Dashboard", "", "", ""],
     ["Total registered", "=COUNTA(" + M + "A2:A)", "With mobile", "=COUNTIF(" + M + "D2:D,\"<>\")"],
     ["Telangana", "=COUNTIF(" + M + "E2:E,\"Telangana\")", "Andhra Pradesh", "=COUNTIF(" + M + "E2:E,\"Andhra Pradesh\")"],
-    ["Active today", "=COUNTIF(" + M + "R2:R,TEXT(TODAY(),\"yyyy-mm-dd\"))", "New today", "=COUNTIF(" + M + "I2:I,TEXT(TODAY(),\"yyyy-mm-dd\")&\"*\")"],
-    ["Avg accuracy %", "=IFERROR(ROUND(AVERAGEIF(" + M + "M2:M,\">0\"," + M + "N2:N),1),0)", "Rounds logged", "=IFERROR(COUNTUNIQUE(rounds!B2:B),0)"],
+    ["Active today", "=COUNTIF(" + M + "S2:S,TEXT(TODAY(),\"yyyy-mm-dd\"))", "New today", "=COUNTIF(" + M + "J2:J,TEXT(TODAY(),\"yyyy-mm-dd\")&\"*\")"],
+    ["Avg accuracy %", "=IFERROR(ROUND(AVERAGEIF(" + M + "N2:N,\">0\"," + M + "O2:O),1),0)", "Rounds logged", "=IFERROR(COUNTUNIQUE(rounds!B2:B),0)"],
     ["", "", "", ""],
     ["Top districts", "Members", "Exam targets", "Members"],
     ["=IFERROR(QUERY(" + M + "F2:F,\"select F, count(F) where F<>'' group by F order by count(F) desc limit 15 label count(F) ''\",0),\"—\")", "",
-     "=IFERROR(QUERY(" + M + "G2:G,\"select G, count(G) where G<>'' group by G order by count(G) desc limit 15 label count(G) ''\",0),\"—\")", ""]
+     "=IFERROR(QUERY(" + M + "H2:H,\"select H, count(H) where H<>'' group by H order by count(H) desc limit 15 label count(H) ''\",0),\"—\")", ""]
   ];
   d.getRange(1, 1, rows.length, 4).setValues(rows);
   d.getRange("A1").setFontSize(16).setFontWeight("bold");
@@ -179,7 +190,9 @@ function buildDashboard_() {
   d.getRange("A7:D7").setFontWeight("bold").setBackground("#1a73e8").setFontColor("#ffffff");
   d.getRange("F7:J7").setValues([["Top 10 players", "District", "Points", "Accuracy %", "Streak"]])
     .setFontWeight("bold").setBackground("#1a73e8").setFontColor("#ffffff");
-  d.getRange("F8").setFormula("=IFERROR(QUERY(" + M + "B2:R,\"select B, F, K, N, O where B<>'' order by K desc limit 10 label B '', F '', K '', N '', O ''\",0),\"—\")");
+  d.getRange("F8").setFormula("=IFERROR(QUERY(" + M + "B2:S,\"select B, F, L, O, P where B<>'' order by L desc limit 10 label B '', F '', L '', O '', P ''\",0),\"—\")");
+  d.getRange("L7:M7").setValues([["Qualification", "Members"]]).setFontWeight("bold").setBackground("#1a73e8").setFontColor("#ffffff");
+  d.getRange("L8").setFormula("=IFERROR(QUERY(" + M + "G2:G,\"select G, count(G) where G<>'' group by G order by count(G) desc label count(G) ''\",0),\"—\")");
   d.getRange("F19:J19").setValues([["Latest round winners", "Channel", "Rank", "District", "Score"]])
     .setFontWeight("bold").setBackground("#34a853").setFontColor("#ffffff");
   d.getRange("F20").setFormula("=IFERROR(QUERY(rounds!A2:J,\"select F, C, D, G, H where D<=3 order by A desc limit 15 label F '', C '', D '', G '', H ''\",0),\"—\")");

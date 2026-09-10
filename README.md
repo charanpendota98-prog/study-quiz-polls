@@ -395,7 +395,7 @@ Weekly leaderboard (`/leaderboard`), daily streaks with 7-day celebrations,
 
 ## Registration & Round Top-10 (name + district)
 - First time a person answers any quiz (bot DM or mirrored round poll) the bot asks a **one-time**
-  3-step registration: **name → district (TS/AP) → mobile (or skip)**. Never asked again; saved in `data/members.json`
+  4-step registration: **name → district (TS/AP) → qualification (tap button: SSC / Inter / ITI-Diploma / Graduation / PG) → mobile (or skip)**. Never asked again; saved in `data/members.json`
   (Telegram id, name, district, state, mobile, exam target, follow list).
 - During every channel round the engine mirrors each question as a **named** quiz poll to registered
   members' DMs (channel polls are anonymous). Answers are scored per round.

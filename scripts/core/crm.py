@@ -32,7 +32,7 @@ from . import config
 SHEET_URL = getattr(config, "SHEET_WEBAPP_URL", "") or ""
 SHEET_SECRET = getattr(config, "SHEET_SECRET", "") or ""
 
-COLUMNS = ["tg_id", "name", "username", "mobile", "state", "district", "exam", "lang",
+COLUMNS = ["tg_id", "name", "username", "mobile", "state", "district", "qualification", "exam", "lang",
            "registered_at", "source", "points", "correct", "total", "accuracy",
            "streak", "best_streak", "level", "last_active", "follow"]
 
@@ -44,7 +44,8 @@ def member_row(uid, m: dict) -> dict:
     return {
         "tg_id": str(uid), "name": m.get("name", ""), "username": m.get("username", ""),
         "mobile": m.get("mobile", ""), "state": m.get("state", ""),
-        "district": m.get("district", ""), "exam": m.get("exam", ""), "lang": m.get("lang", ""),
+        "district": m.get("district", ""), "qualification": m.get("qualification", ""),
+        "exam": m.get("exam", ""), "lang": m.get("lang", ""),
         "registered_at": m.get("registered_at", ""), "source": m.get("source", ""),
         "points": m.get("points", 0), "correct": m.get("correct", 0), "total": total,
         "accuracy": acc, "streak": m.get("streak", 0), "best_streak": m.get("best_streak", 0),
@@ -167,6 +168,8 @@ def select(members: dict, seg: dict) -> list:
             continue
         if seg.get("exam") and seg["exam"].lower() not in (m.get("exam") or "").lower():
             continue
+        if seg.get("qual") and (m.get("qualification") or "").lower() != seg["qual"].lower():
+            continue
         if seg.get("minpoints", "").isdigit() and (m.get("points", 0) or 0) < int(seg["minpoints"]):
             continue
         if cutoff and (m.get("last_active") or "") < cutoff:
@@ -188,6 +191,8 @@ def segment_summary(members: dict) -> str:
     lines += [f"  {k or '—'}: {v}" for k, v in by("state")[:4]]
     lines += ["", "*Top districts*"]
     lines += [f"  {k or '—'}: {v}" for k, v in by("district")[:10]]
+    lines += ["", "*Qualification*"]
+    lines += [f"  {k or '—'}: {v}" for k, v in by("qualification")[:6]]
     lines += ["", "*Exam target*"]
     lines += [f"  {k or '—'}: {v}" for k, v in by("exam")[:9]]
     lines += ["", "Sheet sync: " + ("✅ on" if sheet_enabled() else "⚠️ off (set SHEET_WEBAPP_URL)"),
