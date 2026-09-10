@@ -488,7 +488,8 @@ class Members:
             for i, (uid, m) in enumerate(rows):
                 lvl = level_for(m.get("points", 0))
                 r = medals[i] if i < 3 else f"{i+1}."
-                lines.append(f"{r} {lvl['icon']} {m.get('name') or 'player'} — ⭐{m.get('points',0)}")
+                acc = round(100 * m.get("correct", 0) / m["total"]) if m.get("total") else 0
+                lines.append(f"{r} {m.get('name') or 'player'} — ⭐{m.get('points',0)} · {lvl['title_en']} · 🎯{acc}%")
             return "\n".join(lines)
         board = self.district_board()
         if not board:
@@ -621,7 +622,8 @@ class Members:
         if dor:
             lines.append(f"👑 District of the round: {dor['district']} ({D.telugu_name(dor['district'])}) — "
                          f"{dor['avg']}% avg · {dor['players']} players")
-        if len(top_d := sorted(dist_count.items(), key=lambda kv: -kv[1])) >= 2 and top_d[0][1] == top_d[1][1]:
+        top_d = sorted(dist_count.items(), key=lambda kv: -kv[1])
+        if len(top_d) >= 2 and top_d[0][1] == top_d[1][1] and top_d[0][1] >= 2:
             lines.append(f"⚔️ Rivalry: {top_d[0][0]} vs {top_d[1][0]} — tied! రేపు తేలుద్దాం.")
         lines += ["", "మీ పేరు + జిల్లా ఇక్కడ రావాలంటే → bot లో /start, ఒక్కసారి register 📝",
                   "Your name & district here → /start in our bot, register once ✅"]

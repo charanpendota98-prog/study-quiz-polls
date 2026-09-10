@@ -46,7 +46,11 @@ class Telegram:
         if self.dry:
             print(f"   [DRY] {method} -> {payload.get('chat_id')} :: "
                   f"{str(payload.get('question') or payload.get('text'))[:80]!r}")
-            return {"ok": True, "dry": True, "result": {"message_id": -1, **payload}}
+            res = {"message_id": -1, **payload}
+            if method == "sendPoll":              # fake poll id so DM-mirroring/score chain is testable
+                import uuid
+                res["poll"] = {"id": "dry-" + uuid.uuid4().hex[:12]}
+            return {"ok": True, "dry": True, "result": res}
         if not self.token:
             raise TelegramError("BOT_TOKEN not set (put it in env/.env)")
         url = API.format(token=self.token, method=method)
