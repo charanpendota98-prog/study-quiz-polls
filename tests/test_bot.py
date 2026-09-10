@@ -50,10 +50,11 @@ class TestMembers(unittest.TestCase):
         self.mb.start_registration(self.uid, username="tester")
         self.mb.register_default_exam(self.uid, "APPSC")
         s, _ = self.mb.registration_input(self.uid, "Test User")
+        self.assertEqual(s, "ask_state")
+        s, _ = self.mb.registration_input(self.uid, "TS")
         self.assertEqual(s, "ask_district")
         s, r = self.mb.registration_input(self.uid, "mumbai")
         self.assertEqual(s, "ask_district")
-        self.assertIn("T1.", r)
         s, _ = self.mb.registration_input(self.uid, "Warangal")
         self.assertEqual(s, "ask_qualification")
         s, _ = self.mb.registration_input(self.uid, "xyz")
@@ -78,7 +79,9 @@ class TestMembers(unittest.TestCase):
     def test_registration_skip_mobile_and_code(self):
         self.mb.start_registration(self.uid)
         self.mb.registration_input(self.uid, "Ravi")
-        s, _ = self.mb.registration_input(self.uid, "A5")
+        s, _ = self.mb.registration_input(self.uid, "AP")
+        self.assertEqual(s, "ask_district")
+        s, _ = self.mb.registration_input(self.uid, "Guntur")
         self.assertEqual(s, "ask_qualification")
         s, _ = self.mb.registration_input(self.uid, "2")   # Inter
         self.assertEqual(s, "ask_mobile")
@@ -994,8 +997,8 @@ class TestPointsEscrow(unittest.TestCase):
         r2 = self.mb.award_answer(777, correct=True)
         self.assertEqual(r2["locked"], 25)
         self.mb.start_registration(777)
-        self.mb.registration_input(777, "Ravi"); self.mb.registration_input(777, "Nellore")
-        self.mb.registration_input(777, "post graduation")
+        self.mb.registration_input(777, "Ravi"); self.mb.registration_input(777, "AP")
+        self.mb.registration_input(777, "Nellore"); self.mb.registration_input(777, "post graduation")
         s, reply = self.mb.registration_input(777, "skip")
         self.assertEqual(s, "done")
         self.assertIn("🔓 25", reply)
@@ -1016,3 +1019,14 @@ class TestQualification(unittest.TestCase):
         from core import crm
         self.assertIn("qualification", crm.COLUMNS)
         self.assertEqual(crm.COLUMNS.index("qualification"), crm.COLUMNS.index("district") + 1)
+
+
+class TestStateDistrictButtons(unittest.TestCase):
+    def test_sorted_districts(self):
+        from core import districts as D
+        ts = [en for en, _ in D.sorted_districts("TS")]
+        ap = [en for en, _ in D.sorted_districts("AP")]
+        self.assertEqual(ts, sorted(ts, key=str.lower)); self.assertEqual(len(ts), 33)
+        self.assertEqual(ap, sorted(ap, key=str.lower)); self.assertEqual(len(ap), 26)
+        self.assertEqual(ts[0], "Adilabad"); self.assertEqual(ap[0], "Alluri Sitharama Raju")
+        self.assertEqual(D.sorted_districts("OTHER"), [])

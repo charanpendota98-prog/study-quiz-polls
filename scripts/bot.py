@@ -5,7 +5,7 @@ Long-polls getUpdates. Member registration, points, levels, ranks, leaderboard.
 
 Commands:
   /start, /help       welcome (EN + Telugu)
-  /register           one-time sign-up (name -> district -> qualification -> mobile) = +25 pts
+  /register           one-time sign-up (name -> state -> district -> qualification -> mobile) = +25 pts
   /hof                monthly Hall of Fame
   /setupsheet /crm /export /syncsheet /broadcast   admin: member database, CSV, Google Sheet, segment DM
   /exam <name>        change exam target   /follow <channels>  which rounds come to your DM
@@ -57,7 +57,7 @@ FIRST_TIME_ASK = (
     "⤷ మొదటిసారా? ఒక్కసారి రిజిస్టర్ చేసుకోండి — మళ్లీ అడగము.\n\n"
     "🏆 Registered players' NAME + DISTRICT appear in the channel Top-10 after every round!\n"
     "⤷ ప్రతి రౌండ్ తర్వాత Top-10 లో మీ పేరు + జిల్లా ఛానల్‌లో పోస్ట్ అవుతుంది!\n\n"
-    "📝 Step 1 of 4 — What is your full name?\n⤷ మీ పూర్తి పేరు పంపండి:"
+    "📝 Step 1 of 5 — What is your full name?\n⤷ మీ పూర్తి పేరు పంపండి:"
 )
 
 SHEET_SETUP = (
@@ -81,7 +81,7 @@ LOCKED_FIRST = (
     "⤷ మీరు {pts} పాయింట్లు సంపాదించారు — కానీ లాక్ అయ్యాయి.\n\n"
     "Register once (30 sec) to UNLOCK them and enter the Top-10 with your name + district 🏆\n"
     "⤷ ఒక్కసారి రిజిస్టర్ చేస్తే అన్‌లాక్ + Top-10 లో మీ పేరు, జిల్లా!\n\n"
-    "📝 Step 1 of 4 — What is your full name?\n⤷ మీ పూర్తి పేరు పంపండి:"
+    "📝 Step 1 of 5 — What is your full name?\n⤷ మీ పూర్తి పేరు పంపండి:"
 )
 LOCKED_NUDGE = (
     "🔒 {pts} points waiting for you. Finish registration to unlock — just send your name.\n"
@@ -180,6 +180,28 @@ class Bot:
                                         q.get("topic", ""))
             self._save_polls()
 
+    def _step_buttons(self, uid, status):
+        """Inline keyboard for the current registration step (None for text steps)."""
+        if status == "ask_state":
+            return [[("🟪 Telangana / తెలంగాణ", "state:TS")],
+                    [("🟦 Andhra Pradesh / ఆంధ్రప్రదేశ్", "state:AP")],
+                    [("🌐 Other state", "state:OTHER")]]
+        if status == "ask_district":
+            from core import districts as D
+            st = self.members.pending_step(uid) or {}
+            rows, row = [], []
+            for en, te in D.sorted_districts(st.get("state_code", "")):
+                label = en if len(en) <= 22 else en[:21] + "…"
+                row.append((label, f"dist:{en}"[:64]))
+                if len(row) == 2:
+                    rows.append(row); row = []
+            if row:
+                rows.append(row)
+            return rows or None
+        if status == "ask_qualification":
+            return self._qual_buttons()
+        return None
+
     @staticmethod
     def _qual_buttons():
         from core.members import QUALIFICATIONS
@@ -201,12 +223,14 @@ class Bot:
             self.tg.answer_callback(cq.get("id", ""))
         except TelegramError:
             pass
-        if data.startswith("qual:") and uid:
+        kind, _, value = data.partition(":")
+        if kind in ("state", "dist", "qual") and uid:
             st = self.members.pending_step(uid)
-            if st and st.get("step") == "qualification":
-                status, reply = self.members.registration_input(uid, data.split(":", 1)[1])
+            expected = {"state": "state", "dist": "district", "qual": "qualification"}[kind]
+            if st and st.get("step") == expected:
+                status, reply = self.members.registration_input(uid, value)
                 if reply:
-                    self.tg.send_message(chat_id, reply)
+                    self.tg.send_message(chat_id, reply, buttons=self._step_buttons(uid, status))
             elif self.members.is_registered(uid):
                 self.tg.send_message(chat_id, "✅ Already registered — no need to fill again.\n⤷ ఇప్పటికే రిజిస్టర్ అయ్యారు.")
 
@@ -277,7 +301,7 @@ class Bot:
         if uid and self.members.pending_step(uid) and not low.startswith("/"):
             status, reply = self.members.registration_input(uid, text)
             if reply:
-                self.tg.send_message(chat_id, reply, buttons=self._qual_buttons() if status == "ask_qualification" else None)
+                self.tg.send_message(chat_id, reply, buttons=self._step_buttons(uid, status))
             if status == "done":
                 self.tg.admin_note = None
             return
@@ -320,7 +344,7 @@ class Bot:
             self.members.start_registration(uid, username=self._name(who))
             self.tg.send_message(
                 chat_id,
-                "📝 One-time registration (name → district → qualification → mobile).\nStep 1 of 4 — What is your full name?\n"
+                "📝 One-time registration (name → state → district → qualification → mobile).\nStep 1 of 5 — What is your full name?\n"
                 "⤷ మీ పూర్తి పేరు పంపండి:")
         elif low.startswith("/cancel"):
             self.members.cancel_registration(uid)

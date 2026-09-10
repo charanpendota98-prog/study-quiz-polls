@@ -936,24 +936,37 @@ class Members:
             if len(text) < 2 or len(text) > 60 or text.startswith("/"):
                 return "ask_name", "Please send your real name (2–60 letters).\n⤷ మీ పూర్తి పేరు పంపండి:"
             st["name"] = text
+            st["step"] = "state"
+            self.kv.save()
+            return "ask_state", (f"👍 {text}!\n\n🗺 Step 2 of 5 — మీ రాష్ట్రం? / Your state?\n"
+                                 "Tap a button below ⬇️")
+        if st["step"] == "state":
+            code = D.match_state(text)
+            if code not in ("TS", "AP"):
+                if code == "OTHER":
+                    st["state_code"], st["state"], st["district"] = "OTHER", "Other", ""
+                    st["step"] = "qualification"
+                    self.kv.save()
+                    return "ask_qualification", ("✅ Other state\n\n🎓 Step 4 of 5 — Highest qualification / అర్హత\n"
+                                                 "Tap a button below ⬇️")
+                return "ask_state", "Please tap Telangana or Andhra Pradesh.\n⤷ బటన్ నొక్కండి."
+            st["state_code"], st["state"] = code, D.STATES[code][0]
             st["step"] = "district"
             self.kv.save()
-            return "ask_district", (f"👍 {text}!\n\n📍 Step 2 of 4 — మీ జిల్లా? / Your district?\n"
-                                    "Type the name (e.g. Warangal, Guntur, Hyderabad, Nellore) — TS or AP.\n"
-                                    "⤷ జిల్లా పేరు టైప్ చేయండి (ఉదా: వరంగల్, గుంటూరు):")
+            return "ask_district", (f"✅ {D.STATES[code][0]} / {D.STATES[code][1]}\n\n"
+                                    f"📍 Step 3 of 5 — మీ జిల్లా? / Your district?\n"
+                                    "Tap your district below (A → Z) or type its name ⬇️")
         if st["step"] == "district":
-            code, d = D.match_any_district(text)
+            code = st.get("state_code", "")
+            d = D.match_district(code, text) if code in ("TS", "AP") else None
             if not d:
-                return "ask_district", ("❓ District not recognised. Send the number or name:\n\n"
-                                        f"🟪 Telangana\n{D.district_list_text('TS')}\n\n"
-                                        f"🟦 Andhra Pradesh\n{D.district_list_text('AP')}\n"
-                                        "⤷ ఉదా: T12 / A5 / వరంగల్")
-            st["state_code"], st["state"], st["district"] = code, D.STATES[code][0], d
+                return "ask_district", ("❓ District not found — tap a button below or type the name.\n"
+                                        "⤷ కింద బటన్ నొక్కండి లేదా జిల్లా పేరు టైప్ చేయండి.")
+            st["district"] = d
             st["step"] = "qualification"
             self.kv.save()
-            return "ask_qualification", (f"✅ {d} / {D.telugu_name(d)}\n\n🎓 Step 3 of 4 — Highest qualification / అర్హత\n"
-                                         "Tap a button below (or send the number):\n"
-                                         + "\n".join(f"  {i+1}. {en} / {te}" for i, (c, en, te) in enumerate(QUALIFICATIONS)))
+            return "ask_qualification", (f"✅ {d} / {D.telugu_name(d)}\n\n🎓 Step 4 of 5 — Highest qualification / అర్హత\n"
+                                         "Tap a button below ⬇️")
         if st["step"] == "qualification":
             q = match_qualification(text)
             if not q:
@@ -961,7 +974,7 @@ class Members:
             st["qualification"] = q
             st["step"] = "mobile"
             self.kv.save()
-            return "ask_mobile", (f"✅ {QUAL_LABEL[q]}\n\n📱 Step 4 of 4 — Mobile number (10 digits) "
+            return "ask_mobile", (f"✅ {QUAL_LABEL[q]}\n\n📱 Step 5 of 5 — Mobile number (10 digits) "
                                   "for exam alerts & prizes. Send `skip` to skip.\n"
                                   "⤷ మొబైల్ నంబర్ పంపండి (లేదా skip):")
         if st["step"] == "mobile":

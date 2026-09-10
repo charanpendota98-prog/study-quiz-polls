@@ -106,3 +106,10 @@ def match_any_district(text):
         if d:
             return code, d
     return None, None
+
+
+def sorted_districts(state: str):
+    """Alphabetical (English) list of (en, te) for a state."""
+    if state not in STATES:
+        return []
+    return sorted(STATES[state][2], key=lambda r: r[0].lower())
