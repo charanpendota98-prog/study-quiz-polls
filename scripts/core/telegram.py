@@ -135,6 +135,27 @@ class Telegram:
     def answer_callback(self, callback_id: str, text: str = "") -> dict:
         return self._call("answerCallbackQuery", {"callback_query_id": callback_id, "text": text[:200]})
 
+    def send_photo(self, chat_id: str, data: bytes, caption: str = "", filename: str = "card.png") -> dict:
+        """Upload a PNG (rank card) via multipart/form-data — stdlib only."""
+        if self.dry:
+            print(f"   [DRY] sendPhoto -> {chat_id} :: {filename} ({len(data)} bytes)")
+            return {"ok": True, "result": {}}
+        import uuid, urllib.request
+        boundary = "----StudentUp" + uuid.uuid4().hex
+        parts = []
+        for k, v in (("chat_id", str(chat_id)), ("caption", caption[:1000])):
+            parts.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"{k}\"\r\n\r\n{v}\r\n".encode())
+        parts.append((f"--{boundary}\r\nContent-Disposition: form-data; name=\"photo\"; "
+                      f"filename=\"{filename}\"\r\nContent-Type: image/png\r\n\r\n").encode() + data + b"\r\n")
+        parts.append(f"--{boundary}--\r\n".encode())
+        req = urllib.request.Request(API.format(token=self.token, method="sendPhoto"), data=b"".join(parts),
+                                     headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                return json.loads(r.read().decode("utf-8"))
+        except Exception as e:
+            raise TelegramError(f"sendPhoto: {e}")
+
     def send_document(self, chat_id: str, filename: str, data: bytes, caption: str = "") -> dict:
         """Upload a small file (CSV export) via multipart/form-data — stdlib only."""
         if self.dry:

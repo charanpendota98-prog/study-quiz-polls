@@ -151,3 +151,19 @@ The Sheet itself stays private; the SECRET blocks anyone else from writing.
   ✅/❌ counts, Top-10 % / Top-50 % cut-offs, average and **District of the week**.
 * Q-by-Q answer key follows the same rule as daily rounds — posted before the next round.
 * State: `data/week_rounds.json` (rolling 14 days). Module: `scripts/core/grandtest.py`.
+
+## 🏆 Monthly Mega Test · 🏟 District League · 🖼 Rank cards
+
+* **Monthly Mega Test** — the **last Sunday** of each month the 09:00 slot becomes a 50-Q
+  final (`MEGA_TEST_QUESTIONS`): revision window = whole month, correct ×3 points,
+  🥇+300 🥈+200 🥉+120, `mega_wins` recorded for the Hall of Fame. Saturday teaser adapts.
+* **District League** — Monday `LEAGUE_POST_TIME` (08:00) in the hub channel. Weekly
+  district score = avg correct per player ×10 + participation (≤10 players ×2) + Grand Test
+  podium (5/3/2). Two tiers (🅰 Premier top-8 / 🅱 Challengers); month end (with the Hall of
+  Fame post) bottom-2 ⬇ / top-2 ⬆. Form arrows ▲▼, District MVPs. State `data/league.json`.
+* **Rank cards** — after every round / Grand / Mega test a 1080×1350 PNG certificate
+  (name, district in English + Telugu, exam, score, date, handle) goes to the channel for 🥇
+  and by DM to 🥇🥈🥉. Needs `pip install pillow`; for Telugu text on the image install
+  Noto Sans Telugu (`sudo apt install fonts-noto-core` or drop the .ttf in `data/fonts/`).
+  Without Pillow it silently skips (text Top-10 still posts). `RANK_CARDS=0` disables.
+  Brand/handle on cards: `BRAND_NAME`, `BRAND_HANDLE`.

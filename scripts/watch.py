@@ -201,6 +201,11 @@ def tick(eng, now, dry=False):
         eng.hall_of_fame(); ran.append("hall-of-fame")
     if hhmm == "20:00" and now.weekday() == 6:
         eng.district_cup(); ran.append("district-cup")
+    if now.weekday() == 0 and hhmm == config.LEAGUE_POST_TIME:
+        try:
+            eng.district_league(); ran.append("district-league")
+        except Exception as e:
+            log(f"league error: {e}")
     # 🏟 Sunday Grand Test: Saturday teaser + Sunday morning mock (T-5/T-1 alerts too)
     if now.weekday() == 5 and hhmm == config.GRAND_TEST_TEASER_TIME:
         try:

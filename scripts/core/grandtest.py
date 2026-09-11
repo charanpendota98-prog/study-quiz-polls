@@ -26,12 +26,33 @@ from . import config
 from .store import load_json, save_json_atomic
 
 WEEK_LOG = config.DATA / "week_rounds.json"
+WEEK_LOG_DAYS = 35          # keeps a month for the Monthly Mega Test (still tiny: ids only)
 GRAND_Q = int(getattr(config, "GRAND_TEST_QUESTIONS", 25) or 25)
 REVISION_SHARE = 0.6
 NEG_MARK = 1.0 / 3.0
 PODIUM = (100, 60, 40)
 DISTRICT_TOP_BONUS = 25
 GRAND_PREFIX = "G"          # round_id prefix so the bot / reports can tell
+MEGA_Q = int(getattr(config, "MEGA_TEST_QUESTIONS", 50) or 50)
+MEGA_PODIUM = (300, 200, 120)
+
+
+def is_last_sunday(now=None) -> bool:
+    import calendar
+    now = now or datetime.now(config.IST)
+    last = calendar.monthrange(now.year, now.month)[1]
+    return now.weekday() == 6 and now.day + 7 > last
+
+
+def mega_teaser(cfg, when=None) -> str:
+    now = when or datetime.now(config.IST)
+    t = getattr(config, "GRAND_TEST_TIME", "09:00")
+    return "\n".join([
+        f"{cfg['emoji']} 🏆 రేపు MONTHLY MEGA TEST — {now.strftime('%B')} Final · {t} AM",
+        f"📝 {MEGA_Q} Q · ఈ నెల మొత్తం toughest questions + కొత్తవి · negative marking",
+        f"⭐ correct ×3 points · 🥇+{MEGA_PODIUM[0]} 🥈+{MEGA_PODIUM[1]} 🥉+{MEGA_PODIUM[2]} · Hall of Fame entry 🏛",
+        "నెల మొత్తం revise చేసుకోండి — ఇది నెల final 🔥",
+    ])
 
 
 # ----------------------------------------------------------------- week log
@@ -46,7 +67,7 @@ def log_round(channel: str, qids, when=None) -> None:
     for q in qids:
         if q not in lst:
             lst.append(q)
-    cutoff = (now - timedelta(days=14)).strftime("%Y-%m-%d")
+    cutoff = (now - timedelta(days=WEEK_LOG_DAYS)).strftime("%Y-%m-%d")
     for k in [k for k in data if k < cutoff]:
         data.pop(k, None)
     save_json_atomic(WEEK_LOG, data)
@@ -82,13 +103,13 @@ def _order_like_paper(qs):
 
 
 def compose_grand_test(bank, channel: str, n: int = GRAND_Q, lb=None,
-                       now=None, rng=None):
+                       now=None, rng=None, days: int = 6):
     """Return (questions, meta). Revision questions are re-asked on purpose
     (this is the weekly revision test); fresh ones go through bank.pick so
     the permanent no-repeat store still applies to them."""
     rng = rng or random.Random(f"{channel}|{(now or datetime.now(config.IST)).date()}")
     n_rev_target = int(round(n * REVISION_SHARE))
-    week_ids = week_qids(channel, now=now)
+    week_ids = week_qids(channel, days=days, now=now)
     if not week_ids:                       # first week: fall back to recent history
         used = getattr(bank, "used", {}).get(channel, [])
         week_ids = list(dict.fromkeys(used[-6 * config.POLLS_PER_SLOT * 2:]))
@@ -158,20 +179,23 @@ def grand_rows(members, round_id: str, channel: str, limit: int = 10):
     return rows[:limit], n, rows
 
 
-def settle_grand(members, round_id: str, channel: str):
-    """Sunday bonuses: double points per correct, big podium, district top."""
+def settle_grand(members, round_id: str, channel: str, mega: bool = False):
+    """Sunday bonuses: double points per correct, big podium, district top.
+    Mega (monthly): triple points, bigger podium, mega_wins for Hall of Fame."""
     top, n, all_rows = grand_rows(members, round_id, channel)
     if not all_rows:
         return {}
     awarded, seen_d = {}, set()
+    podium = MEGA_PODIUM if mega else PODIUM
     for r in all_rows:
         m = members._get(r["uid"])
-        bonus = r["correct"] * 1          # doubles the +1/correct already given
+        bonus = r["correct"] * (2 if mega else 1)   # ×3 / ×2 incl. the +1 already given
         i = r["rank"] - 1
-        if i < len(PODIUM) and n >= 3:
-            bonus += PODIUM[i]
+        if i < len(podium) and n >= 3:
+            bonus += podium[i]
             if i == 0:
-                m["grand_wins"] = m.get("grand_wins", 0) + 1
+                key = "mega_wins" if mega else "grand_wins"
+                m[key] = m.get(key, 0) + 1
         d = r.get("district")
         if d and d not in seen_d:
             seen_d.add(d)
@@ -188,7 +212,7 @@ def settle_grand(members, round_id: str, channel: str):
 
 
 def render_grand_top(members, round_id: str, channel: str, cfg=None, n_q: int = GRAND_Q,
-                     limit: int = 10, when=None):
+                     limit: int = 10, when=None, mega: bool = False):
     from . import districts as D
     top, n_players, all_rows = grand_rows(members, round_id, channel, limit)
     if not top:
@@ -196,7 +220,9 @@ def render_grand_top(members, round_id: str, channel: str, cfg=None, n_q: int = 
     now = when or datetime.now(config.IST)
     head = f"{cfg['emoji']} " if cfg else ""
     medals = ["🥇", "🥈", "🥉"] + [f"{i}." for i in range(4, limit + 1)]
-    lines = [f"{head}🏟 SUNDAY GRAND TEST — RESULT · {now.strftime('%d %b %Y')}",
+    title = (f"🏆 MONTHLY MEGA TEST — {now.strftime('%B')} FINAL RESULT" if mega
+             else f"🏟 SUNDAY GRAND TEST — RESULT · {now.strftime('%d %b %Y')}")
+    lines = [f"{head}{title}",
              f"📝 {n_q} Q · +1 correct · −⅓ wrong (negative marking) · 👥 {n_players} appeared",
              ""]
     dist_count, dist_marks = {}, {}
@@ -226,20 +252,28 @@ def render_grand_top(members, round_id: str, channel: str, cfg=None, n_q: int = 
             lines.append(f"👑 District of the week: {d} ({D.telugu_name(d)}) — avg {avg:.1f} · {cnt} players")
         top_d = sorted(dist_count.items(), key=lambda kv: -kv[1])[:5]
         lines.append("📍 " + " · ".join(f"{d} {c}" for d, c in top_d))
-    lines += ["", "🎁 Sunday bonus: correct ×2 pts · 🥇+100 🥈+60 🥉+40 · district topper +25",
+    bonus_line = (f"🎁 Mega bonus: correct ×3 pts · 🥇+{MEGA_PODIUM[0]} 🥈+{MEGA_PODIUM[1]} 🥉+{MEGA_PODIUM[2]} · "
+                  f"district topper +25 · 🏛 Hall of Fame" if mega else
+                  "🎁 Sunday bonus: correct ×2 pts · 🥇+100 🥈+60 🥉+40 · district topper +25")
+    lines += ["", bonus_line,
               "మీ పేరు + జిల్లా ఇక్కడ రావాలంటే → bot లో /start, ఒక్కసారి register 📝"]
     return "\n".join(lines)
 
 
-def opener(cfg, meta, total_secs_text: str) -> str:
+def opener(cfg, meta, total_secs_text: str, mega: bool = False) -> str:
     sec = meta.get("sections", {})
+    head = (f"{cfg['emoji']} 🏆 MONTHLY MEGA TEST — {cfg['subject']} · నెల final" if mega
+            else f"{cfg['emoji']} 🏟 SUNDAY GRAND TEST — {cfg['subject']}")
+    span = "ఈ నెల" if mega else "ఈ వారం"
+    pts = (f"⭐ Mega: correct ×3 points · 🥇+{MEGA_PODIUM[0]} 🥈+{MEGA_PODIUM[1]} 🥉+{MEGA_PODIUM[2]}" if mega
+           else "⭐ Sunday: correct ×2 points · 🥇+100 🥈+60 🥉+40")
     return "\n".join([
-        f"{cfg['emoji']} 🏟 SUNDAY GRAND TEST — {cfg['subject']}",
-        f"📝 {meta['total']} ప్రశ్నలు · {meta['revision']} ఈ వారం revision (toughest ones) · {meta['fresh']} కొత్తవి",
+        head,
+        f"📝 {meta['total']} ప్రశ్నలు · {meta['revision']} {span} revision (toughest ones) · {meta['fresh']} కొత్తవి",
         f"📑 Section A easy {sec.get('easy', 0)} → B medium {sec.get('medium', 0)} → C hard {sec.get('hard', 0)}",
         f"⏱ ఒక్కో ప్రశ్న 1–1.5 నిమిషాలు · మొత్తం ≈ {total_secs_text}",
         "🧮 Marking: +1 correct · −⅓ wrong · skip = 0 (real exam style)",
-        "⭐ Sunday: correct ×2 points · 🥇+100 🥈+60 🥉+40",
+        pts,
         "మీరు answer చేసిన తర్వాతే ✅/❌ కనిపిస్తుంది — key shows only after YOU answer",
         "All the best — పెన్ను, పేపర్ సిద్ధం ✍️",
     ])

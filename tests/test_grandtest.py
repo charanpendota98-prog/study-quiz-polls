@@ -65,7 +65,7 @@ class TestGrandTest(unittest.TestCase):
     def test_week_log_rolls(self):
         from datetime import datetime, timedelta
         now = datetime.now(config.IST)
-        grandtest.log_round("SSC", ["a"], when=now - timedelta(days=20))
+        grandtest.log_round("SSC", ["a"], when=now - timedelta(days=40))
         grandtest.log_round("SSC", ["b"], when=now)
         from core.store import load_json
         self.assertEqual(len(load_json(grandtest.WEEK_LOG, {})), 1)
@@ -87,3 +87,61 @@ class TestGrandTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestMegaLeagueCards(unittest.TestCase):
+    def test_last_sunday(self):
+        from datetime import datetime
+        self.assertTrue(grandtest.is_last_sunday(datetime(2026, 9, 27, tzinfo=config.IST)))
+        self.assertFalse(grandtest.is_last_sunday(datetime(2026, 9, 20, tzinfo=config.IST)))
+        self.assertFalse(grandtest.is_last_sunday(datetime(2026, 9, 28, tzinfo=config.IST)))
+
+    def test_mega_opener_and_teaser(self):
+        cfg = {"emoji": "🏛", "subject": "TSPSC"}
+        o = grandtest.opener(cfg, {"total": 50, "revision": 30, "fresh": 20,
+                                   "sections": {"easy": 15, "medium": 20, "hard": 15}}, "1 h", mega=True)
+        self.assertIn("MEGA", o); self.assertIn("×3", o)
+        self.assertIn("MEGA", grandtest.mega_teaser(cfg))
+
+    def test_league_scoring_is_fair(self):
+        from core import league
+        class M: pass
+        m = M()
+        m.members = {str(i): {"registered": True, "district": ("Hyderabad" if i < 12 else "Adilabad"),
+                              "name": f"p{i}"} for i in range(15)}
+        from datetime import datetime
+        rid = datetime.now(config.IST).strftime("%Y%m%d-0730")
+        players = {str(i): {"correct": (3 if i < 12 else 9), "total": 10} for i in range(15)}
+        m.data = {"rounds": {rid: {"by_channel": {"TSPSC": players}}}}
+        wk = league.compute_week(m)
+        # 3 strong Adilabad players beat 12 weak Hyderabad players
+        self.assertGreater(wk["Adilabad"]["score"], wk["Hyderabad"]["score"])
+        self.assertEqual(wk["Hyderabad"]["players"], 12)
+
+    def test_league_render_and_promotion(self):
+        from core import league
+        tmp = Path(tempfile.mkdtemp()); old = league.PATH; league.PATH = tmp / "l.json"
+        try:
+            class M: pass
+            m = M()
+            dists = ["A", "B", "C", "D", "E", "F"]
+            m.members = {str(i): {"registered": True, "district": dists[i % 6], "name": f"p{i}"} for i in range(12)}
+            from datetime import datetime
+            rid = datetime.now(config.IST).strftime("%Y%m%d-0730")
+            m.data = {"rounds": {rid: {"by_channel": {"SSC": {str(i): {"correct": i % 6 + 1, "total": 10} for i in range(12)}}}}}
+            txt = league.render_week(m)
+            self.assertIn("DISTRICT LEAGUE", txt); self.assertIn("Premier", txt)
+            data = league._load()
+            up, down = league.promote_relegate(data, datetime.now(config.IST).strftime("%Y%m"))
+            self.assertIsInstance(up, list)
+        finally:
+            league.PATH = old; shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_rank_card_never_raises(self):
+        from core import rankcard
+        png = rankcard.render({"name": "Test", "district": "Guntur", "district_te": "గుంటూరు"},
+                              title="Round — TOP 3", rank=2, score="9 / 10")
+        if rankcard.available():
+            self.assertTrue(png.startswith(b"\x89PNG"))
+        else:
+            self.assertIsNone(png)

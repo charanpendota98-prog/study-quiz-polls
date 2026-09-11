@@ -171,6 +171,7 @@ class Engine:
                 if top:
                     self.tg.send_message(config.channel_chat_id(ch), top)
                     self._dm_round_cards(mem, round_id, ch, round_label or "")
+                    self._rank_cards(mem, round_id, ch, f"{round_label or 'Round'}")
                     try:   # history of winners + refreshed member stats → Google Sheet
                         from . import crm
                         rows, _n = mem.round_top(round_id, ch)
@@ -219,29 +220,38 @@ class Engine:
         """Saturday evening: one professional teaser per quiz channel."""
         from . import grandtest
         n = 0
+        from datetime import timedelta
+        mega = grandtest.is_last_sunday(datetime.now(config.IST) + timedelta(days=1))
         for ch in channels or config.PUBLIC_CHANNELS:
             try:
-                self.tg.send_message(config.channel_chat_id(ch), grandtest.teaser(config.CHANNELS[ch]))
+                cfg = config.CHANNELS[ch]
+                self.tg.send_message(config.channel_chat_id(ch),
+                                     grandtest.mega_teaser(cfg) if mega else grandtest.teaser(cfg))
                 n += 1
             except TelegramError as e:
                 print(f"   [grand-teaser] {ch} failed: {e}")
             self.tg.polite_gap(not self.dry)
         return n
 
-    def run_grand_test(self, channels=None):
+    def run_grand_test(self, channels=None, mega=None):
         """Sunday morning real-exam mock: revision (toughest of the week) +
         fresh, sections easy→hard, negative marking, double points."""
         from . import grandtest
         from .content import poll_safe
         channels = channels or config.PUBLIC_CHANNELS
-        round_id = datetime.now(config.IST).strftime("G%Y%m%d-%H%M")
+        if mega is None:
+            mega = grandtest.is_last_sunday()
+        n_q = grandtest.MEGA_Q if mega else grandtest.GRAND_Q
+        window = 30 if mega else 6
+        label = "Monthly Mega Test 🏆" if mega else "Sunday Grand Test 🏟"
+        round_id = datetime.now(config.IST).strftime(("M" if mega else "G") + "%Y%m%d-%H%M")
         self._members = Members()
         dm_map = {}
         paced = self._paced()
         self.post_previous_key(channels=channels)
         rounds, metas = {}, {}
         for ch in channels:
-            qs, meta = grandtest.compose_grand_test(self.bank, ch, lb=self.lb)
+            qs, meta = grandtest.compose_grand_test(self.bank, ch, n=n_q, lb=self.lb, days=window)
             safe = [sq for sq in (poll_safe(q, seed=round_id) for q in qs) if sq]
             if len(safe) < 5:
                 print(f"   [grand] {ch}: only {len(safe)} questions — skipped")
@@ -254,7 +264,7 @@ class Engine:
             total_secs = sum(pace_seconds(q) + config.PACE_BUFFER_SEC for q in qs) if paced else 0
             try:
                 self.tg.send_message(config.channel_chat_id(ch),
-                                     grandtest.opener(cfg, metas[ch], self._fmt_min(total_secs)))
+                                     grandtest.opener(cfg, metas[ch], self._fmt_min(total_secs), mega=mega))
             except TelegramError as e:
                 print(f"   [grand] {ch} opener failed: {e}")
             self.tg.polite_gap(not self.dry)
@@ -289,11 +299,12 @@ class Engine:
                 self.tg.send_message(config.channel_chat_id(ch),
                                      "🏁 Grand Test over — results in a moment. Answer key: before next round 🔑")
                 mem = self._members.reload()
-                grandtest.settle_grand(mem, round_id, ch)
-                text = grandtest.render_grand_top(mem, round_id, ch, config.CHANNELS[ch], n_q=len(qs))
+                grandtest.settle_grand(mem, round_id, ch, mega=mega)
+                text = grandtest.render_grand_top(mem, round_id, ch, config.CHANNELS[ch], n_q=len(qs), mega=mega)
                 if text:
                     self.tg.send_message(config.channel_chat_id(ch), text)
-                    self._dm_round_cards(mem, round_id, ch, "Sunday Grand Test 🏟")
+                    self._dm_round_cards(mem, round_id, ch, label)
+                    self._rank_cards(mem, round_id, ch, label, n_q=len(qs), grand=True)
                     try:
                         from . import crm
                         rows, _n, _all = grandtest.grand_rows(mem, round_id, ch)
@@ -305,7 +316,7 @@ class Engine:
             self.tg.polite_gap(not self.dry)
         # snapshot for the delayed Q-by-Q key (same path as daily rounds)
         try:
-            snap = {"label": "Sunday Grand Test 🏟", "key_posted": False,
+            snap = {"label": label, "key_posted": False,
                     "by_channel": {ch: [{k: q.get(k) for k in (
                         "id", "topic", "q_en", "q_te", "difficulty", "source", "exam", "year",
                         "answer_index", "options_en", "options_te", "explanation_en", "explanation_te")}
@@ -364,6 +375,41 @@ class Engine:
             print(f"   [mirror] save note: {e}")
         return sent
 
+    def _rank_cards(self, mem, round_id, ch, label, n_q=None, grand=False):
+        """Shareable PNG rank cards for the podium → channel (Top-3) + DM to
+        the winners. Silent no-op when Pillow is missing or RANK_CARDS=0."""
+        try:
+            from . import rankcard
+            if not rankcard.available():
+                return 0
+            cfg = config.CHANNELS[ch]
+            if grand:
+                from . import grandtest
+                rows, _n, _all = grandtest.grand_rows(mem, round_id, ch)
+                n_q = n_q or grandtest.GRAND_Q
+                fmt = lambda r: f"{r['marks']:g} / {n_q}"
+            else:
+                rows, _n = mem.round_top(round_id, ch)
+                fmt = lambda r: f"{r['correct']} / {r['total']}"
+            cards = rankcard.top3_cards(rows, title=f"{label} — TOP 3", subtitle_te="టాప్ 3 · అభినందనలు",
+                                        exam=cfg.get("subject", ch), score_fmt=fmt)
+            sent = 0
+            for rank, r, png in cards:
+                medal = {1: "🥇", 2: "🥈", 3: "🥉"}[rank]
+                cap = f"{medal} {r['name']} · {r.get('district', '')} — {label}\nShare చేయండి 📲 {getattr(config, 'BRAND_HANDLE', '')}"
+                try:
+                    if rank == 1:      # channel stays clean: only the winner's card goes public
+                        self.tg.send_photo(config.channel_chat_id(ch), png, caption=cap)
+                    self.tg.send_photo(str(r["uid"]), png, caption=cap)
+                    sent += 1
+                except TelegramError as e:
+                    print(f"   [rankcard] {ch} #{rank}: {e}")
+                self.tg.polite_gap(not self.dry)
+            return sent
+        except Exception as e:
+            print(f"   [rankcard] note: {e}")
+            return 0
+
     def _dm_round_cards(self, mem, round_id, ch, label):
         """Personal report card to every registered player of this round."""
         sent = 0
@@ -410,10 +456,34 @@ class Engine:
                 print(f"   [cup] {ch} failed: {e}")
         return 1
 
+    def district_league(self, channels=None):
+        """Monday morning — weekly District League standings (fair: avg per
+        player + participation), season table, promotion/relegation notes."""
+        from . import league
+        mem = Members()
+        text = league.render_week(mem)
+        if not text:
+            print("[league] nothing this week")
+            return 0
+        for ch in channels or getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
+            try:
+                self.tg.send_message(config.channel_chat_id(ch), text)
+            except TelegramError as e:
+                print(f"   [league] {ch} failed: {e}")
+        return 1
+
     def hall_of_fame(self):
         """Last day of month 21:00 — monthly Hall of Fame to hub channel."""
         mem = Members()
         text = mem.monthly_hall_of_fame()
+        try:   # league season close: promotion / relegation
+            from . import league
+            data = league._load()
+            up, down = league.promote_relegate(data, datetime.now(config.IST).strftime("%Y%m"))
+            if up or down:
+                text = (text or "") + ("\n\n🏟 League: ⬆ " + ", ".join(up) + " · ⬇ " + ", ".join(down))
+        except Exception as e:
+            print(f"   [hof] league note: {e}")
         if not text:
             return 0
         for ch in getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
