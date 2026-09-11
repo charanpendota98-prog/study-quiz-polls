@@ -94,3 +94,38 @@ class TestOfficialPaperFormat(unittest.TestCase):
         self.assertGreaterEqual(len(direct), 130)
         for ch in ("TSPSC", "APPSC", "SSC", "RAILWAY", "BANKING", "DEFENCE", "POLICE"):
             self.assertTrue(any(p["channel"] == ch for p in direct), ch)
+
+
+class TestSakshiViewer(unittest.TestCase):
+    VIEWER = ("https://education.sakshi.com/libraries/pdf.js/web/viewer.html?file="
+              "https%3A%2F%2Feducation.sakshi.com%2Fsites%2Fdefault%2Ffiles%2Fpdf%2F2025%2F03%2F12"
+              "%2FPaper_III_Economy.pdf#")
+
+    def test_unwrap_viewer(self):
+        self.assertEqual(pyq.unwrap_viewer(self.VIEWER),
+                         "https://education.sakshi.com/sites/default/files/pdf/2025/03/12/Paper_III_Economy.pdf")
+        plain = "https://x.com/a.pdf"
+        self.assertEqual(pyq.unwrap_viewer(plain), plain)
+        self.assertEqual(pyq.unwrap_viewer("https://x.com/viewer.html?file=javascript:alert(1)"),
+                         "https://x.com/viewer.html?file=javascript:alert(1)")
+
+    def test_index_picks_viewer_pdf(self):
+        html = f'<a href="{self.VIEWER}">Current View</a><a href="/x/syllabus.pdf">Syllabus</a>'
+        links = pyq.pdf_links_from_index(html, "https://education.sakshi.com/en/p", limit=4)
+        self.assertEqual(len(links), 1)
+        self.assertTrue(links[0][0].endswith("Paper_III_Economy.pdf"))
+
+    def test_registry_has_ts_ap_final_keys(self):
+        papers = pyq.load_papers()
+        urls = [p.get("url", "") for p in papers]
+        self.assertTrue(any("P1_General_Studies.pdf" in u for u in urls))
+        self.assertTrue(any("Telangana%20Movement" in u for u in urls))
+        self.assertGreaterEqual(sum(1 for p in papers if p["channel"] == "TSPSC"), 20)
+        self.assertGreaterEqual(sum(1 for p in papers if p["channel"] == "POLICE"), 40)
+        self.assertEqual(len(set(p.get("url") or p.get("index") for p in papers)), len(papers))
+
+    def test_whatsapp_registry_is_manual_tier(self):
+        with open(os.path.join(os.path.dirname(__file__), "..", "data", "whatsapp_channels.json")) as fh:
+            d = json.load(fh)
+        self.assertEqual(d["tier"], "manual")
+        self.assertTrue(all(c["url"].startswith("https://whatsapp.com/channel/") for c in d["channels"]))

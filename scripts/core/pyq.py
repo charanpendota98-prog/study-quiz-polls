@@ -97,6 +97,23 @@ class _Links(HTMLParser):
             self._cur = None
 
 
+_VIEWER_RE = re.compile(r"[?&]file=([^&#]+)", re.I)
+
+
+def unwrap_viewer(url: str) -> str:
+    """Sakshi/Eenadu embed papers through a pdf.js viewer:
+    .../libraries/pdf.js/web/viewer.html?file=https%3A%2F%2F...%2Fpaper.pdf
+    Return the real PDF URL (decoded) when the link is such a wrapper."""
+    if "viewer.html" in url.lower() or "/pdf.js/" in url.lower():
+        m = _VIEWER_RE.search(url)
+        if m:
+            from urllib.parse import unquote
+            inner = unquote(m.group(1)).strip()
+            if inner.lower().startswith("http") and re.search(r"\.pdf(\?|$)", inner, re.I):
+                return inner
+    return url
+
+
 def pdf_links_from_index(page_html: str, base_url: str, limit: int = 4, prefer_lang="en"):
     """Pick paper PDF links from an index page. Prefers links whose text or
     URL mention 'question paper'/'pdf' and English medium; skips answer-key-only,
@@ -106,7 +123,7 @@ def pdf_links_from_index(page_html: str, base_url: str, limit: int = 4, prefer_l
     seen, out = set(), []
     bad = re.compile(r"syllabus|admit|result|cut-?off|notification|hindi|answer-?key-only|analysis", re.I)
     for href, text in p.links:
-        url = urljoin(base_url, href.split("#")[0])
+        url = unwrap_viewer(urljoin(base_url, href.split("#")[0]))
         if not re.search(r"\.pdf(\?|$)", url, re.I):
             continue
         host = urlparse(url).netloc.lower()

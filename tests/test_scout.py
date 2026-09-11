@@ -110,3 +110,25 @@ class ScoutTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestScoutViewerUnwrap(unittest.TestCase):
+    def test_harvest_page_unwraps_sakshi_viewer(self):
+        from core import scout
+        html = ('<a href="https://education.sakshi.com/libraries/pdf.js/web/viewer.html?file='
+                'https%3A%2F%2Feducation.sakshi.com%2Fsites%2Fdefault%2Ffiles%2Fpdf%2F2024%2F11%2F17'
+                '%2FTSPSC-Group-3-2024-paper1-Question-Paper-key.pdf#">Current View</a>')
+        st = scout._load_state() if hasattr(scout, "_load_state") else {"errors": [], "hosts": {}}
+        cands = {"items": {}, "updated": ""}
+        orig = scout._fetch
+        scout._fetch = lambda url, **k: (html, url)
+        try:
+            scout._harvest_page("https://education.sakshi.com/tspsc/previous-papers-2024/tgpsc-group-3-2024-paper-1-question-paper-key-167117",
+                                "TSPSC", st, cands, set(), {"new": 0})
+        finally:
+            scout._fetch = orig
+        keys = list(cands["items"])
+        self.assertEqual(len(keys), 1, keys)
+        self.assertTrue(keys[0].endswith("Question-Paper-key.pdf"))
+        self.assertEqual(cands["items"][keys[0]]["channel"], "TSPSC")
+        self.assertEqual(cands["items"][keys[0]]["year"], 2024)

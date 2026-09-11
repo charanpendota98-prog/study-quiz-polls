@@ -1695,6 +1695,334 @@
    "via": "testbook index (unverified PDF links)",
    "index": "https://testbook.com/cds/previous-year-papers",
    "max_pdfs": 20
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-2",
+   "year": 2024,
+   "paper": "Paper-1 General Studies & Abilities (Final Key)",
+   "date": "2024-12-15",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2025/03/11/P1_General_Studies.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-2",
+   "year": 2024,
+   "paper": "Paper-2 History, Polity & Society (Final Key)",
+   "date": "2024-12-15",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2025/03/12/Paper%20-II_History_Polity_Society.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-2",
+   "year": 2024,
+   "paper": "Paper-3 Economy & Development (Final Key)",
+   "date": "2024-12-16",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2025/03/12/Paper_III_Economy.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-2",
+   "year": 2024,
+   "paper": "Paper-4 Telangana Movement & State Formation (Final Key)",
+   "date": "2024-12-16",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2025/03/12/Paper-IV_Telangana%20Movement_State%20Formation.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-2",
+   "year": 2024,
+   "paper": "Paper-2 History, Polity & Society (Prelim Key)",
+   "date": "2024-12-15",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2025/01/18/TGPSC-Group2-Paper-2-QPandKey-2025.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-2",
+   "year": 2024,
+   "paper": "Paper-3 Economy & Development (Prelim Key)",
+   "date": "2024-12-16",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2025/01/18/TGPSC-Group2-Paper-3-QPandKey-2025.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-2",
+   "year": 2024,
+   "paper": "Paper-4 Telangana Movement (Prelim Key)",
+   "date": "2024-12-16",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2025/01/18/TGPSC-Group2-Paper-4-QPandKey-2025.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-3",
+   "year": 2024,
+   "paper": "Paper-1 General Studies & Abilities",
+   "date": "2024-11-17",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2024/11/17/TSPSC-Group-3-2024-paper1-Question-Paper-key.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-3",
+   "year": 2024,
+   "paper": "Paper-2 History, Polity & Society",
+   "date": "2024-11-17",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2024/11/17/tgpsc-group3-second-paper-question-paper.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-1 Prelims",
+   "year": 2024,
+   "paper": "Paper-1 General Studies (Set B)",
+   "date": "2024-03-17",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2024/03/17/APPSC-Group-1Prelims-G-Paper-1setB-2024_0.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-1 Prelims",
+   "year": 2024,
+   "paper": "Paper-2 General Aptitude (Final Key)",
+   "date": "2024-03-17",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2024/04/13/Group-I%20Paper-II%20Final%20Key_122023_13042024.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Junior Lecturers",
+   "year": 2025,
+   "paper": "Paper-1 General Studies & Mental Ability (with key)",
+   "date": "2025-07-20",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2026/02/09/PaperIGSandMA_4410091515427_20thJuly2025_162023.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Prelims",
+   "year": 2025,
+   "paper": "Prelims Question Paper-1",
+   "date": "2025",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/04/02173649/Group-2-%E2%80%93-Prelims-Exam-Question-Paper-1-2025.pdf",
+   "lang": "en",
+   "via": "Adda247 APPSC Group-2 PYQ page (official paper mirror)"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Prelims",
+   "year": 2025,
+   "paper": "Prelims Question Paper-2",
+   "date": "2025",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/04/02173653/Group-2-%E2%80%93-Prelims-Exam-Question-Paper-2-2025.pdf",
+   "lang": "en",
+   "via": "Adda247 APPSC Group-2 PYQ page (official paper mirror)"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Prelims",
+   "year": 2017,
+   "paper": "Screening Test",
+   "date": "2017",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/04/02173700/Group-2-%E2%80%93-Prelims-Exam-Question-Paper-2017.pdf",
+   "lang": "en",
+   "via": "Adda247 APPSC Group-2 PYQ page (official paper mirror)"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Prelims",
+   "year": 2019,
+   "paper": "Screening Test (5 May 2019)",
+   "date": "2019-05-05",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/04/02173704/Group-2-%E2%80%93-Prelims-Exam-Question-Paper-2019.pdf",
+   "lang": "en",
+   "via": "Adda247 APPSC Group-2 PYQ page (official paper mirror)"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Mains",
+   "year": 2019,
+   "paper": "Paper-3 Planning & Indian Economy (with key)",
+   "date": "2019",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/04/02163207/APPSC-Mains-For-Group-II-Paper-III-Planning-in-India-and-Indian-Economy-Question-Paper-with-key-2019.pdf",
+   "lang": "en",
+   "via": "Adda247 APPSC Group-2 PYQ page (official paper mirror)"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Mains",
+   "year": 2019,
+   "paper": "Paper-2 AP Social History & Constitution",
+   "date": "2019",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/04/02163209/APPSC-Mains-For-Group-II-Services-Paper-II-A.P-Social-History-and-Constitution-Question-Paper-2019.pdf",
+   "lang": "en",
+   "via": "Adda247 APPSC Group-2 PYQ page (official paper mirror)"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Mains",
+   "year": 2017,
+   "paper": "Paper-1 (Final Key, 15 Jul 2017)",
+   "date": "2017-07-15",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/04/02161115/APPSC-Group-2-Mains-Paper-I-Question-Paper-with-Final-Key-Held-on-15.07.2017.pdf",
+   "lang": "en",
+   "via": "Adda247 APPSC Group-2 PYQ page (official paper mirror)"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Mains",
+   "year": 2017,
+   "paper": "Paper-3 (Final Key, 16 Jul 2017)",
+   "date": "2017-07-16",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/04/02161119/APPSC-Group-2-Mains-Paper-III-Question-Paper-with-Final-Key-Held-on-16.07.2017.pdf",
+   "lang": "en",
+   "via": "Adda247 APPSC Group-2 PYQ page (official paper mirror)"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "AP Police Constable Prelims",
+   "year": 2023,
+   "paper": "Preliminary Written Test (with key)",
+   "date": "2023-01-22",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2023/01/22/APPoliceExam2023-final.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS SI Final",
+   "year": 2023,
+   "paper": "General Studies Paper (Code A, with key)",
+   "date": "2023-04-09",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2023/04/09/TS-SI-General%20Studies-Paper-CodeA-QuestionPaper-key-2023.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS SI Final",
+   "year": 2023,
+   "paper": "Arithmetic & Reasoning Paper (with key)",
+   "date": "2023-04-08",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2023/04/08/AP-SI-QP080423-1_key.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS Police Constable Prelims",
+   "year": 2022,
+   "paper": "Preliminary Written Test (with key)",
+   "date": "2022-08-28",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2022/08/28/TS-Constable-Question-Paper-Key-2022.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "AP SI Prelims",
+   "year": 2023,
+   "paper": "Paper-1 & Paper-2 (official key)",
+   "date": "2023-02-19",
+   "index": "https://education.sakshi.com/en/ap-police/previous-papers-2022/ap-si-prelims-question-paper-and-exam-key-2023-news-telugu-125488",
+   "lang": "en",
+   "via": "Sakshi Education page (pdf.js viewer link resolved at harvest)",
+   "max_pdfs": 2
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS Police Constable Final",
+   "year": 2023,
+   "paper": "Final Written Exam Set A (with key)",
+   "date": "2023-04-30",
+   "index": "https://education.sakshi.com/en/ts-police/previous-papers-2023/ts-constable-final-exam-question-paper-2023-pdf-download-129926",
+   "lang": "en",
+   "via": "Sakshi Education page (pdf.js viewer link resolved at harvest)",
+   "max_pdfs": 2
+  },
+  {
+   "channel": "POLICE",
+   "exam": "AP Police Constable Mains",
+   "year": 2018,
+   "paper": "Mains (17 Mar 2019, official key)",
+   "date": "2019-03-17",
+   "index": "https://education.sakshi.com/en/ap-police/previous-papers-2018/ap-police-constable-mains-exam-2018-question-paper-official-key-held-17032019-39025",
+   "lang": "en",
+   "via": "Sakshi Education page (pdf.js viewer link resolved at harvest)",
+   "max_pdfs": 2
+  },
+  {
+   "channel": "POLICE",
+   "exam": "AP SI Prelims",
+   "year": 2018,
+   "paper": "Paper-I & II (16 Dec 2018, official key)",
+   "date": "2018-12-16",
+   "index": "https://education.sakshi.com/en/ap-police/previous-papers-2018/ap-sub-inspector-si-exam-2018-paper-i-question-paper-official-key-held-16122018-39035",
+   "lang": "en",
+   "via": "Sakshi Education page (pdf.js viewer link resolved at harvest)",
+   "max_pdfs": 2
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS SI Mains",
+   "year": 2018,
+   "paper": "GS Paper (final key)",
+   "date": "2019-04-27",
+   "index": "https://education.sakshi.com/en/ts-police/previous-papers-2018",
+   "lang": "en",
+   "via": "Sakshi Education page (pdf.js viewer link resolved at harvest)",
+   "max_pdfs": 2
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-1 Prelims",
+   "year": 2024,
+   "paper": "General Studies & Mental Ability (official key)",
+   "date": "2024-06-09",
+   "index": "https://education.sakshi.com/en/tspsc/education-news/download-tspsc-group-1-preliminary-key-and-raise-objections-until-june-17th-157560",
+   "lang": "en",
+   "via": "Sakshi Education page (pdf.js viewer link resolved at harvest)",
+   "max_pdfs": 2
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-3",
+   "year": 2024,
+   "paper": "Paper-3 Economy & Development",
+   "date": "2024-11-18",
+   "index": "https://education.sakshi.com/group-3/jobs/tspsc-group-3-exam-2024-question-paper-3-key-news-telugu-167172",
+   "lang": "en",
+   "via": "Sakshi Education page (pdf.js viewer link resolved at harvest)",
+   "max_pdfs": 2
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-1 Prelims",
+   "year": 2024,
+   "paper": "Paper-2 General Aptitude (official key)",
+   "date": "2024-03-17",
+   "index": "https://education.sakshi.com/en/appsc/previous-papers-2024/appsc-group-1-prelims-2024-paper-2-question-paper-151920",
+   "lang": "en",
+   "via": "Sakshi Education page (pdf.js viewer link resolved at harvest)",
+   "max_pdfs": 2
   }
  ],
  "updated": "2026-09-11"

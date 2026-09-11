@@ -104,3 +104,22 @@ SHEET_SECRET=<the SECRET value inside docs/sheet_webapp.gs on the Sheet>
 Test: open the /exec URL in a private/incognito window — it must show a small JSON like
 `{"ok":true,"service":"StudentUp CRM"}` and NOT a Google sign-in page. Then in the bot: `/syncsheet`.
 The Sheet itself stays private; the SECRET blocks anyone else from writing.
+
+## Source wave 11 Sep 2026 — TS/AP official papers via Sakshi + Adda247
+
+* `data/pyq_papers.json` → **199 papers** (TSPSC 25, APPSC 37, POLICE 42, SSC 37,
+  BANKING 25, DEFENCE 19, RAILWAY 14). New: TSPSC Group-2 2024 **master QP + final
+  key for all 4 papers**, Group-3 2024 P1–P3, APPSC Group-1 Prelims 2024 P1/P2,
+  APPSC Group-2 2025/2019/2017 prelims+mains (adda247 mirrors), AP Constable 2023,
+  TS SI 2023 (GS + Arithmetic/Reasoning), TS Constable 2022/2023, AP SI 2018/2023.
+* Sakshi embeds PDFs in a pdf.js viewer (`viewer.html?file=…pdf`). `core.pyq.unwrap_viewer`
+  now resolves those, so both the harvester and the scout can use every
+  `education.sakshi.com/en/<exam>/previous-papers-<year>` page (site covers TS/AP
+  Police, Groups, DSC, TET, SSC, Bank, NDA/CDS back to 2002). 13 Sakshi/Adda hubs added
+  to the scout.
+* **WhatsApp channels** (`data/whatsapp_channels.json`): WhatsApp gives no public
+  preview/API, so they cannot be scraped. They are a *manual* tier — follow on a
+  phone, forward PDFs to the bot / `data/pdf_inbox/`. Only publisher-verified links
+  are listed (Sakshi Education for now).
+* Run on the server: `cd scripts && python3 -m core.pyq harvest --only TSPSC --limit 8`
+  then `python3 -m core.pyq status`.

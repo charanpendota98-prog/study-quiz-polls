@@ -70,14 +70,22 @@ HUBS = [
     ("TSPSC", "TSPSC", "https://www.careerpower.in/tspsc.html"),
     ("TSPSC", "TSPSC", "https://www.adda247.com/exams/telangana/"),
     ("TSPSC", "TSPSC", "https://studybizz.com/"),
+    ("TSPSC", "TSPSC", "https://education.sakshi.com/en/tspsc/previous-papers"),
+    ("TSPSC", "TSPSC Group-2", "https://education.sakshi.com/en/group-2/previous-papers-2024"),
+    ("TSPSC", "TSPSC", "https://education.sakshi.com/en/tags/tspsc-previous-papers"),
     ("APPSC", "APPSC", "https://psc.ap.gov.in/"),
     ("APPSC", "APPSC", "https://www.freshersnow.com/appsc-previous-papers/"),
     ("APPSC", "APPSC", "https://www.adda247.com/exams/andhra-pradesh/"),
     ("APPSC", "APPSC", "https://www.careerpower.in/appsc.html"),
+    ("APPSC", "APPSC", "https://education.sakshi.com/en/appsc/previous-papers"),
+    ("APPSC", "APPSC", "https://www.adda247.com/jobs/appsc-group-2-previous-question-papers/"),
+    ("APPSC", "APPSC", "https://education.sakshi.com/en/tags/appsc-previous-papers"),
     ("POLICE", "TS Police", "https://www.freshersnow.com/telangana-police-previous-papers/"),
     ("POLICE", "AP Police", "https://prepp.in/ap-police-constable-exam/previous-year-question-paper"),
     ("POLICE", "TS Police", "https://www.tslprb.in/"),
     ("POLICE", "AP Police", "https://slprb.ap.gov.in/"),
+    ("POLICE", "AP Police", "https://education.sakshi.com/en/ap-police/previous-papers"),
+    ("POLICE", "TS Police", "https://education.sakshi.com/en/ts-police/previous-papers"),
     ("SSC", "SSC", "https://www.adda247.com/exams/ssc/"),
     ("SSC", "SSC", "https://www.sscadda.com/"),
     ("SSC", "SSC", "https://ssc.gov.in/"),
@@ -90,6 +98,12 @@ HUBS = [
     ("BANKING", "IBPS", "https://www.ibps.in/"),
     ("DEFENCE", "NDA/CDS/AFCAT", "https://www.adda247.com/exams/upsc/"),
     ("DEFENCE", "NDA/CDS", "https://upsc.gov.in/examinations/previous-question-papers"),
+    ("DEFENCE", "NDA/CDS", "https://education.sakshi.com/en/nda/previous-papers"),
+    ("DEFENCE", "CDS", "https://education.sakshi.com/en/cds/previous-papers"),
+    ("SSC", "SSC CGL", "https://education.sakshi.com/en/cgl/previous-papers"),
+    ("SSC", "SSC CHSL", "https://education.sakshi.com/en/chsl/previous-papers"),
+    ("BANKING", "IBPS/SBI", "https://education.sakshi.com/en/bank-exams/previous-papers"),
+    ("RAILWAY", "RRB", "https://education.sakshi.com/en/rrb-exams/previous-papers"),
     ("DEFENCE", "NDA/CDS/AFCAT", "https://www.careerpower.in/defence.html"),
     ("CURRENT", "GK", "https://www.gktoday.in/quizbase/"),
 ]
@@ -310,6 +324,11 @@ def _harvest_page(url, channel_default, st, cands, seen_urls, budget):
             continue
         if not u.startswith("http"):
             continue
+        if "viewer.html" in u.lower():          # Sakshi-style pdf.js wrapper
+            from .pyq import unwrap_viewer
+            real = unwrap_viewer(u)
+            if real != u:
+                u, text = real, f"{text} {url}"  # page URL carries the paper words
         h = _host(u)
         if any(s in h for s in SKIP_HOSTS):
             continue
