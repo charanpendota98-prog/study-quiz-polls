@@ -305,6 +305,7 @@ MEGA_TEST_QUESTIONS = int(env("MEGA_TEST_QUESTIONS", "50") or 50)  # last Sunday
 RANK_CARDS = env("RANK_CARDS", "1").lower() not in ("0", "false", "no", "off")  # PNG cards (needs Pillow)
 BRAND_NAME = env("BRAND_NAME", "StudentUp")
 BRAND_HANDLE = env("BRAND_HANDLE", "t.me/StudentUpQuiz")   # printed on rank cards
+CHALLENGE_TIME = env("CHALLENGE_TIME", "13:00")                    # Mon–Sat Beat-the-Topper DM
 LEAGUE_POST_TIME = env("LEAGUE_POST_TIME", "08:00")                # Monday district league standings
 POLL_GAP_MIN = 2.2          # never faster than 2.2s — avoids Telegram spam flag
 POLL_GAP_MAX = 3.2

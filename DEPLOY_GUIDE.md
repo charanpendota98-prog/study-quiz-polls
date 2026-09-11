@@ -167,3 +167,17 @@ The Sheet itself stays private; the SECRET blocks anyone else from writing.
   Noto Sans Telugu (`sudo apt install fonts-noto-core` or drop the .ttf in `data/fonts/`).
   Without Pillow it silently skips (text Top-10 still posts). `RANK_CARDS=0` disables.
   Brand/handle on cards: `BRAND_NAME`, `BRAND_HANDLE`.
+
+## 📋 Weekly Report Card · 🤝 Referral Leaderboard · 🥊 Beat the Topper
+
+* **Weekly Report Card** — Sunday 21:15 DM to every member who played this week: rounds
+  played/available, accuracy, best round rank, district & overall rank, points trend vs last
+  week, subject-wise bars (GK / Reasoning / Aptitude / English), weak topics to revise and one
+  concrete goal for next week. On demand: `/report`.
+* **Referral Leaderboard** — Monday with the League: this-week and all-time top referrers,
+  tiers 🥉3 · 🥈10 · 🥇25 friends, district referral race. Referral link: `/invite`.
+* **Beat the Topper** — Mon–Sat `CHALLENGE_TIME` (13:00) DM with a 🥊 Challenge button:
+  yesterday's best round (≥3 players, topper ≥5 correct) → the topper's own 5 questions,
+  same timer, one attempt per day. Beat the topper's scaled score (tie → faster time) ⇒
+  +15 pts and 🥊 badge. Also `/challenge`. State `data/challenges.json` (one day at a time).
+  Replays are intentional and do not touch the no-repeat store.

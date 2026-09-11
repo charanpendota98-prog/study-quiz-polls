@@ -204,8 +204,19 @@ def tick(eng, now, dry=False):
     if now.weekday() == 0 and hhmm == config.LEAGUE_POST_TIME:
         try:
             eng.district_league(); ran.append("district-league")
+            eng.referral_board(); ran.append("referral-board")
         except Exception as e:
             log(f"league error: {e}")
+    if now.weekday() == 6 and hhmm == "21:15":
+        try:
+            eng.weekly_report_cards(); ran.append("report-cards")
+        except Exception as e:
+            log(f"report error: {e}")
+    if now.weekday() < 6 and hhmm == config.CHALLENGE_TIME:
+        try:
+            eng.challenge_invite(); ran.append("challenge")
+        except Exception as e:
+            log(f"challenge error: {e}")
     # 🏟 Sunday Grand Test: Saturday teaser + Sunday morning mock (T-5/T-1 alerts too)
     if now.weekday() == 5 and hhmm == config.GRAND_TEST_TEASER_TIME:
         try:

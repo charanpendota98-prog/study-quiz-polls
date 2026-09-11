@@ -456,6 +456,60 @@ class Engine:
                 print(f"   [cup] {ch} failed: {e}")
         return 1
 
+    def weekly_report_cards(self):
+        """Sunday night — personal report card DM to every member active this week."""
+        from . import growth
+        mem = Members()
+        sent = 0
+        for uid in growth.active_members(mem):
+            txt = growth.weekly_report(mem, uid)
+            if not txt:
+                continue
+            try:
+                self.tg.send_message(uid, txt)
+                sent += 1
+            except TelegramError:
+                mem.mark_blocked(uid)
+            if sent % 20 == 0:
+                time.sleep(0 if self.dry else 1.1)
+        print(f"[report] {sent} weekly report cards sent")
+        return sent
+
+    def referral_board(self, channels=None):
+        from . import growth
+        txt = growth.referral_board(Members())
+        if not txt:
+            return 0
+        for ch in channels or getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
+            try:
+                self.tg.send_message(config.channel_chat_id(ch), txt)
+            except TelegramError as e:
+                print(f"   [referral] {ch} failed: {e}")
+        return 1
+
+    def challenge_invite(self):
+        """13:00 weekdays — DM 'Beat the Topper' invite (button) to active members."""
+        from . import growth
+        mem = Members()
+        data = growth.build_daily_challenge(mem, self.bank)
+        if not data:
+            print("[challenge] no topper yesterday")
+            return 0
+        txt = growth.challenge_invite_text(data)
+        sent = 0
+        for uid in growth.active_members(mem):
+            if uid == data["topper"]["uid"]:
+                continue
+            try:
+                self.tg.send_message(uid, txt, buttons=[[("🥊 Challenge", "challenge:go")]])
+                sent += 1
+            except TelegramError:
+                mem.mark_blocked(uid)
+            if sent % 20 == 0:
+                time.sleep(0 if self.dry else 1.1)
+        print(f"[challenge] {sent} invites sent")
+        return sent
+
     def district_league(self, channels=None):
         """Monday morning — weekly District League standings (fair: avg per
         player + participation), season table, promotion/relegation notes."""

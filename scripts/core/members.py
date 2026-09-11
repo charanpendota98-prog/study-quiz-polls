@@ -494,6 +494,7 @@ class Members:
             {"id": "correct100", "icon": "💯"}, {"id": "streak3", "icon": "🔥"},
             {"id": "streak7", "icon": "🔥"}, {"id": "streak30", "icon": "🔥"},
             {"id": "sharp", "icon": "🧠"}, {"id": "champion", "icon": "👑"},
+            {"id": "beat_topper", "icon": "🥊"},
         ]
 
     def is_registered(self, uid) -> bool:

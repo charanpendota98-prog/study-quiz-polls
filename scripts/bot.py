@@ -10,6 +10,8 @@ Commands:
   /setupsheet /crm /export /syncsheet /broadcast   admin: member database, CSV, Google Sheet, segment DM
   /exam <name>        change exam target   /follow <channels>  which rounds come to your DM
   /invite             referral link (+20 pts per friend)
+  /challenge          🥊 Beat yesterday's topper (same 5 Q, +15 pts)
+  /report             📋 your weekly report card
   /district [name]    your district toppers   /districts  TS/AP district leaderboard
   /quiz [channel]     one NON-anonymous PYQ-first practice poll (earns points)
   /coach [channel]    a friendly expert reasoning/aptitude trick (EN+Telugu)
@@ -225,6 +227,9 @@ class Bot:
         except TelegramError:
             pass
         kind, _, value = data.partition(":")
+        if kind == "challenge" and uid:
+            self._start_challenge(uid, chat_id)
+            return
         if kind in ("state", "dist", "qual") and uid:
             st = self.members.pending_step(uid)
             expected = {"state": "state", "dist": "district", "qual": "qualification"}[kind]
@@ -234,6 +239,44 @@ class Bot:
                     self.tg.send_message(chat_id, reply, buttons=self._step_buttons(uid, status))
             elif self.members.is_registered(uid):
                 self.tg.send_message(chat_id, "✅ Already registered — no need to fill again.\n⤷ ఇప్పటికే రిజిస్టర్ అయ్యారు.")
+
+    def _start_challenge(self, uid, chat_id):
+        """🥊 Serve yesterday's topper's questions as a timed DM set."""
+        from core import growth
+        if not self.members.is_registered(uid):
+            self.members.start_registration(uid, username="")
+            self.tg.send_message(chat_id, FIRST_TIME_ASK)
+            return
+        data = growth.build_daily_challenge(self.members, self.bank)
+        if not data:
+            self.tg.send_message(chat_id, "🥊 ఈరోజు challenge లేదు (నిన్న topper లేరు). రేపు మళ్ళీ చూడండి.")
+            return
+        if not growth.start_attempt(uid, data):
+            self.tg.send_message(chat_id, "🥊 ఈరోజు already attempt చేశారు — one attempt per day. రేపు మళ్ళీ!")
+            return
+        t = data["topper"]
+        self.tg.send_message(chat_id, f"🥊 Challenge start! Topper {t['name']} — {t['score']}/{t['total']}. "
+                                      f"{len(data['qids'])} Q, same timer. Go 🔥")
+        cfg = config.CHANNELS.get(data["channel"], {})
+        tf = bool(getattr(config, "TELUGU_FIRST", True))
+        for i, qid in enumerate(data["qids"], 1):
+            q = self.bank.by_id(qid)
+            if not q:
+                continue
+            payload = {"chat_id": chat_id,
+                       "question": f"🥊 {i}/{len(data['qids'])} {build_question_text(q, cfg, telugu_first=tf)}"[:300],
+                       "options": [{"text": o} for o in build_options(q, telugu_first=tf)],
+                       "type": "quiz", "is_anonymous": False, "allows_multiple_answers": False,
+                       "correct_option_id": q["answer_index"]}
+            try:
+                res = self.tg._call("sendPoll", payload)
+                pid = (res.get("result", {}).get("poll") or {}).get("id")
+                if pid:
+                    growth.register_poll(data, pid, uid, qid, q["answer_index"])
+            except TelegramError as e:
+                print(f"   [challenge] send {qid}: {e}")
+                break
+            self.tg.polite_gap(True)
 
     def _me_username(self):
         if getattr(self, "_me", None) is None:
@@ -383,6 +426,13 @@ class Bot:
             else:
                 f = self.members.set_follow(uid, chans)
                 self.tg.send_message(chat_id, f"🔔 Following rounds: {', '.join(f)}\n⤷ ఈ ఛానల్ రౌండ్లు మీకు ఇక్కడ వస్తాయి.")
+        elif low.startswith("/challenge") or low.startswith("/beat"):
+            self._start_challenge(uid, chat_id)
+        elif low.startswith("/report"):
+            from core import growth
+            txt = growth.weekly_report(self.members, uid) or \
+                "📋 ఈ వారం ఇంకా rounds ఆడలేదు — /quiz ఆడండి, ఆదివారం రాత్రి report వస్తుంది."
+            self.tg.send_message(chat_id, txt)
         elif low.startswith("/invite") or low.startswith("/refer"):
             bu = config.BOT_USERNAME or (self._me_username() or "")
             link = f"https://t.me/{bu}?start=ref{uid}" if bu else "(set BOT_USERNAME in .env)"
@@ -564,6 +614,16 @@ class Bot:
         if not (uid and poll_id is not None and chosen):
             return
         user = pa.get("user", {})
+        # 🥊 Beat-the-Topper challenge polls (replays; no points per question)
+        try:
+            from core import growth
+            is_ch, res = growth.record_answer(self.members, poll_id, uid, int(chosen[0]))
+            if is_ch:
+                if res:
+                    self.tg.send_message(uid, res)
+                return
+        except Exception as e:
+            print(f"   [challenge] {e}")
         meta = self._poll_q.get(str(poll_id))
         round_id = None
         if not meta:
