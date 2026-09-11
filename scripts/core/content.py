@@ -478,3 +478,68 @@ def poll_safe(q: dict, seed: str = "") -> dict | None:
     if q2.get("options_te"):
         q2["options_te"] = [strip_answer_markers(o) for o in q2["options_te"]]
     return None if answer_leaks(q2) else q2
+
+
+MISSED_THRESHOLD = 0.5      # ≥50 % of voters wrong  → explain
+MISSED_MIN_VOTES = 5        # need a real sample first
+
+
+def most_missed(questions: list, poll_stats: dict | None, member_stats: dict | None = None,
+                limit: int = 2):
+    """Questions that MANY people got wrong: (q, wrong_pct, votes), worst first.
+    Uses channel poll totals when present, else DM-mirror member stats."""
+    out = []
+    for q in questions:
+        st = (poll_stats or {}).get(q.get("id")) or (member_stats or {}).get(q.get("id"))
+        if not st or st.get("total", 0) < MISSED_MIN_VOTES:
+            continue
+        wrong = 1 - st.get("correct", 0) / st["total"]
+        if wrong >= MISSED_THRESHOLD:
+            out.append((q, round(100 * wrong), st["total"]))
+    out.sort(key=lambda x: -x[1])
+    return out[:limit]
+
+
+def build_missed_explanations(questions: list, poll_stats: dict | None, member_stats: dict | None = None,
+                              channel_cfg: dict | None = None) -> str:
+    """Neat bilingual explanation for the most-missed questions ONLY. Uses the
+    question's own verified explanation (no generated lessons); empty string
+    when nothing crossed the threshold or explanations are missing."""
+    items = most_missed(questions, poll_stats, member_stats)
+    if not items:
+        return ""
+    letters = "ABCD"
+    head = f"{channel_cfg['emoji']} " if channel_cfg else ""
+    lines = [f"{head}🧠 ఎక్కువ మంది తప్పు చేసిన ప్రశ్న — Most missed", ""]
+    n = 0
+    for q, wrong_pct, votes in items:
+        idx = int(q.get("answer_index", 0))
+        opts_en = q.get("options_en") or []
+        opts_te = q.get("options_te") or []
+        ans_en = str(opts_en[idx]).strip() if 0 <= idx < len(opts_en) else ""
+        ans_te = str(opts_te[idx]).lstrip("⤷").strip() if 0 <= idx < len(opts_te) else ""
+        ex_en = (q.get("explanation_en") or q.get("note") or "").strip()
+        ex_te = (q.get("explanation_te") or "").lstrip("⤷").strip()
+        if not (ex_en or ex_te):
+            continue
+        n += 1
+        q_te = (q.get("q_te") or "").strip()
+        q_en = (q.get("q_en") or "").strip()
+        lines.append(f"❌ {wrong_pct}% wrong ({votes} votes)")
+        if q_te:
+            lines.append(f"ప్ర: {q_te[:220]}")
+        if q_en:
+            lines.append(f"Q: {q_en[:220]}")
+        lines.append(f"✅ {letters[idx] if 0 <= idx < 4 else '?'}) " +
+                     (f"{ans_te} / {ans_en}" if ans_te and ans_te != ans_en else (ans_te or ans_en)))
+        if ex_te:
+            lines.append(f"వివరణ: {ex_te[:400]}")
+        if ex_en:
+            lines.append(f"Why: {ex_en[:400]}")
+        if q.get("source") == "pyq" and q.get("exam"):
+            lines.append(f"📜 {q.get('exam')} {q.get('year') or ''}".strip())
+        lines.append("")
+    if not n:
+        return ""
+    lines.append("ఇది exam లో మళ్ళీ వస్తుంది — note చేసుకోండి · Save this one 📝")
+    return "\n".join(lines)[:3900]

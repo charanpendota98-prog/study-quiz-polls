@@ -11,6 +11,8 @@ Commands:
   /exam <name>        change exam target   /follow <channels>  which rounds come to your DM
   /invite             referral link (+20 pts per friend)
   /challenge          🥊 Beat yesterday's topper (same 5 Q, +15 pts)
+  /wallet             👛 points balance + ₹ value at StudentUp centre
+  /redeem             🎁 turn points into vouchers (applications, prints, photos)
   /report             📋 your weekly report card
   /district [name]    your district toppers   /districts  TS/AP district leaderboard
   /quiz [channel]     one NON-anonymous PYQ-first practice poll (earns points)
@@ -230,6 +232,23 @@ class Bot:
         if kind == "challenge" and uid:
             self._start_challenge(uid, chat_id)
             return
+        if kind == "redeem" and uid:
+            from core import rewards
+            ok, txt, admin = rewards.redeem(self.members, uid, value)
+            self.tg.send_message(chat_id, txt, parse_mode="Markdown" if ok else "")
+            if ok and admin:
+                for aid in self._staff_ids():
+                    try:
+                        self.tg.send_message(aid, admin)
+                    except TelegramError:
+                        pass
+            return
+        if kind == "locked":
+            try:
+                self.tg.answer_callback(cq.get("id", ""), f"🔒 {value} pts కావాలి — /quiz ఆడండి!")
+            except TelegramError:
+                pass
+            return
         if kind in ("state", "dist", "qual") and uid:
             st = self.members.pending_step(uid)
             expected = {"state": "state", "dist": "district", "qual": "qualification"}[kind]
@@ -239,6 +258,12 @@ class Bot:
                     self.tg.send_message(chat_id, reply, buttons=self._step_buttons(uid, status))
             elif self.members.is_registered(uid):
                 self.tg.send_message(chat_id, "✅ Already registered — no need to fill again.\n⤷ ఇప్పటికే రిజిస్టర్ అయ్యారు.")
+
+    def _staff_ids(self):
+        ids = set(getattr(config, "STAFF_IDS", []) or [])
+        if config.ADMIN_ID:
+            ids.add(str(config.ADMIN_ID))
+        return ids
 
     def _start_challenge(self, uid, chat_id):
         """🥊 Serve yesterday's topper's questions as a timed DM set."""
@@ -426,6 +451,44 @@ class Bot:
             else:
                 f = self.members.set_follow(uid, chans)
                 self.tg.send_message(chat_id, f"🔔 Following rounds: {', '.join(f)}\n⤷ ఈ ఛానల్ రౌండ్లు మీకు ఇక్కడ వస్తాయి.")
+        elif low.startswith("/wallet") or low.startswith("/points"):
+            from core import rewards
+            self.tg.send_message(chat_id, rewards.render_wallet(self.members, uid))
+        elif low.startswith("/redeem") or low.startswith("/offers"):
+            from core import rewards
+            if not self.members.is_registered(uid):
+                self.members.start_registration(uid, username=self._name(who))
+                self.tg.send_message(chat_id, FIRST_TIME_ASK)
+                return
+            b = rewards.balance(self.members, uid)
+            self.tg.send_message(chat_id, f"🎁 Offers — మీ balance {b['available']} pts (≈ ₹{b['rupees']})\n"
+                                          "✅ = ఇప్పుడు తీసుకోవచ్చు · 🔒 = ఇంకా points కావాలి",
+                                 buttons=rewards.offer_buttons(self.members, uid))
+        elif low.startswith("/cancel"):
+            from core import rewards
+            parts = low.split()
+            self.tg.send_message(chat_id, rewards.cancel(self.members, uid, parts[1]) if len(parts) > 1
+                                 else "Usage: /cancel SU-XXXXXX")
+        elif low.startswith("/verify") or low.startswith("/vouchers"):
+            from core import rewards
+            if str(uid) not in self._staff_ids():
+                self.tg.send_message(chat_id, "🔒 Centre staff only.\n⤷ సెంటర్ స్టాఫ్ కోసం మాత్రమే.")
+                return
+            parts = text.split()
+            if low.startswith("/vouchers") or len(parts) < 2:
+                self.tg.send_message(chat_id, rewards.admin_summary() + "\n\nUsage: /verify SU-XXXXXX")
+                return
+            res = rewards.verify(self.members, parts[1], staff_uid=uid)
+            self.tg.send_message(chat_id, res)
+            if res.startswith("✅"):
+                from core.rewards import _ledger
+                v = _ledger()["vouchers"].get(parts[1].upper().strip())
+                note = rewards.member_voucher_note(self.members, v["uid"], v["code"]) if v else None
+                if note:
+                    try:
+                        self.tg.send_message(v["uid"], note)
+                    except TelegramError:
+                        pass
         elif low.startswith("/challenge") or low.startswith("/beat"):
             self._start_challenge(uid, chat_id)
         elif low.startswith("/report"):
@@ -708,6 +771,12 @@ class Bot:
                             self.handle_poll_answer(upd)
                         except Exception as e:
                             print("poll answer error:", e)
+                    elif "poll" in upd:
+                        try:      # channel poll vote totals → miss-rate per question
+                            from core.leaderboard import Leaderboard
+                            Leaderboard().record_poll_totals(upd["poll"])
+                        except Exception as e:
+                            print("poll totals error:", e)
             except Exception as e:
                 print("poll loop error:", e)
                 time.sleep(5)

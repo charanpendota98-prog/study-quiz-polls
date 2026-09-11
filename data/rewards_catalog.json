@@ -1,0 +1,62 @@
+{
+  "centre": {
+    "name": "StudentUp Internet Centre",
+    "address": "(set in data/rewards_catalog.json)",
+    "phone": "",
+    "hours": "9 AM – 9 PM",
+    "note": "Applications call చేసి documents పంపితే మేమే చేసి పెడతాం — code చెప్పండి చాలు."
+  },
+  "offers": [
+    {
+      "id": "print10",
+      "pts": 100,
+      "title_en": "10 pages print / scan FREE",
+      "title_te": "10 పేజీలు ప్రింట్ / స్కాన్ ఫ్రీ",
+      "type": "service"
+    },
+    {
+      "id": "photo",
+      "pts": 150,
+      "title_en": "Passport photos (8) FREE",
+      "title_te": "పాస్‌పోర్ట్ ఫోటోలు (8) ఫ్రీ",
+      "type": "service"
+    },
+    {
+      "id": "app20",
+      "pts": 200,
+      "title_en": "₹20 OFF any exam application filing",
+      "title_te": "ఏ exam application filing పైనైనా ₹20 తగ్గింపు",
+      "type": "discount",
+      "rupees": 20
+    },
+    {
+      "id": "app50",
+      "pts": 400,
+      "title_en": "₹50 OFF any exam application filing",
+      "title_te": "ఏ exam application filing పైనైనా ₹50 తగ్గింపు",
+      "type": "discount",
+      "rupees": 50
+    },
+    {
+      "id": "appfree",
+      "pts": 800,
+      "title_en": "1 exam application filing FREE (fee extra)",
+      "title_te": "ఒక exam application filing ఫ్రీ (exam fee వేరు)",
+      "type": "service"
+    },
+    {
+      "id": "docs",
+      "pts": 300,
+      "title_en": "Document upload + hall-ticket download pack FREE",
+      "title_te": "Documents upload + hall-ticket download ఫ్రీ",
+      "type": "service"
+    },
+    {
+      "id": "gold",
+      "pts": 1500,
+      "title_en": "GOLD: 3 applications FREE + priority service for 1 month",
+      "title_te": "GOLD: 3 applications ఫ్రీ + నెల రోజులు priority service",
+      "type": "bundle"
+    }
+  ]
+}

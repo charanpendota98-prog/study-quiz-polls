@@ -188,6 +188,7 @@ class Engine:
             from .store import save_json_atomic
             snap = {
                 "label": self._last_round.get("label", ""),
+                "round_id": round_id,
                 "key_posted": False,
                 "by_channel": {
                     ch: [{"id": q.get("id"), "topic": q.get("topic"), "q_en": q.get("q_en"),
@@ -316,7 +317,7 @@ class Engine:
             self.tg.polite_gap(not self.dry)
         # snapshot for the delayed Q-by-Q key (same path as daily rounds)
         try:
-            snap = {"label": label, "key_posted": False,
+            snap = {"label": label, "round_id": round_id, "key_posted": False,
                     "by_channel": {ch: [{k: q.get(k) for k in (
                         "id", "topic", "q_en", "q_te", "difficulty", "source", "exam", "year",
                         "answer_index", "options_en", "options_te", "explanation_en", "explanation_te")}
@@ -455,6 +456,24 @@ class Engine:
             except TelegramError as e:
                 print(f"   [cup] {ch} failed: {e}")
         return 1
+
+    def rewards_promo(self, channels=None):
+        """Twice a week in the hub channel: points → real discounts at the centre."""
+        from . import rewards
+        n = 0
+        for ch in channels or getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
+            try:
+                self.tg.send_message(config.channel_chat_id(ch), rewards.promo_text(config.CHANNELS[ch]))
+                n += 1
+            except TelegramError as e:
+                print(f"   [rewards] {ch} failed: {e}")
+        return n
+
+    def rewards_housekeeping(self):
+        from . import rewards
+        n = rewards.expire_stale(Members())
+        print(f"[rewards] expired vouchers released: {n}")
+        return n
 
     def weekly_report_cards(self):
         """Sunday night — personal report card DM to every member active this week."""
@@ -644,6 +663,20 @@ class Engine:
                                      build_round_report(qs, label, config.CHANNELS[ch], stats))
                 posted += 1
                 self.tg.polite_gap(not self.dry)
+                # 🧠 only when MANY got it wrong: the question's own verified
+                # explanation, Telugu + English. No lessons, no audio.
+                try:
+                    from .content import build_missed_explanations
+                    mstats = {}
+                    rid = snap.get("round_id")
+                    if rid:
+                        mstats = Members().round_question_stats(rid, ch)
+                    expl = build_missed_explanations(qs, stats, mstats, config.CHANNELS[ch])
+                    if expl:
+                        self.tg.send_message(config.channel_chat_id(ch), expl)
+                        self.tg.polite_gap(not self.dry)
+                except Exception as e:
+                    print(f"   [missed] {ch}: {e}")
             except Exception as e:
                 print(f"   [prev_key] {ch}: {e}")
         try:

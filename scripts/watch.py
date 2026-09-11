@@ -207,6 +207,16 @@ def tick(eng, now, dry=False):
             eng.referral_board(); ran.append("referral-board")
         except Exception as e:
             log(f"league error: {e}")
+    if hhmm == "00:20":
+        try:
+            eng.rewards_housekeeping(); ran.append("rewards-expiry")
+        except Exception as e:
+            log(f"rewards error: {e}")
+    if now.weekday() in (1, 4) and hhmm == config.REWARDS_PROMO_TIME:
+        try:
+            eng.rewards_promo(); ran.append("rewards-promo")
+        except Exception as e:
+            log(f"rewards promo error: {e}")
     if now.weekday() == 6 and hhmm == "21:15":
         try:
             eng.weekly_report_cards(); ran.append("report-cards")

@@ -237,3 +237,23 @@ in bot · Top-10 with name + district · podium bonuses · daily champions · �
 Test · 🏆 Monthly Mega Test · District Cup · 🏟 District League · 🤝 Referral board ·
 🖼 rank cards · 📋 weekly report cards · 🥊 Beat the Topper · Hall of Fame · 436 web
 sources + 199 PYQ papers + 37 Telegram channels · supply guard · Google Sheet CRM.
+
+## 👛 Points Wallet → real discounts at StudentUp Internet Centre
+
+* Members: `/wallet` (balance, ₹ value, what they can redeem, next unlock, active vouchers),
+  `/redeem` (offer buttons — ✅ affordable / 🔒 locked), `/cancel SU-XXXXXX`.
+* Redeem = points **held** + one-time code `SU-XXXXXX` voucher (Telugu + English, centre
+  address/phone/hours, validity). Admin + `STAFF_IDS` get a notification.
+* Counter: staff sends `/verify SU-XXXXXX` → bot shows name/district/phone/offer, marks
+  USED and only then **burns** the points; a second `/verify` warns "already USED".
+  `/vouchers` = summary. Expired holds auto-release at 00:20 daily.
+* Offers/prices/centre details: **edit `data/rewards_catalog.json`** (auto-created with
+  defaults: prints, photos, ₹20/₹50 off application filing, free application, docs pack,
+  GOLD bundle). Hot-reloaded, no restart.
+* Hub channel promo Tue & Fri 12:00 (`REWARDS_PROMO_TIME`).
+
+## 🧠 Most-missed explanation (no lessons, no audio)
+With the previous-round key, if ≥50 % of voters (min 5 votes) got a question wrong, the
+bot posts that question's own verified explanation in Telugu + English (max 2 per round).
+Uses channel poll totals (`poll` updates now recorded) with DM-mirror member stats as
+fallback. Nothing is generated at post time.

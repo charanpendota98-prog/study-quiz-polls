@@ -41,6 +41,21 @@ class Leaderboard:
         }
         self.kv.save()
 
+    def record_poll_totals(self, poll_obj: dict):
+        """`poll` update from Telegram (channel polls are anonymous but the
+        aggregate votes per option are public) → correct/total per question."""
+        pid = str(poll_obj.get("id"))
+        poll = self.polls.get(pid)
+        if not poll:
+            return
+        opts = poll_obj.get("options") or []
+        total = sum(int(o.get("voter_count", 0)) for o in opts)
+        idx = int(poll.get("answer", -1))
+        correct = int(opts[idx].get("voter_count", 0)) if 0 <= idx < len(opts) else 0
+        if total and total >= poll.get("total", 0):
+            poll["total"], poll["correct"] = total, correct
+            self.kv.save()
+
     def record_answer(self, poll_id, user_id, user_name, chosen_index):
         poll = self.polls.get(str(poll_id))
         if not poll:

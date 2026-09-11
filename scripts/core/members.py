@@ -620,6 +620,8 @@ class Members:
         e["correct"] += 1 if correct else 0
         if qid:
             e["qids"].append(qid)
+            if correct:
+                e.setdefault("right", []).append(qid)
         e["last"] = now_iso()
         # keep only last 60 rounds
         if len(rounds) > 60:
@@ -682,6 +684,18 @@ class Members:
 
 
     # ------------------------------------------------------------ advanced round intel
+    def round_question_stats(self, round_id, channel_key):
+        """{qid: {correct,total}} from DM-mirror answers (needs per-answer log)."""
+        out = {}
+        ch = self.data.get("rounds", {}).get(round_id, {}).get("by_channel", {}).get(channel_key, {})
+        for e in ch.values():
+            for qid in e.get("qids", []):
+                st = out.setdefault(qid, {"correct": 0, "total": 0})
+                st["total"] += 1
+            for qid in e.get("right", []):
+                out.setdefault(qid, {"correct": 0, "total": 0})["correct"] += 1
+        return out
+
     def round_players(self, round_id, channel_key):
         return self.data.get("rounds", {}).get(round_id, {}).get("by_channel", {}).get(channel_key, {})
 
