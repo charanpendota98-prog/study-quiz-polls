@@ -95,7 +95,7 @@ QUIZ_OPEN_PERIOD=300
 ## Google Sheet CRM — live connection (set on the server)
 
 ```
-SHEET_WEBAPP_URL=https://script.google.com/macros/s/AKfycbzhwPyoWE20NUMFb5ngS0pkHMhg7ahMbLQlJCFkolDJgsdnehnpphmKUkzE_PzWCw5cdg/exec
+SHEET_WEBAPP_URL=https://script.google.com/macros/s/AKfycbx2_JSBl2_zvfYVIuaKxpv8-_ObmoSD5oysdWLgeJYStV3QpxpUefB-b2x_BN7vs6QG8A/exec
 SHEET_SECRET=<the SECRET value inside docs/sheet_webapp.gs on the Sheet>
 ```
 
