@@ -296,6 +296,11 @@ REMINDER_BEFORE_MIN = (5, 1)
 JOBS_INTERVAL_MIN = 30
 
 POLLS_PER_SLOT = 10
+# Sunday Grand Test — weekly real-exam mock (revision of the week's toughest
+# questions + fresh ones, sections easy→hard, negative marking, double points).
+GRAND_TEST_TIME = env("GRAND_TEST_TIME", "09:00")
+GRAND_TEST_QUESTIONS = int(env("GRAND_TEST_QUESTIONS", "25") or 25)
+GRAND_TEST_TEASER_TIME = env("GRAND_TEST_TEASER_TIME", "18:00")   # Saturday
 POLL_GAP_MIN = 2.2          # never faster than 2.2s — avoids Telegram spam flag
 POLL_GAP_MAX = 3.2
 FILLER_TRIGGER_UNUSED = 20  # if a channel bank has < this unused, top-up

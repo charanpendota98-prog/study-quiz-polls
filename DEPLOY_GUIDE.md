@@ -137,3 +137,17 @@ The Sheet itself stays private; the SECRET blocks anyone else from writing.
   time, (2) permanent posted-id + content-signature store at pick time, (3) NEW paraphrase
   guard `Bank._near_posted` — same channel, ≥3 identical options and ≥0.72 content-word
   overlap with any of the last 400 posted questions ⇒ treated as a repeat.
+
+## 🏟 Sunday Grand Test (weekly real-exam mock)
+
+* **Saturday 18:00** — teaser in every quiz channel (`GRAND_TEST_TEASER_TIME`).
+* **Sunday 09:00** — `GRAND_TEST_QUESTIONS` (25) per channel (`GRAND_TEST_TIME`); T-5 / T-1
+  alerts fire automatically for it.
+* Composition: ~60 % **revision** = Mon–Sat questions ranked by how many players missed
+  them (from poll stats), topic-capped; ~40 % **fresh** via the normal no-repeat pick.
+  Ordered Section A easy → B medium → C hard, with a divider line before each section.
+* Scoring: +1 / −⅓ / 0 (negative marking). Sunday bonus: correct ×2 points,
+  🥇+100 🥈+60 🥉+40, district topper +25. Result post shows Top-10 with name + district,
+  ✅/❌ counts, Top-10 % / Top-50 % cut-offs, average and **District of the week**.
+* Q-by-Q answer key follows the same rule as daily rounds — posted before the next round.
+* State: `data/week_rounds.json` (rolling 14 days). Module: `scripts/core/grandtest.py`.

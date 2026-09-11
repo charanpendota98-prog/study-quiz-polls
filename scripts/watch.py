@@ -52,11 +52,15 @@ def current_hhmm(now):
     return now.strftime("%H:%M")
 
 
-def due_reminders(hhmm):
-    """Return reminder lead-minutes if hhmm is 5 or 1 min before a quiz slot."""
+def due_reminders(hhmm, weekday=None):
+    """Return reminder lead-minutes if hhmm is 5 or 1 min before a quiz slot
+    (Sunday: the Grand Test time counts as a slot too)."""
     h, m = map(int, hhmm.split(":"))
     now_min = h * 60 + m
-    for slot in QUIZ_SLOTS:
+    slots = list(QUIZ_SLOTS)
+    if weekday == 6:
+        slots.append(config.GRAND_TEST_TIME)
+    for slot in slots:
         sh, sm = map(int, slot.split(":"))
         slot_min = sh * 60 + sm
         diff = slot_min - now_min
@@ -197,8 +201,19 @@ def tick(eng, now, dry=False):
         eng.hall_of_fame(); ran.append("hall-of-fame")
     if hhmm == "20:00" and now.weekday() == 6:
         eng.district_cup(); ran.append("district-cup")
+    # 🏟 Sunday Grand Test: Saturday teaser + Sunday morning mock (T-5/T-1 alerts too)
+    if now.weekday() == 5 and hhmm == config.GRAND_TEST_TEASER_TIME:
+        try:
+            eng.grand_test_teaser(); ran.append("grand-teaser")
+        except Exception as e:
+            log(f"grand-teaser error: {e}")
+    if now.weekday() == 6 and hhmm == config.GRAND_TEST_TIME:
+        try:
+            eng.run_grand_test(); ran.append("grand-test")
+        except Exception as e:
+            log(f"grand-test error: {e}")
 
-    rem = due_reminders(hhmm)
+    rem = due_reminders(hhmm, now.weekday())
     if rem is not None:
         eng.reminder(rem); ran.append(f"reminder-{rem}")
 

@@ -204,8 +204,116 @@ class Engine:
             save_json_atomic(config.DATA / "last_round.json", snap)
         except Exception as e:
             print(f"   [slot] last_round save note: {e}")
+        try:      # week log → Sunday Grand Test revision pool
+            from . import grandtest
+            for ch, qs in rounds.items():
+                grandtest.log_round(ch, [q["id"] for q in qs])
+        except Exception as e:
+            print(f"   [slot] week-log note: {e}")
         print(f"[slot] posted {total} polls across {len(channels)} channels "
               f"(mode={getattr(config, 'ANSWER_MODE', 'instant')})")
+        return total
+
+    # ------------------------------------------------------------ Sunday Grand Test
+    def grand_test_teaser(self, channels=None):
+        """Saturday evening: one professional teaser per quiz channel."""
+        from . import grandtest
+        n = 0
+        for ch in channels or config.PUBLIC_CHANNELS:
+            try:
+                self.tg.send_message(config.channel_chat_id(ch), grandtest.teaser(config.CHANNELS[ch]))
+                n += 1
+            except TelegramError as e:
+                print(f"   [grand-teaser] {ch} failed: {e}")
+            self.tg.polite_gap(not self.dry)
+        return n
+
+    def run_grand_test(self, channels=None):
+        """Sunday morning real-exam mock: revision (toughest of the week) +
+        fresh, sections easy→hard, negative marking, double points."""
+        from . import grandtest
+        from .content import poll_safe
+        channels = channels or config.PUBLIC_CHANNELS
+        round_id = datetime.now(config.IST).strftime("G%Y%m%d-%H%M")
+        self._members = Members()
+        dm_map = {}
+        paced = self._paced()
+        self.post_previous_key(channels=channels)
+        rounds, metas = {}, {}
+        for ch in channels:
+            qs, meta = grandtest.compose_grand_test(self.bank, ch, lb=self.lb)
+            safe = [sq for sq in (poll_safe(q, seed=round_id) for q in qs) if sq]
+            if len(safe) < 5:
+                print(f"   [grand] {ch}: only {len(safe)} questions — skipped")
+                continue
+            rounds[ch], metas[ch] = safe, meta
+        if not rounds:
+            return 0
+        for ch, qs in rounds.items():
+            cfg = config.CHANNELS[ch]
+            total_secs = sum(pace_seconds(q) + config.PACE_BUFFER_SEC for q in qs) if paced else 0
+            try:
+                self.tg.send_message(config.channel_chat_id(ch),
+                                     grandtest.opener(cfg, metas[ch], self._fmt_min(total_secs)))
+            except TelegramError as e:
+                print(f"   [grand] {ch} opener failed: {e}")
+            self.tg.polite_gap(not self.dry)
+        total = 0
+        n_max = max(len(qs) for qs in rounds.values())
+        last_section = {}
+        for i in range(n_max):
+            step_secs = 0
+            for ch, qs in rounds.items():
+                if i >= len(qs):
+                    continue
+                q = qs[i]
+                sec = grandtest._difficulty(q)
+                if last_section.get(ch) != sec:      # section divider like a real paper
+                    last_section[ch] = sec
+                    label = {"easy": "Section A · Easy", "medium": "Section B · Medium",
+                             "hard": "Section C · Hard"}.get(sec, sec)
+                    try:
+                        self.tg.send_message(config.channel_chat_id(ch), f"📑 {label}")
+                    except TelegramError:
+                        pass
+                ok = self.send_quiz(ch, q, position=f"Q {i + 1}/{len(qs)}")
+                total += 1 if ok else 0
+                step_secs = max(step_secs, pace_seconds(q))
+                self.tg.polite_gap(not self.dry)
+                self._mirror_to_members(ch, q, i + 1, len(qs), round_id, dm_map)
+            if paced:
+                self._pace_wait(step_secs + config.PACE_BUFFER_SEC)
+        # results: negative-marking ranks, cut-offs, district of the week
+        for ch, qs in rounds.items():
+            try:
+                self.tg.send_message(config.channel_chat_id(ch),
+                                     "🏁 Grand Test over — results in a moment. Answer key: before next round 🔑")
+                mem = self._members.reload()
+                grandtest.settle_grand(mem, round_id, ch)
+                text = grandtest.render_grand_top(mem, round_id, ch, config.CHANNELS[ch], n_q=len(qs))
+                if text:
+                    self.tg.send_message(config.channel_chat_id(ch), text)
+                    self._dm_round_cards(mem, round_id, ch, "Sunday Grand Test 🏟")
+                    try:
+                        from . import crm
+                        rows, _n, _all = grandtest.grand_rows(mem, round_id, ch)
+                        crm.push_round_top(round_id, ch, rows)
+                    except Exception as e:
+                        print(f"   [grand] crm note: {e}")
+            except TelegramError as e:
+                print(f"   [grand] {ch} closer failed: {e}")
+            self.tg.polite_gap(not self.dry)
+        # snapshot for the delayed Q-by-Q key (same path as daily rounds)
+        try:
+            snap = {"label": "Sunday Grand Test 🏟", "key_posted": False,
+                    "by_channel": {ch: [{k: q.get(k) for k in (
+                        "id", "topic", "q_en", "q_te", "difficulty", "source", "exam", "year",
+                        "answer_index", "options_en", "options_te", "explanation_en", "explanation_te")}
+                        for q in qs] for ch, qs in rounds.items()}}
+            save_json_atomic(config.DATA / "last_round.json", snap)
+        except Exception as e:
+            print(f"   [grand] last_round save note: {e}")
+        print(f"[grand] posted {total} polls across {len(rounds)} channels")
         return total
 
     def _mirror_to_members(self, ch, q, pos, n, round_id, dm_map):
@@ -575,9 +683,22 @@ class Engine:
     def reminder(self, slot_minutes):
         """Two professional alerts only: T-5 (round preview) and T-1 (starting)."""
         n = config.POLLS_PER_SLOT
+        now = datetime.now(config.IST)
+        gt = getattr(config, "GRAND_TEST_TIME", "09:00")
+        gh, gm = map(int, gt.split(":"))
+        is_grand = (now.weekday() == 6 and
+                    abs((gh * 60 + gm) - (now.hour * 60 + now.minute) - slot_minutes) <= 1)
+        if is_grand:
+            n = getattr(config, "GRAND_TEST_QUESTIONS", 25)
         for ch in config.PUBLIC_CHANNELS:
             cfg = config.CHANNELS[ch]
-            if slot_minutes >= 5:
+            if is_grand and slot_minutes >= 5:
+                msg = (f"🔔 {cfg['emoji']} 🏟 SUNDAY GRAND TEST — {slot_minutes} నిమిషాల్లో\n"
+                       f"📝 {n} Q · Sections A→B→C · negative marking −⅓ · double points ⭐\n"
+                       f"⏱ 1 min easy · 1.5 min hard — పెన్ను, పేపర్ సిద్ధం. Starts in {slot_minutes} min ✍️")
+            elif is_grand:
+                msg = (f"🚀 {cfg['emoji']} 🏟 GRAND TEST — 1 నిమిషంలో మొదలు! Section A first. All the best 🔥")
+            elif slot_minutes >= 5:
                 msg = (f"🔔 {cfg['emoji']} {cfg['subject']} Quiz — {slot_minutes} నిమిషాల్లో\n"
                        f"📋 {n} questions · exam-hall pace · one at a time\n"
                        f"⏱ 1 min easy · 1.5 min hard — పెన్ను, పేపర్ సిద్ధం చేసుకోండి\n"
