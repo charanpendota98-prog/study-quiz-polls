@@ -48,23 +48,37 @@ DEFAULT_CATALOG = {
         "address": "(set in data/rewards_catalog.json)",
         "phone": "",
         "hours": "9 AM – 9 PM",
-        "note": "Applications call చేసి documents పంపితే మేమే చేసి పెడతాం — code చెప్పండి చాలు.",
+        "note": "Applications call చేసి documents పంపితే మేమే file చేసి పెడతాం — voucher code చెప్పండి చాలు.",
     },
+    # Two categories only: exam APPLICATION discounts (redeemed at the centre)
+    # and STUDY MATERIALS (delivered as files by the bot, or collected at the centre).
     "offers": [
-        {"id": "print10", "pts": 100, "title_en": "10 pages print / scan FREE",
-         "title_te": "10 పేజీలు ప్రింట్ / స్కాన్ ఫ్రీ", "type": "service"},
-        {"id": "photo", "pts": 150, "title_en": "Passport photos (8) FREE",
-         "title_te": "పాస్‌పోర్ట్ ఫోటోలు (8) ఫ్రీ", "type": "service"},
-        {"id": "app20", "pts": 200, "title_en": "₹20 OFF any exam application filing",
-         "title_te": "ఏ exam application filing పైనైనా ₹20 తగ్గింపు", "type": "discount", "rupees": 20},
-        {"id": "app50", "pts": 400, "title_en": "₹50 OFF any exam application filing",
-         "title_te": "ఏ exam application filing పైనైనా ₹50 తగ్గింపు", "type": "discount", "rupees": 50},
-        {"id": "appfree", "pts": 800, "title_en": "1 exam application filing FREE (fee extra)",
-         "title_te": "ఒక exam application filing ఫ్రీ (exam fee వేరు)", "type": "service"},
-        {"id": "docs", "pts": 300, "title_en": "Document upload + hall-ticket download pack FREE",
-         "title_te": "Documents upload + hall-ticket download ఫ్రీ", "type": "service"},
-        {"id": "gold", "pts": 1500, "title_en": "GOLD: 3 applications FREE + priority service for 1 month",
-         "title_te": "GOLD: 3 applications ఫ్రీ + నెల రోజులు priority service", "type": "bundle"},
+        # ---- 📝 Applications (type=application → counter /verify) ----
+        {"id": "app20", "cat": "application", "pts": 150, "rupees": 20,
+         "title_en": "₹20 OFF any exam application filing",
+         "title_te": "ఏ exam application filing పైనైనా ₹20 తగ్గింపు"},
+        {"id": "app50", "cat": "application", "pts": 350, "rupees": 50,
+         "title_en": "₹50 OFF any exam application filing",
+         "title_te": "ఏ exam application filing పైనైనా ₹50 తగ్గింపు"},
+        {"id": "appfree", "cat": "application", "pts": 700,
+         "title_en": "1 exam application filing FREE (exam fee extra)",
+         "title_te": "ఒక exam application filing పూర్తిగా ఫ్రీ (exam fee వేరు)"},
+        {"id": "app3", "cat": "application", "pts": 1500,
+         "title_en": "3 application filings FREE + priority handling for 1 month",
+         "title_te": "3 application filings ఫ్రీ + నెల రోజులు priority service"},
+        # ---- 📚 Study materials (type=material → bot sends file / centre hands over) ----
+        {"id": "mat_ca", "cat": "material", "pts": 100, "file": "monthly_current_affairs_te.pdf",
+         "title_en": "Monthly Current Affairs PDF (Telugu + English)",
+         "title_te": "నెల Current Affairs PDF (తెలుగు + English)"},
+        {"id": "mat_pyq", "cat": "material", "pts": 200, "file": "pyq_pack_{exam}.pdf",
+         "title_en": "Previous-year questions pack for YOUR exam (topic-wise, with keys)",
+         "title_te": "మీ exam PYQ pack (topic-wise, keys తో)"},
+        {"id": "mat_missed", "cat": "material", "pts": 250, "file": "most_missed_{exam}.pdf",
+         "title_en": "Most-missed 100 questions + explanations (from our rounds)",
+         "title_te": "ఎక్కువ మంది తప్పు చేసిన 100 ప్రశ్నలు + వివరణలు"},
+        {"id": "mat_print", "cat": "material", "pts": 500, "at_centre": True,
+         "title_en": "Printed material set for your exam — collect at the centre",
+         "title_te": "మీ exam printed material set — centre లో తీసుకోండి"},
     ],
 }
 
@@ -126,8 +140,10 @@ def render_wallet(members, uid) -> str:
                  f"🎟 Redeemed so far: {b['redeemed']} pts", ""]
         if can:
             lines.append("✅ మీరు ఇప్పుడు తీసుకోగలిగేవి / You can redeem now:")
-            for o in can[-3:]:
-                lines.append(f"  • {o['title_te']} — {o['pts']} pts")
+            for o in [x for x in can if x.get("cat") == "application"][-2:]:
+                lines.append(f"  📝 {o['title_te']} — {o['pts']} pts")
+            for o in [x for x in can if x.get("cat") == "material"][-2:]:
+                lines.append(f"  📚 {o['title_te']} — {o['pts']} pts")
         if nxt:
             need = nxt["pts"] - b["available"]
             lines.append(f"🔓 Next unlock: {nxt['title_te']} — ఇంకా {need} pts (≈ {max(1, need // 10)} correct answers)")
@@ -154,7 +170,8 @@ def offer_buttons(members, uid):
     rows = []
     for o in sorted(catalog()["offers"], key=lambda x: x["pts"]):
         ok = o["pts"] <= b["available"]
-        label = f"{'✅' if ok else '🔒'} {o['title_te'][:28]} · {o['pts']}"
+        icon = "📝" if o.get("cat") == "application" else "📚"
+        label = f"{'✅' if ok else '🔒'}{icon} {o['title_te'][:26]} · {o['pts']}"
         rows.append([(label, f"redeem:{o['id']}" if ok else f"locked:{o['pts']}")])
     return rows
 
@@ -203,6 +220,47 @@ def redeem(members, uid, offer_id: str, when=None):
     except Exception as e:
         print(f"   [redeem] {e}")
         return False, "Redeem failed — try again.", None
+
+
+MATERIALS_DIR = config.DATA / "materials"
+
+
+def material_file(offer: dict, member: dict):
+    """Resolve the PDF for a material offer ({exam} → member's exam). Returns
+    (path or None, filename)."""
+    name = (offer.get("file") or "").format(exam=(member.get("exam") or "general").lower().replace(" ", "_"))
+    if not name:
+        return None, ""
+    p = MATERIALS_DIR / name
+    if not p.exists():                       # generic fallback
+        g = MATERIALS_DIR / name.replace(f"_{(member.get('exam') or 'general').lower()}", "_general")
+        p = g if g.exists() else None
+    return p, name
+
+
+def deliver_material(members, uid, code: str):
+    """For material vouchers: burn points now and return (file_path|None, note).
+    If the file is missing, voucher stays HELD for collection at the centre."""
+    led = _ledger()
+    v = led["vouchers"].get(code)
+    if not v or v["uid"] != str(uid) or v["status"] != "held":
+        return None, ""
+    cat = catalog()
+    o = next((x for x in cat["offers"] if x["id"] == v["offer"]), {})
+    m = members._get(uid)
+    if o.get("at_centre"):
+        return None, "📚 ఈ material centre లో ఇస్తాం — code చెప్పి తీసుకోండి. Staff verify చేశాకే points deduct."
+    path, fname = material_file(o, m)
+    if not path:
+        return None, ("📚 ఈ file ఇంకా upload అవ్వలేదు — voucher active గా ఉంది, ready అయిన వెంటనే bot పంపుతుంది "
+                      "(లేదా centre లో తీసుకోండి).")
+    m["points"] = max(0, m.get("points", 0) - v["pts"])
+    m["points_redeemed"] = m.get("points_redeemed", 0) + v["pts"]
+    m["redemptions"] = m.get("redemptions", 0) + 1
+    members.kv.save()
+    v["status"] = "used"; v["closed"] = datetime.now(config.IST).isoformat(); v["staff"] = "bot"
+    _save(led)
+    return path, f"📚 {o.get('title_te', '')}\n⭐ {v['pts']} pts deducted · balance {m['points']}. All the best! 📖"
 
 
 def cancel(members, uid, code: str) -> str:
@@ -291,12 +349,15 @@ def admin_summary() -> str:
 # ------------------------------------------------- channel promo (occasional)
 def promo_text(cfg=None) -> str:
     cat = catalog()
-    cheapest = sorted(cat["offers"], key=lambda o: o["pts"])[:3]
+    apps = sorted([o for o in cat["offers"] if o.get("cat") == "application"], key=lambda o: o["pts"])[:2]
+    mats = sorted([o for o in cat["offers"] if o.get("cat") == "material"], key=lambda o: o["pts"])[:2]
     head = f"{cfg['emoji']} " if cfg else ""
-    lines = [f"{head}👛 మీ quiz points = real discounts @ {cat['centre']['name']}",
-             "ప్రతి ✅ answer = points · points = applications / prints / photos పై తగ్గింపు", ""]
-    for o in cheapest:
-        lines.append(f"  • {o['title_te']} — {o['pts']} pts")
+    lines = [f"{head}👛 మీ quiz points = application discounts + study materials",
+             "ప్రతి ✅ answer = points. Points తో:", ""]
+    for o in apps:
+        lines.append(f"  📝 {o['title_te']} — {o['pts']} pts")
+    for o in mats:
+        lines.append(f"  📚 {o['title_te']} — {o['pts']} pts")
     lines += ["", "Applications కోసం call చేసి documents పంపండి — మేమే file చేస్తాం, code చెబితే discount 🎟",
               "Bot లో /wallet → balance · /redeem → voucher"]
     return "\n".join(lines)

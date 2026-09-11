@@ -236,6 +236,16 @@ class Bot:
             from core import rewards
             ok, txt, admin = rewards.redeem(self.members, uid, value)
             self.tg.send_message(chat_id, txt, parse_mode="Markdown" if ok else "")
+            if ok and value.startswith("mat_"):
+                code = [l for l in txt.splitlines() if l.startswith("Code:")][0].split("`")[1]
+                path, note = rewards.deliver_material(self.members, uid, code)
+                if path:
+                    try:
+                        self.tg.send_document(chat_id, path.name, path.read_bytes(), caption=note[:900])
+                    except TelegramError as e:
+                        self.tg.send_message(chat_id, "📚 File పంపడంలో సమస్య — voucher active, centre లో తీసుకోండి.")
+                elif note:
+                    self.tg.send_message(chat_id, note)
             if ok and admin:
                 for aid in self._staff_ids():
                     try:

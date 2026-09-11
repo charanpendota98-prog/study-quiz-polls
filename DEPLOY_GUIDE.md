@@ -247,9 +247,13 @@ sources + 199 PYQ papers + 37 Telegram channels · supply guard · Google Sheet 
 * Counter: staff sends `/verify SU-XXXXXX` → bot shows name/district/phone/offer, marks
   USED and only then **burns** the points; a second `/verify` warns "already USED".
   `/vouchers` = summary. Expired holds auto-release at 00:20 daily.
-* Offers/prices/centre details: **edit `data/rewards_catalog.json`** (auto-created with
-  defaults: prints, photos, ₹20/₹50 off application filing, free application, docs pack,
-  GOLD bundle). Hot-reloaded, no restart.
+* Two categories only — 📝 **application filing discounts** (₹20 / ₹50 / 1 free / 3 free +
+  priority; redeemed at the counter with `/verify`) and 📚 **study materials** (monthly CA
+  PDF, PYQ pack for the member's exam, most-missed 100 Q + explanations, printed set at the
+  centre). Material PDFs are sent by the bot instantly from `data/materials/` (see README
+  there; `{exam}` in the filename → member's exam, `_general` fallback). Missing file →
+  voucher stays active and points are NOT deducted until delivered.
+  Edit prices/offers/centre details in `data/rewards_catalog.json` (auto-created; hot-reloaded).
 * Hub channel promo Tue & Fri 12:00 (`REWARDS_PROMO_TIME`).
 
 ## 🧠 Most-missed explanation (no lessons, no audio)

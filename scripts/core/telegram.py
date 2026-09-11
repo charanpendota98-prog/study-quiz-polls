@@ -167,7 +167,8 @@ class Telegram:
         for k, v in (("chat_id", str(chat_id)), ("caption", caption[:1000])):
             parts.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"{k}\"\r\n\r\n{v}\r\n".encode())
         parts.append((f"--{boundary}\r\nContent-Disposition: form-data; name=\"document\"; "
-                      f"filename=\"{filename}\"\r\nContent-Type: text/csv\r\n\r\n").encode() + data + b"\r\n")
+                      f"filename=\"{filename}\"\r\nContent-Type: "
+                      f"{'application/pdf' if filename.lower().endswith('.pdf') else 'application/octet-stream'}\r\n\r\n").encode() + data + b"\r\n")
         parts.append(f"--{boundary}--\r\n".encode())
         body = b"".join(parts)
         import urllib.request

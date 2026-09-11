@@ -29,22 +29,22 @@ class TestRewards(unittest.TestCase):
         m = _Members()
         w = rewards.render_wallet(m, "1")
         self.assertIn("450 pts", w); self.assertIn("Next unlock", w)
-        ok, txt, admin = rewards.redeem(m, "1", "app50")            # 400 pts
+        ok, txt, admin = rewards.redeem(m, "1", "app50")            # 350 pts
         self.assertTrue(ok); self.assertIn("SU-", txt); self.assertIn("/verify", admin)
         code = [l for l in txt.splitlines() if l.startswith("Code:")][0].split("`")[1]
         b = rewards.balance(m, "1")
-        self.assertEqual((b["points"], b["held"], b["available"]), (450, 400, 50))
-        ok2, txt2, _ = rewards.redeem(m, "1", "app20")               # 200 > 50 available → blocked
+        self.assertEqual((b["points"], b["held"], b["available"]), (450, 350, 100))
+        ok2, txt2, _ = rewards.redeem(m, "1", "app20")               # 150 > 100 available → blocked
         self.assertFalse(ok2)
         # counter verify burns points; second verify refuses
         res = rewards.verify(m, code, staff_uid="9")
-        self.assertTrue(res.startswith("✅")); self.assertEqual(m.members["1"]["points"], 50)
+        self.assertTrue(res.startswith("✅")); self.assertEqual(m.members["1"]["points"], 100)
         self.assertIn("already USED", rewards.verify(m, code))
         # cancel path releases hold
-        ok3, txt3, _ = rewards.redeem(m, "2", "print10")
+        ok3, txt3, _ = rewards.redeem(m, "2", "mat_ca")
         self.assertFalse(ok3)                                        # 50 < 100
         m.members["2"]["points"] = 120
-        ok4, txt4, _ = rewards.redeem(m, "2", "print10")
+        ok4, txt4, _ = rewards.redeem(m, "2", "mat_ca")
         c2 = [l for l in txt4.splitlines() if l.startswith("Code:")][0].split("`")[1]
         self.assertIn("released", rewards.cancel(m, "2", c2))
         self.assertEqual(rewards.balance(m, "2")["available"], 120)
@@ -53,7 +53,7 @@ class TestRewards(unittest.TestCase):
     def test_expiry_releases_points(self):
         from datetime import datetime, timedelta
         m = _Members()
-        rewards.redeem(m, "1", "print10", when=datetime.now(config.IST) - timedelta(days=40))
+        rewards.redeem(m, "1", "mat_ca", when=datetime.now(config.IST) - timedelta(days=40))
         self.assertEqual(rewards.balance(m, "1")["held"], 100)
         self.assertEqual(rewards.expire_stale(m), 1)
         self.assertEqual(rewards.balance(m, "1")["held"], 0)
@@ -90,3 +90,29 @@ class TestMostMissed(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestMaterials(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self._o = (rewards.CATALOG_PATH, rewards.LEDGER_PATH, rewards.MATERIALS_DIR)
+        rewards.CATALOG_PATH = self.tmp / "cat.json"; rewards.LEDGER_PATH = self.tmp / "led.json"
+        rewards.MATERIALS_DIR = self.tmp / "mat"; rewards.MATERIALS_DIR.mkdir()
+    def tearDown(self):
+        rewards.CATALOG_PATH, rewards.LEDGER_PATH, rewards.MATERIALS_DIR = self._o
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_material_delivery_and_fallbacks(self):
+        m = _Members(); m.members["1"]["exam"] = "TSPSC"
+        (rewards.MATERIALS_DIR / "pyq_pack_general.pdf").write_bytes(b"%PDF-1.4 test")
+        ok, txt, _ = rewards.redeem(m, "1", "mat_pyq")
+        code = [l for l in txt.splitlines() if l.startswith("Code:")][0].split("`")[1]
+        path, note = rewards.deliver_material(m, "1", code)
+        self.assertIsNotNone(path); self.assertEqual(m.members["1"]["points"], 250)   # 450-200
+        # missing file → stays held, points not burned
+        ok2, txt2, _ = rewards.redeem(m, "1", "mat_ca")
+        c2 = [l for l in txt2.splitlines() if l.startswith("Code:")][0].split("`")[1]
+        path2, note2 = rewards.deliver_material(m, "1", c2)
+        self.assertIsNone(path2); self.assertIn("upload", note2); self.assertEqual(rewards.balance(m, "1")["held"], 100)
+        cats = {o["cat"] for o in rewards.catalog()["offers"]}
+        self.assertEqual(cats, {"application", "material"})
