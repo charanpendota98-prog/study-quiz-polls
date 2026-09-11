@@ -123,3 +123,17 @@ The Sheet itself stays private; the SECRET blocks anyone else from writing.
   are listed (Sakshi Education for now).
 * Run on the server: `cd scripts && python3 -m core.pyq harvest --only TSPSC --limit 8`
   then `python3 -m core.pyq status`.
+
+## Source wave 2 — 11 Sep 2026 (quiz websites, no-repeat hardening)
+
+* `data/collector_sources.json`: **436 sources, 118 enabled** (+34 verified live today):
+  FreeOnlineTest9 daily CA quiz archive + 10 subject mocks (Polity, Economy, History,
+  Geography, Physics, Chemistry, **Telugu**, Maths, Puzzles, Aptitude); DailyGK SSC-CGL /
+  SSC-CHSL / RRB-NTPC daily CA hubs + 7 static-GK topic hubs (20 polity sub-topic sets
+  verified); Sakshi Groups per-subject Telugu practice hubs (15 subjects).
+  Guessed URLs that redirected to a homepage (`/en/<exam>/bitbank`, `/appsc/practice-test`,
+  mcqbits category) were **not** added.
+* No-repeat now has three layers: (1) scrape fingerprint (`sha1(q|options)`) at collect
+  time, (2) permanent posted-id + content-signature store at pick time, (3) NEW paraphrase
+  guard `Bank._near_posted` — same channel, ≥3 identical options and ≥0.72 content-word
+  overlap with any of the last 400 posted questions ⇒ treated as a repeat.

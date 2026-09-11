@@ -89,3 +89,18 @@ class RevealPolicy(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestNoRepeatParaphrase(unittest.TestCase):
+    def test_paraphrased_duplicate_is_blocked(self):
+        from core.question_bank import Bank
+        b = Bank.__new__(Bank)
+        a = {"id": "a1", "channel": "TSPSC", "q_en": "Which river is called the Dakshina Ganga of India?",
+             "options_en": ["Krishna", "Godavari", "Kaveri", "Penna"], "answer_index": 1, "topic": "geography"}
+        b2 = {"id": "b2", "channel": "TSPSC", "q_en": "Dakshina Ganga of India is the name given to which river?",
+              "options_en": ["Godavari", "Krishna", "Penna", "Kaveri"], "answer_index": 0, "topic": "geography"}
+        c = {"id": "c3", "channel": "TSPSC", "q_en": "Which river is called the Vridha Ganga?",
+             "options_en": ["Krishna", "Godavari", "Kaveri", "Penna"], "answer_index": 1, "topic": "geography"}
+        b.questions = [a, b2, c]; b.used = {"TSPSC": ["a1"]}
+        self.assertTrue(b._near_posted(b2))     # paraphrase + same options -> repeat
+        self.assertFalse(b._near_posted(c))     # different question, same options -> allowed

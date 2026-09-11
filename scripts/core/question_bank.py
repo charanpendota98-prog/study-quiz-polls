@@ -193,8 +193,42 @@ class Bank:
             # never repeat a question with the same content signature
             if sig in sigs:
                 continue
+            # paraphrase guard: same channel, near-identical wording + same
+            # option set already posted -> treat as repeat
+            if self._near_posted(q):
+                continue
             out.append(q)
         return out
+
+    def _near_posted(self, q: dict, threshold: float = 0.72) -> bool:
+        """Fuzzy repeat check against recently posted questions of the same
+        channel (bounded window so it stays O(n*window))."""
+        _STOP = {"which","what","who","the","of","is","are","was","were","in","on","to","a","an",
+                 "by","for","and","name","given","called","known","as","following","one","this",
+                 "that","these","those","with","from","at","it","its","does","did","do","has","have"}
+        def cw(t):
+            return {w for w in _re.findall(r"[a-z0-9]+", (t or "").lower()) if w not in _STOP and len(w) > 2}
+        txt = (q.get("q_en") or "")
+        tw = cw(txt)
+        opts = frozenset(str(o).strip().lower() for o in q.get("options_en", []))
+        if not txt:
+            return False
+        recent = self.used.get(q.get("channel", ""), [])[-400:]
+        if not hasattr(self, "_by_id"):
+            self._by_id = {x["id"]: x for x in self.questions}
+        for pid in recent:
+            p = self._by_id.get(pid)
+            if not p:
+                continue
+            popts = frozenset(str(o).strip().lower() for o in p.get("options_en", []))
+            same_opts = bool(opts) and len(opts & popts) >= max(3, len(opts) - 1)
+            if not same_opts or not tw:
+                continue
+            pw = cw(p.get("q_en"))
+            jac = len(tw & pw) / len(tw | pw) if (tw | pw) else 0.0
+            if jac >= threshold:
+                return True
+        return False
 
     def mark_posted(self, channel: str, questions):
         """Record these questions as permanently shown."""
