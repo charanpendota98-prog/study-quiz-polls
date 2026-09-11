@@ -31,6 +31,12 @@ else
   echo "[1/6] No prior deploy to back up (or dry)"
 fi
 
+# 1b) Telugu font for PNG rank cards (best-effort, never fatal)
+if command -v apt-get >/dev/null 2>&1 && ! fc-list 2>/dev/null | grep -qi "telugu"; then
+  echo "[1b] Installing Noto Telugu font for rank cards (sudo, optional)…"
+  sudo apt-get install -y -q fonts-noto-core >/dev/null 2>&1 || echo "  (font install skipped)"
+fi
+
 # 2) Copy files (preserve .env if it already exists)
 echo "[2/6] Copying files…"
 mkdir -p "$DEPLOY_DIR"

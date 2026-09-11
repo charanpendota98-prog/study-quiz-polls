@@ -181,3 +181,59 @@ The Sheet itself stays private; the SECRET blocks anyone else from writing.
   same timer, one attempt per day. Beat the topper's scaled score (tie → faster time) ⇒
   +15 pts and 🥊 badge. Also `/challenge`. State `data/challenges.json` (one day at a time).
   Replays are intentional and do not touch the no-repeat store.
+
+---
+
+## 🔄 UPDATE AN EXISTING SERVER (Sep 2026 — advanced engine)
+
+Everything since the first deploy is in the branch `arena/01a07852-study-quiz-polls`.
+On the server (SSH in first):
+
+```bash
+cd /home/ubuntu/studentup
+sudo systemctl stop studentup studentup-bot studentup-webhook
+
+# 1) fetch the new code (keeps env/.env and data/ untouched)
+git fetch origin arena/01a07852-study-quiz-polls 2>/dev/null \
+  || git clone https://github.com/charanpendota98-prog/study-quiz-polls.git /tmp/su_new
+if [ -d /tmp/su_new ]; then
+  cd /tmp/su_new && git checkout -q arena/01a07852-study-quiz-polls && cd -
+  rsync -a --exclude env/.env --exclude data/ --exclude logs/ /tmp/su_new/ /home/ubuntu/studentup/
+  rm -rf /tmp/su_new
+else
+  git checkout -q arena/01a07852-study-quiz-polls && git pull -q
+fi
+
+# 2) deps + font (Pillow → rank cards; Noto Telugu → Telugu on the cards)
+python3 -m pip install -q -r requirements.txt --break-system-packages 2>/dev/null || pip3 install -q -r requirements.txt
+sudo apt-get install -y -q fonts-noto-core
+
+# 3) add the new keys to env/.env (once) — copy the block from .env.example:
+nano env/.env      # SHEET_WEBAPP_URL, SHEET_SECRET, BRAND_HANDLE, BOT_USERNAME
+
+# 4) health + dry run
+cd scripts && python3 check.py && python3 quiz_engine.py quiz --dry | tail -5 && cd ..
+
+# 5) restart
+sudo systemctl start studentup studentup-bot studentup-webhook
+systemctl status studentup studentup-bot --no-pager | tail -6
+tail -n 30 logs/watch.log
+```
+
+### First-day commands (run once after restart, paste the outputs to Arena)
+```bash
+cd /home/ubuntu/studentup/scripts
+python3 -m core.collector --limit 20          # live web scrape sample
+python3 -m core.pyq harvest --only TSPSC --limit 8
+python3 -m core.scout run --minutes 3
+python3 -m core.resilience telegram
+python3 -m core.resilience status
+python3 -m core.crm sync                      # members → Google Sheet
+```
+
+### What is live after this update
+Paced rounds (no auto-reveal, shuffled keys, Q-by-Q key before next round) · registration
+in bot · Top-10 with name + district · podium bonuses · daily champions · 🏟 Sunday Grand
+Test · 🏆 Monthly Mega Test · District Cup · 🏟 District League · 🤝 Referral board ·
+🖼 rank cards · 📋 weekly report cards · 🥊 Beat the Topper · Hall of Fame · 436 web
+sources + 199 PYQ papers + 37 Telegram channels · supply guard · Google Sheet CRM.
