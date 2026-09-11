@@ -91,3 +91,16 @@ TELUGU_FIRST=1
 ANSWER_MODE=instant          # or: delayed
 QUIZ_OPEN_PERIOD=300
 ```
+
+## Google Sheet CRM — live connection (set on the server)
+
+```
+SHEET_WEBAPP_URL=https://script.google.com/macros/s/AKfycbzhwPyoWE20NUMFb5ngS0pkHMhg7ahMbLQlJCFkolDJgsdnehnpphmKUkzE_PzWCw5cdg/exec
+SHEET_SECRET=<the SECRET value inside docs/sheet_webapp.gs on the Sheet>
+```
+
+**Deployment must be public to the script (not to the data):** Deploy → Manage deployments →
+✏️ Edit → *Execute as: Me* · *Who has access: **Anyone*** → Version: New → Deploy.
+Test: open the /exec URL in a private/incognito window — it must show a small JSON like
+`{"ok":true,"service":"StudentUp CRM"}` and NOT a Google sign-in page. Then in the bot: `/syncsheet`.
+The Sheet itself stays private; the SECRET blocks anyone else from writing.
