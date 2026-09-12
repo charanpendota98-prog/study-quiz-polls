@@ -445,6 +445,41 @@ class Engine:
             print(f"   [shoutout] {e}")
             return 0
 
+    # ------------------------------------------------------------ Partner ads
+    def partner_ad(self):
+        """Ad slot: next partner offer → hub channel + DM to that district's members."""
+        from . import partners
+        o, p = partners.next_ad()
+        if not o:
+            print("[ads] no active partner offers")
+            return 0
+        mem = Members()
+        posted = 0
+        for ch in partners.AD_CHANNELS:
+            if ch not in config.CHANNELS:
+                continue
+            try:
+                self.tg.send_message(config.channel_chat_id(ch), partners.ad_card(p, o, config.CHANNELS[ch]))
+                posted += 1
+            except TelegramError as e:
+                print(f"   [ads] {ch} failed: {e}")
+        n = 0
+        card = partners.ad_card(p, o)
+        for uid in partners.district_targets(mem, p["district"]) if p["district"] != "ALL" else []:
+            try:
+                self.tg.send_message(uid, card + "\n🔕 ఈ DMs వద్దంటే /noads"); n += 1
+            except TelegramError:
+                mem.mark_blocked(uid)
+            if n % 25 == 0:
+                time.sleep(0 if self.dry else 1.0)
+        partners.mark_dm_impressions(p["id"], n)
+        print(f"[ads] {p['name']} → {posted} channel post(s), {n} district DMs")
+        return posted + n
+
+    def partner_housekeeping(self):
+        from . import partners
+        return partners.expire_stale()
+
     # ------------------------------------------------------------ District War
     def war_alert(self, minutes):
         from . import districtwar

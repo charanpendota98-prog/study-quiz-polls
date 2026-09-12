@@ -312,3 +312,19 @@ fallback. Nothing is generated at post time.
   badge for 5 wars in a row. Personal DM with own score + district rank. `/war` = status.
 * Sunday 21:45 season table in the hub. State `data/district_war.json`.
 * Squads are **not** Telegram groups — each member answers in their own bot DM; the bot sums.
+
+## 🤝 Partner Marketplace (`scripts/core/partners.py`) — district merchants × students
+
+* Admin: `/partner add <name> | <district> | <category> | <phone> | <merchant_tg_id> | <address>` then
+  `/partner offer <PID> | <title_te> | <title_en> | <pts> | [discount|freebie|examday] | [EXAM] | [from] | [to] | [cta]`.
+  `/partner merchant <PID> <tg_id>` authorises a counter person; `/partner stats <PID>` = impressions,
+  vouchers, redemptions, unique students (your sales deck); `/partner on|off <PID>`; `/partner ad` posts now.
+  Merchants self-apply with `/partner apply …` (admin gets a DM).
+* Ads: `AD_SLOTS` (10:30 / 15:30 / 20:45) → round-robin offer card in `AD_CHANNELS` + DM only to
+  members of that partner's district (`/noads` to opt out). District `ALL` = state-wide.
+* Students: `/offers` → their district's offers (✅ affordable / 🔒 need points / ⏳ exam window),
+  tap → `PT-XXXXXX` voucher (points held); merchant `/pverify PT-…` at the counter → points burn;
+  `/pcancel`. Exam-day offers unlock only inside the exam window for members whose target exam
+  matches ("exam రాసి వచ్చి claim"). Per-member and total caps, expiry, auto-release.
+* Smart referral: +20 on registration, **+30 when the friend plays 3 rounds within 7 days**,
+  milestones 5/10/25 activated → +50/+100/+300; `/invite` explains it.

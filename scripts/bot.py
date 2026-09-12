@@ -15,6 +15,8 @@ Commands:
   /battle             ⚔️ SQUAD BATTLE ARENA — live squad-vs-squad rooms (PUBG style)
   /war                ⚔️ District War — daily 9 PM, all-exams common syllabus, fight for your district
   /wallet             👛 points balance + ₹ value at StudentUp centre
+  /offers             🏪 మీ జిల్లా shops / coaching / restaurants — points తో discounts
+  /partner apply      🤝 business owners: advertise to students + accept points
   /redeem             🎁 turn points into vouchers (applications, prints, photos)
   /report             📋 your weekly report card
   /district [name]    your district toppers   /districts  TS/AP district leaderboard
@@ -273,6 +275,24 @@ class Bot:
                     except TelegramError:
                         pass
             return
+        if kind == "poffer" and uid:
+            from core import partners, rewards
+            ok, txt, merch = partners.redeem(self.members, uid, value, rewards)
+            self.tg.send_message(chat_id, txt, parse_mode="Markdown" if ok else "")
+            if ok and merch:
+                uids, mtxt = merch
+                for mu in list(uids) + list(self._staff_ids()):
+                    try:
+                        self.tg.send_message(mu, mtxt)
+                    except TelegramError:
+                        pass
+            return
+        if kind == "plocked":
+            try:
+                self.tg.answer_callback(cq.get("id", ""), f"🔒 {value} pts కావాలి — /quiz /war ఆడండి!" if value != "0" else "⏳ Exam window లో unlock అవుతుంది")
+            except TelegramError:
+                pass
+            return
         if kind == "locked":
             try:
                 self.tg.answer_callback(cq.get("id", ""), f"🔒 {value} pts కావాలి — /quiz ఆడండి!")
@@ -288,6 +308,13 @@ class Bot:
                     self.tg.send_message(chat_id, reply, buttons=self._step_buttons(uid, status))
             elif self.members.is_registered(uid):
                 self.tg.send_message(chat_id, "✅ Already registered — no need to fill again.\n⤷ ఇప్పటికే రిజిస్టర్ అయ్యారు.")
+
+    def _ad_now(self):
+        from core.engine import Engine
+        try:
+            return f"posted {Engine(dry=self.dry).partner_ad()} ad(s)"
+        except Exception as e:
+            return f"ad error: {e}"
 
     def _staff_ids(self):
         ids = set(getattr(config, "STAFF_IDS", []) or [])
@@ -559,6 +586,85 @@ class Bot:
             else:
                 msg = hooks.render_squad(self.members, uid)
             self.tg.send_message(chat_id, msg)
+        elif low.startswith("/offers") or low.startswith("/shops") or low.startswith("/deals"):
+            from core import partners, rewards
+            if not self.members.is_registered(uid):
+                self.members.start_registration(uid, username=self._name(who))
+                self.tg.send_message(chat_id, FIRST_TIME_ASK)
+                return
+            bal = rewards.balance(self.members, uid)["available"]
+            self.tg.send_message(chat_id, partners.render_offers(self.members, uid, bal),
+                                 buttons=partners.offer_buttons(self.members, uid, bal) or None)
+        elif low.startswith("/pcancel"):
+            from core import partners
+            parts = low.split()
+            self.tg.send_message(chat_id, partners.cancel(uid, parts[1]) if len(parts) > 1 else "Usage: /pcancel PT-XXXXXX")
+        elif low.startswith("/pverify"):
+            from core import partners
+            parts = text.split()
+            if len(parts) < 2:
+                self.tg.send_message(chat_id, "Usage: /pverify PT-XXXXXX  (shop counter లో)")
+            else:
+                res = partners.verify(self.members, parts[1], uid, self._staff_ids())
+                self.tg.send_message(chat_id, res)
+                if res.startswith("✅"):
+                    from core.partners import _load as _pl
+                    v = _pl()["vouchers"].get(parts[1].upper().strip())
+                    if v:
+                        try:
+                            self.tg.send_message(v["uid"], f"✅ Voucher {v['code']} used — enjoy! ⭐ {v['pts']} pts deducted. మళ్ళీ సంపాదించండి → /quiz")
+                        except TelegramError:
+                            pass
+        elif low.startswith("/noads"):
+            m = self.members._get(uid); m["no_ads"] = not m.get("no_ads"); self.members.kv.save()
+            self.tg.send_message(chat_id, "🔕 Partner offer DMs off. మళ్ళీ on: /noads" if m["no_ads"] else "🔔 Partner offer DMs on.")
+        elif low.startswith("/partner"):
+            from core import partners
+            parts = text.split(maxsplit=2)
+            sub = parts[1].lower() if len(parts) > 1 else ""
+            rest = parts[2] if len(parts) > 2 else ""
+            if sub == "apply":
+                if not rest:
+                    self.tg.send_message(chat_id, "🤝 మీ business StudentUp partner అవ్వాలంటే:\n/partner apply <business పేరు> | <జిల్లా> | <coaching/books/food/salon/shop/hostel/tech/health> | <phone>\n\n"
+                                                  "మీ ad మా Telegram channels లో + ఆ జిల్లా students DM లో; students points తో మీ offer claim చేస్తారు; exam-day specials కూడా.")
+                else:
+                    self.tg.send_message(chat_id, partners.apply_partner(uid, rest))
+                    for aid in self._staff_ids():
+                        try:
+                            self.tg.send_message(aid, f"📥 Partner application from {uid} ({self._name(who)}):\n{rest}")
+                        except TelegramError:
+                            pass
+            elif str(uid) not in self._staff_ids():
+                self.tg.send_message(chat_id, "🤝 Business owner? → /partner apply\n(management commands are admin-only)")
+            elif sub == "add":
+                f = [x.strip() for x in rest.split("|")]
+                if len(f) < 3:
+                    self.tg.send_message(chat_id, "Usage: /partner add <name> | <district> | <category> | <phone> | <merchant_tg_id> | <address>")
+                else:
+                    pid = partners.add_partner(f[0], f[1], f[2], f[3] if len(f) > 3 else "", f[4] if len(f) > 4 else "", f[5] if len(f) > 5 else "")
+                    self.tg.send_message(chat_id, f"✅ Partner {pid} added. Now: /partner offer {pid} | <title_te> | <title_en> | <pts> | <kind discount/freebie/examday> | <exam> | <from YYYY-MM-DD> | <to> | <cta>")
+            elif sub == "offer":
+                f = [x.strip() for x in rest.split("|")]
+                if len(f) < 4:
+                    self.tg.send_message(chat_id, "Usage: /partner offer <PID> | <title_te> | <title_en> | <pts> | [kind] | [exam] | [from] | [to] | [cta]")
+                else:
+                    oid = partners.add_offer(f[0], f[1], f[2], int(f[3]), kind=(f[4] if len(f) > 4 and f[4] else "discount"),
+                                             exam=(f[5] if len(f) > 5 else ""), exam_from=(f[6] if len(f) > 6 else ""),
+                                             exam_to=(f[7] if len(f) > 7 else ""), cta=(f[8] if len(f) > 8 else ""))
+                    self.tg.send_message(chat_id, f"✅ Offer {oid} live — rotates in ad slots + DMs to that district." if oid else "Partner id not found.")
+            elif sub == "merchant":
+                f = rest.split()
+                ok = partners.set_merchant(f[0], f[1]) if len(f) == 2 else False
+                self.tg.send_message(chat_id, "✅ merchant can now /pverify" if ok else "Usage: /partner merchant <PID> <telegram_user_id>")
+            elif sub == "stats":
+                self.tg.send_message(chat_id, partners.partner_stats(rest.strip()))
+            elif sub in ("on", "off"):
+                partners.toggle_partner(rest.strip(), sub == "on"); self.tg.send_message(chat_id, "done")
+            elif sub == "ad":
+                eng_txt = self._ad_now()
+                self.tg.send_message(chat_id, eng_txt)
+            else:
+                self.tg.send_message(chat_id, partners.list_partners() + "\n\nCommands: add · offer · merchant · stats <PID> · on/off <PID> · ad (post now)")
         elif low.startswith("/wallet") or low.startswith("/points"):
             from core import rewards
             self.tg.send_message(chat_id, rewards.render_wallet(self.members, uid))
@@ -608,10 +714,9 @@ class Bot:
             bu = config.BOT_USERNAME or (self._me_username() or "")
             link = f"https://t.me/{bu}?start=ref{uid}" if bu else "(set BOT_USERNAME in .env)"
             p = self.members.profile(uid) or {}
-            self.tg.send_message(chat_id,
-                f"🎁 Invite friends — each new registration = +20 points for you.\n"
-                f"⤷ ఫ్రెండ్స్‌ని పిలవండి — ఒక్కొక్కరికి +20 పాయింట్లు.\n\n{link}\n\n"
-                f"Referrals so far: {p.get('referrals', 0)}")
+            from core import partners
+            self.tg.send_message(chat_id, partners.referral_explainer(uid, link) +
+                                 f"\n\nReferrals: {p.get('referrals', 0)} · activated: {p.get('ref_activated', 0)}")
         elif low.startswith("/districts"):
             self.tg.send_message(chat_id, self.members.render_district_board(), parse_mode="Markdown")
         elif low.startswith("/district"):
@@ -829,7 +934,17 @@ class Bot:
             self.members.register_default_exam(uid, self._channel_to_exam(ch))
             first_ask = True
         if round_id:
-            self.members.record_round_answer(uid, round_id, ch, is_correct, qid=qid)
+            e = self.members.record_round_answer(uid, round_id, ch, is_correct, qid=qid)
+            if e and e.get("total") == 1:      # first answer of a round → counts as a round played
+                try:
+                    from core import partners
+                    act = partners.on_round_played(self.members, uid)
+                    if act:
+                        self.tg.send_message(act["referrer"],
+                                             f"🎉 మీ friend {act['name']} active అయ్యారు (3 rounds) → +{act['bonus']} pts! "
+                                             f"Activated referrals: {act['activated']}")
+                except Exception:
+                    pass
         result = self.members.award_answer(
             uid, username=self._name(user),
             correct=is_correct, topic=topic, qid=qid)

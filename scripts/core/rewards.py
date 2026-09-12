@@ -119,6 +119,11 @@ def balance(members, uid) -> dict:
     led = _ledger()
     pts = int(m.get("points", 0))
     held = held_points(led, uid)
+    try:
+        from . import partners
+        held += partners.held_points(uid)
+    except Exception:
+        pass
     return {"points": pts, "held": held, "available": max(0, pts - held),
             "rupees": (max(0, pts - held) * POINT_VALUE_PAISE) // 100,
             "redeemed": m.get("points_redeemed", 0)}

@@ -236,9 +236,16 @@ def tick(eng, now, dry=False):
             eng.arena_board(); ran.append("arena-board")
         except Exception as e:
             log(f"squad error: {e}")
+    from core import partners as _pa
+    if hhmm in _pa.AD_SLOTS:
+        try:
+            eng.partner_ad(); ran.append("partner-ad")
+        except Exception as e:
+            log(f"ad error: {e}")
     if hhmm == "00:20":
         try:
             eng.rewards_housekeeping(); ran.append("rewards-expiry")
+            eng.partner_housekeeping(); ran.append("partner-expiry")
         except Exception as e:
             log(f"rewards error: {e}")
     if now.weekday() in (1, 4) and hhmm == config.REWARDS_PROMO_TIME:
