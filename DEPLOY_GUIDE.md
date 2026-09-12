@@ -358,3 +358,15 @@ fallback. Nothing is generated at post time.
 * `/pitch <district>` → sales sheet with that district's live numbers to forward to any owner.
 * `/social opening <PID> [days]` → 🎉 NEW OPENING tag + ≈2× ad frequency for a week.
 * Monday 08:30 hub post "Partner with StudentUp" listing biggest districts (`/social call` to force).
+
+## 🛍 Ad scopes, digest slots, onboarding (partners v3)
+* Partner scope = `district` field: a district name, **`TS` / `AP` (state-wide)**, or **`ALL`**; optional
+  7th field **mandal** → shown first (🏠) to members who set `/mandal <name>`. Members can move once per
+  30 days with `/mydistrict <district>` (exam centre / hostel).
+* Each `AD_SLOTS` run now sends **one digest**: hub channels get a card of all live offers (state → district →
+  mandal, flash first, register CTA `t.me/<bot>?start=offers`), every member gets ONE personal DM with only
+  their relevant offers + claim buttons — all 3 slots carry every partner, no partner ever waits for a turn.
+  `/partner preview` shows the card; `/whatsapp` gives a plain-text copy for WhatsApp groups/status.
+  `/partner photo <PID>` (reply to a photo) attaches the partner's poster to the hub card.
+* Onboarding: `/social kit` = the "how to join + packages" message to forward to any owner;
+  `/partner apply` replies with the same kit. Claims require registration (+25 bonus) — the CTA says so.

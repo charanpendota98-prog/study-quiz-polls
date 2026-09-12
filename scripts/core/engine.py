@@ -447,34 +447,65 @@ class Engine:
 
     # ------------------------------------------------------------ Partner ads
     def partner_ad(self):
-        """Ad slot: next partner offer → hub channel + DM to that district's members."""
-        from . import partners
-        o, p = partners.next_ad()
-        if not o:
+        """Ad slot: ONE digest card per hub channel (state + district offers, register CTA) and ONE
+        personal digest DM per member with all offers in their mandal/district/state. Partner photos
+        (if any) ride along as the card's picture. Impressions counted per partner."""
+        from . import partners, rewards
+        from .members import Members
+        mem = Members()
+        card = partners.digest_for_channel(mem)
+        if not card:
             print("[ads] no active partner offers")
             return 0
-        mem = Members()
-        posted = 0
+        n = 0
+        # hub channels: text digest (+ first photo partner as picture, if any)
+        photo = next((p["photo"] for p in partners._load()["partners"].values() if p.get("active") and p.get("photo")), "")
         for ch in partners.AD_CHANNELS:
             if ch not in config.CHANNELS:
                 continue
             try:
-                self.tg.send_message(config.channel_chat_id(ch), partners.ad_card(p, o, config.CHANNELS[ch]))
-                posted += 1
-            except TelegramError as e:
-                print(f"   [ads] {ch} failed: {e}")
-        n = 0
-        card = partners.ad_card(p, o)
-        for uid in partners.district_targets(mem, p["district"]) if p["district"] != "ALL" else []:
+                if photo and not self.dry:
+                    self.tg._call("sendPhoto", {"chat_id": config.channel_chat_id(ch), "photo": photo, "caption": card[:1000]})
+                else:
+                    self.tg.send_message(config.channel_chat_id(ch), card)
+                n += 1
+            except Exception as e:
+                print(f"   [ads] {ch}: {e}")
+        # personal digests
+        seen_partner = {}
+        sent = 0
+        for uid, m in mem.members.items():
+            if not (m.get("registered") and not m.get("dm_blocked") and not m.get("no_ads")):
+                continue
+            bal = rewards.balance(mem, uid)["available"]
+            txt, btns = partners.digest_for_member(mem, uid, bal)
+            if not txt:
+                continue
+            for row in btns:
+                seen_partner[row[0][1]] = seen_partner.get(row[0][1], 0) + 1
+            if self.dry:
+                sent += 1; continue
             try:
-                self.tg.send_message(uid, card + "\n🔕 ఈ DMs వద్దంటే /noads"); n += 1
-            except TelegramError:
-                mem.mark_blocked(uid)
-            if n % 25 == 0:
-                time.sleep(0 if self.dry else 1.0)
-        partners.mark_dm_impressions(p["id"], n)
-        print(f"[ads] {p['name']} → {posted} channel post(s), {n} district DMs")
-        return posted + n
+                self.tg.send_message(uid, txt, buttons=btns); sent += 1
+            except TelegramError as e:
+                if "blocked" in str(e).lower() or "deactivated" in str(e).lower():
+                    m["dm_blocked"] = True
+        d = partners._load()
+        for o in d["offers"].values():
+            k = f"poffer:{o['id']}"
+            if k in seen_partner:
+                p = d["partners"].get(o["partner"])
+                if p:
+                    p["dm_impressions"] = p.get("dm_impressions", 0) + seen_partner[k]
+                    p["impressions"] = p.get("impressions", 0) + n
+                o["last_shown"] = partners._now().isoformat()
+        partners._save(d)
+        try:
+            mem.kv.save()
+        except Exception:
+            pass
+        print(f"[ads] digest → {n} channels, {sent} personal DMs")
+        return n + sent
 
     def partner_housekeeping(self):
         from . import partners

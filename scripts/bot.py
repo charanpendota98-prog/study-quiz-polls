@@ -18,6 +18,7 @@ Commands:
   /offers             🏪 మీ జిల్లా shops / coaching / restaurants — points తో discounts
   /claim CODE         📸 Instagram/YouTube auto-DM code → points (/follow = how)
   /scout              🕵️ మీ జిల్లా shop/coaching ని refer చేయండి → partner అయితే +150
+  /mandal <పేరు>      🏠 మీ mandal offers ముందు · /mydistrict <జిల్లా> = జిల్లా మార్చు
   /examdone           📝 exam రాశాక tap → +25 pts + exam-day offers unlock
   /partner apply      🤝 business owners: advertise to students + accept points
   /mystats            🏪 merchants: your vouchers + weekly numbers
@@ -454,7 +455,7 @@ class Bot:
         text = (msg.get("text") or msg.get("caption") or "").strip()
         low = text.lower()
 
-        if msg.get("photo") and uid and chat_id == str(uid):
+        if msg.get("photo") and uid and chat_id == str(uid) and not low.startswith("/partner"):
             from core import social
             plat = "yt" if "you" in low or "yt" in low else "ig"
             self.tg.send_message(chat_id, social.queue_screenshot(uid, self._name(who), msg["photo"][-1].get("file_id", ""), plat))
@@ -494,6 +495,14 @@ class Bot:
                         self.tg.send_message(arg[3:], "🎁 Your friend joined via your link — +20 points!\n⤷ మీ ఫ్రెండ్ join అయ్యారు — +20 పాయింట్లు!")
                     except TelegramError:
                         pass
+            if arg == "offers":
+                self.tg.send_message(chat_id, "🛍 Offers claim చేయాలంటే 1 నిమిషం register (+25 pts bonus) → తర్వాత /offers 👇"
+                                     if not self.members.is_registered(uid) else "🛍 మీ offers 👇 /offers")
+                if self.members.is_registered(uid):
+                    from core import partners, rewards
+                    bal = rewards.balance(self.members, uid)["available"]
+                    self.tg.send_message(chat_id, partners.render_offers(self.members, uid, bal),
+                                         buttons=partners.offer_buttons(self.members, uid, bal) or None)
             self.tg.send_message(chat_id, WELCOME, parse_mode="Markdown")
             if uid and not self.members.is_registered(uid) and not self.members.pending_step(uid):
                 self.members.start_registration(uid, username=self._name(who))
@@ -714,11 +723,43 @@ class Bot:
             elif sub == "call":
                 from core.engine import Engine
                 self.tg.send_message(chat_id, f"posted: {Engine(dry=self.dry).partner_call()}")
+            elif sub == "kit":
+                self.tg.send_message(chat_id, social.partner_kit())
             elif sub == "pending":
                 ps = social.pending_screenshots()
                 self.tg.send_message(chat_id, f"{len(ps)} screenshots pending (buttons were sent to staff when received)")
             else:
-                self.tg.send_message(chat_id, social.campaign_stats() + "\n\nCommands: new · leads [district] · convert <LID> <PID> · opening <PID> [days] · call · pending")
+                self.tg.send_message(chat_id, social.campaign_stats() + "\n\nCommands: new · leads [district] · convert <LID> <PID> · opening <PID> [days] · kit · call · pending")
+        elif low.startswith("/mandal"):
+            m = self.members.members.get(str(uid), {}) if uid else {}
+            if not m.get("registered"):
+                self.tg.send_message(chat_id, "ముందు register అవ్వండి → /start"); return
+            rest = text.split(maxsplit=1)[1].strip() if len(text.split()) > 1 else ""
+            if not rest:
+                self.tg.send_message(chat_id, f"🏠 మీ mandal: {m.get('mandal') or '— set కాలేదు'}\nSet: /mandal <పేరు>  (మీ mandal shops offers ముందు వస్తాయి)"); return
+            m["mandal"] = rest[:40]; self.members.kv.save()
+            self.tg.send_message(chat_id, f"✅ Mandal: {rest[:40]} — local offers ఇప్పుడు ముందు కనిపిస్తాయి → /offers")
+        elif low.startswith("/mydistrict") or low.startswith("/changedistrict"):
+            from core import districts as D
+            m = self.members.members.get(str(uid), {}) if uid else {}
+            if not m.get("registered"):
+                self.tg.send_message(chat_id, "ముందు register అవ్వండి → /start"); return
+            rest = text.split(maxsplit=1)[1].strip() if len(text.split()) > 1 else ""
+            d = (D.match_district("TS", rest) or D.match_district("AP", rest)) if rest else None
+            if not d:
+                self.tg.send_message(chat_id, f"📍 మీ జిల్లా: {m.get('district', '—')}\nమారాలంటే: /mydistrict <కొత్త జిల్లా>  (exam centre / hostel వేరే జిల్లా అయితే)\n30 రోజులకి ఒకసారి మాత్రమే."); return
+            last = m.get("district_changed", "")
+            try:
+                if last and (datetime.now(config.IST) - datetime.fromisoformat(last)).days < 30:
+                    self.tg.send_message(chat_id, "⏳ జిల్లా 30 రోజులకి ఒకసారే మార్చవచ్చు."); return
+            except Exception:
+                pass
+            m["district"], m["state_code"] = d, ("TS" if d in D.TS_DISTRICTS else "AP")
+            m["mandal"] = ""; m["district_changed"] = datetime.now(config.IST).isoformat(); self.members.kv.save()
+            self.tg.send_message(chat_id, f"✅ జిల్లా మారింది → {d} ({D.telugu_name(d)}). /offers, /district, District War అన్నీ ఇప్పుడు {d} కి.")
+        elif low.startswith("/whatsapp") and str(uid) in self._staff_ids():
+            from core import partners
+            self.tg.send_message(chat_id, partners.whatsapp_post(self.members) or "No active offers.")
         elif low.startswith("/examdone"):
             from core import partners
             if not self.members.is_registered(uid):
@@ -765,7 +806,8 @@ class Bot:
                     self.tg.send_message(chat_id, "🤝 మీ business StudentUp partner అవ్వాలంటే:\n/partner apply <business పేరు> | <జిల్లా> | <coaching/books/food/salon/shop/hostel/tech/health> | <phone>\n\n"
                                                   "మీ ad మా Telegram channels లో + ఆ జిల్లా students DM లో; students points తో మీ offer claim చేస్తారు; exam-day specials కూడా.")
                 else:
-                    self.tg.send_message(chat_id, partners.apply_partner(uid, rest))
+                    from core import social
+                    self.tg.send_message(chat_id, partners.apply_partner(uid, rest) + "\n\n" + social.partner_kit())
                     for aid in self._staff_ids():
                         try:
                             self.tg.send_message(aid, f"📥 Partner application from {uid} ({self._name(who)}):\n{rest}")
@@ -776,9 +818,10 @@ class Bot:
             elif sub == "add":
                 f = [x.strip() for x in rest.split("|")]
                 if len(f) < 3:
-                    self.tg.send_message(chat_id, "Usage: /partner add <name> | <district> | <category> | <phone> | <merchant_tg_id> | <address>")
+                    self.tg.send_message(chat_id, "Usage: /partner add <name> | <district / TS / AP / ALL> | <category> | <phone> | <merchant_tg_id> | <address> | [mandal]")
                 else:
-                    pid = partners.add_partner(f[0], f[1], f[2], f[3] if len(f) > 3 else "", f[4] if len(f) > 4 else "", f[5] if len(f) > 5 else "")
+                    pid = partners.add_partner(f[0], f[1], f[2], f[3] if len(f) > 3 else "", f[4] if len(f) > 4 else "", f[5] if len(f) > 5 else "",
+                                               mandal=f[6] if len(f) > 6 else "")
                     self.tg.send_message(chat_id, f"✅ Partner {pid} added. Now: /partner offer {pid} | <title_te> | <title_en> | <pts> | <kind discount/freebie/examday> | <exam> | <from YYYY-MM-DD> | <to> | <cta>")
             elif sub == "offer":
                 f = [x.strip() for x in rest.split("|")]
@@ -807,6 +850,13 @@ class Bot:
                         self.tg.send_message(chat_id, f"⚡ Flash offer {oid} live for {f[4]}h, stock {f[5]} — posted now ({n} ads)")
                     else:
                         self.tg.send_message(chat_id, "Partner not found.")
+            elif sub == "photo":
+                # reply to a photo with /partner photo <PID>  (or send photo with caption "/partner photo PID")
+                ph = (msg.get("reply_to_message") or {}).get("photo") or msg.get("photo") or []
+                ok = partners.set_photo(rest.strip(), ph[-1]["file_id"]) if ph and rest.strip() else False
+                self.tg.send_message(chat_id, "✅ photo set — next ad slot uses it" if ok else "Reply to a photo with: /partner photo <PID>")
+            elif sub == "preview":
+                self.tg.send_message(chat_id, partners.digest_for_channel(self.members) or "No active offers.")
             elif sub == "weekly":
                 from core.engine import Engine
                 self.tg.send_message(chat_id, f"sent {Engine(dry=self.dry).partner_weekly()} merchant reports")
@@ -819,7 +869,7 @@ class Bot:
                 eng_txt = self._ad_now()
                 self.tg.send_message(chat_id, eng_txt)
             else:
-                self.tg.send_message(chat_id, partners.list_partners() + "\n\nCommands: add · offer · flash · merchant · stats <PID> · on/off <PID> · ad (post now) · weekly · examday")
+                self.tg.send_message(chat_id, partners.list_partners() + "\n\nCommands: add (district/TS/AP/ALL + mandal) · offer · flash · photo · preview · merchant · stats <PID> · on/off <PID> · ad (post now) · weekly · examday")
         elif low.startswith("/wallet") or low.startswith("/points"):
             from core import rewards
             self.tg.send_message(chat_id, rewards.render_wallet(self.members, uid))

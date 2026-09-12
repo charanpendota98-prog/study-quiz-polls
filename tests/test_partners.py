@@ -133,3 +133,27 @@ class TestAdvancedPartners(_Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestScopes(_Base):
+    def test_state_mandal_scope_and_digest(self):
+        m = _Members()
+        m.members["1"]["state_code"] = "TS"; m.members["1"]["mandal"] = "Hanamkonda"
+        m.members["2"]["state_code"] = "AP"; m.members["3"]["state_code"] = "TS"
+        ts = P.add_partner("Big Bazaar TS", "TS", "shop"); o_ts = P.add_offer(ts, "10% off", "10% off", 40)
+        al = P.add_partner("Amazon-ish", "ALL", "tech"); o_al = P.add_offer(al, "5% off", "5% off", 20)
+        loc = P.add_partner("Raju Xerox", "Warangal", "tech", mandal="Hanamkonda"); o_loc = P.add_offer(loc, "free print", "free print", 60)
+        ids1 = [r[0]["id"] for r in P.offers_for(m, "1")]
+        self.assertEqual(ids1[0], o_loc)                                   # mandal first
+        self.assertEqual(set(ids1), {o_ts, o_al, o_loc})
+        self.assertEqual({r[0]["id"] for r in P.offers_for(m, "2")}, {o_al})   # AP: no TS, no Warangal
+        self.assertIn("state-wide", P.scope_label(P._load()["partners"][ts]))
+        self.assertIn("Hanamkonda mandal", P.scope_label(P._load()["partners"][loc]))
+        self.assertEqual(set(P.district_targets(m, "TS", partner={"district": "TS"})), {"1", "3"})
+        self.assertEqual(set(P.district_targets(m, "ALL", partner={"district": "ALL"})), {"1", "2", "3"})
+        txt, btns = P.digest_for_member(m, "1", 500)
+        self.assertIn("🏠", txt); self.assertEqual(len(btns), 3); self.assertTrue(btns[0][0][1].startswith("poffer:"))
+        self.assertIsNone(P.digest_for_member(m, "99", 0)[0])
+        ch = P.digest_for_channel(m)
+        self.assertIn("TS+AP", ch); self.assertIn("start=offers", ch); self.assertIn("Warangal/Hanamkonda", ch)
+        self.assertIn("StudentUp —", P.whatsapp_post(m))

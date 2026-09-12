@@ -284,3 +284,25 @@ def weekly_partner_call(members, top=6):
     lines += ["", "మీ ad రోజూ students DM లో · students points తో మీ offer claim · weekly report",
               f"→ bot లో /partner apply  (students: shop వాళ్ళకి చెప్పండి → /scout → +{SCOUT_CONVERT_PTS} pts partner అయితే)"]
     return "\n".join(lines)
+
+
+def partner_kit():
+    """/social kit — the message you forward to any business owner: how to join, what to send, pricing slots."""
+    bot = config.BOT_USERNAME or "StudentUpBot"
+    return "\n".join([
+        "🤝 StudentUp Partner Kit — 3 steps",
+        "",
+        "1️⃣ Telegram లో bot open: t.me/%s → /partner apply <shop పేరు> | <జిల్లా> | <type> | <phone>" % bot,
+        "2️⃣ మాకు పంపండి (WhatsApp/Telegram): shop photo/poster 1, offer line (ఉదా: 'Students కి 20% off'),",
+        "   points value (ఉదా: 100 pts), validity, mandal/area, counter person Telegram id",
+        "3️⃣ మేము live చేస్తాం → మీకు /mystats + ప్రతి సోమవారం report",
+        "",
+        "📦 Packages:",
+        "• 📍 District — ఆ జిల్లా students DM + channels (రోజూ 3 slots లో)",
+        "• 🏠 Mandal — మీ mandal students కి top position (local shops కి best)",
+        "• 🏛 State (TS లేదా AP) — రాష్ట్రం మొత్తం (chains, malls, online coaching)",
+        "• 🌐 TS+AP — రెండు రాష్ట్రాలు",
+        "• ⚡ Flash (2–4 గంటలు) · 📝 Exam-day · 🎉 Grand Opening (వారం 2× ads)",
+        "",
+        "Students points తో claim → మీ counter లో /pverify CODE → footfall guaranteed, ad మాత్రమే కాదు.",
+    ])

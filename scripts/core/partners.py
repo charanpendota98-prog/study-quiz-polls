@@ -75,13 +75,16 @@ def _code(prefix, existing):
 
 
 # ================================================================= partners
-def add_partner(name, district, category, contact="", merchant_uid="", address="", note=""):
+SCOPES = ("ALL", "TS", "AP")   # partner["district"] may be a district name, a state code, or ALL
+
+
+def add_partner(name, district, category, contact="", merchant_uid="", address="", note="", mandal=""):
     d = _load()
     d["counter"] += 1
     pid = f"P{d['counter']:03d}"
     d["partners"][pid] = {"id": pid, "name": name.strip()[:40], "district": district, "category": category if category in CATEGORIES else "other",
                           "contact": contact, "merchant_uids": [str(merchant_uid)] if merchant_uid else [], "address": address,
-                          "note": note, "active": True, "created": _now().isoformat(), "impressions": 0, "dm_impressions": 0}
+                          "note": note, "active": True, "mandal": mandal.strip()[:40], "photo": "", "created": _now().isoformat(), "impressions": 0, "dm_impressions": 0}
     _save(d)
     return pid
 
@@ -102,6 +105,40 @@ def _is_opening(p, now=None):
         return bool(p.get("opening_until")) and datetime.fromisoformat(p["opening_until"]) >= (now or _now())
     except Exception:
         return False
+
+
+def set_photo(pid, file_id):
+    d = _load()
+    p = d["partners"].get(pid)
+    if not p:
+        return False
+    p["photo"] = file_id; _save(d)
+    return True
+
+
+def _in_scope(p, member):
+    """Partner scope vs member: mandal ⊂ district ⊂ state ⊂ ALL."""
+    scope = p.get("district", "")
+    if scope == "ALL":
+        return True
+    if scope in ("TS", "AP"):
+        return (member.get("state_code") or "").upper() == scope
+    return scope == member.get("district", "")
+
+
+def _mandal_match(p, member):
+    pm = (p.get("mandal") or "").strip().lower()
+    return bool(pm) and pm == (member.get("mandal") or "").strip().lower()
+
+
+def scope_label(p):
+    from . import districts as D
+    sc = p.get("district", "")
+    if sc == "ALL":
+        return "🌐 TS + AP"
+    if sc in ("TS", "AP"):
+        return f"🏛 {D.STATES[sc][0]} (state-wide)"
+    return f"📍 {sc} ({D.telugu_name(sc)})" + (f" · {p['mandal']} mandal" if p.get("mandal") else "")
 
 
 def set_merchant(pid, uid):
@@ -236,13 +273,15 @@ def offers_for(members, uid, now=None, category=""):
     m = members.members.get(str(uid)) or {}
     dist = m.get("district", "")
     out = []
+    if not m.get("registered"):
+        return out
     for o in d["offers"].values():
         if not o.get("active"):
             continue
         p = d["partners"].get(o["partner"])
         if not p or not p.get("active"):
             continue
-        if p["district"] not in (dist, "ALL"):
+        if not _in_scope(p, m):
             continue
         if category and p.get("category") != category:
             continue
@@ -258,7 +297,7 @@ def offers_for(members, uid, now=None, category=""):
             continue
         ok, why = _exam_ok(o, m, now)
         out.append((o, p, ok, why))
-    out.sort(key=lambda x: (not x[2], x[0].get("kind") != "flash", x[0]["pts"]))
+    out.sort(key=lambda x: (not x[2], not _mandal_match(x[1], m), x[0].get("kind") != "flash", x[0]["pts"]))
     return out
 
 
@@ -281,13 +320,15 @@ def render_offers(members, uid, rewards_balance, category=""):
     dist = m.get("district", "")
     if not rows:
         return (f"🏪 {dist or 'మీ జిల్లా'} లో partner offers ఇంకా లేవు.\n"
+                "మీ mandal set చేయండి → /mandal <పేరు> (local offers ముందు వస్తాయి)\n"
                 "మీకు తెలిసిన shop / coaching / restaurant వాళ్ళకి చెప్పండి → bot లో /partner apply\n"
                 "(వాళ్ళ ad మా channels లో + మీకు discount)")
     lines = [f"🏪 {dist} — Partner offers · మీ balance {rewards_balance} pts", ""]
     for o, p, ok, why in rows[:12]:
         cat = CATEGORIES.get(p["category"], "🏪").split()[0]
         lock = "✅" if ok and o["pts"] <= rewards_balance else "🔒"
-        lines.append(f"{lock} {cat} {p['name']} — {o['title_te']} · {o['pts']} pts{_flash_tag(o)}" + (f"\n     ⏳ {why}" if why else ""))
+        near = " 🏠 మీ mandal" if _mandal_match(p, m) else (" 🏛 state offer" if p["district"] in SCOPES else "")
+        lines.append(f"{lock} {cat} {p['name']} — {o['title_te']} · {o['pts']} pts{_flash_tag(o)}{near}" + (f"\n     ⏳ {why}" if why else ""))
     lines += ["", "Tap చేయడానికి buttons 👇 · filter: /offers food · coaching · shop · salon",
               "Exam-day offers: exam రాశాక /examdone → unlock"]
     return "\n".join(lines)
@@ -428,7 +469,7 @@ def ad_card(p, o, cfg=None):
     from . import districts as D
     head = f"{cfg['emoji']} " if cfg else ""
     cat = CATEGORIES.get(p["category"], "🏪")
-    lines = [f"{head}🤝 StudentUp Partner — {p['district']} ({D.telugu_name(p['district'])})"]
+    lines = [f"{head}🤝 StudentUp Partner — {scope_label(p)}"]
     if _is_opening(p):
         lines.append(f"🎉 NEW OPENING in {p['district']}! Students కి launch offer 👇")
     lines += [f"{cat}: {p['name']}", "",
@@ -444,7 +485,8 @@ def ad_card(p, o, cfg=None):
         lines.append(f"📞 {p['contact']}")
     if o.get("cta"):
         lines.append(f"ℹ️ {o['cta']}")
-    lines += ["", "మీ business కి కూడా students కావాలా? → bot లో /partner apply"]
+    lines += ["", f"🤖 Claim చేయాలంటే: bot open → t.me/{config.BOT_USERNAME or 'StudentUpBot'}?start=offers → 1 నిమిషం register (+25 pts) → /offers",
+              "మీ business కి కూడా students కావాలా? → bot లో /partner apply"]
     return "\n".join(lines)
 
 
@@ -462,19 +504,17 @@ def next_ad(now=None):
                 continue
         except Exception:
             pass
-        # flash first; then openings get shown as if they were shown half as recently (≈2× frequency)
-        ls = o.get("last_shown", "")
-        if _is_opening(p, now) and ls:
-            try:
-                ls = (datetime.fromisoformat(ls) - (now - datetime.fromisoformat(ls))).isoformat()
-            except Exception:
-                pass
-        cands.append(((o.get("kind") != "flash", ls), o, p))
+        # flash first; then least-shown first, with openings counting every show as half (≈2× frequency)
+        shows = o.get("shows", 0)
+        if _is_opening(p, now):
+            shows = shows / 2
+        cands.append(((o.get("kind") != "flash", shows, o.get("last_shown", "")), o, p))
     if not cands:
         return None, None
     cands.sort(key=lambda x: x[0])
     _, o, p = cands[0]
     o["last_shown"] = now.isoformat()
+    o["shows"] = o.get("shows", 0) + 1
     p["impressions"] = p.get("impressions", 0) + 1
     d["ads"]["log"].append({"ts": now.isoformat(), "offer": o["id"], "partner": p["id"]})
     d["ads"]["log"] = d["ads"]["log"][-1000:]
@@ -482,13 +522,79 @@ def next_ad(now=None):
     return o, p
 
 
-def district_targets(members, district, limit=500):
-    """Members of that district who have not opted out of partner DMs."""
+def district_targets(members, district, limit=5000, partner=None):
+    """Members in the partner's scope (mandal/district/state/ALL) who accept partner DMs."""
+    p = partner or {"district": district}
     out = []
     for uid, m in members.members.items():
-        if m.get("registered") and not m.get("dm_blocked") and not m.get("no_ads") and m.get("district") == district:
+        if m.get("registered") and not m.get("dm_blocked") and not m.get("no_ads") and _in_scope(p, m):
             out.append(uid)
     return out[:limit]
+
+
+# ================================================================ digest slots
+def digest_for_member(members, uid, rewards_balance, now=None, limit=5):
+    """One ad slot = ONE message with all offers relevant to this member (mandal → district → state),
+    flash + exam-day first. Returns (text, buttons) or (None, None) if nothing to show."""
+    rows = offers_for(members, uid, now)
+    if not rows:
+        return None, None
+    m = members.members.get(str(uid)) or {}
+    from . import districts as D
+    now = now or _now()
+    lines = [f"🛍 ఈరోజు offers — {m.get('district', '')} ({D.telugu_name(m.get('district', ''))}) · {now.strftime('%d %b')}",
+             f"⭐ మీ balance: {rewards_balance} pts", ""]
+    btns = []
+    for o, p, ok, why in rows[:limit]:
+        cat = CATEGORIES.get(p["category"], "🏪").split()[0]
+        tag = "⚡" if o.get("kind") == "flash" else ("📝" if o.get("kind") == "examday" else ("🏠" if _mandal_match(p, m) else ("🏛" if p["district"] in SCOPES else "")))
+        can = ok and o["pts"] <= rewards_balance
+        lines.append(f"{'✅' if can else '🔒'} {tag}{cat} {p['name']} — {o['title_te']} · {o['pts']} pts{_flash_tag(o, now)}" + (f"\n     ⏳ {why}" if why else ""))
+        btns.append([(f"{'✅' if can else '🔒'} {p['name'][:14]} · {o['pts']} pts", f"poffer:{o['id']}" if can else f"plocked:{o['pts'] if not ok else 0}")])
+    more = len(rows) - limit
+    lines += ["", ("… ఇంకా %d offers → /offers" % more) if more > 0 else "అన్నీ: /offers · filter: /offers food", "🔕 ఈ DMs వద్దా? /noads"]
+    return "\n".join(lines), btns
+
+
+def digest_for_channel(members, now=None, limit=10):
+    """Hub-channel version: state-wide + top districts' offers in one card, with the register CTA."""
+    now = now or _now()
+    d = _load()
+    rows = []
+    for o in d["offers"].values():
+        p = d["partners"].get(o["partner"])
+        if not (o.get("active") and p and p.get("active")):
+            continue
+        try:
+            if datetime.fromisoformat(o["expires"]) < now:
+                continue
+        except Exception:
+            pass
+        if o.get("total") and o["used"] >= o["total"]:
+            continue
+        rank = (0 if o.get("kind") == "flash" else 1, 0 if p["district"] == "ALL" else 1 if p["district"] in SCOPES else 2, -(o.get("redemptions", 0)))
+        rows.append((rank, o, p))
+    if not rows:
+        return None
+    rows.sort(key=lambda x: x[0])
+    lines = [f"🛍 STUDENT OFFERS TODAY · {now.strftime('%d %b')} — points తో claim చేయండి", ""]
+    for _, o, p in rows[:limit]:
+        cat = CATEGORIES.get(p["category"], "🏪").split()[0]
+        where = "TS+AP" if p["district"] == "ALL" else p["district"] + (f"/{p['mandal']}" if p.get("mandal") else "")
+        lines.append(f"{'⚡ ' if o.get('kind') == 'flash' else ''}{cat} {p['name']} ({where}) — {o['title_te']} · {o['pts']} pts")
+    lines += ["", f"🤖 Bot open → t.me/{config.BOT_USERNAME or 'StudentUpBot'}?start=offers",
+              "1️⃣ 1 నిమిషం register → +25 pts bonus  2️⃣ /quiz ఆడి points  3️⃣ /offers → మీ జిల్లా / mandal offers claim",
+              "📝 Exam రాశారా? /examdone → +25 + exam-day offers", "",
+              "🏪 మీ shop/coaching/restaurant ad ఇక్కడ కావాలా? bot లో /partner apply"]
+    return "\n".join(lines)
+
+
+def whatsapp_post(members, now=None):
+    """Plain-text version (no buttons) for WhatsApp groups / status."""
+    t = digest_for_channel(members, now, limit=6)
+    if not t:
+        return None
+    return t.replace("🛍 STUDENT OFFERS TODAY", "🎓 StudentUp — STUDENT OFFERS TODAY")
 
 
 def mark_dm_impressions(pid, n):
