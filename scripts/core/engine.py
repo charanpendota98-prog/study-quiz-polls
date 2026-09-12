@@ -165,7 +165,13 @@ class Engine:
                 # 🏆 Top-10 with name + district (registered members only)
                 mem = self._members.reload()
                 bonuses = mem.settle_round(round_id, ch)
-                top = mem.render_round_top(round_id, ch, round_label or "", config.CHANNELS[ch])
+                try:
+                    from . import roundshow
+                    top = roundshow.render(mem, round_id, ch, len(qs), round_label or "", config.CHANNELS[ch])
+                except Exception as e:
+                    print(f"   [roundshow] {e}"); top = ""
+                if not top:
+                    top = mem.render_round_top(round_id, ch, round_label or "", config.CHANNELS[ch])
                 if top:
                     try:
                         from . import examboard
@@ -761,6 +767,11 @@ class Engine:
             card = mem.personal_round_card(uid, round_id, ch, label)
             if not card:
                 continue
+            try:
+                from . import roundshow
+                card += roundshow.my_line(mem, uid, round_id, ch, len(self._last_round.get("by_channel", {}).get(ch, [])) or 10)
+            except Exception:
+                pass
             try:
                 self.tg.send_message(uid, card)
                 sent += 1

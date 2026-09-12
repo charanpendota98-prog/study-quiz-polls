@@ -105,3 +105,48 @@ class TestWar(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestWarRanksSquads(TestWar):
+    def test_compose_mix_all_exams(self): pass
+    def test_lobby_lock(self): pass
+
+    def test_streaks_squads_tiers(self):
+        from core import hooks
+        m, tg = _Members(), _TG()
+        hp = hooks.SQUADS_PATH; hooks.SQUADS_PATH = self.tmp / "sq.json"
+        try:
+            hooks.squad_create(m, "1", "Warangal Gang"); hooks.squad_join(m, "2", hooks._sq()["by_uid"]["1"])
+            hooks.squad_create(m, "4", "Guntur Boys"); hooks.squad_join(m, "5", hooks._sq()["by_uid"]["4"])
+            W.open_lobby()
+            for u in "12345":
+                W.lobby_join(m, u)
+            ok, info = W.start_war(Bank(), m, tg)
+            self.assertTrue(ok, info)
+            d = W._load()
+            self.assertEqual(d["live"]["fighters"]["1"]["squad"]["name"], "Warangal Gang")
+            self.assertEqual(d["live"]["fighters"]["1"]["tier"], "🪖 Recruit")
+            n_q = len(d["live"]["questions"])
+            for qi in range(n_q):
+                d = W._load()
+                for u in "12345":
+                    pid = self._pid(d, u)
+                    ans = d["live"]["questions"][qi]["answer_index"]
+                    W.record_answer(pid, u, ans if u in "12" or (u == "4" and qi % 2 == 0) else (ans + 1) % 4)
+                d = W._load()
+                d["live"]["state"] = "gap"; d["live"]["q_open"] = W._now().isoformat(); W._save(d)
+                W.tick(tg, m, W._now() + timedelta(seconds=1))
+            d = W._load()
+            f1 = d["live"]["fighters"]["1"]
+            self.assertEqual(f1["best_streak"], n_q); self.assertIn("☄️ 8-streak", f1["streak_bonus"])
+            self.assertGreater(f1["pts"], n_q * 10 + 35)                       # streak bonuses landed
+            self.assertEqual(d["live"]["squad_rows"][0]["name"], "Warangal Gang")
+            self.assertGreaterEqual(d["war_points"]["1"], 150)
+            self.assertNotEqual(W.war_tier(d, "1"), "🪖 Recruit"); self.assertTrue(d["live"]["tier_ups"])
+            post = d["_channel_post"]
+            for s_ in ("SQUAD BATTLE", "Warangal Gang", "RANK UP", "Streaks"):
+                self.assertIn(s_, post)
+            self.assertIn("War Rank", W.war_rank_text("1")); self.assertIn("WAR RANKS", W.war_leaderboard(m))
+            self.assertIn("overall #1/", [t for c, t in tg.msgs if c == "1"][-1])
+        finally:
+            hooks.SQUADS_PATH = hp

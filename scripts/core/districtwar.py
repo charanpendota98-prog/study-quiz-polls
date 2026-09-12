@@ -41,7 +41,7 @@ MIX = (("gk", 3), ("reasoning", 3), ("quant", 2), ("english", 1), ("ca", 1))
 Q_WINDOW = {"easy": 45, "medium": 60, "hard": 75}
 GAP_SEC = 5
 PTS_CORRECT, PTS_SPEED_MAX, PTS_WRONG = 10, 5, 0        # no negative in wars — everyone should play
-WIN_BONUS, MVP_BONUS = 10, 25
+WIN_BONUS, MVP_BONUS, SQUAD_WIN_BONUS = 10, 25, 15
 DEFENDER_STREAK = 5
 
 
@@ -140,6 +140,56 @@ def compose(bank, n=WAR_Q):
 
 
 # --------------------------------------------------------------- lifecycle
+# ------------------------------------------------------------- squads & ranks
+WAR_TIERS = [(0, "🪖 Recruit"), (150, "⚔️ Fighter"), (400, "🛡 Warrior"), (800, "🔥 Veteran"),
+             (1500, "👑 Warlord"), (3000, "🐉 Legend")]
+KILL_STREAK = {3: (5, "🔥 3-streak"), 5: (10, "💥 5-streak"), 8: (20, "☄️ 8-streak"), 10: (40, "🐉 FLAWLESS")}
+
+
+def _squad_of(uid):
+    try:
+        from .hooks import _sq
+        data = _sq()
+        code = data["by_uid"].get(str(uid))
+        if code and code in data["squads"]:
+            return {"code": code, "name": data["squads"][code]["name"][:16]}
+    except Exception:
+        pass
+    return None
+
+
+def war_tier(d, uid):
+    """Lifetime war points → PUBG-like rank title."""
+    wp = d.setdefault("war_points", {}).get(str(uid), 0)
+    title = WAR_TIERS[0][1]
+    for th, t in WAR_TIERS:
+        if wp >= th:
+            title = t
+    return title
+
+
+def tier_progress(d, uid):
+    wp = d.get("war_points", {}).get(str(uid), 0)
+    nxt = next(((th, t) for th, t in WAR_TIERS if th > wp), None)
+    return wp, nxt
+
+
+def squad_table(live):
+    """Squads with ≥2 fighters who answered; score = sum of pts (squads are same-size-capped at 5)."""
+    agg = {}
+    for uid, f in live["fighters"].items():
+        sq = f.get("squad")
+        if not sq or f["answered"] == 0:
+            continue
+        a = agg.setdefault(sq["code"], {"name": sq["name"], "district": f["district"], "pts": 0, "n": 0, "correct": 0, "top": ("", -1)})
+        a["pts"] += f["pts"]; a["n"] += 1; a["correct"] += f["correct"]
+        if f["pts"] > a["top"][1]:
+            a["top"] = (uid, f["pts"])
+    rows = [{"code": c, **a} for c, a in agg.items() if a["n"] >= 2]
+    rows.sort(key=lambda r: (-r["pts"], -r["correct"]))
+    return rows
+
+
 def start_war(bank, members, tg, now=None):
     """Create today's live war and send Q1 immediately. Returns (ok, info)."""
     now = now or _now()
@@ -158,7 +208,8 @@ def start_war(bank, members, tg, now=None):
         for uid, v in lb.get("joined", {}).items():
             m = members.members.get(str(uid)) or {}
             if m.get("registered") and m.get("district") and not m.get("dm_blocked"):
-                fighters[str(uid)] = {"district": m["district"], "pts": 0, "correct": 0, "answered": 0}
+                fighters[str(uid)] = {"district": m["district"], "pts": 0, "correct": 0, "answered": 0,
+                                      "squad": _squad_of(uid), "streak": 0, "best_streak": 0, "tier": war_tier(d, uid)}
     if len(fighters) < 2:
         d["lobby"] = {**lb, "open": False}
         _save(d)
@@ -230,8 +281,15 @@ def record_answer(poll_id, uid, chosen):
         if int(chosen) == q["answer_index"]:
             pts = PTS_CORRECT + int(round(PTS_SPEED_MAX * max(0, 1 - elapsed / max(q["window"], 1))))
             f["correct"] += 1
+            f["streak"] = f.get("streak", 0) + 1
+            f["best_streak"] = max(f.get("best_streak", 0), f["streak"])
+            ks = KILL_STREAK.get(f["streak"])
+            if ks:
+                pts += ks[0]
+                f.setdefault("streak_bonus", []).append(ks[1])
         else:
             pts = PTS_WRONG
+            f["streak"] = 0
         f["pts"] += pts; f["answered"] += 1
         ans[str(uid)] = pts
         _save(d)
@@ -287,6 +345,9 @@ def _broadcast_board(tg, members, live, qi):
         lines.append(f"{medals[i]} {r['district'][:12]:<12} {bar} {r['score']:g}")
     if len(rows) >= 2 and rows[0]["score"] - rows[1]["score"] <= 15:
         lines.append(f"⚡ {rows[0]['district']} vs {rows[1]['district']} — neck and neck!")
+    sq = squad_table(live)[:3]
+    if sq:
+        lines.append("👥 Squads: " + " · ".join(f"{r['name']} {r['pts']}" for r in sq))
     # personal line per fighter
     for uid, f in live["fighters"].items():
         if f.get("blocked") or f["answered"] == 0:
@@ -294,7 +355,7 @@ def _broadcast_board(tg, members, live, qi):
         my = next((i for i, r in enumerate(rows, 1) if r["district"] == f["district"]), None)
         dist_rank = sorted((x["pts"] for x in live["fighters"].values() if x["district"] == f["district"]), reverse=True)
         my_in_d = dist_rank.index(f["pts"]) + 1 if f["pts"] in dist_rank else None
-        me = f"\n🫵 మీరు {f['pts']} pts · {f['district']} #{my} · జిల్లాలో మీరు #{my_in_d}"
+        me = f"\n🫵 మీరు {f['pts']} pts · {f['district']} #{my} · జిల్లాలో మీరు #{my_in_d}" + (f" · 🔥{f['streak']} streak" if f.get("streak", 0) >= 2 else "")
         try:
             tg.send_message(uid, "\n".join(lines) + me + f"\n⏭ Q{qi + 2} వస్తోంది…")
         except Exception:
@@ -349,7 +410,30 @@ def _finish(tg, members, d, now):
             if d["streaks"][uid] >= DEFENDER_STREAK and "defender" not in m.setdefault("badges", []):
                 m["badges"].append("defender")
         members.kv.save()
-    season["wars"][live["day"]] = {"rows": rows[:15], "mvp": mvp, "fighters": sum(1 for f in live["fighters"].values() if f["answered"])}
+    # lifetime war points → rank tiers (PUBG-style), squads table
+    wp = d.setdefault("war_points", {})
+    tier_ups = []
+    for uid, f in live["fighters"].items():
+        if f["answered"] == 0:
+            continue
+        before = war_tier(d, uid)
+        wp[uid] = wp.get(uid, 0) + f["pts"] + (WIN_BONUS if rows and f["district"] == rows[0]["district"] else 0)
+        after = war_tier(d, uid)
+        f["tier"] = after
+        if after != before:
+            tier_ups.append((uid, after))
+    live["tier_ups"] = tier_ups
+    sq_rows = squad_table(live)
+    live["squad_rows"] = sq_rows[:10]
+    if sq_rows:
+        ws = season.setdefault("squad_wins", {})
+        ws[sq_rows[0]["code"]] = ws.get(sq_rows[0]["code"], 0) + 1
+        for uid, f in live["fighters"].items():
+            if f.get("squad") and f["squad"]["code"] == sq_rows[0]["code"] and f["answered"]:
+                m = members._get(uid); m["points"] = m.get("points", 0) + SQUAD_WIN_BONUS
+        members.kv.save()
+    season["wars"][live["day"]] = {"rows": rows[:15], "mvp": mvp, "fighters": sum(1 for f in live["fighters"].values() if f["answered"]),
+                                   "squads": sq_rows[:5]}
     d["live"] = live
     d["polls"] = {}
     _save(d)
@@ -359,7 +443,12 @@ def _finish(tg, members, d, now):
         if f["answered"] == 0 or f.get("blocked"):
             continue
         my = next((i for i, r in enumerate(rows, 1) if r["district"] == f["district"]), None)
-        me = f"\n\n🫵 మీరు: {f['pts']} pts · {f['correct']}/{len(live['questions'])} ✅ · మీ జిల్లా #{my}"
+        allf = sorted((x["pts"] for x in live["fighters"].values() if x["answered"]), reverse=True)
+        my_rank = allf.index(f["pts"]) + 1
+        wpts, nxt = tier_progress(d, uid)
+        me = (f"\n\n🫵 మీరు: {f['pts']} pts · {f['correct']}/{len(live['questions'])} ✅ · overall #{my_rank}/{len(allf)} · మీ జిల్లా #{my}"
+              f"\n🎖 Rank: {f.get('tier', '')} · war points {wpts}" + (f" · next {nxt[1]} at {nxt[0]}" if nxt else " · MAX")
+              + (f"\n🔥 Best streak {f.get('best_streak', 0)} " + " ".join(f.get("streak_bonus", [])) if f.get("best_streak", 0) >= 3 else ""))
         try:
             tg.send_message(uid, text + me)
         except Exception:
@@ -387,6 +476,22 @@ def render_result(live, rows, members, mvp, season, now):
         for j, (uid, f) in enumerate(best, 1):
             mm = members.members.get(uid) or {}
             lines.append(f"  {j}. {mm.get('name', '')[:16]} · {f['district']} — {f['pts']} pts ({f['correct']}/{n_q})")
+    sq = live.get("squad_rows") or []
+    if sq:
+        lines += ["", "👥 SQUAD BATTLE (same war, squads scored together):"]
+        for j, r in enumerate(sq[:5], 1):
+            lines.append(f"  {'🥇🥈🥉'[j-1] if j <= 3 else str(j)+'.'} {r['name']} · {r['district']} — {r['pts']} pts · {r['n']}👤 · {r['correct']}✅")
+        lines.append(f"  🎁 {sq[0]['name']} members +{SQUAD_WIN_BONUS} each · squad లేదా? bot లో /squad create")
+    ups = live.get("tier_ups") or []
+    if ups:
+        names = []
+        for uid, t in ups[:6]:
+            mm = members.members.get(uid) or {}
+            names.append(f"{mm.get('name', '')[:12]} → {t}")
+        lines += ["", "🎖 RANK UP: " + " · ".join(names)]
+    streaks = sorted(((f.get("best_streak", 0), uid) for uid, f in live["fighters"].items() if f.get("best_streak", 0) >= 5), reverse=True)[:3]
+    if streaks:
+        lines.append("🔥 Streaks: " + " · ".join(f"{(members.members.get(u) or {}).get('name', '')[:12]} {n}🔥" for n, u in streaks))
     if len(rows) >= 2 and rows[0]["score"] - rows[1]["score"] <= 15:
         lines.append(f"⚡ Rivalry: {rows[0]['district']} vs {rows[1]['district']} — {rows[0]['score'] - rows[1]['score']:g} pts తేడా!")
     if mvp:
@@ -398,6 +503,7 @@ def render_result(live, rows, members, mvp, season, now):
     if wins:
         lines += ["", "🏆 Season (this month): " + " · ".join(f"{d} {n}W" for d, n in wins)]
     lines += ["", "Formula: avg pts per fighter ×10 + fighters (max 10) ×3 — చిన్న జిల్లా కూడా గెలవగలదు",
+              "Fighter: ✅ +10 + speed ≤5 · streak 3/5/8/10 → +5/+10/+20/+40 · ranks 🪖→⚔️→🛡→🔥→👑→🐉",
               "రేపు మళ్ళీ 9 PM ⚔️ మీ జిల్లా కోసం friends ని పిలవండి → /invite"]
     return "\n".join(lines)
 
@@ -495,6 +601,28 @@ def season_table(now=None):
     for i, (dn, p) in enumerate(rows, 1):
         lines.append(f"{i}. {dn} ({D.telugu_name(dn)}) — {p} pts · {s['wins'].get(dn, 0)} wins")
     lines += ["", f"{len(s['wars'])} wars fought · నెల చివర 🏆 District Champion"]
+    return "\n".join(lines)
+
+
+def war_rank_text(uid):
+    d = _load()
+    wp, nxt = tier_progress(d, uid)
+    t = war_tier(d, uid)
+    board = sorted(d.get("war_points", {}).items(), key=lambda kv: -kv[1])
+    pos = next((i for i, (u, _) in enumerate(board, 1) if u == str(uid)), None)
+    return (f"🎖 మీ War Rank: {t} · {wp} war points" + (f" · next {nxt[1]} at {nxt[0]} (ఇంకా {nxt[0] - wp})" if nxt else " · MAX 🐉")
+            + (f"\n🌍 All-time war board: #{pos}/{len(board)}" if pos else "\nఇంకా war ఆడలేదు — 9 PM ⚔️"))
+
+
+def war_leaderboard(members, limit=10):
+    d = _load()
+    board = sorted(d.get("war_points", {}).items(), key=lambda kv: -kv[1])[:limit]
+    if not board:
+        return "ఇంకా wars జరగలేదు."
+    lines = ["🎖 WAR RANKS — all-time top fighters", ""]
+    for i, (u, wp) in enumerate(board, 1):
+        m = members.members.get(u) or {}
+        lines.append(f"{'🥇🥈🥉'[i-1] if i <= 3 else str(i)+'.'} {m.get('name', '')[:16]} · {m.get('district', '')} — {wp} · {war_tier(d, u)}")
     return "\n".join(lines)
 
 

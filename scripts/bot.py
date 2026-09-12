@@ -31,6 +31,7 @@ Commands:
   /badges             your earned achievement badges
   /stats /profile     your points, level, rank, accuracy, streak
   /rank /leaderboard  points-based top players
+  /warrank            🎖 మీ War rank (🪖→🐉) + all-time war board
   /top tspsc          📊 exam-wise Top 10 (today) · /top tspsc week · /top tspsc districts
   /levels             points & level rules
 Group quizzes via this bot are the ones that earn points (channel auto-polls
@@ -569,6 +570,9 @@ class Bot:
             else:
                 f = self.members.set_follow(uid, chans)
                 self.tg.send_message(chat_id, f"🔔 Following rounds: {', '.join(f)}\n⤷ ఈ ఛానల్ రౌండ్లు మీకు ఇక్కడ వస్తాయి.")
+        elif low.startswith("/warrank") or low.startswith("/myrank"):
+            from core import districtwar
+            self.tg.send_message(chat_id, districtwar.war_rank_text(uid) + "\n\n" + districtwar.war_leaderboard(self.members))
         elif low.startswith("/war") or low.startswith("/districtwar"):
             from core import districtwar
             parts = low.split()

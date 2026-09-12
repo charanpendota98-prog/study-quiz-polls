@@ -378,3 +378,13 @@ Every exam channel now has its own competition next to the all-exam District War
 * Sunday 20:15 → **<EXAM> WEEKLY CHAMPIONS**: +40/+25/+15, District of the week +10 to all its members.
 * Bot: `/top tspsc` (today) · `/top tspsc week` · `/top tspsc districts`. District score = accuracy +
   2×players (capped at 15) so small districts can win.
+
+## 🏁 Round Show + ⚔️ War ranks/squads
+* **Round close post** (`core/roundshow.py`) now counts EVERY answerer: 🏆 Top 10 (level badge, ⚡ fastest),
+  🌱 Rising 5 (rank 11+, "+N ✅ to Top 10"), 📊 score-spread histogram, 🏅 specials (fastest, best newcomer,
+  comeback vs last round, perfect scores, District of the round), 🧮 points formula, unregistered count.
+  Personal DM card adds "Rank #k/N · tier · you beat X% of players".
+* **District War**: fighters carry their squad → 👥 SQUAD BATTLE table inside the same war (≥2 squad members
+  fighting), winning squad +15 each; kill-streaks 3/5/8/10 → +5/+10/+20/+40; lifetime war points →
+  ranks 🪖 Recruit → ⚔️ Fighter → 🛡 Warrior → 🔥 Veteran → 👑 Warlord → 🐉 Legend, RANK UP line in result;
+  `/warrank` = your rank + all-time war board.
