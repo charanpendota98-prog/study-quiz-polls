@@ -560,6 +560,21 @@ class Engine:
         print(f"[examboard] {period}: {n} channels")
         return n
 
+    def morning_brief(self):
+        from . import hq
+        txt = hq.morning_brief(Members(), self.bank if hasattr(self, "bank") else None)
+        if not txt:
+            print("[hq] no news"); return 0
+        n = 0
+        for aid in getattr(config, "STAFF_IDS", []) or ([str(config.ADMIN_ID)] if config.ADMIN_ID else []):
+            if self.dry:
+                n += 1; continue
+            try:
+                self.tg.send_message(aid, txt, buttons=hq.buttons()); n += 1
+            except TelegramError:
+                pass
+        return n
+
     def join_nudge(self):
         """Wed 11:00: DM members who never verified channel join (max 3 times)."""
         from . import joingate

@@ -252,6 +252,11 @@ def tick(eng, now, dry=False):
             eng.partner_ad(); ran.append("partner-ad")
         except Exception as e:
             log(f"ad error: {e}")
+    if hhmm == "08:00":
+        try:
+            eng.morning_brief(); ran.append("hq-brief")
+        except Exception as e:
+            log(f"hq error: {e}")
     if hhmm == "11:00" and now.weekday() == 2:
         try:
             eng.join_nudge(); ran.append("join-nudge")

@@ -32,6 +32,7 @@ Commands:
   /badges             your earned achievement badges
   /stats /profile     your points, level, rank, accuracy, streak
   /rank /leaderboard  points-based top players
+  /hq                 🏢 owner dashboard (staff) · /college = college clubs
   /campus             🎓 college event / college-vs-college war (organisers)
   /warrank            🎖 మీ War rank (🪖→🐉) + all-time war board
   /top tspsc          📊 exam-wise Top 10 (today) · /top tspsc week · /top tspsc districts
@@ -307,6 +308,76 @@ class Bot:
                 pass
             try:
                 self.tg.answer_callback(cq.get("id", ""), "done")
+            except TelegramError:
+                pass
+            return
+        if kind == "hq" and uid and str(uid) in self._staff_ids():
+            from core import hq, campus
+            if value == "campus":
+                self.tg.send_message(chat_id, campus.panel_text(self.members), buttons=campus.panel_buttons())
+            elif value == "partners":
+                from core import partners
+                self.tg.send_message(chat_id, partners.list_partners())
+            elif value == "colleges":
+                self.tg.send_message(chat_id, hq.club_list_text(self.members), buttons=hq.club_buttons(self.members))
+            elif value == "digest":
+                self.tg.send_message(chat_id, self._ad_now())
+            elif value == "nudge":
+                from core.engine import Engine
+                self.tg.send_message(chat_id, f"🔔 nudged {Engine(dry=self.dry).join_nudge()}")
+            elif value == "export":
+                from core import crm
+                self.tg.send_document(chat_id, "members.csv", crm.export_csv(self.members.members), caption="All members")
+            elif value == "sheet":
+                n = self.members.sync_sheet_all()
+                self.tg.send_message(chat_id, f"🧾 synced {n} rows")
+            elif value == "war":
+                from core import districtwar
+                self.tg.send_message(chat_id, districtwar.lobby_status() if hasattr(districtwar, "lobby_status") else "n/a")
+            else:
+                txt, _, _ = hq.render(self.members, self.bank)
+                self.tg.send_message(chat_id, txt, buttons=hq.buttons())
+            try:
+                self.tg.answer_callback(cq.get("id", ""), "ok")
+            except TelegramError:
+                pass
+            return
+        if kind == "club" and uid and str(uid) in self._staff_ids():
+            from core import hq, campus
+            act, _, college = value.partition(":")
+            if act == "show":
+                txt, btns = hq.club_card(self.members, college)
+                self.tg.send_message(chat_id, txt, buttons=btns)
+            elif act == "rerun":
+                c = hq.clubs(self.members).get(college, {})
+                code = campus.quick_event(college, c.get("district", ""), created_by=uid)
+                self.tg.send_message(chat_id, f"✅ {code} ready for {college}"); self.tg.send_message(chat_id, campus.poster_text(code))
+                self.tg.send_message(chat_id, campus.panel_text(self.members, code), buttons=campus.panel_buttons(code))
+            elif act == "msg":
+                if not hasattr(self, "_club_msg"):
+                    self._club_msg = {}
+                self._club_msg[str(uid)] = college
+                self.tg.send_message(chat_id, f"✍️ {college} members అందరికీ పంపే message type చేయండి (next message):")
+            elif act == "lead":
+                c = hq.clubs(self.members).get(college, {})
+                if c.get("top", ("", -1))[0]:
+                    hq.set_leader(college, c["top"][0], self.members)
+                    try:
+                        self.tg.send_message(c["top"][0], f"👑 Congratulations! మీరు {college} StudentUp Ambassador (+50 pts).\n"
+                                                          "మీ పని: friends ని /invite, college events కి help, రోజూ ఆడటం. నెలకి rewards 🎁")
+                    except TelegramError:
+                        pass
+                    self.tg.send_message(chat_id, "👑 leader set + notified")
+            elif act == "board":
+                b = hq.club_board(self.members, college)
+                for ch in getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
+                    try:
+                        self.tg.send_message(config.channel_chat_id(ch), b)
+                    except TelegramError:
+                        pass
+                self.tg.send_message(chat_id, "🏆 posted")
+            try:
+                self.tg.answer_callback(cq.get("id", ""), "ok")
             except TelegramError:
                 pass
             return
@@ -853,6 +924,35 @@ class Bot:
                     pass
                 res = staff_msg
             self.tg.send_message(chat_id, res)
+        elif low.startswith("/hq") and str(uid) in self._staff_ids():
+            from core import hq
+            txt, _, _ = hq.render(self.members, self.bank)
+            self.tg.send_message(chat_id, txt, buttons=hq.buttons())
+        elif low.startswith("/college") and str(uid) in self._staff_ids():
+            from core import hq
+            rest = text.split(maxsplit=1)[1].strip() if len(text.split()) > 1 else ""
+            if rest.lower().startswith("lead "):
+                f = [x.strip() for x in rest[5:].split("|")]
+                if len(f) == 2:
+                    hq.set_leader(f[0], f[1], self.members); self.tg.send_message(chat_id, f"👑 {f[0]} leader set")
+                else:
+                    self.tg.send_message(chat_id, "Usage: /college lead <College> | <telegram id>")
+                return
+            if rest:
+                txt, btns = hq.club_card(self.members, rest)
+                self.tg.send_message(chat_id, txt, buttons=btns)
+            else:
+                self.tg.send_message(chat_id, hq.club_list_text(self.members), buttons=hq.club_buttons(self.members))
+        elif getattr(self, "_club_msg", {}).get(str(uid)) and not low.startswith("/"):
+            from core import hq
+            college = self._club_msg.pop(str(uid))
+            n = 0
+            for mu in hq.club_members(self.members, college):
+                try:
+                    self.tg.send_message(mu, f"🏫 {college} — message from StudentUp:\n\n{text}"); n += 1
+                except TelegramError:
+                    pass
+            self.tg.send_message(chat_id, f"📢 sent to {n} members of {college}")
         elif low.startswith("/go ") and str(uid) in self._staff_ids():
             from core import campus
             f = [x.strip() for x in text[4:].split("|")]

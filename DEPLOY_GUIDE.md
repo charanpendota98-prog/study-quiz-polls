@@ -427,3 +427,12 @@ Every exam channel now has its own competition next to the all-exam District War
   🏛 College Report for the Principal (participation, average, distribution, toppers, about StudentUp).
 * **Control panel**: `/campus` (no args) or after `/go` → buttons: 🚀 START · 🔔 Ping · 📋 Poster ·
   🔄 Status · 📎 CSV · 🏛 Report · 📢 Re-post · 🏅 Certificates. No syntax to remember on campus.
+
+## 🏢 Owner HQ (`scripts/core/hq.py`)
+* `/hq` = one card: members/new/active, rounds & answers today, verified joins, referrals, colleges, partners &
+  vouchers, war state, source health, question stock per channel, top districts/colleges, **ALERTS**
+  (low stock, failing sources, stuck events, low join rate, blocks, pending vouchers, partner applications).
+  Buttons: Campus · Partners · Colleges · Offers digest now · Nudge join · Export CSV · Sheet sync · War · Refresh.
+* 08:00 morning brief DM to `STAFF_IDS` only when there is news or an alert.
+* **College clubs**: `/college` → every college that ran an event, with active-this-week and leader; tap →
+  card with 🔁 Re-run event · 📢 Message members · 👑 Top scorer → Ambassador (+50, badge, DM) · 🏆 Post club board.
