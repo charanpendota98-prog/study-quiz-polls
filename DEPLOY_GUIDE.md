@@ -296,8 +296,13 @@ fallback. Nothing is generated at post time.
 
 ## ⚔️ DISTRICT WARS (`scripts/core/districtwar.py`) — daily, everyone, every exam
 
-* Daily `WAR_TIME` (21:00): T-5/T-1 DM alerts (+hub post), then **all registered members with a
-  district** get the same 10 Q in DM at the same time (45/60/75 s, auto-close, no negative marks).
+* Daily `WAR_TIME` (21:00): T-5 alert opens the **opt-in lobby** — DM with "⚔️ I want to play"
+  and "👥 Squad మొత్తం join" buttons (+hub post). Only people who tap (or `/war join`,
+  `/war join squad` for a whole squad by its leader) are fighters; T-1 alert goes only to those
+  not yet in; at start the lobby **locks** (no entry after start; button removed after tap).
+  Fighters get the same 10 Q in DM at the same time (45/60/75 s, auto-close, no negative marks).
+  Live board with bars + personal line after Q3, Q6 and before the last Q; result shows
+  district bars, accuracy, each district's top fighter and the Top-5 fighters by name.
 * **Common syllabus across all state & central exams**: 3 GK · 3 Reasoning · 2 Aptitude ·
   1 English · 1 Current Affairs, drawn across every channel's bank via `Bank.unused()` and
   marked posted (permanent no-repeat).

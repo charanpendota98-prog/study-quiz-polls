@@ -235,6 +235,23 @@ class Bot:
         if kind == "challenge" and uid:
             self._start_challenge(uid, chat_id)
             return
+        if kind == "war" and uid:
+            from core import districtwar
+            if not self.members.is_registered(uid):
+                self.members.start_registration(uid, username="")
+                self.tg.send_message(chat_id, FIRST_TIME_ASK)
+                return
+            ok, txt = districtwar.lobby_join(self.members, uid, via_squad=(value == "squad"))
+            self.tg.send_message(chat_id, txt)
+            if ok:
+                try:   # button disappears: replace the alert message text
+                    mid = cq.get("message", {}).get("message_id")
+                    if mid:
+                        self.tg._call("editMessageReplyMarkup", {"chat_id": chat_id, "message_id": mid,
+                                                                  "reply_markup": {"inline_keyboard": []}})
+                except Exception:
+                    pass
+            return
         if kind == "redeem" and uid:
             from core import rewards
             ok, txt, admin = rewards.redeem(self.members, uid, value)
@@ -466,7 +483,17 @@ class Bot:
                 self.tg.send_message(chat_id, f"🔔 Following rounds: {', '.join(f)}\n⤷ ఈ ఛానల్ రౌండ్లు మీకు ఇక్కడ వస్తాయి.")
         elif low.startswith("/war") or low.startswith("/districtwar"):
             from core import districtwar
-            self.tg.send_message(chat_id, districtwar.my_war(self.members, uid))
+            parts = low.split()
+            if len(parts) > 1 and parts[1] in ("join", "play", "in"):
+                ok, txt = districtwar.lobby_join(self.members, uid, via_squad=(len(parts) > 2 and parts[2] == "squad"))
+                self.tg.send_message(chat_id, txt)
+            else:
+                st = districtwar.lobby_status()
+                extra = ""
+                if st["open"]:
+                    extra = f"\n\n🟢 Lobby OPEN — {st['n']} fighters in. Join: button లేదా /war join (squad మొత్తం: /war join squad)"
+                self.tg.send_message(chat_id, districtwar.my_war(self.members, uid) + extra,
+                                     buttons=districtwar.lobby_buttons(5) if st["open"] else None)
         elif low.startswith("/battle") or low.startswith("/room") or low.startswith("/arena"):
             from core import arena
             parts = text.split()

@@ -54,8 +54,24 @@ class TestWar(unittest.TestCase):
         chans = {q.get("channel") for q in qs}
         self.assertGreaterEqual(len(chans), 3)          # drawn across exams, not one syllabus
 
+    def test_lobby_lock(self):
+        m, tg = _Members(), _TG()
+        self.assertFalse(W.lobby_join(m, "1")[0])                 # lobby not open
+        W.open_lobby()
+        ok, txt = W.lobby_join(m, "1"); self.assertTrue(ok); self.assertIn("fighter #1", txt)
+        self.assertFalse(W.lobby_join(m, "99")[0])                # unregistered
+        self.assertEqual(W.start_war(Bank(), m, tg)[0], False)    # only 1 opted in
+        W.open_lobby(); W.lobby_join(m, "1"); W.lobby_join(m, "4")
+        ok, info = W.start_war(Bank(), m, tg)
+        self.assertTrue(ok); self.assertEqual(info["fighters"], 2)
+        self.assertFalse(W.lobby_join(m, "5")[0])                 # 🔒 locked after start
+        self.assertEqual(len(tg.polls), 2)                        # only opted-in got polls
+
     def test_full_war(self):
         m, tg = _Members(), _TG()
+        W.open_lobby()
+        for u in m.members:
+            W.lobby_join(m, u)
         ok, info = W.start_war(Bank(), m, tg)
         self.assertTrue(ok, info); self.assertEqual(info["fighters"], 10)
         self.assertEqual(len(tg.polls), 10)
@@ -83,6 +99,8 @@ class TestWar(unittest.TestCase):
         self.assertIn("season table", W.season_table())
         self.assertIn("Warangal", W.my_war(m, "1"))
         self.assertIn("5 నిమిషాల్లో", W.alert_text(5))
+        self.assertTrue(any("LIVE after Q3" in t for _, t in tg.msgs))
+        self.assertTrue(any("Top fighters" in t for _, t in tg.msgs))
 
 
 if __name__ == "__main__":

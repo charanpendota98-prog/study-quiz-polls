@@ -152,12 +152,18 @@ def start_war(bank, members, tg, now=None):
     qs = compose(bank)
     if len(qs) < 8:
         return False, f"not enough questions ({len(qs)})"
+    lb = d.get("lobby") or {}
     fighters = {}
-    for uid, m in members.members.items():
-        if m.get("registered") and m.get("district") and not m.get("dm_blocked"):
-            fighters[str(uid)] = {"district": m["district"], "pts": 0, "correct": 0, "answered": 0}
-    if not fighters:
-        return False, "no registered fighters"
+    if lb.get("day") == day:
+        for uid, v in lb.get("joined", {}).items():
+            m = members.members.get(str(uid)) or {}
+            if m.get("registered") and m.get("district") and not m.get("dm_blocked"):
+                fighters[str(uid)] = {"district": m["district"], "pts": 0, "correct": 0, "answered": 0}
+    if len(fighters) < 2:
+        d["lobby"] = {**lb, "open": False}
+        _save(d)
+        return False, f"only {len(fighters)} fighters opted in"
+    d["lobby"] = {**lb, "open": False, "locked": now.isoformat()}     # 🔒 no entry after start
     live = {"day": day, "state": "question", "qi": 0, "questions": [
         {"id": q["id"], "q_en": q.get("q_en", ""), "q_te": q.get("q_te", ""), "options_en": q.get("options_en", []),
          "options_te": q.get("options_te", []), "answer_index": int(q["answer_index"]), "window": _window(q),
@@ -250,6 +256,10 @@ def tick(tg, members, now=None):
                 live["state"] = "gap"
                 live["q_open"] = (now + timedelta(seconds=GAP_SEC)).isoformat()
                 _save(d)
+                # live board at Q3, Q6 and before the last Q (not every Q → no spam)
+                qi = live["qi"]; n_q = len(live["questions"])
+                if qi + 1 in (3, 6) or qi + 1 == n_q - 1:
+                    _broadcast_board(tg, members, live, qi)
         elif live["state"] == "gap":
             if now >= datetime.fromisoformat(live["q_open"]):
                 nxt = live["qi"] + 1
@@ -261,6 +271,34 @@ def tick(tg, members, now=None):
     except Exception as e:
         print(f"   [war] tick note: {e}")
         return False
+
+
+def _broadcast_board(tg, members, live, qi):
+    rows = district_table(live, members)
+    if not rows:
+        return
+    n_q = len(live["questions"])
+    top = rows[:5]
+    lead = top[0]
+    lines = [f"📊 LIVE after Q{qi + 1}/{n_q}", ""]
+    medals = ["🥇", "🥈", "🥉", "4.", "5."]
+    for i, r in enumerate(top):
+        bar = "█" * max(1, int(10 * r["score"] / max(lead["score"], 1)))
+        lines.append(f"{medals[i]} {r['district'][:12]:<12} {bar} {r['score']:g}")
+    if len(rows) >= 2 and rows[0]["score"] - rows[1]["score"] <= 15:
+        lines.append(f"⚡ {rows[0]['district']} vs {rows[1]['district']} — neck and neck!")
+    # personal line per fighter
+    for uid, f in live["fighters"].items():
+        if f.get("blocked") or f["answered"] == 0:
+            continue
+        my = next((i for i, r in enumerate(rows, 1) if r["district"] == f["district"]), None)
+        dist_rank = sorted((x["pts"] for x in live["fighters"].values() if x["district"] == f["district"]), reverse=True)
+        my_in_d = dist_rank.index(f["pts"]) + 1 if f["pts"] in dist_rank else None
+        me = f"\n🫵 మీరు {f['pts']} pts · {f['district']} #{my} · జిల్లాలో మీరు #{my_in_d}"
+        try:
+            tg.send_message(uid, "\n".join(lines) + me + f"\n⏭ Q{qi + 2} వస్తోంది…")
+        except Exception:
+            pass
 
 
 # ------------------------------------------------------------------ result
@@ -336,10 +374,19 @@ def render_result(live, rows, members, mvp, season, now):
     fighters = sum(1 for f in live["fighters"].values() if f["answered"])
     lines = [f"⚔️ DISTRICT WAR — {now.strftime('%d %b')} · RESULT", f"👥 {fighters} fighters · {n_q} Q · అన్ని exams common syllabus", ""]
     medals = ["🥇", "🥈", "🥉"] + [f"{i}." for i in range(4, 16)]
+    lead = rows[0]["score"] if rows else 1
     for i, r in enumerate(rows[:10]):
         top = members.members.get(r["top_uid"]) or {}
-        lines.append(f"{medals[i]} {r['district']} ({D.telugu_name(r['district'])}) — {r['score']:g} · "
-                     f"{r['n']}👥 avg {r['avg']} · ⭐ {top.get('name', '')[:14]} {r['top_pts']}")
+        bar = "█" * max(1, int(8 * r["score"] / max(lead, 1)))
+        lines.append(f"{medals[i]} {r['district']} ({D.telugu_name(r['district'])}) {bar} {r['score']:g}")
+        lines.append(f"      {r['n']}👥 · avg {r['avg']} · 🎯{r['acc']}% · ⭐ {top.get('name', '')[:14]} {r['top_pts']}")
+    # top-5 fighters overall (names + districts — the attraction)
+    best = sorted(((uid, f) for uid, f in live["fighters"].items() if f["answered"]), key=lambda kv: -kv[1]["pts"])[:5]
+    if best:
+        lines += ["", "🔥 Top fighters:"]
+        for j, (uid, f) in enumerate(best, 1):
+            mm = members.members.get(uid) or {}
+            lines.append(f"  {j}. {mm.get('name', '')[:16]} · {f['district']} — {f['pts']} pts ({f['correct']}/{n_q})")
     if len(rows) >= 2 and rows[0]["score"] - rows[1]["score"] <= 15:
         lines.append(f"⚡ Rivalry: {rows[0]['district']} vs {rows[1]['district']} — {rows[0]['score'] - rows[1]['score']:g} pts తేడా!")
     if mvp:
@@ -363,11 +410,77 @@ def pop_channel_post():
     return t
 
 
+# ------------------------------------------------------------ opt-in lobby
+def open_lobby(now=None):
+    """Called at T-5: today's lobby opens; only people who tap ⚔️ get in."""
+    now = now or _now()
+    d = _load()
+    d["lobby"] = {"day": now.strftime("%Y-%m-%d"), "open": True, "joined": {}, "opened": now.isoformat()}
+    _save(d)
+
+
+def lobby_join(members, uid, via_squad=False):
+    """Button/command → (ok, text). Squad leaders bring the whole squad."""
+    d = _load()
+    lb = d.get("lobby")
+    if not lb or not lb.get("open"):
+        return False, "⌛ War lobby ఇప్పుడు open లో లేదు — రోజూ 8:55 PM కి 'I want to play' button వస్తుంది."
+    m = members.members.get(str(uid)) or {}
+    if not m.get("registered") or not m.get("district"):
+        return False, "ముందు register అవ్వండి (జిల్లా కావాలి) — /start"
+    added = []
+    if str(uid) not in lb["joined"]:
+        lb["joined"][str(uid)] = {"district": m["district"], "t": _now().isoformat()}
+        added.append(str(uid))
+    if via_squad:
+        try:
+            from . import hooks
+            sq = hooks._sq()
+            code = sq["by_uid"].get(str(uid))
+            if code and sq["squads"][code]["leader"] == str(uid):
+                for u in sq["squads"][code]["members"]:
+                    mm = members.members.get(u) or {}
+                    if u not in lb["joined"] and mm.get("registered") and mm.get("district"):
+                        lb["joined"][u] = {"district": mm["district"], "t": _now().isoformat(), "by": str(uid)}
+                        added.append(u)
+        except Exception:
+            pass
+    _save(d)
+    n = len(lb["joined"])
+    by_d = {}
+    for v in lb["joined"].values():
+        by_d[v["district"]] = by_d.get(v["district"], 0) + 1
+    mine = by_d.get(m["district"], 0)
+    top = sorted(by_d.items(), key=lambda kv: -kv[1])[:3]
+    return True, (f"✅ మీరు ఈరోజు War లో ఉన్నారు — {m['district']} fighter #{mine}\n"
+                  f"👥 Lobby: {n} fighters · " + " · ".join(f"{k} {v}" for k, v in top) + "\n"
+                  + (f"👥 Squad తో {len(added)} మంది join అయ్యారు\n" if via_squad and len(added) > 1 else "")
+                  + "9:00 కి ప్రశ్నలు ఇక్కడే. Start అయ్యాక entry లేదు 🔒")
+
+
+def lobby_status():
+    d = _load()
+    lb = d.get("lobby") or {}
+    by_d = {}
+    for v in lb.get("joined", {}).values():
+        by_d[v["district"]] = by_d.get(v["district"], 0) + 1
+    return {"open": bool(lb.get("open")), "n": len(lb.get("joined", {})), "by_district": by_d}
+
+
+def lobby_buttons(minutes):
+    return [[("⚔️ I want to play — నేను ఆడతాను", "war:join")],
+            [("👥 Squad మొత్తం join", "war:squad")]]
+
+
 def alert_text(minutes: int) -> str:
     t = getattr(config, "WAR_TIME", "21:00")
-    return ("⚔️ DISTRICT WAR — " + (f"{minutes} నిమిషాల్లో ({t})" if minutes > 1 else "1 నిమిషంలో!") + "\n"
+    st = lobby_status()
+    top = sorted(st["by_district"].items(), key=lambda kv: -kv[1])[:4]
+    live = (f"👥 {st['n']} fighters already in · " + " · ".join(f"{k} {v}" for k, v in top)) if st["n"] else "మొదటి fighter మీరే అవ్వండి!"
+    return ("⚔️ DISTRICT WAR — " + (f"{minutes} నిమిషాల్లో ({t})" if minutes > 1 else "1 నిమిషంలో — చివరి అవకాశం!") + "\n"
             f"{WAR_Q} Q · GK · Reasoning · Aptitude · English · CA — అన్ని exams వాళ్ళకీ\n"
-            "మీ జిల్లా కోసం పోరాడండి — ప్రశ్నలు ఇక్కడే వస్తాయి. Ready 🔥")
+            f"{live}\n"
+            "👇 Button నొక్కితేనే మీకు ప్రశ్నలు వస్తాయి. Start అయ్యాక entry లేదు 🔒")
 
 
 def season_table(now=None):

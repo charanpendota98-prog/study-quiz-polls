@@ -449,12 +449,18 @@ class Engine:
     def war_alert(self, minutes):
         from . import districtwar
         mem = Members()
+        if minutes >= 5:
+            districtwar.open_lobby()          # today's opt-in lobby opens now
         txt = districtwar.alert_text(minutes)
+        btn = districtwar.lobby_buttons(minutes)
+        joined = set((districtwar._load().get("lobby") or {}).get("joined", {}).keys())
         n = 0
         for uid, m in mem.members.items():
             if m.get("registered") and m.get("district") and not m.get("dm_blocked"):
+                if minutes < 5 and str(uid) in joined:
+                    continue                  # already in — don't nag at T-1
                 try:
-                    self.tg.send_message(uid, txt); n += 1
+                    self.tg.send_message(uid, txt, buttons=btn); n += 1
                 except TelegramError:
                     mem.mark_blocked(uid)
                 if n % 25 == 0:
@@ -462,7 +468,7 @@ class Engine:
         if minutes >= 5:
             for ch in getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
                 try:
-                    self.tg.send_message(config.channel_chat_id(ch), txt + "\nRegister → bot /start (ఒక్కసారి)")
+                    self.tg.send_message(config.channel_chat_id(ch), txt + "\nJoin → bot లో /war (register ఒక్కసారి)")
                 except TelegramError:
                     pass
         print(f"[war] T-{minutes} alert → {n} fighters")
