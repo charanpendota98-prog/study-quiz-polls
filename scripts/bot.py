@@ -16,6 +16,7 @@ Commands:
   /war                ⚔️ District War — daily 9 PM, all-exams common syllabus, fight for your district
   /wallet             👛 points balance + ₹ value at StudentUp centre
   /offers             🏪 మీ జిల్లా shops / coaching / restaurants — points తో discounts
+  /join               📢 channels join + ✅ verify → +30 pts each
   /claim CODE         📸 Instagram/YouTube auto-DM code → points (/follow = how)
   /scout              🕵️ మీ జిల్లా shop/coaching ని refer చేయండి → partner అయితే +150
   /mandal <పేరు>      🏠 మీ mandal offers ముందు · /mydistrict <జిల్లా> = జిల్లా మార్చు
@@ -309,6 +310,16 @@ class Bot:
             except TelegramError:
                 pass
             return
+        if kind == "join" and uid:
+            from core import joingate
+            ok, txt = joingate.verify(self.tg, self.members, uid)
+            m = self.members.members.get(str(uid), {})
+            self.tg.send_message(chat_id, txt, buttons=None if ok else joingate.buttons(m))
+            try:
+                self.tg.answer_callback(cq.get("id", ""), "✅" if ok else "⏳")
+            except TelegramError:
+                pass
+            return
         if kind == "pexam" and uid:
             from core import partners
             ok, txt = partners.exam_checkin(self.members, uid, value)
@@ -495,8 +506,14 @@ class Bot:
                 except Exception:
                     pass
                 try:
+                    from core import joingate
+                    m = self.members.members.get(str(uid), {})
+                    self.tg.send_message(chat_id, joingate.hub_text(m), buttons=joingate.buttons(m))
+                except Exception:
+                    pass
+                try:
                     from core import social
-                    self.tg.send_message(chat_id, "🎁 Bonus points వెంటనే:\n" + social.follow_prompt())
+                    self.tg.send_message(chat_id, "🎁 ఇంకా bonus points:\n" + social.follow_prompt())
                 except Exception:
                     pass
             return
@@ -794,8 +811,18 @@ class Bot:
             self.tg.send_message(chat_id, f"✅ {code} ready. Students కి ఇది పంపండి / projector లో చూపండి:")
             self.tg.send_message(chat_id, campus.poster_text(code))
             self.tg.send_message(chat_id, f"Hall ready అయ్యాక: /campus start {code}\nJoined ఎంతమంది: /campus status {code}")
+        elif low.startswith("/join") or low.startswith("/channels"):
+            from core import joingate
+            m = self.members.members.get(str(uid), {}) if uid else {}
+            if not m.get("registered"):
+                self.tg.send_message(chat_id, "ముందు register అవ్వండి → /start"); return
+            self.tg.send_message(chat_id, joingate.hub_text(m), buttons=joingate.buttons(m))
         elif low.startswith("/myscore"):
-            from core import campus
+            from core import campus, joingate
+            m = self.members.members.get(str(uid), {}) if uid else {}
+            if m.get("registered") and not joingate.joined_all(m):
+                self.tg.send_message(chat_id, joingate.gate_text(m, "Full list"), buttons=joingate.buttons(m))
+                return
             self.tg.send_message(chat_id, campus.my_score(self.members, uid), buttons=campus.join_buttons())
         elif low.startswith("/campus"):
             from core import campus

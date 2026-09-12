@@ -87,7 +87,12 @@ def quick_event(college, district, n_q=DEFAULT_Q, level="easy", created_by=""):
 
 
 def join_buttons():
-    """Telegram + WhatsApp join buttons (URL buttons)."""
+    """Telegram + WhatsApp join buttons (URL buttons) + verify."""
+    try:
+        from . import joingate
+        return joingate.buttons({"exam": "Current Affairs GK"})
+    except Exception:
+        pass
     rows = []
     tg_link = getattr(config, "BRAND_HANDLE", "") or ""
     if tg_link:

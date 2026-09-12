@@ -42,7 +42,7 @@ CLAIM_PTS_DEFAULT = 30
 SUPERFAN_EVERY, SUPERFAN_PTS = 5, 100
 SCREENSHOT_PTS = 20
 SCOUT_PTS, SCOUT_CONVERT_PTS = 10, 150
-PLATFORMS = {"ig": "📸 Instagram", "yt": "▶️ YouTube", "fb": "📘 Facebook", "x": "🐦 X"}
+PLATFORMS = {"ig": "📸 Instagram", "yt": "▶️ YouTube", "fb": "📘 Facebook", "x": "🐦 X", "wa": "💚 WhatsApp channel"}
 INSTAGRAM = getattr(config, "INSTAGRAM_HANDLE", "") or "studentup"
 YOUTUBE = getattr(config, "YOUTUBE_HANDLE", "") or "@studentup"
 

@@ -560,6 +560,27 @@ class Engine:
         print(f"[examboard] {period}: {n} channels")
         return n
 
+    def join_nudge(self):
+        """Wed 11:00: DM members who never verified channel join (max 3 times)."""
+        from . import joingate
+        mem = Members()
+        n = 0
+        for uid in joingate.nudge_targets(mem):
+            m = mem._get(uid)
+            if not self.dry:
+                try:
+                    self.tg.send_message(uid, joingate.nudge_text(m), buttons=joingate.buttons(m))
+                except TelegramError as e:
+                    if "blocked" in str(e).lower():
+                        m["dm_blocked"] = True
+                    continue
+            m["join_nudges"] = m.get("join_nudges", 0) + 1
+            m["join_nudged"] = datetime.now(config.IST).isoformat()
+            n += 1
+        mem.kv.save()
+        print(f"[join] nudged {n}")
+        return n
+
     def campus_drip(self):
         from . import campus
         n = 0 if self.dry else campus.onboarding_drip(self.tg, Members())

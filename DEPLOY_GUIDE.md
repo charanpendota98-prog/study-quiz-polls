@@ -414,3 +414,11 @@ Every exam channel now has its own competition next to the all-exam District War
   event, mandal, referred_by now go to the Google Sheet member row, and every event's full result to the
   `rounds` tab as `CAMPUS:<district>`. Post-event drip DMs on day 1/2/4/7 (10:00) with join buttons;
   1st of month 19:00 **College League** post (colleges ranked by their students' daily-quiz activity).
+
+## 📢 Join Gate (`scripts/core/joingate.py`) — verified channel joins
+* Bot must be **admin** in each channel (it already is, to post). `/join` → buttons for the hub + the member's
+  exam channel + WhatsApp, then **✅ Verify** → `getChatMember` check → +30 pts per channel, once.
+* Shown right after registration and in campus results; `/myscore` full list is gated behind hub join.
+* Wed 11:00: nudge DM to registered members who never verified (max 3, 6 days apart).
+* WhatsApp can't be verified via API → post a weekly code in the WhatsApp channel:
+  `/social new wa | Week 37 code | 20 | 7` and paste the code there; followers `/claim` it.
