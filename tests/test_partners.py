@@ -19,7 +19,7 @@ class _Members:
     def _get(self, uid): return self.members.setdefault(str(uid), {})
 
 
-class TestPartners(unittest.TestCase):
+class _Base(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
         self._o = (P.PATH, rewards.CATALOG_PATH, rewards.LEDGER_PATH)
@@ -27,6 +27,7 @@ class TestPartners(unittest.TestCase):
     def tearDown(self):
         P.PATH, rewards.CATALOG_PATH, rewards.LEDGER_PATH = self._o; shutil.rmtree(self.tmp, ignore_errors=True)
 
+class TestPartners(_Base):
     def test_district_targeting_and_examday(self):
         m = _Members()
         pid = P.add_partner("Sri Coaching", "Warangal", "coaching", "98xxx", merchant_uid="777", address="Hanamkonda")
@@ -72,9 +73,62 @@ class TestPartners(unittest.TestCase):
             self.assertIsNone(P.on_round_played(m, "2"))
         act = P.on_round_played(m, "2")
         self.assertEqual(act["referrer"], "1"); self.assertEqual(act["bonus"], P.REF_ACTIVATED)
-        self.assertEqual(m.members["1"]["points"], 500 + P.REF_ACTIVATED)
-        self.assertIsNone(P.on_round_played(m, "2"))                     # once only
+        self.assertEqual(m.members["1"]["points"], 500 + P.REF_ACTIVATED + 3 * P.REF_MENTOR_PTS)
+        self.assertIsNone(P.on_round_played(m, "2"))                     # activation once only (mentor share continues)
         self.assertIn("Smart Referral", P.referral_explainer("1", "https://t.me/x?start=ref1"))
+
+
+class TestAdvancedPartners(_Base):
+    def test_exam_checkin_unlocks_and_flash_and_mentor(self):
+        m = _Members()
+        pid = P.add_partner("Hotel Raju", "Warangal", "food", merchant_uid="900")
+        o = P.add_offer(pid, "ఫ్రీ లంచ్", "Free lunch", 50, kind="examday", exam="TSPSC",
+                        exam_from=P._now().date().isoformat(), exam_to=P._now().date().isoformat())
+        # in window, right exam, but not checked in → locked
+        row = [r for r in P.offers_for(m, "1") if r[0]["id"] == o][0]
+        self.assertFalse(row[2]); self.assertIn("examdone", row[3])
+        prompts = P.examday_prompts(m)
+        self.assertTrue(any(u == "1" for u, _, _ in prompts))
+        ok, txt = P.exam_checkin(m, "1", "tspsc")
+        self.assertTrue(ok); self.assertIn("+25", txt)
+        self.assertEqual(m.members["1"]["points"], 500 + P.EXAM_CHECKIN_PTS)
+        ok2, _ = P.exam_checkin(m, "1", "TSPSC"); self.assertFalse(ok2)      # once/day
+        row = [r for r in P.offers_for(m, "1") if r[0]["id"] == o][0]
+        self.assertTrue(row[2])
+        self.assertFalse(any(u == "1" for u, _, _ in P.examday_prompts(m)))  # no re-prompt
+        # flash: sorts first, tagged, stock respected, ad picks it first
+        P.add_offer(pid, "కాఫీ ఫ్రీ", "Free coffee", 20, kind="discount")
+        fo = P.add_offer(pid, "50% off", "50% off", 30, flash_hours=2, total=1)
+        rows = P.offers_for(m, "1")
+        self.assertEqual(rows[0][0]["id"], fo)
+        self.assertIn("⚡", P._flash_tag(rows[0][0]))
+        ad_o, _ = P.next_ad(); self.assertEqual(ad_o["id"], fo)
+        self.assertIn("FLASH", P.ad_card(_, ad_o))
+        # merchant dashboard + weekly reports
+        self.assertIn("Hotel Raju", P.merchant_dashboard("900"))
+        self.assertIn("🔒", P.merchant_dashboard("123"))
+        self.assertEqual(len(P.weekly_merchant_reports()), 1)
+        # category filter
+        self.assertEqual(P.offers_for(m, "1", category="salon"), [])
+        self.assertEqual(len(P.offers_for(m, "1", category="food")), 3)
+
+    def test_mentor_share_and_weekly_top(self):
+        m = _Members()
+        m.members["2"]["referred_by"] = "1"; m.members["2"]["registered_at"] = P._now().isoformat()
+        base = m.members["1"]["points"]
+        for _ in range(2):
+            self.assertIsNone(P.on_round_played(m, "2"))
+        self.assertEqual(m.members["1"]["points"], base + 2 * P.REF_MENTOR_PTS)
+        act = P.on_round_played(m, "2")
+        self.assertEqual(act["bonus"], P.REF_ACTIVATED)
+        self.assertEqual(m.members["1"]["points"], base + 3 * P.REF_MENTOR_PTS + P.REF_ACTIVATED)
+        for _ in range(100):                                  # mentor cap
+            P.on_round_played(m, "2")
+        self.assertEqual(m.members["1"]["points"], base + P.REF_MENTOR_CAP + P.REF_ACTIVATED)
+        txt, win = P.weekly_top_recruiters(m)
+        self.assertEqual(win, "1"); self.assertIn("TOP RECRUITERS", txt)
+        self.assertEqual(m.members["1"]["points"], base + P.REF_MENTOR_CAP + P.REF_ACTIVATED + P.REF_WEEKLY_TOP)
+        self.assertEqual(P.weekly_top_recruiters(m), (None, None))   # counters reset
 
 
 if __name__ == "__main__":

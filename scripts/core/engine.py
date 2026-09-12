@@ -480,6 +480,52 @@ class Engine:
         from . import partners
         return partners.expire_stale()
 
+    def examday_checkins(self):
+        """Exam day (inside an exam-day offer window): DM matching students a
+        'నేను exam రాశాను' button → bonus + unlocks that district's offers."""
+        from . import partners
+        from .members import Members
+        mem = Members()
+        n = 0
+        for uid, exam, offs in partners.examday_prompts(mem):
+            if self.dry:
+                n += 1; continue
+            try:
+                self.tg.send_message(uid, partners.examday_prompt_text(exam, offs),
+                                     buttons=[[(f"✅ నేను {exam} exam రాశాను", f"pexam:{exam}")]])
+                n += 1
+            except TelegramError:
+                pass
+        print(f"[examday] prompted {n}")
+        return n
+
+    def partner_weekly(self):
+        """Monday: Top Recruiter spotlight (channels + winner DM) + merchant reports."""
+        from . import partners
+        from .members import Members
+        mem = Members()
+        txt, win = partners.weekly_top_recruiters(mem)
+        if txt and not self.dry:
+            for ch in getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
+                try:
+                    self.tg.send_message(config.channel_chat_id(ch), txt)
+                except Exception as e:
+                    print(f"   [recruiter] {ch}: {e}")
+            try:
+                self.tg.send_message(win, txt)
+            except TelegramError:
+                pass
+        sent = 0
+        for mu, rep in partners.weekly_merchant_reports():
+            if self.dry:
+                sent += 1; continue
+            try:
+                self.tg.send_message(mu, rep); sent += 1
+            except TelegramError:
+                pass
+        print(f"[partner-weekly] recruiters={'yes' if txt else 'none'} merchant reports={sent}")
+        return sent
+
     # ------------------------------------------------------------ District War
     def war_alert(self, minutes):
         from . import districtwar

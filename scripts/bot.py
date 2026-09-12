@@ -16,7 +16,9 @@ Commands:
   /war                ⚔️ District War — daily 9 PM, all-exams common syllabus, fight for your district
   /wallet             👛 points balance + ₹ value at StudentUp centre
   /offers             🏪 మీ జిల్లా shops / coaching / restaurants — points తో discounts
+  /examdone           📝 exam రాశాక tap → +25 pts + exam-day offers unlock
   /partner apply      🤝 business owners: advertise to students + accept points
+  /mystats            🏪 merchants: your vouchers + weekly numbers
   /redeem             🎁 turn points into vouchers (applications, prints, photos)
   /report             📋 your weekly report card
   /district [name]    your district toppers   /districts  TS/AP district leaderboard
@@ -286,6 +288,19 @@ class Bot:
                         self.tg.send_message(mu, mtxt)
                     except TelegramError:
                         pass
+            return
+        if kind == "pexam" and uid:
+            from core import partners
+            ok, txt = partners.exam_checkin(self.members, uid, value)
+            if ok:
+                try:
+                    mid = cq.get("message", {}).get("message_id")
+                    if mid:
+                        self.tg._call("editMessageReplyMarkup", {"chat_id": chat_id, "message_id": mid,
+                                                                  "reply_markup": {"inline_keyboard": []}})
+                except Exception:
+                    pass
+            self.tg.send_message(chat_id, txt)
             return
         if kind == "plocked":
             try:
@@ -593,8 +608,25 @@ class Bot:
                 self.tg.send_message(chat_id, FIRST_TIME_ASK)
                 return
             bal = rewards.balance(self.members, uid)["available"]
-            self.tg.send_message(chat_id, partners.render_offers(self.members, uid, bal),
-                                 buttons=partners.offer_buttons(self.members, uid, bal) or None)
+            cat = (low.split() + [""])[1]
+            cat = {"restaurant": "food", "cafe": "food", "mall": "shop", "shops": "shop", "institute": "coaching",
+                   "gym": "health", "xerox": "tech", "pg": "hostel"}.get(cat, cat)
+            cat = cat if cat in partners.CATEGORIES else ""
+            self.tg.send_message(chat_id, partners.render_offers(self.members, uid, bal, category=cat),
+                                 buttons=partners.offer_buttons(self.members, uid, bal, category=cat) or None)
+        elif low.startswith("/examdone"):
+            from core import partners
+            if not self.members.is_registered(uid):
+                self.tg.send_message(chat_id, "ముందు register అవ్వండి → /start"); return
+            parts = low.split()
+            exam = parts[1].upper() if len(parts) > 1 else (self.members.members.get(str(uid), {}).get("exam") or "").upper()
+            if not exam:
+                self.tg.send_message(chat_id, "Usage: /examdone TSPSC  (ఏ exam రాశారో)"); return
+            ok, txt = partners.exam_checkin(self.members, uid, exam)
+            self.tg.send_message(chat_id, txt)
+        elif low.startswith("/mystats"):
+            from core import partners
+            self.tg.send_message(chat_id, partners.merchant_dashboard(uid))
         elif low.startswith("/pcancel"):
             from core import partners
             parts = low.split()
@@ -658,13 +690,31 @@ class Bot:
                 self.tg.send_message(chat_id, "✅ merchant can now /pverify" if ok else "Usage: /partner merchant <PID> <telegram_user_id>")
             elif sub == "stats":
                 self.tg.send_message(chat_id, partners.partner_stats(rest.strip()))
+            elif sub == "flash":
+                from core.engine import Engine
+                f = [x.strip() for x in rest.split("|")]
+                if len(f) < 6:
+                    self.tg.send_message(chat_id, "Usage: /partner flash <PID> | <title_te> | <title_en> | <pts> | <hours> | <stock>")
+                else:
+                    oid = partners.add_offer(f[0], f[1], f[2], int(f[3]), flash_hours=int(f[4]), total=int(f[5]), per_member=1)
+                    if oid:
+                        n = Engine(dry=self.dry).partner_ad()
+                        self.tg.send_message(chat_id, f"⚡ Flash offer {oid} live for {f[4]}h, stock {f[5]} — posted now ({n} ads)")
+                    else:
+                        self.tg.send_message(chat_id, "Partner not found.")
+            elif sub == "weekly":
+                from core.engine import Engine
+                self.tg.send_message(chat_id, f"sent {Engine(dry=self.dry).partner_weekly()} merchant reports")
+            elif sub == "examday":
+                from core.engine import Engine
+                self.tg.send_message(chat_id, f"prompted {Engine(dry=self.dry).examday_checkins()} students")
             elif sub in ("on", "off"):
                 partners.toggle_partner(rest.strip(), sub == "on"); self.tg.send_message(chat_id, "done")
             elif sub == "ad":
                 eng_txt = self._ad_now()
                 self.tg.send_message(chat_id, eng_txt)
             else:
-                self.tg.send_message(chat_id, partners.list_partners() + "\n\nCommands: add · offer · merchant · stats <PID> · on/off <PID> · ad (post now)")
+                self.tg.send_message(chat_id, partners.list_partners() + "\n\nCommands: add · offer · flash · merchant · stats <PID> · on/off <PID> · ad (post now) · weekly · examday")
         elif low.startswith("/wallet") or low.startswith("/points"):
             from core import rewards
             self.tg.send_message(chat_id, rewards.render_wallet(self.members, uid))

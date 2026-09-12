@@ -48,6 +48,9 @@ CATEGORIES = {"coaching": "🎓 Coaching / Institute", "books": "📚 Books / St
               "health": "🩺 Health / Gym", "other": "🏪 Other"}
 REF_ACTIVATE_ROUNDS, REF_ACTIVATE_DAYS = 3, 7
 REF_BASE, REF_ACTIVATED, REF_MILESTONES = 20, 30, {5: 50, 10: 100, 25: 300}
+REF_MENTOR_PTS, REF_MENTOR_DAYS, REF_MENTOR_CAP = 2, 30, 60     # passive: +2/round the friend plays (30 days, max 60)
+REF_WEEKLY_TOP = 100                                          # Monday Top Recruiter prize
+EXAM_CHECKIN_PTS = 25                                         # "నేను exam రాశాను" bonus
 
 
 def _now():
@@ -95,8 +98,8 @@ def set_merchant(pid, uid):
 
 
 def add_offer(pid, title_te, title_en, pts, *, kind="discount", value="", exam="", exam_from="", exam_to="",
-              per_member=1, total=0, expires_days=60, cta=""):
-    """kind: discount | freebie | examday (needs exam + window)."""
+              per_member=1, total=0, expires_days=60, cta="", flash_hours=0):
+    """kind: discount | freebie | examday (needs exam + window) | flash (stock + hours)."""
     d = _load()
     if pid not in d["partners"]:
         return None
@@ -106,6 +109,9 @@ def add_offer(pid, title_te, title_en, pts, *, kind="discount", value="", exam="
                         "per_member": int(per_member), "total": int(total), "used": 0, "cta": cta,
                         "expires": (_now() + timedelta(days=int(expires_days))).isoformat(), "active": True,
                         "created": _now().isoformat(), "redemptions": 0}
+    if flash_hours:
+        d["offers"][oid]["kind"] = "flash"
+        d["offers"][oid]["expires"] = (_now() + timedelta(hours=int(flash_hours))).isoformat()
     _save(d)
     return oid
 
@@ -134,10 +140,78 @@ def _exam_ok(o, member, now):
             return False, "Exam window ముగిసింది"
     except Exception:
         pass
+    if o.get("exam") and not exam_checked_in(member, o["exam"], o.get("exam_from", ""), o.get("exam_to", "")):
+        return False, "exam రాశాక /examdone tap చేయండి → unlock"
     return True, ""
 
 
-def offers_for(members, uid, now=None):
+def exam_checked_in(member, exam, frm="", to=""):
+    """True if member pressed 'నేను exam రాశాను' for this exam inside the window."""
+    ci = (member.get("exam_checkins") or {}).get(exam.upper())
+    if not ci:
+        return False
+    try:
+        day = ci[:10]
+        return (not frm or day >= frm[:10]) and (not to or day <= to[:10])
+    except Exception:
+        return False
+
+
+def exam_checkin(members, uid, exam, now=None):
+    """Student taps 'నేను exam రాశాను' → unlocks that exam's exam-day offers + bonus (once per exam per day)."""
+    now = now or _now()
+    m = members._get(str(uid))
+    ci = m.setdefault("exam_checkins", {})
+    today = now.date().isoformat()
+    if (ci.get(exam.upper()) or "")[:10] == today:
+        return False, "✅ ఇప్పటికే check-in అయ్యారు — /offers చూడండి"
+    ci[exam.upper()] = now.isoformat()
+    m["points"] = m.get("points", 0) + EXAM_CHECKIN_PTS
+    m["exam_warrior"] = m.get("exam_warrior", 0) + 1
+    members.kv.save()
+    return True, (f"🏅 Exam Warrior! {exam.upper()} రాసినందుకు +{EXAM_CHECKIN_PTS} pts.\n"
+                  f"మీ జిల్లా exam-day offers ఇప్పుడు unlock → /offers 🍽🎓")
+
+
+def examday_prompts(members, now=None):
+    """For every exam-day offer whose window includes today: (uid, exam, offers[]) for
+    matching-exam members of that district who haven't checked in yet. Engine DMs them
+    with a 'నేను exam రాశాను' button — the loop that turns exam halls into footfall."""
+    now = now or _now()
+    d = _load()
+    today = now.date().isoformat()
+    live = {}
+    for o in d["offers"].values():
+        p = d["partners"].get(o["partner"])
+        if o.get("kind") != "examday" or not (o.get("active") and p and p.get("active")) or not o.get("exam"):
+            continue
+        if (o.get("exam_from") or today)[:10] <= today <= (o.get("exam_to") or today)[:10]:
+            live.setdefault((o["exam"], p["district"]), []).append((o, p))
+    out = []
+    for uid, m in members.members.items():
+        if not m.get("registered") or m.get("dm_blocked"):
+            continue
+        ex = (m.get("exam") or "").upper()
+        for (exam, dist), offs in live.items():
+            if dist not in (m.get("district"), "ALL"):
+                continue
+            if exam not in ex and ex not in exam:
+                continue
+            if exam_checked_in(m, exam, offs[0][0].get("exam_from", ""), offs[0][0].get("exam_to", "")):
+                continue
+            out.append((uid, exam, offs))
+    return out
+
+
+def examday_prompt_text(exam, offs):
+    lines = [f"📝 ఈ రోజు {exam} exam రాశారా? All the best 💪", "",
+             "రాశాక క్రింద tap చేయండి → +%d pts + మీ జిల్లా exam-day offers unlock:" % EXAM_CHECKIN_PTS]
+    for o, p in offs[:5]:
+        lines.append(f"• {CATEGORIES.get(p['category'], '🏪').split()[0]} {p['name']} — {o['title_te']} ({o['pts']} pts)")
+    return "\n".join(lines)
+
+
+def offers_for(members, uid, now=None, category=""):
     """Offers visible to this member: their district (+ 'ALL'), active, not exhausted."""
     now = now or _now()
     d = _load()
@@ -152,6 +226,8 @@ def offers_for(members, uid, now=None):
             continue
         if p["district"] not in (dist, "ALL"):
             continue
+        if category and p.get("category") != category:
+            continue
         try:
             if datetime.fromisoformat(o["expires"]) < now:
                 continue
@@ -164,13 +240,26 @@ def offers_for(members, uid, now=None):
             continue
         ok, why = _exam_ok(o, m, now)
         out.append((o, p, ok, why))
-    out.sort(key=lambda x: (not x[2], x[0]["pts"]))
+    out.sort(key=lambda x: (not x[2], x[0].get("kind") != "flash", x[0]["pts"]))
     return out
 
 
-def render_offers(members, uid, rewards_balance):
+def _flash_tag(o, now=None):
+    if o.get("kind") != "flash":
+        return ""
+    now = now or _now()
+    try:
+        left = datetime.fromisoformat(o["expires"]) - now
+        hrs = max(0, int(left.total_seconds() // 3600)); mins = max(0, int(left.total_seconds() % 3600 // 60))
+    except Exception:
+        hrs, mins = 0, 0
+    stock = f" · {o['total'] - o['used']} left" if o.get("total") else ""
+    return f" ⚡ {hrs}h{mins:02d}m{stock}"
+
+
+def render_offers(members, uid, rewards_balance, category=""):
     m = members.members.get(str(uid)) or {}
-    rows = offers_for(members, uid)
+    rows = offers_for(members, uid, category=category)
     dist = m.get("district", "")
     if not rows:
         return (f"🏪 {dist or 'మీ జిల్లా'} లో partner offers ఇంకా లేవు.\n"
@@ -180,14 +269,15 @@ def render_offers(members, uid, rewards_balance):
     for o, p, ok, why in rows[:12]:
         cat = CATEGORIES.get(p["category"], "🏪").split()[0]
         lock = "✅" if ok and o["pts"] <= rewards_balance else "🔒"
-        lines.append(f"{lock} {cat} {p['name']} — {o['title_te']} · {o['pts']} pts" + (f"\n     ⏳ {why}" if why else ""))
-    lines += ["", "Tap చేయడానికి buttons 👇 · Exam-day offers exam రాశాక unlock"]
+        lines.append(f"{lock} {cat} {p['name']} — {o['title_te']} · {o['pts']} pts{_flash_tag(o)}" + (f"\n     ⏳ {why}" if why else ""))
+    lines += ["", "Tap చేయడానికి buttons 👇 · filter: /offers food · coaching · shop · salon",
+              "Exam-day offers: exam రాశాక /examdone → unlock"]
     return "\n".join(lines)
 
 
-def offer_buttons(members, uid, rewards_balance):
+def offer_buttons(members, uid, rewards_balance, category=""):
     rows = []
-    for o, p, ok, why in offers_for(members, uid)[:8]:
+    for o, p, ok, why in offers_for(members, uid, category=category)[:8]:
         can = ok and o["pts"] <= rewards_balance
         label = f"{'✅' if can else '🔒'} {p['name'][:14]} · {o['title_te'][:18]} · {o['pts']}"
         rows.append([(label, f"poffer:{o['id']}" if can else f"plocked:{o['pts'] if not ok else 0}")])
@@ -324,6 +414,8 @@ def ad_card(p, o, cfg=None):
              f"{cat}: {p['name']}", "",
              f"🎁 {o['title_te']}", f"   {o['title_en']}",
              f"⭐ Claim with {o['pts']} points → bot లో /offers"]
+    if o.get("kind") == "flash":
+        lines.append(f"⚡ FLASH DEAL —{_flash_tag(o)} · first come first served")
     if o.get("kind") == "examday":
         lines.append(f"📅 {o['exam']} exam day special ({o.get('exam_from', '')[:10]} → {o.get('exam_to', '')[:10]}) — exam రాసి వచ్చి claim చేయండి")
     if p.get("address"):
@@ -350,7 +442,7 @@ def next_ad(now=None):
                 continue
         except Exception:
             pass
-        cands.append((o.get("last_shown", ""), o, p))
+        cands.append(((o.get("kind") != "flash", o.get("last_shown", "")), o, p))
     if not cands:
         return None, None
     cands.sort(key=lambda x: x[0])
@@ -400,6 +492,41 @@ def partner_stats(pid):
     return "\n".join(lines)
 
 
+def partners_of_merchant(uid):
+    d = _load()
+    return [p for p in d["partners"].values() if str(uid) in p.get("merchant_uids", [])]
+
+
+def merchant_dashboard(uid):
+    """/mystats for a merchant: their partners' stats + pending vouchers list."""
+    ps = partners_of_merchant(uid)
+    if not ps:
+        return "🔒 మీరు ఏ partner కి merchant కాదు. Business owner? → /partner apply"
+    d = _load()
+    out = []
+    for p in ps:
+        out.append(partner_stats(p["id"]))
+        held = [v for v in d["vouchers"].values() if v["partner"] == p["id"] and v["status"] == "held"]
+        if held:
+            out.append(f"🎟 Pending vouchers ({len(held)}) — counter లో /pverify CODE:")
+            out += [f"  {v['code']} · {v['name']} · {v['created'][:10]}" for v in held[-10:]]
+    out.append("\n📅 ప్రతి సోమవారం report automatic గా వస్తుంది.")
+    return "\n".join(out)
+
+
+def weekly_merchant_reports():
+    """(merchant_uid, text) for every active partner — Monday DM."""
+    d = _load()
+    out = []
+    for p in d["partners"].values():
+        if not p.get("active"):
+            continue
+        txt = "📊 StudentUp weekly partner report\n" + partner_stats(p["id"]) + "\n\nకొత్త offer / flash deal కావాలంటే StudentUp team కి చెప్పండి 🙏"
+        for mu in p.get("merchant_uids", []):
+            out.append((mu, txt))
+    return out
+
+
 def list_partners():
     d = _load()
     if not d["partners"]:
@@ -431,19 +558,30 @@ def on_round_played(members, uid):
     try:
         m = members.members.get(str(uid)) or {}
         ref = m.get("referred_by")
-        if not ref or m.get("_ref_activated"):
+        if not ref:
             return None
         m["_ref_rounds"] = m.get("_ref_rounds", 0) + 1
         try:
             reg = datetime.fromisoformat(m.get("registered_at") or "")
-            fresh = (_now() - reg).days <= REF_ACTIVATE_DAYS
+            age = (_now() - reg).days
         except Exception:
-            fresh = True
+            age = 0
+        fresh = age <= REF_ACTIVATE_DAYS
+        # passive mentor share: every round the friend plays in first 30 days → +2 to the referrer (cap 60)
+        if age <= REF_MENTOR_DAYS and m.get("_mentor_paid", 0) < REF_MENTOR_CAP:
+            r = members._get(ref)
+            r["points"] = r.get("points", 0) + REF_MENTOR_PTS
+            r["mentor_points"] = r.get("mentor_points", 0) + REF_MENTOR_PTS
+            m["_mentor_paid"] = m.get("_mentor_paid", 0) + REF_MENTOR_PTS
+        if m.get("_ref_activated"):
+            members.kv.save()
+            return None
         if m["_ref_rounds"] >= REF_ACTIVATE_ROUNDS and fresh:
             m["_ref_activated"] = True
             r = members._get(ref)
             r["points"] = r.get("points", 0) + REF_ACTIVATED
             r["ref_activated"] = r.get("ref_activated", 0) + 1
+            r["ref_week"] = r.get("ref_week", 0) + 1
             bonus = REF_ACTIVATED
             ms = REF_MILESTONES.get(r["ref_activated"])
             if ms:
@@ -459,13 +597,41 @@ def on_round_played(members, uid):
         return None
 
 
+def weekly_top_recruiters(members, top=5):
+    """Monday: rank by activated referrals this week, prize the winner, reset counters.
+    Returns (text or None, winner_uid or None)."""
+    from . import districts as D
+    rows = []
+    for uid, m in members.members.items():
+        if m.get("ref_week", 0) > 0:
+            rows.append((m["ref_week"], m.get("ref_activated", 0), m.get("name") or m.get("username") or "?", m.get("district", ""), uid))
+    if not rows:
+        return None, None
+    rows.sort(reverse=True)
+    win = rows[0]
+    w = members._get(win[4])
+    w["points"] = w.get("points", 0) + REF_WEEKLY_TOP
+    w["top_recruiter_wins"] = w.get("top_recruiter_wins", 0) + 1
+    for uid, m in members.members.items():
+        if m.get("ref_week"):
+            m["ref_week"] = 0
+    members.kv.save()
+    medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
+    lines = ["🏆 TOP RECRUITERS of the week", ""]
+    for i, (wk, tot, name, dist, _) in enumerate(rows[:top]):
+        lines.append(f"{medals[i]} {name} · {D.telugu_name(dist) if dist else ''} — {wk} active friends this week (total {tot})")
+    lines += ["", f"🎁 {win[2]} కి +{REF_WEEKLY_TOP} pts! మీరూ friends ని తీసుకురండి → bot లో /invite"]
+    return "\n".join(lines), win[4]
+
+
 def referral_explainer(uid, link):
     return "\n".join([
         "🎁 Smart Referral — friends ని తీసుకురండి, ఎక్కువ సంపాదించండి",
         f"• Friend register అయితే: +{REF_BASE} pts",
         f"• ఆ friend 7 రోజుల్లో 3 rounds ఆడితే: ఇంకా +{REF_ACTIVATED} (activated)",
+        f"• Mentor share: friend ఆడిన ప్రతి round కి +{REF_MENTOR_PTS} (30 రోజులు, max {REF_MENTOR_CAP}/friend)",
         f"• 5 activated → +{REF_MILESTONES[5]} · 10 → +{REF_MILESTONES[10]} · 25 → +{REF_MILESTONES[25]} 🥇 Ambassador",
-        "• నెల Top Recruiter → channel spotlight + partner offer free",
+        f"• ప్రతి సోమవారం Top Recruiter → channel spotlight + {REF_WEEKLY_TOP} pts",
         "",
         "Points తో: application discounts · study materials · మీ జిల్లా shops/coaching/restaurant offers (/offers)",
         "", f"మీ link: {link}",

@@ -242,6 +242,16 @@ def tick(eng, now, dry=False):
             eng.partner_ad(); ran.append("partner-ad")
         except Exception as e:
             log(f"ad error: {e}")
+    if hhmm == "12:30":
+        try:
+            eng.examday_checkins(); ran.append("examday-checkin")
+        except Exception as e:
+            log(f"examday error: {e}")
+    if hhmm == "08:30" and now.weekday() == 0:
+        try:
+            eng.partner_weekly(); ran.append("partner-weekly")
+        except Exception as e:
+            log(f"partner-weekly error: {e}")
     if hhmm == "00:20":
         try:
             eng.rewards_housekeeping(); ran.append("rewards-expiry")

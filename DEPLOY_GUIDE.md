@@ -328,3 +328,13 @@ fallback. Nothing is generated at post time.
   matches ("exam రాసి వచ్చి claim"). Per-member and total caps, expiry, auto-release.
 * Smart referral: +20 on registration, **+30 when the friend plays 3 rounds within 7 days**,
   milestones 5/10/25 activated → +50/+100/+300; `/invite` explains it.
+* **Exam-day check-in loop**: 12:30 on any day inside an exam-day offer window, matching students of
+  that district get a DM with **"✅ నేను <EXAM> exam రాశాను"** → +25 pts (Exam Warrior) and only then
+  the exam-day offers unlock (`/examdone` also works). Exam hall → partner restaurant/coaching footfall.
+* **Flash deals**: `/partner flash <PID> | title_te | title_en | pts | hours | stock` → posted immediately,
+  countdown + "N left", shown first everywhere. Category filter: `/offers food|coaching|shop|salon|…`.
+* **Merchant self-service**: `/mystats` (their numbers + pending vouchers); every Monday 08:30 an
+  automatic report DM (`/partner weekly` to force).
+* **Referral v3**: +20 register · +30 activated (3 rounds/7 days) · **mentor share +2 per round the
+  friend plays for 30 days (cap 60)** · milestones 5/10/25 → +50/+100/+300 · **Monday 08:30 Top
+  Recruiters of the week** in hub channels, winner +100.
