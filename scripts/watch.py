@@ -258,6 +258,15 @@ def tick(eng, now, dry=False):
             eng.partner_housekeeping(); ran.append("partner-expiry")
         except Exception as e:
             log(f"rewards error: {e}")
+    if now.weekday() == 5 and hhmm == "11:00":
+        try:
+            from core import social as _so
+            for ch in getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
+                if not dry:
+                    eng.tg.send_message(config.channel_chat_id(ch), "📸 Follow & earn:\n" + _so.follow_prompt())
+            ran.append("social-promo")
+        except Exception as e:
+            log(f"social promo error: {e}")
     if now.weekday() in (1, 4) and hhmm == config.REWARDS_PROMO_TIME:
         try:
             eng.rewards_promo(); ran.append("rewards-promo")

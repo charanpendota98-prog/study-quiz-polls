@@ -499,6 +499,23 @@ class Engine:
         print(f"[examday] prompted {n}")
         return n
 
+    def partner_call(self):
+        """Monday hub post: 'partner with StudentUp' + biggest districts → inbound leads."""
+        from . import social
+        from .members import Members
+        txt = social.weekly_partner_call(Members())
+        if not txt:
+            return 0
+        n = 0
+        for ch in getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
+            if self.dry:
+                n += 1; continue
+            try:
+                self.tg.send_message(config.channel_chat_id(ch), txt); n += 1
+            except Exception as e:
+                print(f"   [partner-call] {ch}: {e}")
+        return n
+
     def partner_weekly(self):
         """Monday: Top Recruiter spotlight (channels + winner DM) + merchant reports."""
         from . import partners
@@ -523,6 +540,10 @@ class Engine:
                 self.tg.send_message(mu, rep); sent += 1
             except TelegramError:
                 pass
+        try:
+            self.partner_call()
+        except Exception as e:
+            print(f"   [partner-call] {e}")
         print(f"[partner-weekly] recruiters={'yes' if txt else 'none'} merchant reports={sent}")
         return sent
 

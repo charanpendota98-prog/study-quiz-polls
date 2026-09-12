@@ -16,6 +16,8 @@ Commands:
   /war                ⚔️ District War — daily 9 PM, all-exams common syllabus, fight for your district
   /wallet             👛 points balance + ₹ value at StudentUp centre
   /offers             🏪 మీ జిల్లా shops / coaching / restaurants — points తో discounts
+  /claim CODE         📸 Instagram/YouTube auto-DM code → points (/follow = how)
+  /scout              🕵️ మీ జిల్లా shop/coaching ని refer చేయండి → partner అయితే +150
   /examdone           📝 exam రాశాక tap → +25 pts + exam-day offers unlock
   /partner apply      🤝 business owners: advertise to students + accept points
   /mystats            🏪 merchants: your vouchers + weekly numbers
@@ -289,6 +291,20 @@ class Bot:
                     except TelegramError:
                         pass
             return
+        if kind == "shot" and uid and str(uid) in self._staff_ids():
+            from core import social
+            tu, plat, ok = (value.split(":") + ["ig", "0"])[:3]
+            social.review_screenshot(self.members, tu, plat, ok == "1")
+            try:
+                self.tg.send_message(tu, f"✅ Follow verified → +{social.SCREENSHOT_PTS} pts! /offers చూడండి" if ok == "1"
+                                     else "❌ Screenshot లో follow కనబడలేదు — follow అయ్యి మళ్ళీ పంపండి.")
+            except TelegramError:
+                pass
+            try:
+                self.tg.answer_callback(cq.get("id", ""), "done")
+            except TelegramError:
+                pass
+            return
         if kind == "pexam" and uid:
             from core import partners
             ok, txt = partners.exam_checkin(self.members, uid, value)
@@ -435,8 +451,23 @@ class Bot:
         chat_id = str(msg["chat"]["id"])
         who = msg.get("from", {})
         uid = who.get("id")
-        text = (msg.get("text") or "").strip()
+        text = (msg.get("text") or msg.get("caption") or "").strip()
         low = text.lower()
+
+        if msg.get("photo") and uid and chat_id == str(uid):
+            from core import social
+            plat = "yt" if "you" in low or "yt" in low else "ig"
+            self.tg.send_message(chat_id, social.queue_screenshot(uid, self._name(who), msg["photo"][-1].get("file_id", ""), plat))
+            for aid in self._staff_ids():
+                try:
+                    self.tg._call("sendPhoto", {"chat_id": aid, "photo": msg["photo"][-1].get("file_id", ""),
+                                                "caption": f"📸 follow proof · {self._name(who)} ({uid}) · {plat}",
+                                                "reply_markup": {"inline_keyboard": [[
+                                                    {"text": "✅ approve", "callback_data": f"shot:{uid}:{plat}:1"},
+                                                    {"text": "❌ reject", "callback_data": f"shot:{uid}:{plat}:0"}]]}})
+                except Exception:
+                    pass
+            return
 
         # Registration guided flow takes priority
         if uid and self.members.pending_step(uid) and not low.startswith("/"):
@@ -445,6 +476,11 @@ class Bot:
                 self.tg.send_message(chat_id, reply, buttons=self._step_buttons(uid, status))
             if status == "done":
                 self.tg.admin_note = None
+                try:
+                    from core import social
+                    self.tg.send_message(chat_id, "🎁 Bonus points వెంటనే:\n" + social.follow_prompt())
+                except Exception:
+                    pass
             return
 
         if low.startswith("/start"):
@@ -614,6 +650,75 @@ class Bot:
             cat = cat if cat in partners.CATEGORIES else ""
             self.tg.send_message(chat_id, partners.render_offers(self.members, uid, bal, category=cat),
                                  buttons=partners.offer_buttons(self.members, uid, bal, category=cat) or None)
+        elif low.startswith("/claim"):
+            from core import social
+            parts = text.split()
+            if len(parts) < 2:
+                self.tg.send_message(chat_id, social.follow_prompt()); return
+            ok, txt = social.claim(self.members, uid, parts[1])
+            self.tg.send_message(chat_id, txt)
+        elif low.startswith("/follow") or low.startswith("/insta") or low.startswith("/youtube"):
+            from core import social
+            self.tg.send_message(chat_id, social.follow_prompt())
+        elif low.startswith("/scout"):
+            from core import social
+            rest = text.split(maxsplit=1)[1] if len(text.split()) > 1 else ""
+            m = self.members.members.get(str(uid), {})
+            if not m.get("registered"):
+                self.tg.send_message(chat_id, "ముందు register అవ్వండి → /start"); return
+            lead = social.add_lead(uid, m.get("district", ""), rest) if rest else None
+            if not lead:
+                self.tg.send_message(chat_id, f"🕵️ Business Scout — మీ జిల్లాలో shop / coaching / restaurant / salon / కొత్త opening తెలుసా?\n"
+                                              f"/scout <business పేరు> | <type> | <owner phone> | <area>\n"
+                                              f"వాళ్ళు partner అయితే మీకు +{social.SCOUT_CONVERT_PTS} pts + free voucher 🎁")
+                return
+            self.tg.send_message(chat_id, f"✅ Lead {lead['id']} received — StudentUp team వాళ్ళకి call చేస్తుంది. Partner అయితే +{social.SCOUT_CONVERT_PTS} pts మీకు!")
+            for aid in self._staff_ids():
+                try:
+                    self.tg.send_message(aid, f"🕵️ New lead {lead['id']} · {lead['district']} · {lead['name']} ({lead['type']}) 📞 {lead['phone']} {lead['area']}\nscout: {m.get('name')} ({uid})")
+                except TelegramError:
+                    pass
+        elif low.startswith("/pitch") and str(uid) in self._staff_ids():
+            from core import social
+            dist = text.split(maxsplit=1)[1].strip() if len(text.split()) > 1 else self.members.members.get(str(uid), {}).get("district", "")
+            self.tg.send_message(chat_id, social.district_pitch(self.members, dist))
+        elif low.startswith("/social") and str(uid) in self._staff_ids():
+            from core import social
+            parts = text.split(maxsplit=2)
+            sub = parts[1].lower() if len(parts) > 1 else ""
+            rest = parts[2] if len(parts) > 2 else ""
+            if sub == "new":
+                f = [x.strip() for x in rest.split("|")]
+                if len(f) < 2:
+                    self.tg.send_message(chat_id, "Usage: /social new ig|<post title>|[pts]|[days]|[CODE]|[cap]"); return
+                code = social.new_campaign(f[0], f[1], int(f[2]) if len(f) > 2 and f[2] else social.CLAIM_PTS_DEFAULT,
+                                           int(f[3]) if len(f) > 3 and f[3] else 3, f[4] if len(f) > 4 else "",
+                                           int(f[5]) if len(f) > 5 and f[5] else 0)
+                self.tg.send_message(chat_id, f"✅ Campaign {code}\n\nInstagram auto-DM / ManyChat reply లో ఇది paste చేయండి:\n\n{social.auto_dm_text(code)}")
+            elif sub == "leads":
+                self.tg.send_message(chat_id, social.leads_text(rest.strip()))
+            elif sub == "convert":
+                f = rest.split()
+                l = social.convert_lead(self.members, f[0], f[1]) if len(f) == 2 else None
+                if l:
+                    try:
+                        self.tg.send_message(l["uid"], f"🎉 మీరు scout చేసిన {l['name']} StudentUp partner అయింది → +{social.SCOUT_CONVERT_PTS} pts! /offers చూడండి")
+                    except TelegramError:
+                        pass
+                self.tg.send_message(chat_id, "✅ converted, scout rewarded" if l else "Usage: /social convert <LID> <PID>")
+            elif sub == "opening":
+                from core import partners
+                f = rest.split()
+                ok = partners.set_opening(f[0], int(f[1]) if len(f) > 1 else 7) if f else False
+                self.tg.send_message(chat_id, "🎉 opening package on (2× ads, NEW OPENING tag)" if ok else "Usage: /social opening <PID> [days]")
+            elif sub == "call":
+                from core.engine import Engine
+                self.tg.send_message(chat_id, f"posted: {Engine(dry=self.dry).partner_call()}")
+            elif sub == "pending":
+                ps = social.pending_screenshots()
+                self.tg.send_message(chat_id, f"{len(ps)} screenshots pending (buttons were sent to staff when received)")
+            else:
+                self.tg.send_message(chat_id, social.campaign_stats() + "\n\nCommands: new · leads [district] · convert <LID> <PID> · opening <PID> [days] · call · pending")
         elif low.startswith("/examdone"):
             from core import partners
             if not self.members.is_registered(uid):

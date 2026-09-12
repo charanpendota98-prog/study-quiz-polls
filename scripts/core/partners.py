@@ -86,6 +86,24 @@ def add_partner(name, district, category, contact="", merchant_uid="", address="
     return pid
 
 
+def set_opening(pid, days=7):
+    """Grand-opening package: 2× ad priority for `days`, card shows 🎉 NEW OPENING."""
+    d = _load()
+    p = d["partners"].get(pid)
+    if not p:
+        return False
+    p["opening_until"] = (_now() + timedelta(days=int(days))).isoformat()
+    _save(d)
+    return True
+
+
+def _is_opening(p, now=None):
+    try:
+        return bool(p.get("opening_until")) and datetime.fromisoformat(p["opening_until"]) >= (now or _now())
+    except Exception:
+        return False
+
+
 def set_merchant(pid, uid):
     d = _load()
     p = d["partners"].get(pid)
@@ -410,8 +428,10 @@ def ad_card(p, o, cfg=None):
     from . import districts as D
     head = f"{cfg['emoji']} " if cfg else ""
     cat = CATEGORIES.get(p["category"], "🏪")
-    lines = [f"{head}🤝 StudentUp Partner — {p['district']} ({D.telugu_name(p['district'])})",
-             f"{cat}: {p['name']}", "",
+    lines = [f"{head}🤝 StudentUp Partner — {p['district']} ({D.telugu_name(p['district'])})"]
+    if _is_opening(p):
+        lines.append(f"🎉 NEW OPENING in {p['district']}! Students కి launch offer 👇")
+    lines += [f"{cat}: {p['name']}", "",
              f"🎁 {o['title_te']}", f"   {o['title_en']}",
              f"⭐ Claim with {o['pts']} points → bot లో /offers"]
     if o.get("kind") == "flash":
@@ -442,7 +462,14 @@ def next_ad(now=None):
                 continue
         except Exception:
             pass
-        cands.append(((o.get("kind") != "flash", o.get("last_shown", "")), o, p))
+        # flash first; then openings get shown as if they were shown half as recently (≈2× frequency)
+        ls = o.get("last_shown", "")
+        if _is_opening(p, now) and ls:
+            try:
+                ls = (datetime.fromisoformat(ls) - (now - datetime.fromisoformat(ls))).isoformat()
+            except Exception:
+                pass
+        cands.append(((o.get("kind") != "flash", ls), o, p))
     if not cands:
         return None, None
     cands.sort(key=lambda x: x[0])

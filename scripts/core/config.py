@@ -363,6 +363,8 @@ REQUIRE_REGISTRATION = env("REQUIRE_REGISTRATION", "1").lower() not in ("0", "fa
 # Default: CURRENT hub only, so exam channels stay 100% polls.
 CHAMPION_CHANNELS = [c.strip().upper() for c in env("CHAMPION_CHANNELS", "CURRENT").split(",") if c.strip()]
 BOT_USERNAME = env("BOT_USERNAME", "")
+INSTAGRAM_HANDLE = env("INSTAGRAM_HANDLE", "@studentup")   # shown in /follow + auto-DM template
+YOUTUBE_HANDLE = env("YOUTUBE_HANDLE", "@studentup")
 PUBLIC_POLLS_ONLY = env("PUBLIC_POLLS_ONLY", "1").lower() not in ("0", "false", "no", "off")
 QUIZ_PACE_SEC = {
     "easy": int(env("PACE_EASY_SEC", "60") or 60),

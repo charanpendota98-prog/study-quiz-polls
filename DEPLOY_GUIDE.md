@@ -338,3 +338,23 @@ fallback. Nothing is generated at post time.
 * **Referral v3**: +20 register · +30 activated (3 rounds/7 days) · **mentor share +2 per round the
   friend plays for 30 days (cap 60)** · milestones 5/10/25 → +50/+100/+300 · **Monday 08:30 Top
   Recruiters of the week** in hub channels, winner +100.
+
+## 📸 Social Growth Engine (`scripts/core/social.py`) — Instagram / YouTube followers
+
+**Code-drop loop (no screenshot review needed):**
+1. `/social new ig | Polity reel 7 May | 30 | 3` → bot replies with code `SU-XXXX` **and the exact auto-DM
+   text**. Paste it into Instagram's native auto-reply / ManyChat for that post ("Comment QUIZ").
+2. Post caption: *"Follow + comment QUIZ → DM లో code → bot లో /claim CODE → +30 pts"*. Instagram only
+   auto-DMs followers, so the code itself proves the follow.
+3. Student: `/claim SU-XXXX` → points once per campaign; every 5th claim = 🌟 Super Fan +100.
+   YouTube: say the code at the end of the video / pinned comment → `/social new yt | …`.
+4. Fallback: student sends a follow screenshot to the bot → staff get the photo with ✅/❌ buttons → +20.
+5. `/social` = claims per campaign (= verified new followers). Saturday 11:00 hub promo; the prompt is
+   also shown right after registration. `.env`: `INSTAGRAM_HANDLE`, `YOUTUBE_HANDLE`.
+
+**Inbound business leads (every district's shops should contact us):**
+* Students: `/scout <business> | <type> | <owner phone> | <area>` → staff DM; when you convert
+  (`/social convert L0001 P001`) the scout gets +150.
+* `/pitch <district>` → sales sheet with that district's live numbers to forward to any owner.
+* `/social opening <PID> [days]` → 🎉 NEW OPENING tag + ≈2× ad frequency for a week.
+* Monday 08:30 hub post "Partner with StudentUp" listing biggest districts (`/social call` to force).
