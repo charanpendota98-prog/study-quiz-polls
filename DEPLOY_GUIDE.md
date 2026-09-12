@@ -293,3 +293,17 @@ fallback. Nothing is generated at post time.
   08:05 Arena rankings in hub; season resets monthly.
 * Questions come through `Bank.pick()` → permanent no-repeat still holds. The bot loop polls
   every 3 s while a match is live (50 s otherwise). State `data/arena.json`.
+
+## ⚔️ DISTRICT WARS (`scripts/core/districtwar.py`) — daily, everyone, every exam
+
+* Daily `WAR_TIME` (21:00): T-5/T-1 DM alerts (+hub post), then **all registered members with a
+  district** get the same 10 Q in DM at the same time (45/60/75 s, auto-close, no negative marks).
+* **Common syllabus across all state & central exams**: 3 GK · 3 Reasoning · 2 Aptitude ·
+  1 English · 1 Current Affairs, drawn across every channel's bank via `Bank.unused()` and
+  marked posted (permanent no-repeat).
+* Result (bot loop finishes; watch publishes to the hub ~18 min later): district ranking by
+  avg pts per fighter ×10 + fighters (≤10) ×3, each district's top fighter, War MVP (+25),
+  winning district's fighters +10, rivalry line, month season table (wins/points), 🛡 Defender
+  badge for 5 wars in a row. Personal DM with own score + district rank. `/war` = status.
+* Sunday 21:45 season table in the hub. State `data/district_war.json`.
+* Squads are **not** Telegram groups — each member answers in their own bot DM; the bot sums.

@@ -207,6 +207,24 @@ def tick(eng, now, dry=False):
             eng.referral_board(); ran.append("referral-board")
         except Exception as e:
             log(f"league error: {e}")
+    # ⚔️ District War: T-5 / T-1 alerts, start, publish result (~20 min later), Sunday season table
+    try:
+        wh, wm = map(int, config.WAR_TIME.split(":"))
+        wmin = wh * 60 + wm
+        nmin = now.hour * 60 + now.minute
+        if wmin - nmin == 5:
+            eng.war_alert(5); ran.append("war-alert-5")
+        elif wmin - nmin == 1:
+            eng.war_alert(1); ran.append("war-alert-1")
+        elif nmin == wmin:
+            eng.war_start(); ran.append("war-start")
+        elif nmin - wmin in (18, 25, 35):
+            if eng.war_publish():
+                ran.append("war-result")
+        if now.weekday() == 6 and hhmm == "21:45":
+            eng.war_season(); ran.append("war-season")
+    except Exception as e:
+        log(f"war error: {e}")
     if hhmm == "00:10":
         try:
             eng.streak_shield_job(); ran.append("streak-shield")
@@ -255,7 +273,7 @@ def tick(eng, now, dry=False):
         eng.reminder(rem); ran.append(f"reminder-{rem}")
 
     # Jobs every 30 minutes (skip minutes that already fire a quiz/digest)
-    _busy = ("07:30", "10:30", "13:30", "16:30", "19:30", "21:30")
+    _busy = ("07:30", "10:30", "13:30", "16:30", "19:30", "21:00", "21:30")
     if now.minute % config.JOBS_INTERVAL_MIN == 0 and hhmm not in _busy:
         eng.jobs(); ran.append("jobs")
 

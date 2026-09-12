@@ -146,7 +146,7 @@ def render_wallet(members, uid) -> str:
                 lines.append(f"  📚 {o['title_te']} — {o['pts']} pts")
         if nxt:
             need = nxt["pts"] - b["available"]
-            lines.append(f"🔓 Next unlock: {nxt['title_te']} — ఇంకా {need} pts (≈ {max(1, need // 10)} correct answers)")
+            lines.append(f"🔓 Next unlock: {nxt['title_te']} — ఇంకా {need} pts (≈ {max(1, -(-need // 10))} correct answers)")
         led = _ledger()
         mine = [v for v in led["vouchers"].values() if v["uid"] == str(uid) and v["status"] == "held"]
         if mine:
@@ -154,7 +154,7 @@ def render_wallet(members, uid) -> str:
             lines.append("🎟 Active vouchers:")
             for v in mine:
                 lines.append(f"  {v['code']} — {v['title_te']} · valid till {v['expires'][:10]}")
-        lines += ["", "/redeem — offers · points ఎలా వస్తాయి: quiz ✅ +1 · round podium · Grand Test ×2 · referral +20",
+        lines += ["", "/redeem — offers · points ఎలా వస్తాయి: ✅ +10 · podium +30/20/10 · Grand Test ×2 · War/Battle wins · referral +20",
                   f"📍 {cat['centre']['name']} · {cat['centre']['address']}" +
                   (f" · 📞 {cat['centre']['phone']}" if cat['centre'].get('phone') else "")]
         return "\n".join(lines)

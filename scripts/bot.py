@@ -13,6 +13,7 @@ Commands:
   /challenge          🥊 Beat yesterday's topper (same 5 Q, +15 pts)
   /squad              👥 friend squad (3–5) — weekly Squad Top-5 in channel
   /battle             ⚔️ SQUAD BATTLE ARENA — live squad-vs-squad rooms (PUBG style)
+  /war                ⚔️ District War — daily 9 PM, all-exams common syllabus, fight for your district
   /wallet             👛 points balance + ₹ value at StudentUp centre
   /redeem             🎁 turn points into vouchers (applications, prints, photos)
   /report             📋 your weekly report card
@@ -45,17 +46,19 @@ from core.content import build_question_text, build_options, build_explanation
 from core.members import Members, EXAM_TARGETS, LANGUAGES, level_for
 
 WELCOME = (
-    "👋 Welcome to *StudentUp* — India's advanced daily quiz coach for "
-    "TS & AP aspirants (TSPSC, APPSC, Banking, Railway, Police, Defence, GK)!\n\n"
-    "⭐ Earn *points*, levels and ranks:\n"
-    "• /register — join as a member (+25 pts)\n"
-    "• /quiz — play a previous-paper question (+10 per correct)\n"
-    "• /district — your district toppers · /districts — TS/AP district ranking\n"
-    "• /coach — a friendly expert trick that makes reasoning & aptitude easy 🧠\n"
-    "• /stats — your level, rank, points & streak\n"
-    "• /leaderboard — top players\n"
-    "• /levels — how points & ranks work\n\n"
-    "⤷ రిజిస్టర్ చేసుకోండి, రోజూ క్విజ్ ఆడి పాయింట్లు సంపాదించి, ఛాంపియన్‌గా ఎదగండి! 🏆"
+    "👋 *StudentUp* — TS & AP aspirants కోసం India's most advanced quiz arena\n"
+    "(TSPSC · APPSC · SSC · Banking · Railway · Police · Defence · Current Affairs)\n\n"
+    "🎯 *రోజూ*\n"
+    "• 7:30 AM & 7:30 PM — exam-hall paced rounds in the channel → Top-10 పేరు+జిల్లా\n"
+    "• 1:00 PM — 🥊 Beat the Topper (నిన్నటి topper వి 5 Q)\n"
+    "• 9:00 PM — ⚔️ *District War* — మీ జిల్లా కోసం, అన్ని exams common syllabus\n\n"
+    "👥 *Friends తో*\n"
+    "• /squad — 2–5 friends team (కొత్త group అవసరం లేదు — ఇక్కడే ఆడతారు)\n"
+    "• /battle — Squad vs Squad live rooms (PUBG style) · ELO tiers 🥉→💎\n\n"
+    "🏆 *వారం / నెల*: Sunday Grand Test · Monthly Mega · District League · Hall of Fame\n"
+    "👛 *Points = real value*: /wallet → application filing discounts + study materials @ StudentUp centre\n"
+    "📋 /report · 🔁 /review · /me · /invite (+20 per friend) · /help\n\n"
+    "⤷ ఒక్కసారి register — ఆ తర్వాత అన్నీ automatic. Let's go! 🔥"
 )
 
 FIRST_TIME_ASK = (
@@ -95,18 +98,16 @@ LOCKED_NUDGE = (
 )
 
 HELP = (
-    "ℹ️ *How it works*\n"
-    "1️⃣ /register once (name, exam target, language) — +25 bonus points.\n"
-    "2️⃣ Send /quiz in this chat — answer the poll. Correct = +10 points.\n"
-    "3️⃣ Play daily — first activity each day +5, and streak bonuses at "
-    "3/7/15/30/100 days 🔥.\n"
-    "4️⃣ /rank shows the weekly+all-time leaderboard; levels go Bronze→Champion 👑.\n"
-    "5️⃣ /coach gives you a quick expert trick any time; channels also post a "
-    "daily expert lesson at 12:30 IST 🧠.\n"
-    "6️⃣ Channels post 2 big rounds daily (07:30 & 19:30 IST) + CA digest 21:30. "
-    "Questions NEVER repeat and come only from real exam-paper sources.\n\n"
-    "⤷ పాయింట్లు సంపాదించడానికి ఈ బాట్‌లో /quiz ఆడండి. ఛానెళ్లలో ప్రాక్టీస్, "
-    "బాట్‌లో పాయింట్లు + ర్యాంక్! 🏆"
+    "ℹ️ *StudentUp — ఎలా పనిచేస్తుంది*\n"
+    "1️⃣ ఒక్కసారి register (పేరు → జిల్లా → exam → mobile) +25 pts. మళ్ళీ అడగము.\n"
+    "2️⃣ Channel rounds 7:30 AM / 7:30 PM — అవే ప్రశ్నలు మీకు ఇక్కడ DM లో వస్తాయి (పేరుతో score). "
+    "✅ +10 · daily first +5 · streak 3/7/15/30/100 🔥 · 🛡 shield ప్రతి 7 రోజులకి.\n"
+    "3️⃣ 1 PM 🥊 /challenge — నిన్నటి topper వి 5 Q · 9 PM ⚔️ /war — District War (అన్ని exams common syllabus).\n"
+    "4️⃣ Friends: /squad (2–5, కొత్త group అవసరం లేదు) → /battle — squad vs squad live rooms, ELO tiers.\n"
+    "5️⃣ ఆదివారం 9 AM 🏟 Grand Test · నెల చివరి ఆదివారం 🏆 Mega · సోమవారం League/Squad/Arena boards.\n"
+    "6️⃣ /wallet — points = application filing discounts + study materials @ StudentUp centre.\n"
+    "7️⃣ /report weekly report card · /review missed Qs · /me · /rank · /invite (+20 per friend).\n"
+    "ప్రశ్నలు ఎప్పుడూ repeat అవ్వవు · real exam-paper sources · Telugu + English.\n"
 )
 
 LEVELS_TEXT = (
@@ -463,6 +464,9 @@ class Bot:
             else:
                 f = self.members.set_follow(uid, chans)
                 self.tg.send_message(chat_id, f"🔔 Following rounds: {', '.join(f)}\n⤷ ఈ ఛానల్ రౌండ్లు మీకు ఇక్కడ వస్తాయి.")
+        elif low.startswith("/war") or low.startswith("/districtwar"):
+            from core import districtwar
+            self.tg.send_message(chat_id, districtwar.my_war(self.members, uid))
         elif low.startswith("/battle") or low.startswith("/room") or low.startswith("/arena"):
             from core import arena
             parts = text.split()
@@ -754,6 +758,13 @@ class Bot:
         if not (uid and poll_id is not None and chosen):
             return
         user = pa.get("user", {})
+        # ⚔️ District War polls
+        try:
+            from core import districtwar
+            if districtwar.record_answer(poll_id, uid, int(chosen[0])):
+                return
+        except Exception as e:
+            print(f"   [war] {e}")
         # ⚔️ Squad Battle Arena polls
         try:
             from core import arena
@@ -845,6 +856,9 @@ class Bot:
                     arena.tick(self.bank, self.tg, self.members)
                     live = any(r["state"] in ("countdown", "question", "gap")
                                for r in arena._load()["rooms"].values())
+                    from core import districtwar
+                    if districtwar.tick(self.tg, self.members):
+                        live = True
                 except Exception as e:
                     print(f"[arena] tick error: {e}")
                 for upd in self.tg.get_updates(timeout=3 if live else 50):

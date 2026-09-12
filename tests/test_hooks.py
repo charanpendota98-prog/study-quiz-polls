@@ -60,7 +60,7 @@ class TestHooks(unittest.TestCase):
         self.assertIn(mult, (2, 3, 5))
         won = hooks.apply_mystery(m, m.rid, "TSPSC", [f"q{i}" for i in range(10)])
         for uid, bonus in won.items():
-            self.assertEqual(bonus, mult - 1)
+            self.assertEqual(bonus, (mult - 1) * 10)
         self.assertIn(f"Q{idx + 1}", hooks.mystery_line(m.rid, "TSPSC", 10, len(won)))
 
     def test_squads(self):

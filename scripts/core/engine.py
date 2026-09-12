@@ -445,6 +445,62 @@ class Engine:
             print(f"   [shoutout] {e}")
             return 0
 
+    # ------------------------------------------------------------ District War
+    def war_alert(self, minutes):
+        from . import districtwar
+        mem = Members()
+        txt = districtwar.alert_text(minutes)
+        n = 0
+        for uid, m in mem.members.items():
+            if m.get("registered") and m.get("district") and not m.get("dm_blocked"):
+                try:
+                    self.tg.send_message(uid, txt); n += 1
+                except TelegramError:
+                    mem.mark_blocked(uid)
+                if n % 25 == 0:
+                    time.sleep(0 if self.dry else 1.0)
+        if minutes >= 5:
+            for ch in getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
+                try:
+                    self.tg.send_message(config.channel_chat_id(ch), txt + "\nRegister → bot /start (ఒక్కసారి)")
+                except TelegramError:
+                    pass
+        print(f"[war] T-{minutes} alert → {n} fighters")
+        return n
+
+    def war_start(self):
+        from . import districtwar
+        ok, info = districtwar.start_war(self.bank, Members(), self.tg)
+        print(f"[war] start: {ok} {info}")
+        if not ok:
+            self.tg.admin_notify(f"District War not started: {info}")
+        return ok
+
+    def war_publish(self):
+        """After the war finishes (bot loop runs it): post result to hub + season table Sundays."""
+        from . import districtwar
+        txt = districtwar.pop_channel_post()
+        if not txt:
+            return 0
+        for ch in getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
+            try:
+                self.tg.send_message(config.channel_chat_id(ch), txt)
+            except TelegramError as e:
+                print(f"   [war] {ch} failed: {e}")
+        return 1
+
+    def war_season(self, channels=None):
+        from . import districtwar
+        txt = districtwar.season_table()
+        if not txt:
+            return 0
+        for ch in channels or getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
+            try:
+                self.tg.send_message(config.channel_chat_id(ch), txt)
+            except TelegramError:
+                pass
+        return 1
+
     def _arena_shoutouts(self, ch):
         """Squad-battle results → the channel of that mode (max 2 per round)."""
         try:

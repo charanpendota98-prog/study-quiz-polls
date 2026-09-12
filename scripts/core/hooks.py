@@ -127,13 +127,14 @@ def apply_mystery(members, round_id: str, channel: str, qids: list) -> dict:
         return {}
     mq = qids[idx]
     out = {}
+    base = 10      # P_CORRECT — bonus = (mult-1) × base so ×5 really means 50 pts
     ch = members.data.get("rounds", {}).get(round_id, {}).get("by_channel", {}).get(channel, {})
     for uid, e in ch.items():
         if mq in e.get("right", []):
             m = members._get(uid)
-            m["points"] = m.get("points", 0) + (mult - 1)
+            m["points"] = m.get("points", 0) + (mult - 1) * base
             m["mystery_hits"] = m.get("mystery_hits", 0) + 1
-            out[str(uid)] = mult - 1
+            out[str(uid)] = (mult - 1) * base
     if out:
         members.kv.save()
     return out
