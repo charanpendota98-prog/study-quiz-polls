@@ -120,6 +120,8 @@ def poster_text(code):
         f"QR: https://api.qrserver.com/v1/create-qr-code/?size=600x600&data={link}",
     ])
 
+
+def links_text(code):
     d = _load()
     e = d["events"].get(code)
     if not e:
