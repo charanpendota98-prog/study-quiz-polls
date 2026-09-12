@@ -406,9 +406,32 @@ def _finish(tg, members, d, e, now):
                 tg.send_message(config.channel_chat_id(ch), pub)
             except Exception:
                 pass
+        for post in full_list_posts(e):
+            for ch in getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
+                try:
+                    tg.send_message(config.channel_chat_id(ch), post)
+                except Exception:
+                    pass
         e["posted"] = True
     except Exception as ex:
         print(f"   [campus] post note: {ex}")
+    # certificates to top 3 (+ organiser copies) and college report to organiser
+    for rank, (u, p) in enumerate(rows[:3], 1):
+        card = certificate_card(e, rank, p)
+        txt = certificate_text(e, rank, p)
+        for target in [u] + ([e.get("by")] if e.get("by") else []):
+            try:
+                if card and hasattr(tg, "send_photo"):
+                    tg.send_photo(target, card, caption=txt[:1000], filename=f"certificate_{rank}.png")
+                else:
+                    tg.send_message(target, txt)
+            except Exception:
+                pass
+    if e.get("by"):
+        try:
+            tg.send_message(e["by"], college_report(e))
+        except Exception:
+            pass
     # organiser: summary + CSV
     summary = text + "\n\n📎 Full data: /campus csv " + e["code"]
     for aid in ([e.get("by")] if e.get("by") else []) + list(getattr(config, "STAFF_IDS", [])):
@@ -503,6 +526,81 @@ def my_score(members, uid):
     if len(rows) > 60:
         lines.append(f"… +{len(rows) - 60}")
     lines += ["", "రోజూ ఆడండి → /quiz · 9 PM District War ⚔️ · points → /offers"]
+    return "\n".join(lines)
+
+
+def full_list_posts(e, per=40):
+    """EVERY student's marks for the channel — chunked posts (Telegram 4096 limit)."""
+    rows = ranking(e)
+    n_q = len(e["questions"])
+    head = f"📋 {e['name']} — FULL SCORE LIST ({len(rows)} students · {n_q} Q)"
+    posts, cur = [], [head, ""]
+    for u, p in rows:
+        med = "🥇🥈🥉"[p["rank"] - 1] if p["rank"] <= 3 else f"{p['rank']}."
+        cur.append(f"{med} {p['name'][:22]} · {p['college'][:14]} — {p['correct']}/{n_q} · {p['pts']} pts")
+        if len(cur) - 2 >= per:
+            posts.append("\n".join(cur)); cur = [head + f" (contd.)", ""]
+    if len(cur) > 2:
+        posts.append("\n".join(cur))
+    if posts:
+        posts[-1] += "\n\n🎓 Students: bot లో /start → రోజూ quiz + points · College లో event కావాలా? /campus"
+    return posts
+
+
+def certificate_text(e, rank, p):
+    """Text certificate (always works) — a PNG card is attached when Pillow is available."""
+    n_q = len(e["questions"])
+    title = {1: "🥇 CHAMPION", 2: "🥈 RUNNER-UP", 3: "🥉 SECOND RUNNER-UP"}.get(rank, f"🏅 RANK #{rank}")
+    return "\n".join([
+        "━━━━━━━━━━━━━━━━━━━━━━",
+        "       🎓 StudentUp",
+        "   CERTIFICATE OF MERIT",
+        "━━━━━━━━━━━━━━━━━━━━━━",
+        f"This certifies that",
+        f"        {p['name']}",
+        f"        {p['college']}",
+        f"secured {title}",
+        f"in {e['name']}",
+        f"Score: {p['correct']}/{n_q} · {p['pts']} points · {len(e['players'])} participants",
+        f"Date: {_now().strftime('%d %B %Y')} · {e['district']}",
+        "━━━━━━━━━━━━━━━━━━━━━━",
+        f"Verify: bot /myscore · {getattr(config, 'BRAND_HANDLE', '')}",
+    ])
+
+
+def certificate_card(e, rank, p):
+    try:
+        from . import rankcard
+        from . import districts as D
+        return rankcard.render({"name": p["name"], "district": p["college"][:24], "district_te": "", "points": p["pts"]},
+                               title=f"CERTIFICATE OF MERIT · {e['name'][:28]}", subtitle_te="ప్రతిభా పత్రం",
+                               exam=f"{e['district']} · {len(e['players'])} participants", rank=rank,
+                               score=f"{p['correct']}/{len(e['questions'])} · {p['pts']} pts", extra="StudentUp Campus Challenge")
+    except Exception:
+        return None
+
+
+def college_report(e):
+    """For the Principal / HOD: one-page summary they can keep."""
+    rows = ranking(e); n_q = len(e["questions"])
+    if not rows:
+        return ""
+    cols = college_table(e)
+    avg = sum(p["correct"] for _, p in rows) / len(rows)
+    dist = {"💯 full": sum(1 for _, p in rows if p["correct"] == n_q), "🔥 80%+": sum(1 for _, p in rows if n_q > p["correct"] >= 0.8 * n_q),
+            "👍 50–79%": sum(1 for _, p in rows if 0.5 * n_q <= p["correct"] < 0.8 * n_q), "💪 <50%": sum(1 for _, p in rows if p["correct"] < 0.5 * n_q)}
+    lines = [f"🏛 COLLEGE REPORT — {e['name']}", f"📍 {e['district']} · {_now().strftime('%d %b %Y')}", "",
+             f"👥 Participants: {len(rows)} · Questions: {n_q} (GK · Reasoning · Aptitude · English · Current Affairs)",
+             f"📈 Average score: {avg:.1f}/{n_q} ({round(100 * avg / n_q)}%)",
+             "📊 " + " · ".join(f"{k} {v}" for k, v in dist.items()), ""]
+    if len(cols) > 1:
+        lines.append("🏫 Colleges: " + " · ".join(f"{c['college']} {c['acc']}% ({c['n']})" for c in cols))
+    lines += ["🏆 Toppers:"] + [f"  {i}. {p['name']} · {p['college']} — {p['correct']}/{n_q}" for i, (u, p) in enumerate(rows[:5], 1)]
+    lines += ["", "About StudentUp: TS & AP aspirants కోసం free daily exam-prep platform — 8 exam channels "
+              "(TSPSC · APPSC · Banking · Railway · Police · Defence · SSC · Current Affairs), రోజూ timed quiz rounds, "
+              "District Wars, previous-paper questions Telugu + English, points → study material & local discounts.",
+              "మీ students కి regular practice + rank tracking free. Next: monthly College League, inter-college wars.",
+              f"Contact: {getattr(config, 'BRAND_HANDLE', '')} · bot /partner apply"]
     return "\n".join(lines)
 
 
@@ -626,3 +724,42 @@ def college_league(members, days=30, limit=10):
         lines.append(f"{'🥇🥈🥉'[i] if i < 3 else str(i + 1) + '.'} {col[:24]} — {c} ✅ · {n} students · {round(100 * c / max(t, 1))}%")
     lines += ["", "మీ college లేదా? Class leader → bot లో /campus · Students: రోజూ /quiz ఆడితే college పైకి!"]
     return "\n".join(lines)
+
+
+# ============================================================ control panel (buttons)
+def panel_text(members, code=None):
+    d = _load()
+    if code and code in d["events"]:
+        return status_text(members, code)
+    live = [e for e in d["events"].values() if e["state"] in ("open", "question", "gap")]
+    lines = ["🎓 CAMPUS CONTROL PANEL", ""]
+    if live:
+        lines.append("Active events:")
+        for e in live:
+            lines.append(f"• {e['code']} {e['name'][:26]} · {len(e['players'])}👥 · {e['state']}")
+    else:
+        lines.append("No active event. Start one: /go <College> | <district>")
+    lines += ["", "Buttons 👇 (typing అవసరం లేదు)"]
+    return "\n".join(lines)
+
+
+def panel_buttons(code=None):
+    d = _load()
+    if code and code in d["events"]:
+        e = d["events"][code]
+        rows = []
+        if e["state"] == "open":
+            rows += [[("🚀 START exam", f"cp:start:{code}"), ("🔔 Ping students", f"cp:ping:{code}")],
+                     [("📋 Poster / link", f"cp:poster:{code}"), ("🔄 Refresh", f"cp:status:{code}")]]
+        elif e["state"] in ("question", "gap"):
+            rows += [[("🔄 Live status", f"cp:status:{code}")]]
+        else:
+            rows += [[("📎 CSV", f"cp:csv:{code}"), ("🏛 College report", f"cp:report:{code}")],
+                     [("📢 Re-post to channel", f"cp:post:{code}"), ("🏅 Certificates again", f"cp:certs:{code}")]]
+        rows.append([("⬅️ All events", "cp:home:-")])
+        return rows
+    rows = []
+    for e in sorted(d["events"].values(), key=lambda x: x["created"], reverse=True)[:6]:
+        rows.append([(f"{'🟢' if e['state'] == 'open' else '🔵' if e['state'] in ('question', 'gap') else '⚪'} {e['code']} {e['name'][:20]}", f"cp:status:{e['code']}")])
+    rows.append([("➕ New: /go <College> | <district>", "cp:help:-")])
+    return rows

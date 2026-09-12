@@ -144,3 +144,35 @@ class TestAfterEvent(TestCampus):
         self.assertEqual(C.onboarding_drip(tg, m), 0)                     # once per day-N
         m.data = {"rounds": {C._now().strftime("%Y%m%d") + "-0900": {"by_channel": {"TSPSC": {"1": {"correct": 7, "total": 10}}}}}}
         lg = C.college_league(m); self.assertIn("SR College", lg); self.assertIn("7 ✅", lg)
+
+
+class TestRespect(TestCampus):
+    def test_full_event(self): pass
+    def test_join_closed_and_min_players(self): pass
+
+    def test_full_list_cert_report_panel(self):
+        m, tg = _Members(), _TG()
+        code = C.quick_event("SR College", "Warangal", 5, "easy", "adm")
+        for i in range(1, 46):
+            C.join(m, str(i), code, 1); m.members[str(i)].update({"registered": True, "name": f"Student{i}"})
+        ok, _ = C.start(Bank(), m, tg, code); self.assertTrue(ok)
+        d = C._load(); e = d["events"][code]; n_q = len(e["questions"])
+        for qi in range(n_q):
+            d = C._load(); e = d["events"][code]; ans = e["questions"][qi]["answer_index"]
+            for i in range(1, 46):
+                C.record_answer(self._pid(d, code, str(i)), str(i), ans if i <= 30 - qi * 5 else (ans + 1) % 4)
+            d = C._load(); e = d["events"][code]; e["state"] = "gap"; e["q_open"] = C._now().isoformat(); C._save(d)
+            C.tick(tg, m, C._now() + timedelta(seconds=1))
+        d = C._load(); e = d["events"][code]
+        posts = C.full_list_posts(e)
+        self.assertEqual(len(posts), 2)                                   # 45 students → 40 + 5
+        self.assertIn("FULL SCORE LIST (45 students", posts[0]); self.assertIn("45.", posts[1])
+        self.assertTrue(any("FULL SCORE LIST" in t for c, t in tg.msgs if c == config.channel_chat_id("CURRENT")))
+        cert = C.certificate_text(e, 1, C.ranking(e)[0][1]); self.assertIn("CHAMPION", cert); self.assertIn("SR College", cert)
+        self.assertTrue(any("CERTIFICATE OF MERIT" in t for c, t in tg.msgs if c == "adm"))
+        rep = C.college_report(e); self.assertIn("COLLEGE REPORT", rep); self.assertIn("Participants: 45", rep)
+        self.assertTrue(any("COLLEGE REPORT" in t for c, t in tg.msgs if c == "adm"))
+        self.assertIn("CONTROL PANEL", C.panel_text(m))
+        b = C.panel_buttons(code); self.assertTrue(any("cp:csv:" in cb for row in b for _, cb in row))
+        code2 = C.quick_event("X", "Guntur"); b2 = C.panel_buttons(code2)
+        self.assertTrue(any(cb == f"cp:start:{code2}" for row in b2 for _, cb in row))

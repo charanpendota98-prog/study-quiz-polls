@@ -310,6 +310,58 @@ class Bot:
             except TelegramError:
                 pass
             return
+        if kind == "cp" and uid and str(uid) in self._staff_ids():
+            from core import campus
+            act, _, code = value.partition(":")
+            code = None if code == "-" else code
+            if act == "start" and code:
+                ok, info = campus.start(self.bank, self.members, self.tg, code)
+                self.tg.send_message(chat_id, f"🚀 Started: {info}" if ok else f"❌ {info}")
+            elif act == "ping" and code:
+                self.tg.send_message(chat_id, f"🔔 pinged {campus.waiting_room_ping(self.tg, self.members, code)}")
+            elif act == "poster" and code:
+                self.tg.send_message(chat_id, campus.poster_text(code))
+            elif act == "csv" and code:
+                csv = campus.csv_text(code) or ""
+                try:
+                    self.tg.send_document(chat_id, f"{code}.csv", csv.encode("utf-8"), caption="Full student data")
+                except Exception:
+                    self.tg.send_message(chat_id, csv[:3500])
+            elif act == "report" and code:
+                e = campus._load()["events"].get(code)
+                self.tg.send_message(chat_id, campus.college_report(e) if e else "not found")
+            elif act == "post" and code:
+                e = campus._load()["events"].get(code)
+                if e and e["state"] == "done":
+                    for ch in getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
+                        try:
+                            self.tg.send_message(config.channel_chat_id(ch), campus.channel_post_from(e))
+                            for post in campus.full_list_posts(e):
+                                self.tg.send_message(config.channel_chat_id(ch), post)
+                        except TelegramError:
+                            pass
+                    self.tg.send_message(chat_id, "✅ posted")
+            elif act == "certs" and code:
+                e = campus._load()["events"].get(code)
+                if e:
+                    for rank, (u, p) in enumerate(campus.ranking(e)[:3], 1):
+                        card = campus.certificate_card(e, rank, p); txt = campus.certificate_text(e, rank, p)
+                        try:
+                            if card:
+                                self.tg.send_photo(u, card, caption=txt[:1000], filename=f"cert{rank}.png")
+                            else:
+                                self.tg.send_message(u, txt)
+                        except TelegramError:
+                            pass
+                    self.tg.send_message(chat_id, "🏅 sent")
+            elif act == "help":
+                self.tg.send_message(chat_id, "కొత్త event: /go SR College | Warangal\n(2 colleges war: /campus new Fest | Warangal | A ; B)")
+            self.tg.send_message(chat_id, campus.panel_text(self.members, code), buttons=campus.panel_buttons(code))
+            try:
+                self.tg.answer_callback(cq.get("id", ""), "ok")
+            except TelegramError:
+                pass
+            return
         if kind == "join" and uid:
             from core import joingate
             ok, txt = joingate.verify(self.tg, self.members, uid)
@@ -810,7 +862,7 @@ class Bot:
                                       f[3].lower() if len(f) > 3 else "easy", created_by=uid)
             self.tg.send_message(chat_id, f"✅ {code} ready. Students కి ఇది పంపండి / projector లో చూపండి:")
             self.tg.send_message(chat_id, campus.poster_text(code))
-            self.tg.send_message(chat_id, f"Hall ready అయ్యాక: /campus start {code}\nJoined ఎంతమంది: /campus status {code}")
+            self.tg.send_message(chat_id, campus.panel_text(self.members, code), buttons=campus.panel_buttons(code))
         elif low.startswith("/join") or low.startswith("/channels"):
             from core import joingate
             m = self.members.members.get(str(uid), {}) if uid else {}
@@ -883,7 +935,7 @@ class Bot:
                 self.tg.send_message(u, f"🎁 {e['name']} — Rank #{f[1]} prize!\n{f[2]}")
                 self.tg.send_message(chat_id, f"sent to {p['name']}")
             else:
-                self.tg.send_message(chat_id, campus.list_text() + "\n\nCommands: new · links · poster · status · ping · start · csv · post · prize\nQuick (one college): /go <College> | <district>")
+                self.tg.send_message(chat_id, campus.panel_text(self.members), buttons=campus.panel_buttons())
         elif low.startswith("/mandal"):
             m = self.members.members.get(str(uid), {}) if uid else {}
             if not m.get("registered"):

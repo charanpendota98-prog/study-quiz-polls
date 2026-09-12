@@ -422,3 +422,8 @@ Every exam channel now has its own competition next to the all-exam District War
 * Wed 11:00: nudge DM to registered members who never verified (max 3, 6 days apart).
 * WhatsApp can't be verified via API → post a weekly code in the WhatsApp channel:
   `/social new wa | Week 37 code | 20 | 7` and paste the code there; followers `/claim` it.
+* **Respect kit** (auto at event finish): FULL SCORE LIST of every student posted to hub channels (chunked
+  40/post) · 🏅 Certificate of Merit to Top-3 (PNG card if Pillow, else text; organiser gets copies) ·
+  🏛 College Report for the Principal (participation, average, distribution, toppers, about StudentUp).
+* **Control panel**: `/campus` (no args) or after `/go` → buttons: 🚀 START · 🔔 Ping · 📋 Poster ·
+  🔄 Status · 📎 CSV · 🏛 Report · 📢 Re-post · 🏅 Certificates. No syntax to remember on campus.
