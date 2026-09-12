@@ -406,3 +406,7 @@ Every exam channel now has its own competition next to the all-exam District War
   (+10 to every fighter of the winning state, season tally).
 * Counter: `/filed <telegram id | phone> [rupees]` after a paid application → +50 pts per ₹100 cashback,
   3rd application +100, 10th +500 (member gets a DM). Shown in `/wallet`.
+* **Walk-in mode**: `/go Vaagdevi College | Warangal` → code + poster text (link + QR image URL) in one shot;
+  show on projector / forward to the class WhatsApp group; `/campus start CODE`. Result auto-posts to hub
+  channels; students get Telegram + WhatsApp **join buttons** and `/myscore` (full list of their event).
+  Set `WHATSAPP_CHANNEL` and `BRAND_HANDLE` in `.env` for the buttons.

@@ -80,7 +80,46 @@ def new_event(name, district, colleges, n_q=DEFAULT_Q, level="medium", created_b
     return code
 
 
-def links_text(code):
+def quick_event(college, district, n_q=DEFAULT_Q, level="easy", created_by=""):
+    """One college, one command: /go <College> | <district>  → code + link + poster."""
+    name = f"{college.strip()[:30]} × StudentUp Challenge"
+    return new_event(name, district, [college], n_q, level, created_by)
+
+
+def join_buttons():
+    """Telegram + WhatsApp join buttons (URL buttons)."""
+    rows = []
+    tg_link = getattr(config, "BRAND_HANDLE", "") or ""
+    if tg_link:
+        rows.append([("📢 Telegram channel join", "url:" + (tg_link if tg_link.startswith("http") else "https://" + tg_link.lstrip("@")))])
+    wa = getattr(config, "WHATSAPP_CHANNEL", "")
+    if wa:
+        rows.append([("💚 WhatsApp channel join", "url:" + wa)])
+    return rows or None
+
+
+def poster_text(code):
+    """Plain text you paste into a WhatsApp group / show on the projector / print with any QR app."""
+    d = _load()
+    e = d["events"].get(code)
+    if not e:
+        return "Event not found."
+    bot = config.BOT_USERNAME or "StudentUpBot"
+    link = f"https://t.me/{bot}?start=c{code[3:]}-1"
+    return "\n".join([
+        f"🎓 {e['name']}",
+        f"📍 {e['district']} · {e['n_q']} questions · phone లోనే exam",
+        "",
+        "1️⃣ ఈ link open చేయండి (లేదా QR scan):",
+        f"   {link}",
+        "2️⃣ పేరు + phone (30 seconds)",
+        "3️⃣ 'Start' అనగానే Q1 వస్తుంది — ప్రతి Q కి timer ⏱",
+        "",
+        "🏆 Top 10 కి prizes · అందరికీ points (shops/coaching offers) · results పేర్లతో channel లో",
+        "",
+        f"QR: https://api.qrserver.com/v1/create-qr-code/?size=600x600&data={link}",
+    ])
+
     d = _load()
     e = d["events"].get(code)
     if not e:
@@ -345,12 +384,24 @@ def _finish(tg, members, d, e, now):
     members.kv.save()
     _save(d)
     text = render_result(e, rows, cols)
+    btns = join_buttons()
     for u, p in rows:
         me = f"\n\n🫵 మీరు: #{p['rank']}/{len(rows)} · {p['pts']} pts · {p['correct']}/{len(e['questions'])} ✅ · {p['college']}"
         try:
-            tg.send_message(u, text + me)
+            tg.send_message(u, text + me, buttons=btns)
         except Exception:
             pass
+    # auto public post to hub channels (names → students go looking for themselves → join)
+    try:
+        pub = channel_post_from(e)
+        for ch in getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
+            try:
+                tg.send_message(config.channel_chat_id(ch), pub)
+            except Exception:
+                pass
+        e["posted"] = True
+    except Exception as ex:
+        print(f"   [campus] post note: {ex}")
     # organiser: summary + CSV
     summary = text + "\n\n📎 Full data: /campus csv " + e["code"]
     for aid in ([e.get("by")] if e.get("by") else []) + list(getattr(config, "STAFF_IDS", [])):
@@ -394,11 +445,15 @@ def render_result(e, rows, cols, limit=10):
 
 
 def channel_post(code):
-    """Short public version for the hub channel (names of Top 10 + winner college)."""
     d = _load()
     e = d["events"].get(code)
     if not e or e["state"] != "done":
         return None
+    return channel_post_from(e)
+
+
+def channel_post_from(e):
+    """Short public version for the hub channel (names of Top 10 + winner college)."""
     rows = ranking(e); cols = college_table(e)
     lines = [f"🎓 CAMPUS EVENT — {e['name']} · {e['district']}", f"👥 {len(rows)} students competed", ""]
     if len(cols) >= 2:
@@ -406,7 +461,31 @@ def channel_post(code):
     lines.append("🏅 Top 10:")
     for i, (u, p) in enumerate(rows[:10]):
         lines.append(f"{'🥇🥈🥉'[i] if i < 3 else str(i + 1) + '.'} {p['name'][:18]} · {p['college'][:14]} — {p['correct']}/{len(e['questions'])}")
-    lines += ["", "మీ college లో కూడా కావాలా? → bot లో /campus  · Students: /start → రోజూ quiz + District War ⚔️"]
+    lines += ["", f"📋 Full list ({len(rows)} students) → bot లో /myscore",
+              "మీ college లో కూడా కావాలా? → bot లో /campus  · Students: /start → రోజూ quiz + District War ⚔️"]
+    return "\n".join(lines)
+
+
+def my_score(members, uid):
+    """/myscore — student's own campus results + full list of their event (names+college+score)."""
+    d = _load()
+    code = d["by_uid"].get(str(uid))
+    e = d["events"].get(code) if code else None
+    if not e:
+        return "మీరు ఇంకా ఏ campus event లో ఆడలేదు."
+    if e["state"] != "done":
+        return f"🎓 {e['name']} — {e['state']} · result వచ్చాక ఇక్కడ చూడండి."
+    rows = ranking(e)
+    p = e["players"].get(str(uid))
+    lines = [f"🎓 {e['name']} — full list ({len(rows)})"]
+    if p and p.get("rank"):
+        lines.append(f"🫵 మీరు #{p['rank']} · {p['pts']} pts · {p['correct']}/{len(e['questions'])}")
+    lines.append("")
+    for u, q in rows[:60]:
+        lines.append(f"{q['rank']}. {q['name'][:18]} · {q['college'][:12]} — {q['correct']}/{len(e['questions'])}")
+    if len(rows) > 60:
+        lines.append(f"… +{len(rows) - 60}")
+    lines += ["", "రోజూ ఆడండి → /quiz · 9 PM District War ⚔️ · points → /offers"]
     return "\n".join(lines)
 
 

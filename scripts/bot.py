@@ -777,6 +777,19 @@ class Bot:
                     pass
                 res = staff_msg
             self.tg.send_message(chat_id, res)
+        elif low.startswith("/go ") and str(uid) in self._staff_ids():
+            from core import campus
+            f = [x.strip() for x in text[4:].split("|")]
+            if len(f) < 2:
+                self.tg.send_message(chat_id, "Usage: /go <College name> | <district> [| questions] [| easy/medium/hard]"); return
+            code = campus.quick_event(f[0], f[1], int(f[2]) if len(f) > 2 and f[2].isdigit() else campus.DEFAULT_Q,
+                                      f[3].lower() if len(f) > 3 else "easy", created_by=uid)
+            self.tg.send_message(chat_id, f"✅ {code} ready. Students కి ఇది పంపండి / projector లో చూపండి:")
+            self.tg.send_message(chat_id, campus.poster_text(code))
+            self.tg.send_message(chat_id, f"Hall ready అయ్యాక: /campus start {code}\nJoined ఎంతమంది: /campus status {code}")
+        elif low.startswith("/myscore"):
+            from core import campus
+            self.tg.send_message(chat_id, campus.my_score(self.members, uid), buttons=campus.join_buttons())
         elif low.startswith("/campus"):
             from core import campus
             parts = text.split(maxsplit=2)
@@ -796,6 +809,8 @@ class Bot:
                 self.tg.send_message(chat_id, f"✅ Event {code}\n\n" + campus.links_text(code))
             elif sub == "links":
                 self.tg.send_message(chat_id, campus.links_text(rest.strip()))
+            elif sub == "poster":
+                self.tg.send_message(chat_id, campus.poster_text(rest.strip()))
             elif sub == "status":
                 self.tg.send_message(chat_id, campus.status_text(self.members, rest.strip()))
             elif sub == "ping":
@@ -834,7 +849,7 @@ class Bot:
                 self.tg.send_message(u, f"🎁 {e['name']} — Rank #{f[1]} prize!\n{f[2]}")
                 self.tg.send_message(chat_id, f"sent to {p['name']}")
             else:
-                self.tg.send_message(chat_id, campus.list_text() + "\n\nCommands: new · links · status · ping · start · csv · post · prize")
+                self.tg.send_message(chat_id, campus.list_text() + "\n\nCommands: new · links · poster · status · ping · start · csv · post · prize\nQuick (one college): /go <College> | <district>")
         elif low.startswith("/mandal"):
             m = self.members.members.get(str(uid), {}) if uid else {}
             if not m.get("registered"):

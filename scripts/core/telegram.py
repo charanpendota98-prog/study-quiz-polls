@@ -186,7 +186,8 @@ class Telegram:
             payload["parse_mode"] = parse_mode
         if buttons:
             payload["reply_markup"] = {"inline_keyboard": [
-                [{"text": lab, "callback_data": str(cb)[:64]} for lab, cb in row] for row in buttons]}
+                [({"text": lab, "url": str(cb)[4:]} if str(cb).startswith("url:") else
+                  {"text": lab, "callback_data": str(cb)[:64]}) for lab, cb in row] for row in buttons]}
         return self._call("sendMessage", payload)
 
     def get_updates(self, timeout: int = 0):

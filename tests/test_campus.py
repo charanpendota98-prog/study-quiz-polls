@@ -96,3 +96,20 @@ class TestCampus(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestQuick(TestCampus):
+    def test_full_event(self): pass
+    def test_join_closed_and_min_players(self): pass
+
+    def test_quick_poster_myscore(self):
+        m, tg = _Members(), _TG()
+        code = C.quick_event("Vaagdevi College", "Warangal", 6, "easy", "adm")
+        pt = C.poster_text(code)
+        self.assertIn(f"start=c{code[3:]}-1", pt); self.assertIn("qrserver", pt)
+        self.assertEqual(C.my_score(m, "1"), "మీరు ఇంకా ఏ campus event లో ఆడలేదు.")
+        for i in "12":
+            C.join(m, i, code, 1); m.members[i].update({"registered": True, "name": f"S{i}"})
+        self.assertIn("state: open", C.status_text(m, code))
+        ok, _ = C.start(Bank(), m, tg, code); self.assertTrue(ok)
+        self.assertIn("result వచ్చాక", C.my_score(m, "1"))
