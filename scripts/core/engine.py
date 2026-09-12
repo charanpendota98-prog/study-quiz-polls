@@ -190,6 +190,7 @@ class Engine:
                     except Exception as e:
                         print(f"   [slot] crm note: {e}")
                 self._streak_shoutouts(mem, ch)
+                self._arena_shoutouts(ch)
             except TelegramError as e:
                 print(f"   [slot] {ch} closer failed: {e}")
             self.tg.polite_gap(not self.dry)
@@ -443,6 +444,36 @@ class Engine:
         except Exception as e:
             print(f"   [shoutout] {e}")
             return 0
+
+    def _arena_shoutouts(self, ch):
+        """Squad-battle results → the channel of that mode (max 2 per round)."""
+        try:
+            from . import arena
+            n = 0
+            for so in arena.pop_shoutouts():
+                target = so.get("channel") if so.get("channel") in config.PUBLIC_CHANNELS else ch
+                if target != ch:
+                    continue
+                self.tg.send_message(config.channel_chat_id(ch), arena.shout_text(so, config.CHANNELS[ch]))
+                n += 1
+                if n >= 2:
+                    break
+            return n
+        except Exception as e:
+            print(f"   [arena-shout] {e}")
+            return 0
+
+    def arena_board(self, channels=None):
+        from . import arena
+        txt = arena.render_top(Members())
+        if "మొదలవలేదు" in txt:
+            return 0
+        for ch in channels or getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
+            try:
+                self.tg.send_message(config.channel_chat_id(ch), txt)
+            except TelegramError as e:
+                print(f"   [arena] {ch} failed: {e}")
+        return 1
 
     def streak_shield_job(self):
         """00:10 daily — consume shields for members who missed yesterday."""

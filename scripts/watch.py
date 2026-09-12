@@ -215,6 +215,7 @@ def tick(eng, now, dry=False):
     if now.weekday() == 0 and hhmm == "08:05":
         try:
             eng.squad_board(); ran.append("squad-board")
+            eng.arena_board(); ran.append("arena-board")
         except Exception as e:
             log(f"squad error: {e}")
     if hhmm == "00:20":

@@ -276,3 +276,20 @@ fallback. Nothing is generated at post time.
   "నా స్కోర్" PNG (rank, district, score, streak, handle) for WhatsApp status; podium keeps
   the gold/silver/bronze cards.
 * **Social proof** — opener shows "🔴 N aspirants played the last round · M registered".
+
+## ⚔️ SQUAD BATTLE ARENA (`scripts/core/arena.py`) — PUBG-style rooms
+
+* Squad leader `/battle new [10]` → room `RM-XXXX` (mode = leader's exam channel). Opponent
+  leaders `/battle join RM-XXXX` (whole squad enters, 2–4 squads). `/battle list` = public
+  lobby; `/battle start` (host) or auto-start 3 min after the 2nd squad; `/battle watch` for
+  live scoreboard; `/battle top` season rankings; `/battle` status; `/battle tournament`
+  (admin) = top-8 ELO bracket.
+* Match: 30 s countdown → each Q to every player at the same moment (DM quiz poll, 45/60/75 s
+  by difficulty, auto-closes) → live scoreboard after every Q (squad ranks, per-player pts,
+  🔥 streaks, "neck and neck") → final.
+* Scoring: ✅ +100 + speed bonus (≤50) · ❌ −25 · skip 0 · squad score fair-scaled to 5 players.
+  Rewards: winners +30 pts each, 2nd +15, MVP +20; channel shout-out with names + districts.
+* Season ELO per squad (K=32) → 🥉 Bronze 🥈 Silver 🥇 Gold 💠 Diamond 💎 Conqueror; Monday
+  08:05 Arena rankings in hub; season resets monthly.
+* Questions come through `Bank.pick()` → permanent no-repeat still holds. The bot loop polls
+  every 3 s while a match is live (50 s otherwise). State `data/arena.json`.
