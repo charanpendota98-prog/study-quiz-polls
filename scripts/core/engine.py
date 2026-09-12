@@ -168,10 +168,19 @@ class Engine:
                 top = mem.render_round_top(round_id, ch, round_label or "", config.CHANNELS[ch])
                 if top and bonuses:
                     top += "\n🎁 Podium bonus: 🥇+30 · 🥈+20 · 🥉+10 · జిల్లా టాపర్ +10 pts"
+                try:      # 🎁 mystery multiplier reveal
+                    from . import hooks
+                    mw = hooks.apply_mystery(mem, round_id, ch, [q["id"] for q in qs])
+                    ml = hooks.mystery_line(round_id, ch, len(qs), len(mw))
+                    if top and ml:
+                        top += "\n" + ml
+                except Exception as e:
+                    print(f"   [mystery] {e}")
                 if top:
                     self.tg.send_message(config.channel_chat_id(ch), top)
                     self._dm_round_cards(mem, round_id, ch, round_label or "")
                     self._rank_cards(mem, round_id, ch, f"{round_label or 'Round'}")
+                    self._share_posters(mem, round_id, ch, round_label or "Round")
                     try:   # history of winners + refreshed member stats → Google Sheet
                         from . import crm
                         rows, _n = mem.round_top(round_id, ch)
@@ -180,6 +189,7 @@ class Engine:
                             crm.push_member(r["uid"], mem.members.get(str(r["uid"]), {}))
                     except Exception as e:
                         print(f"   [slot] crm note: {e}")
+                self._streak_shoutouts(mem, ch)
             except TelegramError as e:
                 print(f"   [slot] {ch} closer failed: {e}")
             self.tg.polite_gap(not self.dry)
@@ -375,6 +385,89 @@ class Engine:
         except Exception as e:
             print(f"   [mirror] save note: {e}")
         return sent
+
+    def _share_posters(self, mem, round_id, ch, label):
+        """Personal 'నా score' PNG to every registered player (WhatsApp-status
+        ready). Skips silently without Pillow."""
+        try:
+            from . import rankcard, districts as D
+            if not rankcard.available():
+                return 0
+            rows, n = mem.round_top(round_id, ch, limit=10_000)
+            cfg = config.CHANNELS[ch]
+            sent = 0
+            for i, r in enumerate(rows, 1):
+                if i <= 3:
+                    continue          # podium already got the gold/silver/bronze card
+                m = mem.members.get(str(r["uid"])) or {}
+                png = rankcard.render(
+                    {"name": r["name"], "district": r["district"],
+                     "district_te": D.telugu_name(r["district"]) if r["district"] else ""},
+                    title=f"{label} — {cfg.get('subject', ch)}", subtitle_te="నా స్కోర్ · StudentUp",
+                    exam=f"Rank #{i} of {n}", rank=i, score=f"{r['correct']} / {r['total']}",
+                    extra=f"🔥 {m.get('streak', 0)}-day streak · ⭐ {m.get('points', 0)} pts")
+                if not png:
+                    continue
+                try:
+                    self.tg.send_photo(str(r["uid"]), png,
+                                       caption="Status లో పెట్టండి 📲 friends ని పిలవండి — /invite (+20 pts)")
+                    sent += 1
+                except TelegramError:
+                    mem.mark_blocked(r["uid"])
+                if sent % 15 == 0:
+                    time.sleep(0 if self.dry else 1.1)
+            return sent
+        except Exception as e:
+            print(f"   [poster] note: {e}")
+            return 0
+
+    def _streak_shoutouts(self, mem, ch):
+        """Channel shout-out for 7/30/100-day streak milestones queued by members."""
+        try:
+            from . import hooks
+            q = mem.data.get("shoutouts") or []
+            if not q:
+                return 0
+            cfg = config.CHANNELS[ch]
+            n = 0
+            for so in q[:3]:
+                m = mem.members.get(so["uid"]) or {}
+                try:
+                    self.tg.send_message(config.channel_chat_id(ch), hooks.milestone_post(m, so["streak"], cfg))
+                    n += 1
+                except TelegramError:
+                    pass
+            mem.data["shoutouts"] = q[3:]
+            mem.kv.save()
+            return n
+        except Exception as e:
+            print(f"   [shoutout] {e}")
+            return 0
+
+    def streak_shield_job(self):
+        """00:10 daily — consume shields for members who missed yesterday."""
+        from . import hooks
+        mem = Members()
+        saved = hooks.protect_streaks(mem)
+        for uid, streak in saved:
+            try:
+                self.tg.send_message(uid, hooks.shield_dm(mem.members[str(uid)], streak))
+            except TelegramError:
+                mem.mark_blocked(uid)
+        print(f"[shield] {len(saved)} streaks protected")
+        return len(saved)
+
+    def squad_board(self, channels=None):
+        from . import hooks
+        txt = hooks.render_squad_top(Members(), cfg=None)
+        if not txt:
+            return 0
+        for ch in channels or getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
+            try:
+                self.tg.send_message(config.channel_chat_id(ch), txt)
+            except TelegramError as e:
+                print(f"   [squad] {ch} failed: {e}")
+        return 1
 
     def _rank_cards(self, mem, round_id, ch, label, n_q=None, grand=False):
         """Shareable PNG rank cards for the podium → channel (Top-3) + DM to
@@ -625,6 +718,14 @@ class Engine:
             lines += [f"⏱ ఒక్కో ప్రశ్న 1–1.5 నిమిషాలు (easy 1 · hard 1.5) — "
                       f"one question at a time, exam-hall pace",
                       f"🕒 Round ≈ {self._fmt_min(total_secs)}"]
+        try:
+            from .hooks import live_line, mystery_opener_line
+            ll = live_line(self._members if getattr(self, "_members", None) else Members(), cfg.get("key", ""))
+            if ll:
+                lines.append(ll)
+            lines.append(mystery_opener_line())
+        except Exception:
+            pass
         lines += [mode_note,
                   "Points & ranks: /quiz in our bot group ⭐"]
         return "\n".join(lines)

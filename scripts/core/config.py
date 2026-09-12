@@ -222,6 +222,8 @@ CHANNELS = {
     },
 }
 
+for _k, _v in CHANNELS.items():
+    _v.setdefault("key", _k)
 PUBLIC_CHANNELS = [k for k, v in CHANNELS.items() if v["public"] and k != "JOBS"]
 
 

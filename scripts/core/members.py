@@ -222,6 +222,18 @@ class Members:
                 m["streak"] = 1
             m["last_correct"] = today
             m["best_streak"] = max(m["best_streak"], m["streak"])
+            try:      # 🛡 shields every 7 days + 7/30/100 milestones (channel shout-out queued)
+                from .hooks import on_daily_activity
+                hk = on_daily_activity(m, today, yesterday)
+                if hk.get("shield_earned"):
+                    events.append("🛡 +1 streak shield")
+                if hk.get("milestone"):
+                    earned += 0
+                    events.append(f"🔥 {hk['milestone']}-day milestone +{hk['bonus']}")
+                    self.data.setdefault("shoutouts", []).append(
+                        {"uid": str(uid), "streak": hk["milestone"], "ts": now_iso()})
+            except Exception:
+                pass
             # streak milestone bonuses
             for days, bonus in STREAK_BONUS.items():
                 if m["streak"] >= days and days not in m["claimed"]:

@@ -207,6 +207,16 @@ def tick(eng, now, dry=False):
             eng.referral_board(); ran.append("referral-board")
         except Exception as e:
             log(f"league error: {e}")
+    if hhmm == "00:10":
+        try:
+            eng.streak_shield_job(); ran.append("streak-shield")
+        except Exception as e:
+            log(f"shield error: {e}")
+    if now.weekday() == 0 and hhmm == "08:05":
+        try:
+            eng.squad_board(); ran.append("squad-board")
+        except Exception as e:
+            log(f"squad error: {e}")
     if hhmm == "00:20":
         try:
             eng.rewards_housekeeping(); ran.append("rewards-expiry")

@@ -11,6 +11,7 @@ Commands:
   /exam <name>        change exam target   /follow <channels>  which rounds come to your DM
   /invite             referral link (+20 pts per friend)
   /challenge          🥊 Beat yesterday's topper (same 5 Q, +15 pts)
+  /squad              👥 friend squad (3–5) — weekly Squad Top-5 in channel
   /wallet             👛 points balance + ₹ value at StudentUp centre
   /redeem             🎁 turn points into vouchers (applications, prints, photos)
   /report             📋 your weekly report card
@@ -461,6 +462,19 @@ class Bot:
             else:
                 f = self.members.set_follow(uid, chans)
                 self.tg.send_message(chat_id, f"🔔 Following rounds: {', '.join(f)}\n⤷ ఈ ఛానల్ రౌండ్లు మీకు ఇక్కడ వస్తాయి.")
+        elif low.startswith("/squad") or low.startswith("/team"):
+            from core import hooks
+            parts = text.split(maxsplit=2)
+            sub = parts[1].lower() if len(parts) > 1 else ""
+            if sub in ("new", "create"):
+                _c, msg = hooks.squad_create(self.members, uid, parts[2] if len(parts) > 2 else "")
+            elif sub == "join":
+                _s, msg = hooks.squad_join(self.members, uid, parts[2] if len(parts) > 2 else "")
+            elif sub == "leave":
+                msg = hooks.squad_leave(uid)
+            else:
+                msg = hooks.render_squad(self.members, uid)
+            self.tg.send_message(chat_id, msg)
         elif low.startswith("/wallet") or low.startswith("/points"):
             from core import rewards
             self.tg.send_message(chat_id, rewards.render_wallet(self.members, uid))

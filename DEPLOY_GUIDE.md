@@ -261,3 +261,18 @@ With the previous-round key, if ≥50 % of voters (min 5 votes) got a question w
 bot posts that question's own verified explanation in Telugu + English (max 2 per round).
 Uses channel poll totals (`poll` updates now recorded) with DM-mirror member stats as
 fallback. Nothing is generated at post time.
+
+## 🧲 Addiction & acquisition hooks (`scripts/core/hooks.py`)
+
+* **Streak Shield** — every 7-day streak banks a 🛡 (max 2); a missed day consumes one
+  instead of resetting (00:10 job, member gets a DM). Milestones 7/30/100 days: +50/+200/+1000
+  pts and a channel shout-out with name + district.
+* **Mystery Multiplier** — one secret question per round is ×2/×3/×5 (60/30/10 %),
+  deterministic per (round, channel); revealed only in the Top-10 post. Opener teases it.
+* **Friend Squads** — `/squad new <name>`, `/squad join CODE`, `/squad leave`, `/squad`
+  (3–5 members; joining counts as the leader's referral +20). Monday 08:05 "Squad of the
+  week" Top-5 in the hub with all names + districts. State `data/squads.json`.
+* **Share posters** — after every round each registered player (ranks 4+) gets a personal
+  "నా స్కోర్" PNG (rank, district, score, streak, handle) for WhatsApp status; podium keeps
+  the gold/silver/bronze cards.
+* **Social proof** — opener shows "🔴 N aspirants played the last round · M registered".
