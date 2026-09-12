@@ -142,7 +142,9 @@ def render_wallet(members, uid) -> str:
         lines = [f"👛 {m.get('name', 'Player')} — Points Wallet",
                  f"⭐ Balance: {b['available']} pts" + (f" (+{b['held']} held in vouchers)" if b['held'] else ""),
                  f"💰 Value: ≈ ₹{b['rupees']} at {cat['centre']['name']}",
-                 f"🎟 Redeemed so far: {b['redeemed']} pts", ""]
+                 f"🎟 Redeemed so far: {b['redeemed']} pts",
+                 f"🧾 Centre లో ప్రతి ₹100 application → +{CASHBACK_PER_100} pts cashback · 3rd +{LOYALTY[3]} · 10th +{LOYALTY[10]}"
+                 + (f" · మీవి: {m.get('apps_filed', 0)}" if m.get("apps_filed") else ""), ""]
         if can:
             lines.append("✅ మీరు ఇప్పుడు తీసుకోగలిగేవి / You can redeem now:")
             for o in [x for x in can if x.get("cat") == "application"][-2:]:
@@ -307,6 +309,44 @@ def verify(members, code: str, staff_uid=None) -> str:
                 f"🎁 {v['title_en']}\n⭐ {v['pts']} pts deducted · balance now {m['points']}")
     except Exception as e:
         return f"verify error: {e}"
+
+
+CASHBACK_PER_100 = 50           # every ₹100 paid at the centre → +50 pts (≈₹5 back, 5 %)
+LOYALTY = {3: 100, 10: 500}     # 3rd / 10th application filed → extra
+
+
+def filed_application(members, key: str, rupees: int = 100, staff_uid=None) -> str:
+    """STAFF at the counter: /filed <uid or 10-digit phone> [rupees]
+    Student paid for an application → points cashback + loyalty milestones (no voucher needed)."""
+    try:
+        key = key.strip()
+        uid = None
+        if key.isdigit() and len(key) == 10:
+            uid = next((u for u, m in members.members.items() if (m.get("phone") or m.get("mobile")) == key), None)
+        elif key.isdigit():
+            uid = key if key in members.members else None
+        if not uid:
+            return "❌ Member not found (send telegram id or registered 10-digit phone)."
+        m = members._get(uid)
+        rupees = max(0, int(rupees or 100))
+        pts = CASHBACK_PER_100 * max(1, rupees // 100)
+        m["apps_filed"] = m.get("apps_filed", 0) + 1
+        extra = LOYALTY.get(m["apps_filed"], 0)
+        m["points"] = m.get("points", 0) + pts + extra
+        m["cashback_pts"] = m.get("cashback_pts", 0) + pts + extra
+        m.setdefault("filed_log", []).append({"ts": datetime.now(config.IST).isoformat(), "rs": rupees, "by": str(staff_uid or "")})
+        m["filed_log"] = m["filed_log"][-50:]
+        members.kv.save()
+        msg = (f"✅ Application #{m['apps_filed']} filed for {m.get('name', '')} · ₹{rupees}\n"
+               f"⭐ +{pts} cashback" + (f" + 🎉 loyalty +{extra}" if extra else "") + f" → balance {m['points']}")
+        nxt = next((k for k in sorted(LOYALTY) if k > m["apps_filed"]), None)
+        member_msg = (f"🧾 మీ application (₹{rupees}) file అయింది — thank you!\n⭐ +{pts} points cashback"
+                      + (f" + 🎉 {m['apps_filed']}వ application loyalty bonus +{extra}!" if extra else "")
+                      + f"\n👛 Balance {m['points']} pts → /wallet · /offers"
+                      + (f"\n🎯 {nxt}వ application కి +{LOYALTY[nxt]} bonus" if nxt else ""))
+        return msg + "\n@@MEMBER@@" + uid + "@@" + member_msg
+    except Exception as e:
+        return f"filed error: {e}"
 
 
 def expire_stale(members, now=None) -> int:

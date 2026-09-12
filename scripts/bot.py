@@ -31,6 +31,7 @@ Commands:
   /badges             your earned achievement badges
   /stats /profile     your points, level, rank, accuracy, streak
   /rank /leaderboard  points-based top players
+  /campus             🎓 college event / college-vs-college war (organisers)
   /warrank            🎖 మీ War rank (🪖→🐉) + all-time war board
   /top tspsc          📊 exam-wise Top 10 (today) · /top tspsc week · /top tspsc districts
   /levels             points & level rules
@@ -480,6 +481,13 @@ class Bot:
             if status == "done":
                 self.tg.admin_note = None
                 try:
+                    from core import campus
+                    ev = campus.on_registered(self.members, uid)
+                    if ev:
+                        self.tg.send_message(chat_id, f"🎓 {ev['name']} కి ready ✅ (+{campus.JOIN_PTS} pts). Exam start అయినప్పుడు ప్రశ్నలు ఇక్కడే వస్తాయి 📱")
+                except Exception:
+                    pass
+                try:
                     from core import social
                     self.tg.send_message(chat_id, "🎁 Bonus points వెంటనే:\n" + social.follow_prompt())
                 except Exception:
@@ -497,6 +505,25 @@ class Bot:
                         self.tg.send_message(arg[3:], "🎁 Your friend joined via your link — +20 points!\n⤷ మీ ఫ్రెండ్ join అయ్యారు — +20 పాయింట్లు!")
                     except TelegramError:
                         pass
+            camp = None
+            try:
+                from core import campus
+                camp = campus.parse_start_arg(arg)
+            except Exception:
+                camp = None
+            if camp and uid:
+                from core import campus
+                ok, txt, need = campus.join(self.members, uid, camp[0], camp[1], name_hint=who.get("first_name", ""))
+                self.tg.send_message(chat_id, txt)
+                if ok and need and not self.members.pending_step(uid):
+                    e = campus._load()["events"][camp[0]]
+                    from core import districts as D
+                    self.members.start_registration(uid, username=self._name(who), quick={
+                        "state_code": D.state_of(e["district"]) or "AP",
+                        "state": "Telangana" if D.state_of(e["district"]) == "TS" else "Andhra Pradesh",
+                        "district": e["district"], "qualification": "degree", "exam": "Current Affairs GK"})
+                    self.tg.send_message(chat_id, "✍️ Step 1 of 2 — మీ పూర్తి పేరు? / Your full name:")
+                return
             if arg == "offers":
                 self.tg.send_message(chat_id, "🛍 Offers claim చేయాలంటే 1 నిమిషం register (+25 pts bonus) → తర్వాత /offers 👇"
                                      if not self.members.is_registered(uid) else "🛍 మీ offers 👇 /offers")
@@ -735,6 +762,79 @@ class Bot:
                 self.tg.send_message(chat_id, f"{len(ps)} screenshots pending (buttons were sent to staff when received)")
             else:
                 self.tg.send_message(chat_id, social.campaign_stats() + "\n\nCommands: new · leads [district] · convert <LID> <PID> · opening <PID> [days] · kit · call · pending")
+        elif low.startswith("/filed") and str(uid) in self._staff_ids():
+            from core import rewards
+            parts = text.split()
+            if len(parts) < 2:
+                self.tg.send_message(chat_id, "Usage: /filed <telegram id | 10-digit phone> [rupees]  — application cashback"); return
+            res = rewards.filed_application(self.members, parts[1], int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 100, uid)
+            if "@@MEMBER@@" in res:
+                staff_msg, _, rest = res.partition("@@MEMBER@@")
+                mu, _, mm = rest.partition("@@")
+                try:
+                    self.tg.send_message(mu, mm)
+                except TelegramError:
+                    pass
+                res = staff_msg
+            self.tg.send_message(chat_id, res)
+        elif low.startswith("/campus"):
+            from core import campus
+            parts = text.split(maxsplit=2)
+            sub = parts[1].lower() if len(parts) > 1 else ""
+            rest = parts[2] if len(parts) > 2 else ""
+            if str(uid) not in self._staff_ids():
+                self.tg.send_message(chat_id, "🎓 మీ college లో StudentUp exam + college-vs-college war కావాలా?\n"
+                                              "College పేరు · జిల్లా · students సంఖ్య · మీ phone → /partner apply లో పంపండి, team వస్తుంది!\n"
+                                              "(Top 10 కి gifts · అందరికీ points · results channel లో పేర్లతో)")
+                return
+            if sub == "new":
+                f = [x.strip() for x in rest.split("|")]
+                if len(f) < 3:
+                    self.tg.send_message(chat_id, "Usage: /campus new <event name> | <district> | <College A> ; <College B> ; … [| questions] [| easy/medium/hard]"); return
+                code = campus.new_event(f[0], f[1], f[2].split(";"), int(f[3]) if len(f) > 3 and f[3].isdigit() else campus.DEFAULT_Q,
+                                        f[4].lower() if len(f) > 4 else "medium", created_by=uid)
+                self.tg.send_message(chat_id, f"✅ Event {code}\n\n" + campus.links_text(code))
+            elif sub == "links":
+                self.tg.send_message(chat_id, campus.links_text(rest.strip()))
+            elif sub == "status":
+                self.tg.send_message(chat_id, campus.status_text(self.members, rest.strip()))
+            elif sub == "ping":
+                self.tg.send_message(chat_id, f"pinged {campus.waiting_room_ping(self.tg, self.members, rest.strip())}")
+            elif sub == "start":
+                ok, info = campus.start(self.bank, self.members, self.tg, rest.strip())
+                self.tg.send_message(chat_id, f"🚀 Started: {info}" if ok else f"❌ {info}")
+            elif sub == "csv":
+                csv = campus.csv_text(rest.strip())
+                if not csv:
+                    self.tg.send_message(chat_id, "Event not found."); return
+                try:
+                    self.tg.send_document(chat_id, f"{rest.strip()}.csv", csv.encode("utf-8"), caption="Full student data")
+                except Exception:
+                    for i in range(0, len(csv), 3500):
+                        self.tg.send_message(chat_id, csv[i:i + 3500])
+            elif sub == "post":
+                txt = campus.channel_post(rest.strip())
+                if not txt:
+                    self.tg.send_message(chat_id, "Event not finished."); return
+                for ch in getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
+                    try:
+                        self.tg.send_message(config.channel_chat_id(ch), txt)
+                    except TelegramError:
+                        pass
+                self.tg.send_message(chat_id, "✅ posted to hub channels")
+            elif sub == "prize":
+                f = rest.split(maxsplit=2)
+                if len(f) < 3 or not f[1].isdigit():
+                    self.tg.send_message(chat_id, "Usage: /campus prize <CODE> <rank> <message>"); return
+                e = campus._load()["events"].get(f[0])
+                rows = campus.ranking(e) if e else []
+                if not rows or int(f[1]) > len(rows):
+                    self.tg.send_message(chat_id, "rank not found"); return
+                u, p = rows[int(f[1]) - 1]
+                self.tg.send_message(u, f"🎁 {e['name']} — Rank #{f[1]} prize!\n{f[2]}")
+                self.tg.send_message(chat_id, f"sent to {p['name']}")
+            else:
+                self.tg.send_message(chat_id, campus.list_text() + "\n\nCommands: new · links · status · ping · start · csv · post · prize")
         elif low.startswith("/mandal"):
             m = self.members.members.get(str(uid), {}) if uid else {}
             if not m.get("registered"):
@@ -759,7 +859,7 @@ class Bot:
                     self.tg.send_message(chat_id, "⏳ జిల్లా 30 రోజులకి ఒకసారే మార్చవచ్చు."); return
             except Exception:
                 pass
-            m["district"], m["state_code"] = d, ("TS" if d in D.TS_DISTRICTS else "AP")
+            m["district"], m["state_code"] = d, (D.state_of(d) or "AP")
             m["mandal"] = ""; m["district_changed"] = datetime.now(config.IST).isoformat(); self.members.kv.save()
             self.tg.send_message(chat_id, f"✅ జిల్లా మారింది → {d} ({D.telugu_name(d)}). /offers, /district, District War అన్నీ ఇప్పుడు {d} కి.")
         elif low.startswith("/whatsapp") and str(uid) in self._staff_ids():
@@ -1113,6 +1213,13 @@ class Bot:
         if not (uid and poll_id is not None and chosen):
             return
         user = pa.get("user", {})
+        # 🎓 Campus event polls
+        try:
+            from core import campus
+            if campus.record_answer(poll_id, uid, int(chosen[0])):
+                return
+        except Exception as e:
+            print(f"[campus] answer error: {e}")
         # ⚔️ District War polls
         try:
             from core import districtwar
@@ -1223,6 +1330,9 @@ class Bot:
                                for r in arena._load()["rooms"].values())
                     from core import districtwar
                     if districtwar.tick(self.tg, self.members):
+                        live = True
+                    from core import campus
+                    if campus.tick(self.tg, self.members):
                         live = True
                 except Exception as e:
                     print(f"[arena] tick error: {e}")

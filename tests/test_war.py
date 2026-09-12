@@ -144,6 +144,8 @@ class TestWarRanksSquads(TestWar):
             self.assertGreaterEqual(d["war_points"]["1"], 150)
             self.assertNotEqual(W.war_tier(d, "1"), "🪖 Recruit"); self.assertTrue(d["live"]["tier_ups"])
             post = d["_channel_post"]
+            self.assertEqual(len(d["live"]["state_rows"]), 2)          # Warangal (TS) vs Guntur (AP)
+            self.assertIn(" vs ", post); self.assertIn("Telangana", post)
             for s_ in ("SQUAD BATTLE", "Warangal Gang", "RANK UP", "Streaks"):
                 self.assertIn(s_, post)
             self.assertIn("War Rank", W.war_rank_text("1")); self.assertIn("WAR RANKS", W.war_leaderboard(m))

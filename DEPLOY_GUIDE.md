@@ -388,3 +388,21 @@ Every exam channel now has its own competition next to the all-exam District War
   fighting), winning squad +15 each; kill-streaks 3/5/8/10 → +5/+10/+20/+40; lifetime war points →
   ranks 🪖 Recruit → ⚔️ Fighter → 🛡 Warrior → 🔥 Veteran → 👑 Warlord → 🐉 Legend, RANK UP line in result;
   `/warrank` = your rank + all-time war board.
+
+## 🎓 Campus events (`scripts/core/campus.py`) — college-vs-college in minutes
+1. `/campus new KU Fest | Warangal | Kakatiya Univ ; SR College ; Vaagdevi | 15 | medium`
+   → code `CE-XXXX` + **one deep link per college** (`t.me/<bot>?start=cXXXX-2`). Print/QR/WhatsApp them.
+2. Student taps the link → college + district auto-tagged → only **name + phone** asked (2 steps, degree
+   default) → "ready" (+25 pts). `/campus status CE-XXXX` shows joined per college.
+3. `/campus start CE-XXXX` → questions to every joined student's DM one at a time (timed, degree-friendly
+   common syllabus: GK/reasoning/aptitude/English/CA, level easy|medium|hard, no-repeat).
+4. Auto result to all students + organiser: 🏫 COLLEGE vs COLLEGE (avg + participation), 🏆 winner,
+   Top 10 (+100/+60/+40), Rising 5, join-channel CTA (Telegram `BRAND_HANDLE`, WhatsApp `WHATSAPP_CHANNEL`).
+   `/campus csv CE-XXXX` = full data file; `/campus post CE-XXXX` = public post to hub channels;
+   `/campus prize CE-XXXX 1 <msg>` DMs a gift note. Students stay as normal members (district set).
+
+## 🏛 State War + 🧾 application cashback
+* Every District War result now shows **Telangana vs Andhra Pradesh** bar; **Saturday = STATE WAR NIGHT**
+  (+10 to every fighter of the winning state, season tally).
+* Counter: `/filed <telegram id | phone> [rupees]` after a paid application → +50 pts per ₹100 cashback,
+  3rd application +100, 10th +500 (member gets a DM). Shown in `/wallet`.

@@ -936,8 +936,12 @@ class Members:
                 f"💎 Perfect rounds: {m.get('perfect_rounds', 0)} · 🤝 Referrals: {m.get('referrals', 0)}")
 
     # ------------------------------------------------------------ register flow
-    def start_registration(self, uid, username=""):
-        self.pending[str(uid)] = {"step": "name", "username": username}
+    def start_registration(self, uid, username="", quick=None):
+        """quick={'state_code','state','district','qualification','exam'} → only name + mobile asked."""
+        st = {"step": "name", "username": username}
+        if quick:
+            st.update({k: v for k, v in quick.items() if v}); st["quick"] = True
+        self.pending[str(uid)] = st
         self.kv.save()
 
     def pending_step(self, uid):
@@ -963,6 +967,11 @@ class Members:
             if len(text) < 2 or len(text) > 60 or text.startswith("/"):
                 return "ask_name", "Please send your real name (2–60 letters).\n⤷ మీ పూర్తి పేరు పంపండి:"
             st["name"] = text
+            if st.get("quick") and st.get("district"):
+                st["step"] = "mobile"
+                self.kv.save()
+                return "ask_mobile", (f"👍 {text}!\n\n📱 Step 2 of 2 — Mobile number (10 digits) for result & prizes. "
+                                      "Send `skip` to skip.\n⤷ మొబైల్ నంబర్ పంపండి (లేదా skip):")
             st["step"] = "state"
             self.kv.save()
             return "ask_state", (f"👍 {text}!\n\n🗺 Step 2 of 5 — మీ రాష్ట్రం? / Your state?\n"

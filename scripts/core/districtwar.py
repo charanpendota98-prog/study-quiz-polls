@@ -41,7 +41,7 @@ MIX = (("gk", 3), ("reasoning", 3), ("quant", 2), ("english", 1), ("ca", 1))
 Q_WINDOW = {"easy": 45, "medium": 60, "hard": 75}
 GAP_SEC = 5
 PTS_CORRECT, PTS_SPEED_MAX, PTS_WRONG = 10, 5, 0        # no negative in wars — everyone should play
-WIN_BONUS, MVP_BONUS, SQUAD_WIN_BONUS = 10, 25, 15
+WIN_BONUS, MVP_BONUS, SQUAD_WIN_BONUS, STATE_WIN_BONUS = 10, 25, 15, 10
 DEFENDER_STREAK = 5
 
 
@@ -172,6 +172,27 @@ def tier_progress(d, uid):
     wp = d.get("war_points", {}).get(str(uid), 0)
     nxt = next(((th, t) for th, t in WAR_TIERS if th > wp), None)
     return wp, nxt
+
+
+def state_table(live, members):
+    """TS vs AP — avg pts per fighter ×10 + participation (max 50) ×1."""
+    agg = {}
+    from . import districts as D
+    for uid, f in live["fighters"].items():
+        if f["answered"] == 0:
+            continue
+        st = (members.members.get(uid) or {}).get("state_code") or (D.state_of(f["district"]) or "AP")
+        a = agg.setdefault(st, {"pts": 0, "n": 0, "correct": 0, "top": ("", -1)})
+        a["pts"] += f["pts"]; a["n"] += 1; a["correct"] += f["correct"]
+        if f["pts"] > a["top"][1]:
+            a["top"] = (uid, f["pts"])
+    rows = []
+    for st, a in agg.items():
+        rows.append({"state": st, "name": D.STATES[st][0], "score": round(a["pts"] / a["n"] * 10 + min(a["n"], 50), 1),
+                     "avg": round(a["pts"] / a["n"], 1), "n": a["n"],
+                     "acc": round(100 * a["correct"] / max(a["n"] * len(live["questions"]), 1)), "top": a["top"]})
+    rows.sort(key=lambda r: -r["score"])
+    return rows
 
 
 def squad_table(live):
@@ -425,6 +446,15 @@ def _finish(tg, members, d, now):
     live["tier_ups"] = tier_ups
     sq_rows = squad_table(live)
     live["squad_rows"] = sq_rows[:10]
+    st_rows = state_table(live, members)
+    live["state_rows"] = st_rows
+    if now.weekday() == 5 and len(st_rows) == 2:                   # Saturday = STATE WAR night: TS vs AP bonus
+        sw = season.setdefault("state_wins", {})
+        sw[st_rows[0]["state"]] = sw.get(st_rows[0]["state"], 0) + 1
+        for uid, f in live["fighters"].items():
+            if f["answered"] and ((members.members.get(uid) or {}).get("state_code") == st_rows[0]["state"]):
+                m = members._get(uid); m["points"] = m.get("points", 0) + STATE_WIN_BONUS
+        members.kv.save()
     if sq_rows:
         ws = season.setdefault("squad_wins", {})
         ws[sq_rows[0]["code"]] = ws.get(sq_rows[0]["code"], 0) + 1
@@ -476,6 +506,17 @@ def render_result(live, rows, members, mvp, season, now):
         for j, (uid, f) in enumerate(best, 1):
             mm = members.members.get(uid) or {}
             lines.append(f"  {j}. {mm.get('name', '')[:16]} · {f['district']} — {f['pts']} pts ({f['correct']}/{n_q})")
+    st = live.get("state_rows") or []
+    if len(st) == 2:
+        a, b = st
+        tot = a["score"] + b["score"]
+        la = max(1, int(round(12 * a["score"] / tot)))
+        sat = now.weekday() == 5
+        lines += ["", ("🏛 STATE WAR NIGHT — " if sat else "🏛 ") + f"{a['name']} vs {b['name']}",
+                  f"   {a['state']} {'█' * la}{'░' * (12 - la)} {b['state']}   {a['score']:g} : {b['score']:g}",
+                  f"   {a['state']}: {a['n']}👥 · avg {a['avg']} · 🎯{a['acc']}%   |   {b['state']}: {b['n']}👥 · avg {b['avg']} · 🎯{b['acc']}%"]
+        if sat:
+            lines.append(f"   🎁 {a['name']} fighters +{STATE_WIN_BONUS} each · season: " + " · ".join(f"{k} {v}W" for k, v in season.get("state_wins", {}).items()))
     sq = live.get("squad_rows") or []
     if sq:
         lines += ["", "👥 SQUAD BATTLE (same war, squads scored together):"]
@@ -630,7 +671,8 @@ def my_war(members, uid):
     d = _load()
     m = members.members.get(str(uid)) or {}
     t = getattr(config, "WAR_TIME", "21:00")
-    lines = ["⚔️ DISTRICT WARS — రోజూ " + t, "అన్ని exams common syllabus: GK · Reasoning · Aptitude · English · CA", ""]
+    lines = ["⚔️ DISTRICT WARS — రోజూ " + t, "అన్ని exams common syllabus: GK · Reasoning · Aptitude · English · CA",
+             "శనివారం 🏛 STATE WAR NIGHT: Telangana vs Andhra Pradesh (+10 winners)", ""]
     if not m.get("registered"):
         lines.append("Register అయితే automatic గా మీ జిల్లా fighter — /start")
     else:

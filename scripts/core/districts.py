@@ -113,3 +113,11 @@ def sorted_districts(state: str):
     if state not in STATES:
         return []
     return sorted(STATES[state][2], key=lambda r: r[0].lower())
+
+
+def state_of(district: str) -> str:
+    """'TS' | 'AP' | '' for a district name."""
+    for code, (_en, _te, lst) in STATES.items():
+        if any((d[0] if isinstance(d, tuple) else d) == district for d in lst):
+            return code
+    return ""

@@ -116,3 +116,23 @@ class TestMaterials(unittest.TestCase):
         self.assertIsNone(path2); self.assertIn("upload", note2); self.assertEqual(rewards.balance(m, "1")["held"], 100)
         cats = {o["cat"] for o in rewards.catalog()["offers"]}
         self.assertEqual(cats, {"application", "material"})
+
+
+class TestCashback(unittest.TestCase):
+    def test_filed_cashback_and_loyalty(self):
+        from core import rewards as R
+        class KV:
+            def save(self): pass
+        class M:
+            kv = KV()
+            members = {"7": {"registered": True, "name": "Ravi", "phone": "9876543210", "points": 0}}
+            def _get(self, u): return self.members[str(u)]
+        m = M()
+        self.assertIn("not found", R.filed_application(m, "1234567890"))
+        r = R.filed_application(m, "9876543210", 100, "s")
+        self.assertIn("+50 cashback", r); self.assertIn("@@MEMBER@@7@@", r)
+        R.filed_application(m, "7", 250)                       # 2 × 100 → +100
+        r3 = R.filed_application(m, "7", 100)
+        self.assertIn("loyalty +100", r3)
+        self.assertEqual(m.members["7"]["points"], 50 + 100 + 50 + 100)
+        self.assertEqual(m.members["7"]["apps_filed"], 3)
