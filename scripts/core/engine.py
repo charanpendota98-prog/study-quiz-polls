@@ -166,6 +166,12 @@ class Engine:
                 mem = self._members.reload()
                 bonuses = mem.settle_round(round_id, ch)
                 top = mem.render_round_top(round_id, ch, round_label or "", config.CHANNELS[ch])
+                if top:
+                    try:
+                        from . import examboard
+                        top += examboard.round_clash(mem, round_id, ch)
+                    except Exception as e:
+                        print(f"   [examboard] {e}")
                 if top and bonuses:
                     top += "\n🎁 Podium bonus: 🥇+30 · 🥈+20 · 🥉+10 · జిల్లా టాపర్ +10 pts"
                 try:      # 🎁 mystery multiplier reveal
@@ -528,6 +534,24 @@ class Engine:
             except TelegramError:
                 pass
         print(f"[examday] prompted {n}")
+        return n
+
+    def exam_boards(self, period="today"):
+        """Per exam channel: today's Top-10 + district clash (21:30) or Sunday weekly champions."""
+        from . import examboard
+        mem = self._members.reload() if hasattr(self, "_members") else Members()
+        n = 0
+        for ch in config.PUBLIC_CHANNELS:
+            try:
+                txt = examboard.weekly_close(mem, ch) if period == "week" else examboard.render_board(mem, ch, period)
+                if not txt:
+                    continue
+                if not self.dry:
+                    self.tg.send_message(config.channel_chat_id(ch), txt)
+                n += 1
+            except Exception as e:
+                print(f"   [examboard] {ch}: {e}")
+        print(f"[examboard] {period}: {n} channels")
         return n
 
     def partner_call(self):

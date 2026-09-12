@@ -370,3 +370,11 @@ fallback. Nothing is generated at post time.
   `/partner photo <PID>` (reply to a photo) attaches the partner's poster to the hub card.
 * Onboarding: `/social kit` = the "how to join + packages" message to forward to any owner;
   `/partner apply` replies with the same kit. Claims require registration (+25 bonus) — the CTA says so.
+
+## 📊 Exam-wise boards (`scripts/core/examboard.py`)
+Every exam channel now has its own competition next to the all-exam District War:
+* Round close → Top-10 **+ "🏙 <EXAM> జిల్లాల clash"** (district accuracy bars, players, best fighter).
+* 21:30 daily → "Today in <EXAM>" Top-10 across the day's rounds + district table, posted in that channel.
+* Sunday 20:15 → **<EXAM> WEEKLY CHAMPIONS**: +40/+25/+15, District of the week +10 to all its members.
+* Bot: `/top tspsc` (today) · `/top tspsc week` · `/top tspsc districts`. District score = accuracy +
+  2×players (capped at 15) so small districts can win.

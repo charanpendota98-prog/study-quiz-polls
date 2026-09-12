@@ -201,6 +201,16 @@ def tick(eng, now, dry=False):
         eng.hall_of_fame(); ran.append("hall-of-fame")
     if hhmm == "20:00" and now.weekday() == 6:
         eng.district_cup(); ran.append("district-cup")
+    if hhmm == "20:15" and now.weekday() == 6:
+        try:
+            eng.exam_boards("week"); ran.append("exam-week")
+        except Exception as e:
+            log(f"examboard error: {e}")
+    if hhmm == "21:30":
+        try:
+            eng.exam_boards("today"); ran.append("exam-today")
+        except Exception as e:
+            log(f"examboard error: {e}")
     if now.weekday() == 0 and hhmm == config.LEAGUE_POST_TIME:
         try:
             eng.district_league(); ran.append("district-league")

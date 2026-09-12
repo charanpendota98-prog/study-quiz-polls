@@ -31,6 +31,7 @@ Commands:
   /badges             your earned achievement badges
   /stats /profile     your points, level, rank, accuracy, streak
   /rank /leaderboard  points-based top players
+  /top tspsc          📊 exam-wise Top 10 (today) · /top tspsc week · /top tspsc districts
   /levels             points & level rules
 Group quizzes via this bot are the ones that earn points (channel auto-polls
 are anonymous by Telegram design); add the bot to your study group to compete.
@@ -965,8 +966,21 @@ class Bot:
             else:
                 self.tg.send_message(chat_id, self.members.render_profile(uid))
         elif low.startswith("/rank") or low.startswith("/leaderboard") or low.startswith("/top"):
-            self.tg.send_message(chat_id, self.members.render_leaderboard(),
-                                 parse_mode="Markdown")
+            parts = low.split()
+            ch = parts[1].upper() if len(parts) > 1 else ""
+            ch = {"BANK": "BANKING", "RRB": "RAILWAY", "UPSC": "SSC", "CA": "CURRENT", "GROUPS": "TSPSC"}.get(ch, ch)
+            if ch in config.PUBLIC_CHANNELS:
+                from core import examboard
+                mode = parts[2] if len(parts) > 2 else ""
+                if mode.startswith("dist"):
+                    self.tg.send_message(chat_id, examboard.render_districts(self.members, ch, "week"))
+                else:
+                    self.tg.send_message(chat_id, examboard.render_board(self.members, ch, "week" if mode == "week" else "today")
+                                         or f"{ch}: ఈరోజు ఇంకా rounds లేవు — /top {ch.lower()} week చూడండి")
+            elif len(parts) > 1 and parts[1] not in ("week", "today"):
+                self.tg.send_message(chat_id, "Usage: /top tspsc | appsc | banking | railway | police | defence | ssc | current  [week | districts]")
+            else:
+                self.tg.send_message(chat_id, self.members.render_leaderboard(), parse_mode="Markdown")
         elif low.startswith("/verify"):
             from core.verifier import status_text as vstat, run as vrun
             parts = low.split()
