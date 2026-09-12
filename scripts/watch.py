@@ -252,6 +252,16 @@ def tick(eng, now, dry=False):
             eng.partner_ad(); ran.append("partner-ad")
         except Exception as e:
             log(f"ad error: {e}")
+    if hhmm == "10:00":
+        try:
+            eng.campus_drip(); ran.append("campus-drip")
+        except Exception as e:
+            log(f"campus drip error: {e}")
+    if hhmm == "19:00" and now.day == 1:
+        try:
+            eng.college_league(); ran.append("college-league")
+        except Exception as e:
+            log(f"college league error: {e}")
     if hhmm == "12:30":
         try:
             eng.examday_checkins(); ran.append("examday-checkin")

@@ -113,3 +113,34 @@ class TestQuick(TestCampus):
         self.assertIn("state: open", C.status_text(m, code))
         ok, _ = C.start(Bank(), m, tg, code); self.assertTrue(ok)
         self.assertIn("result వచ్చాక", C.my_score(m, "1"))
+
+
+class TestAfterEvent(TestCampus):
+    def test_full_event(self): pass
+    def test_join_closed_and_min_players(self): pass
+
+    def test_quick_registration_flow_and_drip(self):
+        from core.members import Members
+        import core.members as MM
+        # registration: name → qualification → mobile with quick prefill
+        class KV:
+            def save(self): pass
+        mem = Members.__new__(Members); mem.kv = KV(); mem.members = {}; mem.pending = {}; mem.data = {}
+        mem.form_pending = {}
+        mem.start_registration("5", "u", quick={"state_code": "TS", "state": "Telangana", "district": "Warangal", "exam": "Current Affairs GK"})
+        st, _ = mem.registration_input("5", "Ravi Kumar"); self.assertEqual(st, "ask_qualification")
+        st, txt = mem.registration_input("5", "4"); self.assertEqual(st, "ask_mobile"); self.assertIn("3 of 3", txt)
+        # drip
+        m, tg = _Members(), _TG()
+        code = C.quick_event("SR College", "Warangal", 5)
+        for i in "12":
+            C.join(m, i, code, 1); m.members[i].update({"registered": True, "name": f"S{i}"})
+        d = C._load(); e = d["events"][code]
+        e["state"] = "done"; e["finished"] = (C._now() - timedelta(days=1)).isoformat(); e["questions"] = [{}] * 5
+        for p in e["players"].values(): p["answered"] = 5
+        C._save(d)
+        self.assertEqual(C.onboarding_drip(tg, m), 2)
+        self.assertIn("District War", tg.msgs[-1][1])
+        self.assertEqual(C.onboarding_drip(tg, m), 0)                     # once per day-N
+        m.data = {"rounds": {C._now().strftime("%Y%m%d") + "-0900": {"by_channel": {"TSPSC": {"1": {"correct": 7, "total": 10}}}}}}
+        lg = C.college_league(m); self.assertIn("SR College", lg); self.assertIn("7 ✅", lg)

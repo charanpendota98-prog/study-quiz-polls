@@ -560,6 +560,25 @@ class Engine:
         print(f"[examboard] {period}: {n} channels")
         return n
 
+    def campus_drip(self):
+        from . import campus
+        n = 0 if self.dry else campus.onboarding_drip(self.tg, Members())
+        print(f"[campus] drip sent {n}")
+        return n
+
+    def college_league(self):
+        from . import campus
+        txt = campus.college_league(Members())
+        if not txt:
+            return 0
+        if not self.dry:
+            for ch in getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
+                try:
+                    self.tg.send_message(config.channel_chat_id(ch), txt)
+                except Exception as e:
+                    print(f"   [college-league] {e}")
+        return 1
+
     def partner_call(self):
         """Monday hub post: 'partner with StudentUp' + biggest districts → inbound leads."""
         from . import social

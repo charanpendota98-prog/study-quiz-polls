@@ -484,7 +484,14 @@ class Bot:
                     from core import campus
                     ev = campus.on_registered(self.members, uid)
                     if ev:
-                        self.tg.send_message(chat_id, f"🎓 {ev['name']} కి ready ✅ (+{campus.JOIN_PTS} pts). Exam start అయినప్పుడు ప్రశ్నలు ఇక్కడే వస్తాయి 📱")
+                        self.tg.send_message(chat_id,
+                            f"🎓 {ev['name']} కి ready ✅ (+{campus.JOIN_PTS} pts)\n"
+                            f"⏳ Organiser 'Start' అనగానే Q1 ఇక్కడే వస్తుంది — ప్రతి Q కి timer, ఒక్కసారే answer.\n\n"
+                            f"🎁 ఈరోజు తర్వాత కూడా మీకు:\n"
+                            f"• రోజూ /quiz → points · 9 PM ⚔️ District War ({ev['district']})\n"
+                            f"• Points = మీ జిల్లా shops/coaching/restaurant discounts (/offers) + application discounts\n"
+                            f"• Results & toppers పేర్లతో మా channels లో — join అయ్యి చూడండి 👇",
+                            buttons=campus.join_buttons())
                 except Exception:
                     pass
                 try:
@@ -521,7 +528,7 @@ class Bot:
                     self.members.start_registration(uid, username=self._name(who), quick={
                         "state_code": D.state_of(e["district"]) or "AP",
                         "state": "Telangana" if D.state_of(e["district"]) == "TS" else "Andhra Pradesh",
-                        "district": e["district"], "qualification": "degree", "exam": "Current Affairs GK"})
+                        "district": e["district"], "exam": "Current Affairs GK"})
                     self.tg.send_message(chat_id, "✍️ Step 1 of 2 — మీ పూర్తి పేరు? / Your full name:")
                 return
             if arg == "offers":

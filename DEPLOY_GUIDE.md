@@ -410,3 +410,7 @@ Every exam channel now has its own competition next to the all-exam District War
   show on projector / forward to the class WhatsApp group; `/campus start CODE`. Result auto-posts to hub
   channels; students get Telegram + WhatsApp **join buttons** and `/myscore` (full list of their event).
   Set `WHATSAPP_CHANNEL` and `BRAND_HANDLE` in `.env` for the buttons.
+* **Data + after-care**: campus registration = name → course (buttons: 10th/Inter/ITI/Degree/PG) → mobile; college,
+  event, mandal, referred_by now go to the Google Sheet member row, and every event's full result to the
+  `rounds` tab as `CAMPUS:<district>`. Post-event drip DMs on day 1/2/4/7 (10:00) with join buttons;
+  1st of month 19:00 **College League** post (colleges ranked by their students' daily-quiz activity).

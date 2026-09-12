@@ -34,7 +34,8 @@ SHEET_SECRET = getattr(config, "SHEET_SECRET", "") or ""
 
 COLUMNS = ["tg_id", "name", "username", "mobile", "state", "district", "qualification", "exam", "lang",
            "registered_at", "source", "points", "correct", "total", "accuracy",
-           "streak", "best_streak", "level", "last_active", "follow"]
+           "streak", "best_streak", "level", "last_active", "follow",
+           "college", "campus_event", "mandal", "referred_by"]
 
 
 def member_row(uid, m: dict) -> dict:
@@ -52,6 +53,8 @@ def member_row(uid, m: dict) -> dict:
         "level": level_for(m.get("points", 0)).get("title_en", ""),
         "last_active": m.get("last_active", ""),
         "follow": ",".join(m.get("follow") or []),
+        "college": m.get("college", ""), "campus_event": m.get("campus_event", ""),
+        "mandal": m.get("mandal", ""), "referred_by": m.get("referred_by", ""),
     }
 
 
@@ -86,6 +89,16 @@ def push_round_top(round_id, channel, rows, post=None) -> bool:
         {"round_id": round_id, "channel": channel, "rank": i + 1, "tg_id": r["uid"],
          "name": r["name"], "district": r["district"], "correct": r["correct"],
          "total": r["total"], "points": r["points"]} for i, r in enumerate(rows)]}, post)
+
+
+def push_campus(code, event_name, district, rows, post=None) -> bool:
+    """Append a campus event's full result to a 'campus' tab (one row per student)."""
+    if not sheet_enabled() or not rows:
+        return False
+    return _post({"action": "round", "rows": [
+        {"round_id": f"{code} {event_name}"[:60], "channel": f"CAMPUS:{district}", "rank": r["rank"], "tg_id": r["uid"],
+         "name": r["name"], "district": r["college"], "correct": r["correct"], "total": r["total"],
+         "points": r["pts"]} for r in rows]}, post)
 
 
 def ping(post=None) -> dict:

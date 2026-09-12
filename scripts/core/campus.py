@@ -414,7 +414,17 @@ def _finish(tg, members, d, e, now):
         except Exception:
             pass
     e["_post"] = text
+    e["drip_day"] = 0
     _save(d)
+    try:   # master database: every student row refreshed + event tab
+        from . import crm
+        for u, p in rows:
+            crm.push_member(u, members.members.get(u, {}))
+        crm.push_campus(e["code"], e["name"], e["district"],
+                        [{"rank": p["rank"], "uid": u, "name": p["name"], "college": p["college"], "correct": p["correct"],
+                          "total": len(e["questions"]), "pts": p["pts"]} for u, p in rows])
+    except Exception as ex:
+        print(f"   [campus] sheet note: {ex}")
 
 
 def render_result(e, rows, cols, limit=10):
@@ -543,3 +553,71 @@ def waiting_room_ping(tg, members, code):
         except Exception:
             pass
     return n
+
+
+# ============================================================ after the event
+DRIP = [
+    # day → (text, needs join buttons)
+    (1, "👋 నిన్న {event} లో ఆడినందుకు thanks! ఈరోజు నుంచి రోజూ:\n"
+        "• /quiz — మీ level కి 10 Q (2 నిమిషాలు)\n• 9 PM ⚔️ District War — {district} కోసం ఆడండి\n"
+        "• ప్రతి ✅ = 10 pts → /offers లో {district} shops/coaching discounts\n\nChannel లో మీ college result post అయింది 👇"),
+    (2, "🎯 Tip: మీ exam target set చేయండి → /exam (TSPSC / APPSC / Banking / SSC / Police…) — ప్రశ్నలు ఆ syllabus నుంచే వస్తాయి.\n"
+        "👥 College friends తో squad: /squad create {college} — squad battles రోజూ!"),
+    (4, "🏆 {event} నుంచి ఇప్పటికే {n_active} మంది రోజూ ఆడుతున్నారు. మీ college rank కాపాడండి 😄\n"
+        "Friends ని పిలిస్తే +20/+30 pts: /invite"),
+    (7, "📅 ఒక వారం అయింది! మీ report: /report · Wallet: /wallet\n"
+        "🎓 మీ college లో మళ్ళీ event కావాలా? Class leader ని /campus లో అడగమనండి. Next: monthly College League 🏫"),
+]
+
+
+def onboarding_drip(tg, members, now=None):
+    """Daily (e.g. 10:00): send the day-N nudge to students of events finished N days ago."""
+    now = now or _now()
+    d = _load()
+    sent = 0
+    for e in d["events"].values():
+        if e.get("state") != "done" or not e.get("finished"):
+            continue
+        days = (now.date() - datetime.fromisoformat(e["finished"]).date()).days
+        due = [x for x in DRIP if x[0] == days]
+        if not due or e.get("drip_day", 0) >= days:
+            continue
+        text_t = due[0][1]
+        n_active = sum(1 for u in e["players"] if (members.members.get(u) or {}).get("last_active", "") >= (now - timedelta(days=3)).strftime("%Y-%m-%d"))
+        for u, p in e["players"].items():
+            m = members.members.get(u) or {}
+            if not m.get("registered") or m.get("dm_blocked"):
+                continue
+            txt = text_t.format(event=e["name"], district=e["district"], college=p["college"][:20], n_active=n_active)
+            try:
+                tg.send_message(u, txt, buttons=join_buttons() if days == 1 else None); sent += 1
+            except Exception:
+                pass
+        e["drip_day"] = days
+    if sent:
+        _save(d)
+    return sent
+
+
+def college_league(members, days=30, limit=10):
+    """Monthly: colleges ranked by their students' activity since the events (rounds + accuracy)."""
+    since = (_now() - timedelta(days=days)).strftime("%Y%m%d")
+    agg = {}
+    for rid, r in members.data.get("rounds", {}).items():
+        if rid[:8] < since:
+            continue
+        for ch, players in r.get("by_channel", {}).items():
+            for uid, e in players.items():
+                col = (members.members.get(str(uid)) or {}).get("college")
+                if not col:
+                    continue
+                a = agg.setdefault(col, {"c": 0, "t": 0, "u": set()})
+                a["c"] += e["correct"]; a["t"] += e["total"]; a["u"].add(uid)
+    if not agg:
+        return ""
+    rows = sorted(((col, a["c"], a["t"], len(a["u"])) for col, a in agg.items()), key=lambda x: (-x[1], -x[3]))
+    lines = ["🏫 COLLEGE LEAGUE — ఈ నెల (daily quiz లో active colleges)", ""]
+    for i, (col, c, t, n) in enumerate(rows[:limit]):
+        lines.append(f"{'🥇🥈🥉'[i] if i < 3 else str(i + 1) + '.'} {col[:24]} — {c} ✅ · {n} students · {round(100 * c / max(t, 1))}%")
+    lines += ["", "మీ college లేదా? Class leader → bot లో /campus · Students: రోజూ /quiz ఆడితే college పైకి!"]
+    return "\n".join(lines)

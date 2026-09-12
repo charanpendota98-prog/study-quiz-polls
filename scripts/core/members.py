@@ -968,10 +968,9 @@ class Members:
                 return "ask_name", "Please send your real name (2–60 letters).\n⤷ మీ పూర్తి పేరు పంపండి:"
             st["name"] = text
             if st.get("quick") and st.get("district"):
-                st["step"] = "mobile"
+                st["step"] = "qualification"
                 self.kv.save()
-                return "ask_mobile", (f"👍 {text}!\n\n📱 Step 2 of 2 — Mobile number (10 digits) for result & prizes. "
-                                      "Send `skip` to skip.\n⤷ మొబైల్ నంబర్ పంపండి (లేదా skip):")
+                return "ask_qualification", (f"👍 {text}!\n\n🎓 Step 2 of 3 — మీరు చదువుతున్నది? / Your course\nTap a button below ⬇️")
             st["step"] = "state"
             self.kv.save()
             return "ask_state", (f"👍 {text}!\n\n🗺 Step 2 of 5 — మీ రాష్ట్రం? / Your state?\n"
@@ -1010,7 +1009,7 @@ class Members:
             st["qualification"] = q
             st["step"] = "mobile"
             self.kv.save()
-            return "ask_mobile", (f"✅ {QUAL_LABEL[q]}\n\n📱 Step 5 of 5 — Mobile number (10 digits) "
+            return "ask_mobile", (f"✅ {QUAL_LABEL[q]}\n\n📱 Step {'3 of 3' if st.get('quick') else '5 of 5'} — Mobile number (10 digits) "
                                   "for exam alerts & prizes. Send `skip` to skip.\n"
                                   "⤷ మొబైల్ నంబర్ పంపండి (లేదా skip):")
         if st["step"] == "mobile":
