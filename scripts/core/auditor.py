@@ -71,11 +71,46 @@ def check_source(src, http_get=collector.http_get,
                 res["error"] = "index page fetch failed"
                 return res
             links = extract_links(page, src["url"], src.get("link_re", r"(?!)"))
-            res["links"] = len(links)
-            res["content_ok"] = len(links) > 0
+            pages = (extract_links(page, src["url"], src["page_re"])
+                     if src.get("page_re") else [])
+            res["links"] = len(links) + len(pages)
+            # CONTENT gate: the page must yield quiz links/pagination OR carry
+            # parseable MCQs itself (GKToday/Examveda topic pages do).
+            n_q = 0
+            try:
+                n_q = len(collector.parse_page(src, page, src.get("name", ""),
+                                               src["url"]))
+            except Exception:
+                n_q = 0
+            res["questions"] = n_q
+            pdfs = (extract_links(page, src["url"], src["pdf_re"])
+                    if src.get("pdf_re") else [])
+            res["pdfs"] = len(pdfs)
+            # DEEP gate: if the index itself has no MCQs, one linked page
+            # must actually parse into MCQs (no "200 OK but junk" sources).
+            deep_q = 0
+            if n_q == 0 and links and not pdfs:
+                for lk in links[:2]:
+                    target = lk["link"]
+                    suffix = src.get("link_suffix", "")
+                    if suffix and not target.endswith(suffix):
+                        target = target.rstrip("/") + "/" + suffix
+                    sub = http_get(target)
+                    if not sub:
+                        continue
+                    try:
+                        deep_q = len(collector.parse_page(src, sub, lk.get("title", ""), target))
+                    except Exception:
+                        deep_q = 0
+                    if deep_q:
+                        break
+            res["deep_questions"] = deep_q
+            res["content_ok"] = n_q > 0 or deep_q > 0 or len(pdfs) > 0
             res["status"] = "live" if res["content_ok"] else "warn"
             if res["status"] == "warn":
-                res["error"] = "page fetched but no matching quiz links"
+                res["error"] = ("page fetched but neither it nor its quiz links "
+                                "parse into MCQs" if links else
+                                "page fetched but no quiz links and no parseable MCQs")
             return res
 
         # RSS / Atom

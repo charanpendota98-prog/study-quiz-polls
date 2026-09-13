@@ -23,7 +23,7 @@ from core import config
 def main():
     ap = argparse.ArgumentParser(description="StudentUp quiz engine")
     ap.add_argument("slot", choices=["quiz", "morning", "tip", "coach", "collect",
-                                     "evening", "reminder", "jobs", "leaderboard",
+                                     "evening", "reminder", "jobs", "leaderboard", "backfill",
                                      # back-compat aliases
                                      "digest", "personal"])
     ap.add_argument("--dry", action="store_true", help="Dry run — NO Telegram posts")
@@ -52,6 +52,8 @@ def main():
         eng.coach_broadcast()
     elif args.slot == "collect":
         eng.collect_exam_content()
+    elif args.slot == "backfill":
+        eng.backfill_exam_content()
     elif args.slot in ("evening", "digest"):
         eng.digest()
     elif args.slot in ("jobs", "personal"):

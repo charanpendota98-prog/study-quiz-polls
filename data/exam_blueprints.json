@@ -1,0 +1,24 @@
+{
+  "version": "1.0",
+  "description": "Real exam-paper blueprints. Every quiz round is composed to match the ACTUAL section weightage of the target exam (subject mix), with a difficulty ramp (easy -> medium -> hard) so rounds get progressively more advanced. Weights are fractions of a 10-question round; the composer uses largest-remainder rounding and shuffles the final order so subjects appear at random positions (like a real paper, not blocks). Source: official notifications / Tier-1 & prelims patterns.",
+  "subjects": {
+    "reasoning": ["reason", "analog", "coding", "decod", "series", "puzzle", "syllogis", "relation", "figure", "intelligence", "direction", "seating", "ranking", "rank", "odd one", "classification", "statement", "assumption", "conclusion", "venn", "dice", "cube", "mirror", "clock", "calendar", "logical", "order", "dictionary", "alphabet", "letter", "symbol", "missing", "non-verbal", "arrangement", "matrix", "critical", "family", "sequence"],
+    "quant": ["quant", "arith", "math", "ratio", "percent", "algebra", "geom", "trig", "number", "interest", "profit", "loss", "time", "speed", "distance", "work", "average", "mensuration", "hcf", "lcm", "simplif", "fraction", "decimal", "mixture", "alligation", "age", "partnership", "discount", "boat", "stream", "pipe", "cistern", "data interpretation", "di", "probability", "permutation", "square", "cube root", "surd", "indices", "aptitude", "numerical"],
+    "english": ["english", "grammar", "vocab", "synonym", "antonym", "error", "fill", "idiom", "one word", "spelling", "sentence", "cloze", "comprehension", "voice", "speech", "preposition", "article", "verb", "narration", "para", "phrase"],
+    "gk": ["gk", "general knowledge", "general awareness", "history", "polity", "constitution", "geograph", "econom", "science", "physics", "chemistry", "biology", "current", "scheme", "isro", "rbi", "budget", "election", "defence", "railway infra", "health", "award", "sport", "book", "day", "environment", "culture", "art", "symbol", "telangana", "andhra", "ts gk", "ap gk", "static", "banking awareness", "computer", "nda gk", "defence gk", "national"]
+  },
+  "channels": {
+    "SSC":     {"exam": "SSC CGL / CHSL / MTS Tier-I", "weights": {"reasoning": 0.25, "gk": 0.25, "quant": 0.25, "english": 0.25}, "min_hard_share": 0.3},
+    "BANKING": {"exam": "IBPS / SBI PO & Clerk Prelims", "weights": {"quant": 0.40, "reasoning": 0.35, "english": 0.10, "gk": 0.15}, "min_hard_share": 0.35},
+    "RAILWAY": {"exam": "RRB NTPC CBT-1 / Group-D", "weights": {"gk": 0.40, "quant": 0.30, "reasoning": 0.30}, "min_hard_share": 0.25},
+    "TSPSC":   {"exam": "TSPSC Group-II/III/IV (GS + Mental Ability)", "weights": {"gk": 0.50, "reasoning": 0.30, "quant": 0.20}, "min_hard_share": 0.3},
+    "APPSC":   {"exam": "APPSC Group-II/III/IV (GS + Mental Ability)", "weights": {"gk": 0.50, "reasoning": 0.30, "quant": 0.20}, "min_hard_share": 0.3},
+    "POLICE":  {"exam": "TS/AP Police Constable & SI Prelims", "weights": {"reasoning": 0.40, "quant": 0.25, "gk": 0.35}, "min_hard_share": 0.25},
+    "DEFENCE": {"exam": "NDA / CDS / Agniveer GAT", "weights": {"gk": 0.40, "quant": 0.30, "reasoning": 0.20, "english": 0.10}, "min_hard_share": 0.3},
+    "CURRENT": {"exam": "UPSC Prelims / All-exam Current Affairs & Static GK", "weights": {"gk": 1.0}, "min_hard_share": 0.3}
+  },
+  "difficulty_ramp": {
+    "description": "Position-wise target difficulty inside a 10-question round: first questions easy/medium, last questions medium/hard. The composer honours it when the pool allows, never blocks a round when it does not.",
+    "positions": ["easy", "easy", "medium", "medium", "medium", "medium", "hard", "medium", "hard", "hard"]
+  }
+}

@@ -12,6 +12,8 @@ Pure JSON (atomic), stdlib only.
 """
 from __future__ import annotations
 
+import re
+
 from datetime import datetime, timedelta
 
 from . import config
@@ -52,6 +54,50 @@ def level_for(points: int):
             "next": next_thresh, "index": idx}
 
 
+def exam_channel(exam):
+    m = {"TSPSC": "TSPSC", "APPSC": "APPSC", "Banking": "BANKING", "Railway": "RAILWAY",
+         "Police": "POLICE", "Defence": "DEFENCE", "SSC": "SSC", "SSC/UPSC": "SSC",
+         "Current Affairs GK": "CURRENT"}
+    return m.get(exam or "", "TSPSC")
+
+
+# Qualification options (button text EN / TE) -> stored code
+QUALIFICATIONS = [
+    ("SSC",    "10th / SSC",              "పదో తరగతి"),
+    ("INTER",  "Intermediate / 10+2",     "ఇంటర్"),
+    ("ITI",    "ITI / Diploma",           "ఐటీఐ / డిప్లొమా"),
+    ("UG",     "Graduation (Degree/B.Tech)", "డిగ్రీ / బీటెక్"),
+    ("PG",     "Post Graduation",         "పీజీ"),
+    ("OTHER",  "Other / Studying",        "ఇతర / చదువుతున్నాను"),
+]
+QUAL_LABEL = {c: f"{en} / {te}" for c, en, te in QUALIFICATIONS}
+
+
+def match_qualification(text):
+    t = (text or "").strip().lower()
+    if not t:
+        return None
+    if t.isdigit() and 1 <= int(t) <= len(QUALIFICATIONS):
+        return QUALIFICATIONS[int(t) - 1][0]
+    codes = {c.lower(): c for c, _, _ in QUALIFICATIONS}
+    if t in codes:
+        return codes[t]
+    alias = {"10th": "SSC", "10": "SSC", "ssc": "SSC", "tenth": "SSC", "పదో": "SSC",
+             "12": "INTER", "10+2": "INTER", "inter": "INTER", "intermediate": "INTER", "ఇంటర్": "INTER",
+             "iti": "ITI", "diploma": "ITI", "polytechnic": "ITI",
+             "degree": "UG", "graduation": "UG", "graduate": "UG", "b.tech": "UG", "btech": "UG",
+             "bsc": "UG", "b.sc": "UG", "ba": "UG", "bcom": "UG", "b.com": "UG", "ug": "UG", "డిగ్రీ": "UG",
+             "pg": "PG", "post graduation": "PG", "postgraduation": "PG", "mtech": "PG", "m.tech": "PG",
+             "msc": "PG", "m.sc": "PG", "ma": "PG", "mba": "PG", "mca": "PG", "పీజీ": "PG",
+             "other": "OTHER", "studying": "OTHER"}
+    if t in alias:
+        return alias[t]
+    for k, v in sorted(alias.items(), key=lambda kv: -len(kv[0])):   # most specific first
+        if len(k) > 2 and k in t:
+            return v
+    return None
+
+
 class Members:
     def __init__(self):
         self.kv = KV(config.DATA / "members.json", default={"members": {}, "pending": {}})
@@ -89,11 +135,25 @@ class Members:
         for k, v in extra.items():
             if v and not m.get(k):
                 m[k] = v
-        if not m["registered"]:
+            else:
+                m.setdefault(k, v if v is not None else "")
+        if not m.get("follow"):
+            m["follow"] = list(dict.fromkeys([exam_channel(m.get("exam", "")), "CURRENT"]))
+        first = not m["registered"]
+        if first:
             m["registered"] = True
             m["registered_at"] = now_iso()
+            # 🔓 release escrowed points earned before registering
+            if m.get("locked_points"):
+                m["unlocked_on_register"] = m["locked_points"]
+                m["points"] += m.pop("locked_points")
             m["points"] += 25  # registration bonus
         self.kv.save()
+        try:                       # mirror to Google Sheet CRM (no-op if not configured)
+            from . import crm
+            crm.push_member(uid, m)
+        except Exception as e:
+            print(f"   [members] crm note: {e}")
         return m
 
     # ------------------------------------------------------------ points
@@ -146,6 +206,15 @@ class Members:
             earned += P_DAILY_FIRST            # daily participation bonus
             events.append(f"+{P_DAILY_FIRST} daily")
         m["last_active"] = today
+        # 14-day daily log for the weekly report card: day -> [answered, correct]
+        dl = m.setdefault("daylog", {})
+        rec = dl.setdefault(today, [0, 0])
+        rec[0] += 1
+        if correct:
+            rec[1] += 1
+        if len(dl) > 14:
+            for k in sorted(dl)[:-14]:
+                dl.pop(k, None)
 
         leveled_up = None
         if correct:
@@ -162,6 +231,18 @@ class Members:
                 m["streak"] = 1
             m["last_correct"] = today
             m["best_streak"] = max(m["best_streak"], m["streak"])
+            try:      # 🛡 shields every 7 days + 7/30/100 milestones (channel shout-out queued)
+                from .hooks import on_daily_activity
+                hk = on_daily_activity(m, today, yesterday)
+                if hk.get("shield_earned"):
+                    events.append("🛡 +1 streak shield")
+                if hk.get("milestone"):
+                    earned += 0
+                    events.append(f"🔥 {hk['milestone']}-day milestone +{hk['bonus']}")
+                    self.data.setdefault("shoutouts", []).append(
+                        {"uid": str(uid), "streak": hk["milestone"], "ts": now_iso()})
+            except Exception:
+                pass
             # streak milestone bonuses
             for days, bonus in STREAK_BONUS.items():
                 if m["streak"] >= days and days not in m["claimed"]:
@@ -182,10 +263,17 @@ class Members:
                 m.setdefault("badges", []).append(b["id"])
                 new_badges.append(b)
 
+        # 🔒 Not registered yet → points go to escrow ("locked") and are
+        # released the moment registration completes (see register()).
+        locked = 0
+        if not m.get("registered") and earned:
+            m["points"] -= earned
+            m["locked_points"] = m.get("locked_points", 0) + earned
+            locked = m["locked_points"]
         self.kv.save()
         return {"earned": earned, "events": events, "level_up": leveled_up,
                 "points": m["points"], "streak": m["streak"],
-                "new_badges": new_badges}
+                "new_badges": new_badges, "locked": locked}
 
     # ------------------------------------------------------------ badges
     def _earned_badges(self, m):
@@ -206,6 +294,16 @@ class Members:
             out.append({"id": "streak30", "icon": "🔥", "en": "30-Day Streak", "te": "30 రోజుల స్ట్రీక్"})
         if not has("sharp") and m["total"] >= 20 and (m["correct"] / m["total"]) >= 0.9:
             out.append({"id": "sharp", "icon": "🧠", "en": "Sharp Shooter (90%+) — 20+ attempts", "te": "90%+ ఖచ్చితత్వం"})
+        if not has("round_top1") and m.get("round_wins", 0) >= 1:
+            out.append({"id": "round_top1", "icon": "🥇", "en": "Round Winner", "te": "రౌండ్ విజేత"})
+        if not has("round_top5") and m.get("round_wins", 0) >= 5:
+            out.append({"id": "round_top5", "icon": "🏆", "en": "5× Round Winner", "te": "5 సార్లు విజేత"})
+        if not has("district_king") and m.get("district_tops", 0) >= 3:
+            out.append({"id": "district_king", "icon": "👑", "en": "District Topper ×3", "te": "జిల్లా టాపర్ ×3"})
+        if not has("perfect") and m.get("perfect_rounds", 0) >= 1:
+            out.append({"id": "perfect", "icon": "💎", "en": "Perfect Round 10/10", "te": "పర్ఫెక్ట్ రౌండ్"})
+        if not has("referrer3") and m.get("referrals", 0) >= 3:
+            out.append({"id": "referrer3", "icon": "🤝", "en": "Brought 3 Friends", "te": "3 ఫ్రెండ్స్ తెచ్చారు"})
         if not has("champion") and m["points"] >= 3000:
             out.append({"id": "champion", "icon": "👑", "en": "Champion Level", "te": "ఛాంపియన్"})
         return out
@@ -388,6 +486,8 @@ class Members:
         ]
         if p.get("exam"):
             lines.append(f"🎯 Target: {p['exam']}")
+        if p.get("qualification"):
+            lines.append(f"🎓 {QUAL_LABEL.get(p['qualification'], p['qualification'])}")
         if p.get("district"):
             lines.append(f"📍 {p['district']}" + (f", {p['state']}" if p.get("state") else ""))
         badges = p.get("badges", [])
@@ -415,7 +515,69 @@ class Members:
             {"id": "correct100", "icon": "💯"}, {"id": "streak3", "icon": "🔥"},
             {"id": "streak7", "icon": "🔥"}, {"id": "streak30", "icon": "🔥"},
             {"id": "sharp", "icon": "🧠"}, {"id": "champion", "icon": "👑"},
+            {"id": "beat_topper", "icon": "🥊"}, {"id": "defender", "icon": "🛡"},
         ]
+
+    def is_registered(self, uid) -> bool:
+        m = self.members.get(str(uid))
+        return bool(m and m.get("registered"))
+
+    # ------------------------------------------------------------ districts
+    def district_board(self, limit=10):
+        """District-wise ranking: total points, members, avg accuracy."""
+        agg = {}
+        for m in self.members.values():
+            d = m.get("district")
+            if not d or not m.get("registered"):
+                continue
+            a = agg.setdefault(d, {"state": m.get("state", ""), "points": 0, "members": 0,
+                                   "correct": 0, "total": 0, "top": ("", 0)})
+            a["points"] += m.get("points", 0)
+            a["members"] += 1
+            a["correct"] += m.get("correct", 0)
+            a["total"] += m.get("total", 0)
+            if m.get("points", 0) > a["top"][1]:
+                a["top"] = (m.get("name") or "player", m.get("points", 0))
+        rows = sorted(agg.items(), key=lambda kv: kv[1]["points"], reverse=True)
+        return rows[:limit]
+
+    def top_in_district(self, district, limit=5):
+        rows = [(uid, m) for uid, m in self.members.items()
+                if m.get("district") == district and m.get("points", 0) > 0]
+        rows.sort(key=lambda kv: kv[1].get("points", 0), reverse=True)
+        return rows[:limit]
+
+    def render_district_board(self, district=None):
+        from . import districts as D
+        if district:
+            rows = self.top_in_district(district)
+            te = D.telugu_name(district)
+            if not rows:
+                return (f"📍 {district} / {te}\nNo scores yet — be the first! /quiz\n"
+                        f"⤷ ఇంకా స్కోర్లు లేవు — మీరే మొదటివారు అవ్వండి!")
+            medals = ["🥇", "🥈", "🥉"]
+            lines = [f"📍 *{district} / {te} — District Toppers*", ""]
+            for i, (uid, m) in enumerate(rows):
+                lvl = level_for(m.get("points", 0))
+                r = medals[i] if i < 3 else f"{i+1}."
+                acc = round(100 * m.get("correct", 0) / m["total"]) if m.get("total") else 0
+                lines.append(f"{r} {m.get('name') or 'player'} — ⭐{m.get('points',0)} · {lvl['title_en']} · 🎯{acc}%")
+            return "\n".join(lines)
+        board = self.district_board()
+        if not board:
+            return ("🗺 District Leaderboard\nNo district scores yet — /register with your district and play /quiz!\n"
+                    "⤷ /register లో మీ జిల్లా ఇచ్చి /quiz ఆడండి.")
+        medals = ["🥇", "🥈", "🥉"]
+        lines = ["🗺 *District Leaderboard — జిల్లాల ర్యాంకింగ్*", ""]
+        for i, (d, a) in enumerate(board):
+            r = medals[i] if i < 3 else f"{i+1}."
+            acc = round(100 * a["correct"] / a["total"]) if a["total"] else 0
+            st = "TS" if a["state"].startswith("Tel") else ("AP" if a["state"].startswith("Andhra") else "")
+            lines.append(f"{r} {d}{' (' + st + ')' if st else ''} — ⭐{a['points']} · 👥{a['members']} · 🎯{acc}%  "
+                         f"(top: {a['top'][0]})")
+        lines.append("")
+        lines.append("Your district: /district · Join: /register ⭐")
+        return "\n".join(lines)
 
     def render_leaderboard(self, weekly_note=True):
         top = self.top(10)
@@ -434,9 +596,361 @@ class Members:
         lines.append("Play /quiz in this chat to climb! ⭐ | /register to join.")
         return "\n".join(lines)
 
+    # ------------------------------------------------------------ live rounds
+    # Channel polls are anonymous in Telegram, so the engine mirrors every
+    # round question into registered members' DMs (non-anonymous). Answers
+    # land here, keyed by round_id, and the Top-10 is posted back to the channel.
+    def reload(self):
+        self.kv = KV(config.DATA / "members.json", default={"members": {}, "pending": {}})
+        self.data = self.kv.data
+        self.members = self.data.setdefault("members", {})
+        self.pending = self.data.setdefault("pending", {})
+        self.form_pending = self.data.setdefault("form_pending", {})
+        return self
+
+    def recipients_for(self, channel_key):
+        """Registered members who should receive this channel's round in DM."""
+        out = []
+        for uid, m in self.members.items():
+            if not m.get("registered") or m.get("dm_blocked"):
+                continue
+            follow = m.get("follow") or [exam_channel(m.get("exam", "")), "CURRENT"]
+            if channel_key in follow:
+                out.append(uid)
+        return out
+
+    def set_follow(self, uid, channels):
+        m = self._get(uid)
+        m["follow"] = [c for c in channels if c in config.CHANNELS]
+        self.kv.save()
+        return m["follow"]
+
+    def mark_blocked(self, uid):
+        m = self._get(uid)
+        m["dm_blocked"] = True
+        self.kv.save()
+
+    def record_round_answer(self, uid, round_id, channel_key, correct, qid=""):
+        rounds = self.data.setdefault("rounds", {})
+        r = rounds.setdefault(round_id, {"ts": now_iso(), "by_channel": {}})
+        ch = r["by_channel"].setdefault(channel_key, {})
+        e = ch.setdefault(str(uid), {"correct": 0, "total": 0, "qids": [], "first": now_iso()})
+        if qid and qid in e["qids"]:
+            return e
+        e["total"] += 1
+        e["correct"] += 1 if correct else 0
+        if qid:
+            e["qids"].append(qid)
+            if correct:
+                e.setdefault("right", []).append(qid)
+        e["last"] = now_iso()
+        # keep only last 60 rounds
+        if len(rounds) > 60:
+            for k in sorted(rounds)[:-60]:
+                rounds.pop(k, None)
+        self.kv.save()
+        return e
+
+    def sync_sheet_all(self):
+        from . import crm
+        return crm.push_all(self.members)
+
+    def round_top(self, round_id, channel_key, limit=10):
+        ch = self.data.get("rounds", {}).get(round_id, {}).get("by_channel", {}).get(channel_key, {})
+        rows = []
+        for uid, e in ch.items():
+            m = self.members.get(str(uid)) or {}
+            if not m.get("registered"):
+                continue          # names/districts needed for the public list
+            rows.append({"uid": uid, "name": m.get("name") or m.get("username") or "Player",
+                         "district": m.get("district", ""), "state": m.get("state", ""),
+                         "correct": e["correct"], "total": e["total"],
+                         "points": m.get("points", 0), "first": e.get("first", ""),
+                         "last": e.get("last", "")})
+        # most correct, then fewest attempts, then who finished earliest
+        rows.sort(key=lambda r: (-r["correct"], r["total"], r["last"]))
+        return rows[:limit], len(ch)
+
+    def render_round_top(self, round_id, channel_key, round_label="", cfg=None, limit=10):
+        from . import districts as D
+        rows, n_players = self.round_top(round_id, channel_key, limit)
+        if not rows:
+            return ""
+        medals = ["🥇", "🥈", "🥉"] + [f"{i}." for i in range(4, limit + 1)]
+        head = f"{cfg['emoji']} " if cfg else ""
+        label = f"{round_label} " if round_label else ""
+        lines = [f"{head}🏆 {label}Round — Top {len(rows)} · టాప్ {len(rows)}",
+                 f"👥 {n_players} players · ఆడినవారు {n_players}", ""]
+        dist_count = {}
+        for i, r in enumerate(rows):
+            d = r["district"]
+            dte = D.telugu_name(d) if d else ""
+            place = f" · {d} ({dte})" if d and dte and dte != d else (f" · {d}" if d else "")
+            lines.append(f"{medals[i]} {r['name'][:24]}{place} — {r['correct']}/{r['total']} ✅ · ⭐{r['points']}")
+            if d:
+                dist_count[d] = dist_count.get(d, 0) + 1
+        if dist_count:
+            top_d = sorted(dist_count.items(), key=lambda kv: -kv[1])[:5]
+            lines += ["", "📍 జిల్లాలు / Districts: " + " · ".join(f"{d} {n}" for d, n in top_d)]
+        dor = self.district_of_round(round_id, channel_key)
+        if dor:
+            lines.append(f"👑 District of the round: {dor['district']} ({D.telugu_name(dor['district'])}) — "
+                         f"{dor['avg']}% avg · {dor['players']} players")
+        top_d = sorted(dist_count.items(), key=lambda kv: -kv[1])
+        if len(top_d) >= 2 and top_d[0][1] == top_d[1][1] and top_d[0][1] >= 2:
+            lines.append(f"⚔️ Rivalry: {top_d[0][0]} vs {top_d[1][0]} — tied! రేపు తేలుద్దాం.")
+        lines += ["", "మీ పేరు + జిల్లా ఇక్కడ రావాలంటే → bot లో /start, ఒక్కసారి register 📝",
+                  "Your name & district here → /start in our bot, register once ✅"]
+        return "\n".join(lines)
+
+
+    # ------------------------------------------------------------ advanced round intel
+    def round_question_stats(self, round_id, channel_key):
+        """{qid: {correct,total}} from DM-mirror answers (needs per-answer log)."""
+        out = {}
+        ch = self.data.get("rounds", {}).get(round_id, {}).get("by_channel", {}).get(channel_key, {})
+        for e in ch.values():
+            for qid in e.get("qids", []):
+                st = out.setdefault(qid, {"correct": 0, "total": 0})
+                st["total"] += 1
+            for qid in e.get("right", []):
+                out.setdefault(qid, {"correct": 0, "total": 0})["correct"] += 1
+        return out
+
+    def round_players(self, round_id, channel_key):
+        return self.data.get("rounds", {}).get(round_id, {}).get("by_channel", {}).get(channel_key, {})
+
+    def personal_round_card(self, uid, round_id, channel_key, round_label=""):
+        """Private DM report after a round: score, rank, district rank, percentile,
+        streak, next-level distance — the 'why I come back tomorrow' message."""
+        from . import districts as D
+        players = self.round_players(round_id, channel_key)
+        e = players.get(str(uid))
+        m = self.members.get(str(uid))
+        if not e or not m:
+            return ""
+        rows, n = self.round_top(round_id, channel_key, limit=10_000)
+        rank = next((i + 1 for i, r in enumerate(rows) if str(r["uid"]) == str(uid)), None)
+        pct = round(100 * (1 - (rank - 1) / max(n, 1))) if rank else 0
+        d = m.get("district", "")
+        d_rows = [r for r in rows if r["district"] == d] if d else []
+        d_rank = next((i + 1 for i, r in enumerate(d_rows) if str(r["uid"]) == str(uid)), None)
+        lvl = level_for(m.get("points", 0))
+        nxt = next((t for t, *_ in LEVELS if t > m.get("points", 0)), None)
+        label = f"{round_label} " if round_label else ""
+        score = f"{e['correct']}/{e['total']}"
+        mood = ("🔥 Outstanding!" if e["total"] and e["correct"] / e["total"] >= 0.9 else
+                "👏 Strong round" if e["total"] and e["correct"] / e["total"] >= 0.7 else
+                "💪 Keep going — PYQ practice pays")
+        lines = [f"📊 {label}Round card — {m.get('name') or 'you'}",
+                 f"✅ Score {score} · {mood}",
+                 f"🏅 Rank #{rank} of {n} players (top {max(100 - pct, 1)}%)"]
+        if d and d_rank:
+            lines.append(f"📍 {d} ({D.telugu_name(d)}) rank: #{d_rank} of {len(d_rows)}")
+            if d_rank == 1 and len(d_rows) > 1:
+                lines.append(f"👑 మీ జిల్లాలో మీరే టాపర్! You topped {d}!")
+        lines.append(f"⭐ Points {m.get('points', 0)} · {lvl['icon']} {lvl['title_en']}"
+                     + (f" · next level in {nxt - m.get('points', 0)} pts" if nxt else " · MAX level"))
+        if m.get("streak", 0) >= 2:
+            lines.append(f"🔥 Streak {m['streak']} days — రేపు కూడా ఆడితే {m['streak'] + 1}!")
+        else:
+            lines.append("🔥 Play again tomorrow to start a streak (+bonus points)")
+        weak = self._weak_topics(m)
+        if weak:
+            lines.append("🎯 Focus: " + ", ".join(t.title() for t in weak[:3]) + " → /review")
+        lines.append(self.render_hall_of_fame_card(uid))
+        lines.append("Invite friends: /invite · District board: /district")
+        return "\n".join(lines)
+
+    def _weak_topics(self, m, min_total=2):
+        rows = [(t, v) for t, v in (m.get("topics") or {}).items() if v.get("total", 0) >= min_total]
+        rows.sort(key=lambda kv: (kv[1]["correct"] / max(kv[1]["total"], 1), -kv[1]["total"]))
+        return [t for t, v in rows if v["correct"] / max(v["total"], 1) < 0.6][:5]
+
+    def district_of_round(self, round_id, channel_key, min_players=2):
+        """District with the best average score this round (>= min_players)."""
+        rows, _ = self.round_top(round_id, channel_key, limit=10_000)
+        agg = {}
+        for r in rows:
+            if not r["district"]:
+                continue
+            a = agg.setdefault(r["district"], [0, 0, 0])
+            a[0] += r["correct"]; a[1] += r["total"]; a[2] += 1
+        best = [(d, c / max(t, 1), n) for d, (c, t, n) in agg.items() if n >= min_players]
+        if not best:
+            return None
+        best.sort(key=lambda x: (-x[1], -x[2]))
+        d, avg, n = best[0]
+        return {"district": d, "avg": round(100 * avg), "players": n}
+
+    def daily_champions(self, day=None, limit=10):
+        """Aggregate all rounds of a day → top scorers with district."""
+        day = day or _day()
+        agg = {}
+        for rid, r in self.data.get("rounds", {}).items():
+            if not rid.startswith(day.replace("-", "")):
+                continue
+            for ch, players in r.get("by_channel", {}).items():
+                for uid, e in players.items():
+                    a = agg.setdefault(uid, [0, 0, 0])
+                    a[0] += e["correct"]; a[1] += e["total"]; a[2] += 1
+        rows = []
+        for uid, (c, t, rounds) in agg.items():
+            m = self.members.get(str(uid)) or {}
+            if not m.get("registered"):
+                continue
+            rows.append({"uid": uid, "name": m.get("name") or "Player", "district": m.get("district", ""),
+                         "correct": c, "total": t, "rounds": rounds, "points": m.get("points", 0)})
+        rows.sort(key=lambda r: (-r["correct"], r["total"]))
+        return rows[:limit], len(agg)
+
+    def render_daily_champions(self, day=None):
+        from . import districts as D
+        rows, n = self.daily_champions(day)
+        if not rows:
+            return ""
+        medals = ["🥇", "🥈", "🥉"] + [f"{i}." for i in range(4, 11)]
+        lines = [f"🌟 Today's Champions — ఈరోజు ఛాంపియన్స్ ({(day or _day())})",
+                 f"👥 {n} players across all rounds", ""]
+        for i, r in enumerate(rows):
+            d = f" · {r['district']} ({D.telugu_name(r['district'])})" if r["district"] else ""
+            lines.append(f"{medals[i]} {r['name'][:24]}{d} — {r['correct']}/{r['total']} · {r['rounds']} rounds")
+        lines += ["", "రేపు మీ పేరు ఇక్కడ ఉండాలంటే — ప్రతి రౌండ్ ఆడండి 🔥",
+                  "Register once in our bot: /start ✅"]
+        return "\n".join(lines)
+
+    def weekly_district_cup(self, limit=10):
+        """District championship: sum of correct answers in last 7 days, with
+        per-player average so big districts don't automatically win."""
+        from . import districts as D
+        from datetime import timedelta
+        since = (datetime.now(config.IST) - timedelta(days=7)).strftime("%Y%m%d")
+        agg = {}
+        for rid, r in self.data.get("rounds", {}).items():
+            if rid[:8] < since:
+                continue
+            for ch, players in r.get("by_channel", {}).items():
+                for uid, e in players.items():
+                    m = self.members.get(str(uid)) or {}
+                    d = m.get("district")
+                    if not d:
+                        continue
+                    a = agg.setdefault(d, {"correct": 0, "total": 0, "players": set()})
+                    a["correct"] += e["correct"]; a["total"] += e["total"]; a["players"].add(uid)
+        rows = [(d, a["correct"], a["total"], len(a["players"])) for d, a in agg.items()]
+        rows.sort(key=lambda x: (-x[1], -x[3]))
+        if not rows:
+            return ""
+        lines = ["🏆 District Cup — వారపు జిల్లా ఛాంపియన్‌షిప్", ""]
+        medals = ["🥇", "🥈", "🥉"] + [f"{i}." for i in range(4, limit + 1)]
+        for i, (d, c, t, n) in enumerate(rows[:limit]):
+            acc = round(100 * c / max(t, 1))
+            lines.append(f"{medals[i]} {d} ({D.telugu_name(d)}) — {c} ✅ · {n} players · {acc}% acc")
+        lines += ["", "మీ జిల్లా ఎక్కడ? ఫ్రెండ్స్‌ని పిలవండి 👉 /invite",
+                  "Where is your district? Bring friends — register once in our bot ✅"]
+        return "\n".join(lines)
+
+    def streak_at_risk(self):
+        """Members who played yesterday but not today (for evening nudge)."""
+        from datetime import timedelta
+        today = _day()
+        yday = _day(datetime.now(config.IST) - timedelta(days=1))
+        return [uid for uid, m in self.members.items()
+                if m.get("registered") and not m.get("dm_blocked")
+                and m.get("last_active") == yday and m.get("streak", 0) >= 2]
+
+    def add_referral(self, new_uid, ref_uid):
+        """+20 pts to the referrer when a NEW member registers via their link."""
+        if str(new_uid) == str(ref_uid) or str(ref_uid) not in self.members:
+            return False
+        m = self._get(new_uid)
+        if m.get("referred_by"):
+            return False
+        m["referred_by"] = str(ref_uid)
+        r = self._get(ref_uid)
+        r["referrals"] = r.get("referrals", 0) + 1
+        r["points"] = r.get("points", 0) + 20
+        self.kv.save()
+        return True
+
+    # ------------------------------------------------------------ hall of fame
+    def settle_round(self, round_id, channel_key):
+        """Called once after a round: record wins / district tops / perfect
+        rounds on member profiles (feeds badges + monthly hall of fame) and
+        award round-place bonus points (🥇+30 🥈+20 🥉+10, district top +10)."""
+        rows, n = self.round_top(round_id, channel_key, limit=10_000)
+        if not rows:
+            return {}
+        awarded = {}
+        seen_d = set()
+        for i, r in enumerate(rows):
+            m = self._get(r["uid"])
+            bonus = 0
+            if i == 0 and n >= 3:
+                m["round_wins"] = m.get("round_wins", 0) + 1
+                bonus += 30
+            elif i == 1 and n >= 3:
+                bonus += 20
+            elif i == 2 and n >= 3:
+                bonus += 10
+            if r["district"] and r["district"] not in seen_d:
+                seen_d.add(r["district"])
+                if sum(1 for x in rows if x["district"] == r["district"]) >= 2:
+                    m["district_tops"] = m.get("district_tops", 0) + 1
+                    bonus += 10
+            if r["total"] >= 8 and r["correct"] == r["total"]:
+                m["perfect_rounds"] = m.get("perfect_rounds", 0) + 1
+            if bonus:
+                m["points"] = m.get("points", 0) + bonus
+                awarded[str(r["uid"])] = bonus
+            for b in self._earned_badges(m):
+                m.setdefault("badges", []).append(b["id"])
+        hist = self.data.setdefault("round_history", [])
+        hist.append({"round_id": round_id, "channel": channel_key, "players": n,
+                     "winner": rows[0]["name"], "district": rows[0]["district"]})
+        del hist[:-500]
+        self.kv.save()
+        return awarded
+
+    def monthly_hall_of_fame(self, limit=10):
+        from . import districts as D
+        month = datetime.now(config.IST).strftime("%Y%m")
+        agg = {}
+        for rid, r in self.data.get("rounds", {}).items():
+            if not rid.startswith(month):
+                continue
+            for ch, players in r.get("by_channel", {}).items():
+                for uid, e in players.items():
+                    a = agg.setdefault(uid, [0, 0, 0])
+                    a[0] += e["correct"]; a[1] += e["total"]; a[2] += 1
+        rows = []
+        for uid, (c, t, rn) in agg.items():
+            m = self.members.get(str(uid)) or {}
+            if m.get("registered"):
+                rows.append((m.get("name") or "Player", m.get("district", ""), c, t, rn, m.get("round_wins", 0)))
+        rows.sort(key=lambda x: (-x[2], x[3]))
+        if not rows:
+            return ""
+        lines = [f"🏛 Hall of Fame — {datetime.now(config.IST):%B %Y}", ""]
+        medals = ["🥇", "🥈", "🥉"] + [f"{i}." for i in range(4, limit + 1)]
+        for i, (nm, d, c, t, rn, w) in enumerate(rows[:limit]):
+            dd = f" · {d} ({D.telugu_name(d)})" if d else ""
+            lines.append(f"{medals[i]} {nm[:24]}{dd} — {c} ✅ / {rn} rounds · 🥇×{w}")
+        lines += ["", "Consistency wins — రోజూ ఆడినవారే ఇక్కడ ఉంటారు 🔥"]
+        return "\n".join(lines)
+
+    def render_hall_of_fame_card(self, uid):
+        m = self.members.get(str(uid)) or {}
+        return (f"🥇 Round wins: {m.get('round_wins', 0)} · 👑 District tops: {m.get('district_tops', 0)} · "
+                f"💎 Perfect rounds: {m.get('perfect_rounds', 0)} · 🤝 Referrals: {m.get('referrals', 0)}")
+
     # ------------------------------------------------------------ register flow
-    def start_registration(self, uid, username=""):
-        self.pending[str(uid)] = {"step": "name", "username": username}
+    def start_registration(self, uid, username="", quick=None):
+        """quick={'state_code','state','district','qualification','exam'} → only name + mobile asked."""
+        st = {"step": "name", "username": username}
+        if quick:
+            st.update({k: v for k, v in quick.items() if v}); st["quick"] = True
+        self.pending[str(uid)] = st
         self.kv.save()
 
     def pending_step(self, uid):
@@ -446,44 +960,107 @@ class Members:
         self.pending.pop(str(uid), None)
         self.kv.save()
 
-    def registration_input(self, uid, text):
+    def registration_input(self, uid, text, default_exam=""):
         """
-        Feed a free-text message during registration. Returns (status, reply).
-        status: 'ask_exam' | 'ask_lang' | 'done'
+        One-time, 3-step registration (asked ONCE, never again):
+            name -> district (TS/AP, typed or number) -> mobile (10 digits / skip)
+        Exam target defaults to the channel the member came from (or TSPSC)
+        and can be changed later with /exam. Returns (status, reply).
         """
         st = self.pending.get(str(uid))
         if not st:
             return None, None
         text = (text or "").strip()
+        from . import districts as D
         if st["step"] == "name":
+            if len(text) < 2 or len(text) > 60 or text.startswith("/"):
+                return "ask_name", "Please send your real name (2–60 letters).\n⤷ మీ పూర్తి పేరు పంపండి:"
             st["name"] = text
-            st["step"] = "exam"
+            if st.get("quick") and st.get("district"):
+                st["step"] = "qualification"
+                self.kv.save()
+                return "ask_qualification", (f"👍 {text}!\n\n🎓 Step 2 of 3 — మీరు చదువుతున్నది? / Your course\nTap a button below ⬇️")
+            st["step"] = "state"
             self.kv.save()
-            exams = "\n".join(f"  {i+1}. {e}" for i, e in enumerate(EXAM_TARGETS))
-            return "ask_exam", ("🎯 Choose your exam target — send the number or name:\n"
-                                f"{exams}\n⤷ మీ పరీక్ష లక్ష్యాన్ని ఎంచుకోండి (నంబర్ పంపండి):")
-        if st["step"] == "exam":
-            exam = self._match_exam(text)
-            if not exam:
-                return "ask_exam", "Please send a valid exam number/name (e.g. 1 or TSPSC).\n⤷ సరైన నంబర్ పంపండి."
-            st["exam"] = exam
-            st["step"] = "lang"
+            return "ask_state", (f"👍 {text}!\n\n🗺 Step 2 of 5 — మీ రాష్ట్రం? / Your state?\n"
+                                 "Tap a button below ⬇️")
+        if st["step"] == "state":
+            code = D.match_state(text)
+            if code not in ("TS", "AP"):
+                if code == "OTHER":
+                    st["state_code"], st["state"], st["district"] = "OTHER", "Other", ""
+                    st["step"] = "qualification"
+                    self.kv.save()
+                    return "ask_qualification", ("✅ Other state\n\n🎓 Step 4 of 5 — Highest qualification / అర్హత\n"
+                                                 "Tap a button below ⬇️")
+                return "ask_state", "Please tap Telangana or Andhra Pradesh.\n⤷ బటన్ నొక్కండి."
+            st["state_code"], st["state"] = code, D.STATES[code][0]
+            st["step"] = "district"
             self.kv.save()
-            langs = "\n".join(f"  {i+1}. {l}" for i, l in enumerate(LANGUAGES))
-            return "ask_lang", ("🗣 Choose language — send number or name:\n"
-                                f"{langs}\n⤷ భాష ఎంచుకోండి:")
-        if st["step"] == "lang":
-            lang = self._match_lang(text)
-            if not lang:
-                return "ask_lang", "Please send 1, 2 or 3 (English / Telugu / Both)."
-            self.register(uid, name=st.get("name"), exam=st.get("exam"),
-                          lang=lang, username=st.get("username", ""))
+            return "ask_district", (f"✅ {D.STATES[code][0]} / {D.STATES[code][1]}\n\n"
+                                    f"📍 Step 3 of 5 — మీ జిల్లా? / Your district?\n"
+                                    "Tap your district below (A → Z) or type its name ⬇️")
+        if st["step"] == "district":
+            code = st.get("state_code", "")
+            d = D.match_district(code, text) if code in ("TS", "AP") else None
+            if not d:
+                return "ask_district", ("❓ District not found — tap a button below or type the name.\n"
+                                        "⤷ కింద బటన్ నొక్కండి లేదా జిల్లా పేరు టైప్ చేయండి.")
+            st["district"] = d
+            st["step"] = "qualification"
+            self.kv.save()
+            return "ask_qualification", (f"✅ {d} / {D.telugu_name(d)}\n\n🎓 Step 4 of 5 — Highest qualification / అర్హత\n"
+                                         "Tap a button below ⬇️")
+        if st["step"] == "qualification":
+            q = match_qualification(text)
+            if not q:
+                return "ask_qualification", ("❓ Please tap a button or send 1–6.\n⤷ బటన్ నొక్కండి లేదా 1–6 పంపండి.")
+            st["qualification"] = q
+            st["step"] = "mobile"
+            self.kv.save()
+            return "ask_mobile", (f"✅ {QUAL_LABEL[q]}\n\n📱 Step {'3 of 3' if st.get('quick') else '5 of 5'} — Mobile number (10 digits) "
+                                  "for exam alerts & prizes. Send `skip` to skip.\n"
+                                  "⤷ మొబైల్ నంబర్ పంపండి (లేదా skip):")
+        if st["step"] == "mobile":
+            digits = re.sub(r"\D", "", text)
+            if text.lower() in ("skip", "no", "వద్దు", "-"):
+                mobile = ""
+            elif len(digits) == 12 and digits.startswith("91"):
+                mobile = digits[2:]
+            elif len(digits) == 10 and digits[0] in "6789":
+                mobile = digits
+            else:
+                return "ask_mobile", "Send a valid 10-digit mobile (starts 6–9) or `skip`.\n⤷ సరైన నంబర్ లేదా skip పంపండి."
+            exam = st.get("exam") or default_exam or "TSPSC"
+            self.register(uid, name=st.get("name"), exam=exam, lang="Both",
+                          username=st.get("username", ""),
+                          state=st.get("state", ""), district=st.get("district", ""),
+                          qualification=st.get("qualification", ""), mobile=mobile, source="bot")
             self.pending.pop(str(uid), None)
             self.kv.save()
-            p = self.profile(uid)
-            return "done", ("✅ Registration complete! You earned +25 bonus points.\n\n"
+            unlocked = (self.members.get(str(uid)) or {}).get("unlocked_on_register", 0)
+            unlock_line = (f"🔓 {unlocked} locked points released!\n⤷ లాక్ అయిన {unlocked} పాయింట్లు విడుదల!\n" if unlocked else "")
+            return "done", (unlock_line + "🎉 Registration complete — +25 bonus points!\n"
+                            "⤷ రిజిస్ట్రేషన్ పూర్తయింది. ఇక మళ్లీ అడగము ✅\n\n"
+                            "Every round your name + district can appear in the channel Top-10 🏆\n"
+                            "⤷ ప్రతి రౌండ్ తర్వాత Top-10 లో మీ పేరు, జిల్లా ఛానల్‌లో వస్తుంది!\n\n"
                             + self.render_profile(uid))
         return None, None
+
+    def register_default_exam(self, uid, exam):
+        st = self.pending.get(str(uid))
+        if st is not None and exam:
+            st["exam"] = exam
+            self.kv.save()
+
+    def set_exam(self, uid, exam):
+        exam = self._match_exam(exam) if exam else None
+        if not exam:
+            return None
+        m = self._get(uid)
+        m["exam"] = exam
+        self.kv.save()
+        return exam
 
     @staticmethod
     def _match_exam(text):

@@ -48,17 +48,91 @@ class TestMembers(unittest.TestCase):
 
     def test_registration_flow(self):
         self.mb.start_registration(self.uid, username="tester")
+        self.mb.register_default_exam(self.uid, "APPSC")
         s, _ = self.mb.registration_input(self.uid, "Test User")
-        self.assertEqual(s, "ask_exam")
-        s, _ = self.mb.registration_input(self.uid, "1")  # TSPSC
-        self.assertEqual(s, "ask_lang")
-        s, _ = self.mb.registration_input(self.uid, "2")  # Telugu
+        self.assertEqual(s, "ask_state")
+        s, _ = self.mb.registration_input(self.uid, "TS")
+        self.assertEqual(s, "ask_district")
+        s, r = self.mb.registration_input(self.uid, "mumbai")
+        self.assertEqual(s, "ask_district")
+        s, _ = self.mb.registration_input(self.uid, "Warangal")
+        self.assertEqual(s, "ask_qualification")
+        s, _ = self.mb.registration_input(self.uid, "xyz")
+        self.assertEqual(s, "ask_qualification")
+        s, _ = self.mb.registration_input(self.uid, "UG")
+        self.assertEqual(s, "ask_mobile")
+        s, _ = self.mb.registration_input(self.uid, "12345")
+        self.assertEqual(s, "ask_mobile")
+        s, _ = self.mb.registration_input(self.uid, "+91 98765 43210")
         self.assertEqual(s, "done")
         p = self.mb.profile(self.uid)
         self.assertTrue(p["registered"])
-        self.assertEqual(p["exam"], "TSPSC")
-        self.assertEqual(p["lang"], "Telugu")
+        self.assertEqual(p["exam"], "APPSC")
+        self.assertEqual(p["district"], "Warangal")
+        self.assertEqual(p["mobile"], "9876543210")
+        self.assertEqual(p["qualification"], "UG")
         self.assertEqual(p["points"], 25)  # registration bonus
+        self.assertIn("APPSC", p["follow"])
+        self.assertTrue(self.mb.is_registered(self.uid))
+        self.assertIsNone(self.mb.pending_step(self.uid))  # never asked again
+
+    def test_registration_skip_mobile_and_code(self):
+        self.mb.start_registration(self.uid)
+        self.mb.registration_input(self.uid, "Ravi")
+        s, _ = self.mb.registration_input(self.uid, "AP")
+        self.assertEqual(s, "ask_district")
+        s, _ = self.mb.registration_input(self.uid, "Guntur")
+        self.assertEqual(s, "ask_qualification")
+        s, _ = self.mb.registration_input(self.uid, "2")   # Inter
+        self.assertEqual(s, "ask_mobile")
+        s, _ = self.mb.registration_input(self.uid, "skip")
+        self.assertEqual(s, "done")
+        p = self.mb.profile(self.uid)
+        self.assertEqual(p["state"], "Andhra Pradesh")
+        self.assertEqual(p["mobile"], "")
+
+    def test_round_top10(self):
+        for i, (n, d) in enumerate([("Anil", "Warangal"), ("Bhavani", "Guntur"), ("Chandu", "Nellore")]):
+            self.mb.register(self.uid + i, name=n, district=d, state="TS", exam="TSPSC")
+        self.mb.record_round_answer(self.uid, "r1", "TSPSC", True, qid="q1")
+        self.mb.record_round_answer(self.uid, "r1", "TSPSC", True, qid="q2")
+        self.mb.record_round_answer(self.uid + 1, "r1", "TSPSC", True, qid="q1")
+        self.mb.record_round_answer(self.uid + 1, "r1", "TSPSC", False, qid="q2")
+        self.mb.record_round_answer(self.uid + 1, "r1", "TSPSC", False, qid="q2")  # dup ignored
+        self.mb.record_round_answer(self.uid + 2, "r1", "TSPSC", False, qid="q1")
+        self.mb.record_round_answer(999999, "r1", "TSPSC", True, qid="q1")  # unregistered: hidden
+        rows, n = self.mb.round_top("r1", "TSPSC")
+        self.assertEqual(n, 4)
+        self.assertEqual([r["name"] for r in rows], ["Anil", "Bhavani", "Chandu"])
+        self.assertEqual(rows[1]["total"], 2)
+        txt = self.mb.render_round_top("r1", "TSPSC", "Morning")
+        self.assertIn("🥇 Anil · Warangal (వరంగల్) — 2/2", txt)
+        self.assertIn("Guntur", txt)
+        self.assertEqual(self.mb.render_round_top("r1", "APPSC"), "")
+        self.assertIn(self.uid.__str__(), self.mb.recipients_for("TSPSC"))
+        self.assertNotIn(str(self.uid), self.mb.recipients_for("BANKING"))
+
+    def test_unregistered_is_gated(self):
+        self.assertFalse(self.mb.is_registered(self.uid))
+
+    def test_district_matching(self):
+        from core import districts as D
+        self.assertEqual(D.match_district("TS", "hyd"), "Hyderabad")
+        self.assertEqual(D.match_district("AP", "vijayawada"), "NTR")
+        self.assertEqual(D.match_district("TS", "కరీంనగర్"), "Karimnagar")
+        self.assertIsNone(D.match_district("TS", "mumbai"))
+        self.assertEqual(D.match_state("ఆంధ్ర"), "AP")
+
+    def test_district_board(self):
+        self.mb.register(self.uid, name="A", state="TS", district="Warangal")
+        self.mb.register(self.uid + 1, name="B", state="TS", district="Warangal")
+        self.mb.register(self.uid + 2, name="C", state="AP", district="Guntur")
+        self.mb.award_answer(self.uid + 1, correct=True)
+        board = self.mb.render_district_board()
+        self.assertIn("Warangal", board)
+        top = self.mb.render_district_board("Warangal")
+        self.assertIn("B", top)
+        self.assertNotIn("Guntur", top)
 
     def test_points_correct_answer(self):
         self.mb.register(self.uid, name="T")
@@ -228,18 +302,22 @@ class TestPYQBank(unittest.TestCase):
         ssc_qs = b.pick("SSC", 10)
         self.assertEqual(len(ssc_qs), 10)
 
-    def test_registry_187_sources(self):
-        """Central registry has 187 sources (15 live / 81 cand / 91 arch)."""
+    def test_registry_303_sources(self):
+        """Central registry has 402+ sources (84 live / 227 cand / 91 arch)."""
         from core import collector
         reg = collector.load_registry()
         srcs = reg.get("sources", [])
-        self.assertEqual(len(srcs), 187)
+        self.assertGreaterEqual(len(srcs), 402)
         live = [s for s in srcs if s.get("enabled")]
         cand = [s for s in srcs if not s.get("enabled") and s.get("auto_enable_if_live")]
         arch = [s for s in srcs if not s.get("enabled") and not s.get("auto_enable_if_live")]
-        self.assertEqual(len(live), 15)
-        self.assertEqual(len(cand), 81)
+        self.assertGreaterEqual(len(live), 84)
+        self.assertGreaterEqual(len(cand), 227)   # 128 + 99 (11 Sep 2026 expansion)
         self.assertEqual(len(arch), 91)
+        names = {s["name"] for s in live}
+        for must in ("GKToday Polity", "GKToday Telugu CA", "GKToday Telangana GK",
+                     "Examveda Reasoning", "Examveda Aptitude", "Testmocks Quant"):
+            self.assertIn(must, names)
 
 
 class TestNoRepeatAndSources(unittest.TestCase):
@@ -789,3 +867,166 @@ class TestPollFormat(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TestCRM(unittest.TestCase):
+    def setUp(self):
+        import tempfile, pathlib
+        from core import config
+        self._old = config.DATA
+        config.DATA = pathlib.Path(tempfile.mkdtemp())
+        from core.members import Members
+        self.mb = Members()
+        self.mb.register(1, name="Anil", district="Warangal", state="Telangana", exam="TSPSC", mobile="9000000001")
+        self.mb.register(2, name="Bhavani", district="Guntur", state="Andhra Pradesh", exam="APPSC")
+        self.mb.register(3, name="Chandu", district="Warangal", state="Telangana", exam="Banking")
+
+    def tearDown(self):
+        from core import config
+        config.DATA = self._old
+
+    def test_export_csv(self):
+        from core import crm
+        data = crm.export_csv(self.mb.members).decode("utf-8")
+        self.assertIn("tg_id,name,username,mobile,state,district,qualification", data)
+        self.assertIn("Anil", data)
+        self.assertIn("9000000001", data)
+        self.assertEqual(data.count("\n"), 4)  # header + 3 rows
+
+    def test_segment_select(self):
+        from core import crm
+        self.assertEqual(sorted(crm.select(self.mb.members, crm.parse_segment("district=warangal"))), ["1", "3"])
+        self.assertEqual(crm.select(self.mb.members, crm.parse_segment("state=AP")), ["2"])
+        self.assertEqual(crm.select(self.mb.members, crm.parse_segment("exam=tspsc mobile=yes")), ["1"])
+        self.assertEqual(len(crm.select(self.mb.members, {})), 3)
+
+    def test_sheet_push_payload(self):
+        from core import crm
+        crm.SHEET_URL = "https://script.google.com/macros/s/x/exec"
+        sent = []
+        crm.push_member(1, self.mb.members["1"], post=lambda u, p: sent.append(p) or True)
+        n = crm.push_all(self.mb.members, post=lambda u, p: sent.append(p) or True)
+        crm.SHEET_URL = ""
+        self.assertEqual(sent[0]["action"], "upsert")
+        self.assertEqual(sent[0]["row"]["district"], "Warangal")
+        self.assertEqual(n, 3)
+        self.assertEqual(sent[1]["action"], "bulk")
+        self.assertIn("summary", crm.segment_summary(self.mb.members).lower() + "summary")
+
+
+class TestRoundIntel(unittest.TestCase):
+    def setUp(self):
+        import tempfile, pathlib
+        from core import config
+        self._old = config.DATA
+        config.DATA = pathlib.Path(tempfile.mkdtemp())
+        from core.members import Members, _day
+        self.mb = Members()
+        self.rid = _day().replace("-", "") + "-0730"
+        for i, (n, d) in enumerate([("Anil", "Warangal"), ("Bhavani", "Guntur"), ("Chandu", "Warangal"), ("Devi", "Guntur")]):
+            self.mb.register(100 + i, name=n, district=d, state="TS", exam="TSPSC")
+        sc = {100: [1, 1, 1], 101: [1, 1, 0], 102: [1, 0, 0], 103: [1, 1, 1]}
+        for uid, arr in sc.items():
+            for k, c in enumerate(arr):
+                self.mb.record_round_answer(uid, self.rid, "TSPSC", bool(c), qid=f"q{k}")
+
+    def tearDown(self):
+        from core import config
+        config.DATA = self._old
+
+    def test_personal_card(self):
+        card = self.mb.personal_round_card(101, self.rid, "TSPSC", "Morning")
+        self.assertIn("Score 2/3", card)
+        self.assertIn("Rank #3 of 4", card)
+        self.assertIn("Guntur", card)
+        self.assertEqual(self.mb.personal_round_card(999, self.rid, "TSPSC"), "")
+
+    def test_district_of_round_and_top(self):
+        dor = self.mb.district_of_round(self.rid, "TSPSC")
+        self.assertEqual(dor["district"], "Guntur")   # 5/6 vs Warangal 4/6
+        top = self.mb.render_round_top(self.rid, "TSPSC", "Morning")
+        self.assertIn("District of the round: Guntur", top)
+        self.assertIn("Rivalry", top)
+
+    def test_daily_champions_and_cup(self):
+        txt = self.mb.render_daily_champions()
+        self.assertIn("Champions", txt)
+        self.assertIn("Anil", txt)
+        cup = self.mb.weekly_district_cup()
+        self.assertTrue(cup.startswith("🏆 District Cup"))
+        self.assertIn("Guntur", cup.splitlines()[2])
+
+    def test_referral(self):
+        self.assertTrue(self.mb.add_referral(555, 100))
+        self.assertFalse(self.mb.add_referral(555, 101))   # only once
+        self.assertFalse(self.mb.add_referral(100, 100))   # self
+        self.assertEqual(self.mb.members["100"]["referrals"], 1)
+        self.assertEqual(self.mb.members["100"]["points"], 25 + 20)
+
+
+class TestHallOfFame(TestRoundIntel):
+    def test_settle_round_bonuses(self):
+        b = self.mb.settle_round(self.rid, "TSPSC")
+        self.assertEqual(b["100"], 30 + 10)   # winner + Warangal top
+        self.assertEqual(b["103"], 20 + 10)   # 2nd + Guntur top
+        self.assertEqual(self.mb.members["100"]["round_wins"], 1)
+        self.assertIn("round_top1", self.mb.members["100"]["badges"])
+        hof = self.mb.monthly_hall_of_fame()
+        self.assertIn("Hall of Fame", hof)
+        self.assertIn("Anil", hof)
+        self.assertIn("Round wins: 1", self.mb.personal_round_card(100, self.rid, "TSPSC"))
+
+
+class TestPointsEscrow(unittest.TestCase):
+    def setUp(self):
+        import tempfile, pathlib
+        from core import config
+        self._old = config.DATA
+        config.DATA = pathlib.Path(tempfile.mkdtemp())
+        from core.members import Members
+        self.mb = Members()
+
+    def tearDown(self):
+        from core import config
+        config.DATA = self._old
+
+    def test_locked_until_registered(self):
+        r1 = self.mb.award_answer(777, correct=True)
+        self.assertEqual(self.mb.members["777"]["points"], 0)
+        self.assertEqual(r1["locked"], 15)          # 10 correct + 5 daily
+        r2 = self.mb.award_answer(777, correct=True)
+        self.assertEqual(r2["locked"], 25)
+        self.mb.start_registration(777)
+        self.mb.registration_input(777, "Ravi"); self.mb.registration_input(777, "AP")
+        self.mb.registration_input(777, "Nellore"); self.mb.registration_input(777, "post graduation")
+        s, reply = self.mb.registration_input(777, "skip")
+        self.assertEqual(s, "done")
+        self.assertIn("🔓 25", reply)
+        self.assertEqual(self.mb.members["777"]["points"], 25 + 25)   # unlocked + bonus
+        r3 = self.mb.award_answer(777, correct=True)
+        self.assertEqual(r3["locked"], 0)
+        self.assertEqual(self.mb.members["777"]["points"], 60)
+
+
+class TestQualification(unittest.TestCase):
+    def test_match(self):
+        from core.members import match_qualification as q
+        self.assertEqual(q("10th"), "SSC"); self.assertEqual(q("10+2"), "INTER"); self.assertEqual(q("B.Tech"), "UG")
+        self.assertEqual(q("Post Graduation"), "PG"); self.assertEqual(q("4"), "UG"); self.assertIsNone(q("zzz"))
+        self.assertEqual(q("డిగ్రీ"), "UG")
+
+    def test_csv_has_qualification(self):
+        from core import crm
+        self.assertIn("qualification", crm.COLUMNS)
+        self.assertEqual(crm.COLUMNS.index("qualification"), crm.COLUMNS.index("district") + 1)
+
+
+class TestStateDistrictButtons(unittest.TestCase):
+    def test_sorted_districts(self):
+        from core import districts as D
+        ts = [en for en, _ in D.sorted_districts("TS")]
+        ap = [en for en, _ in D.sorted_districts("AP")]
+        self.assertEqual(ts, sorted(ts, key=str.lower)); self.assertEqual(len(ts), 33)
+        self.assertEqual(ap, sorted(ap, key=str.lower)); self.assertEqual(len(ap), 26)
+        self.assertEqual(ts[0], "Adilabad"); self.assertEqual(ap[0], "Alluri Sitharama Raju")
+        self.assertEqual(D.sorted_districts("OTHER"), [])

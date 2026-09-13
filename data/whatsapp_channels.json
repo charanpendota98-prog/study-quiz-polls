@@ -1,0 +1,18 @@
+{
+ "_doc": [
+  "WhatsApp Channels have NO public web preview or API a bot can read, so they",
+  "cannot be scraped automatically (unlike Telegram t.me/s/ previews).",
+  "They are a MANUAL tier: an admin follows them on a phone and forwards useful",
+  "paper PDFs / MCQ images into the StudentUp bot DM (/inbox) or drops files into",
+  "data/pdf_inbox/. The collector ingests them like any other paper.",
+  "Only channels run by known publishers/coaching brands are listed; unverified",
+  "channels are not."
+ ],
+ "tier": "manual",
+ "channels": [
+  {"name": "Sakshi Education", "url": "https://whatsapp.com/channel/0029VaAEFp03wtbAEo43FG1k",
+   "exams": ["TSPSC", "APPSC", "POLICE", "SSC", "BANKING", "RAILWAY", "DEFENCE"], "lang": "te",
+   "verified": "2026-09-11 (link shown on every education.sakshi.com page)"}
+ ],
+ "how_to_add": "Append {name,url,exams,lang,verified} — verify the link is shown on the publisher's own website first."
+}

@@ -1,0 +1,2942 @@
+[
+ {
+  "id": "cbbf6be916",
+  "cat": "tsap",
+  "q_en": "What is the capital of Telangana?",
+  "q_te": "తెలంగాణ రాజధాని ఏది?",
+  "options_en": [
+   "Warangal",
+   "Hyderabad",
+   "Karimnagar",
+   "Nizamabad"
+  ],
+  "options_te": [
+   "వరంగల్",
+   "హైదరాబాద్",
+   "కరీంనగర్",
+   "నిజామాబాద్"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb13c36dfd",
+  "cat": "tsap",
+  "q_en": "Telangana was formed in which year?",
+  "q_te": "తెలంగాణ రాష్ట్రం ఏ సంవత్సరంలో ఏర్పడింది?",
+  "options_en": [
+   "2012",
+   "2013",
+   "2014",
+   "2015"
+  ],
+  "options_te": [
+   "2012",
+   "2013",
+   "2014",
+   "2015"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb1cc1f035",
+  "cat": "tsap",
+  "q_en": "Charminar is located in which city?",
+  "q_te": "చార్మినార్ ఏ నగరంలో ఉంది?",
+  "options_en": [
+   "Vijayawada",
+   "Hyderabad",
+   "Warangal",
+   "Tirupati"
+  ],
+  "options_te": [
+   "విజయవాడ",
+   "హైదరాబాద్",
+   "వరంగల్",
+   "తిరుపతి"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb64979692",
+  "cat": "tsap",
+  "q_en": "Which river flows through Vijayawada?",
+  "q_te": "విజయవాడ గుండా ప్రవహించే నది ఏది?",
+  "options_en": [
+   "Godavari",
+   "Krishna",
+   "Penna",
+   "Tungabhadra"
+  ],
+  "options_te": [
+   "గోదావరి",
+   "కృష్ణా",
+   "పెన్నా",
+   "తుంగభద్ర"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb3b8d6e52",
+  "cat": "tsap",
+  "q_en": "Tirumala temple is dedicated to which god?",
+  "q_te": "తిరుమల ఆలయం ఏ దేవుడిది?",
+  "options_en": [
+   "Shiva",
+   "Venkateswara",
+   "Ganesha",
+   "Hanuman"
+  ],
+  "options_te": [
+   "శివుడు",
+   "వెంకటేశ్వరుడు",
+   "గణేశుడు",
+   "హనుమంతుడు"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb6f5e1f61",
+  "cat": "tsap",
+  "q_en": "Bathukamma is the festival of which state?",
+  "q_te": "బతుకమ్మ ఏ రాష్ట్ర పండుగ?",
+  "options_en": [
+   "Andhra Pradesh",
+   "Karnataka",
+   "Telangana",
+   "Tamil Nadu"
+  ],
+  "options_te": [
+   "ఆంధ్రప్రదేశ్",
+   "కర్ణాటక",
+   "తెలంగాణ",
+   "తమిళనాడు"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb8a35d201",
+  "cat": "tsap",
+  "q_en": "How many districts does Telangana have (after 2019)?",
+  "q_te": "తెలంగాణలో జిల్లాలు ఎన్ని (2019 తర్వాత)?",
+  "options_en": [
+   "10",
+   "23",
+   "31",
+   "33"
+  ],
+  "options_te": [
+   "10",
+   "23",
+   "31",
+   "33"
+  ],
+  "answer_index": 3,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbf42918e4",
+  "cat": "tsap",
+  "q_en": "Which dam is built on the Krishna river near Nalgonda?",
+  "q_te": "నల్గొండ దగ్గర కృష్ణా నదిపై ఉన్న ఆనకట్ట ఏది?",
+  "options_en": [
+   "Srisailam",
+   "Nagarjuna Sagar",
+   "Polavaram",
+   "Jurala"
+  ],
+  "options_te": [
+   "శ్రీశైలం",
+   "నాగార్జున సాగర్",
+   "పోలవరం",
+   "జూరాల"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cba25756c0",
+  "cat": "tsap",
+  "q_en": "The Thousand Pillar Temple is in which town?",
+  "q_te": "వేయి స్తంభాల గుడి ఏ ఊరిలో ఉంది?",
+  "options_en": [
+   "Hanamkonda",
+   "Khammam",
+   "Kurnool",
+   "Guntur"
+  ],
+  "options_te": [
+   "హనుమకొండ",
+   "ఖమ్మం",
+   "కర్నూలు",
+   "గుంటూరు"
+  ],
+  "answer_index": 0,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbeb81374a",
+  "cat": "tsap",
+  "q_en": "Which is the largest city of Andhra Pradesh by population?",
+  "q_te": "జనాభా ప్రకారం ఆంధ్రప్రదేశ్ లో అతిపెద్ద నగరం?",
+  "options_en": [
+   "Vijayawada",
+   "Guntur",
+   "Visakhapatnam",
+   "Nellore"
+  ],
+  "options_te": [
+   "విజయవాడ",
+   "గుంటూరు",
+   "విశాఖపట్నం",
+   "నెల్లూరు"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbd7b8c6da",
+  "cat": "tsap",
+  "q_en": "Hussain Sagar lake is in which city?",
+  "q_te": "హుస్సేన్ సాగర్ సరస్సు ఏ నగరంలో ఉంది?",
+  "options_en": [
+   "Hyderabad",
+   "Secunderabad only",
+   "Warangal",
+   "Kakinada"
+  ],
+  "options_te": [
+   "హైదరాబాద్",
+   "సికింద్రాబాద్ మాత్రమే",
+   "వరంగల్",
+   "కాకినాడ"
+  ],
+  "answer_index": 0,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb734f34d7",
+  "cat": "tsap",
+  "q_en": "Which is the state bird of Telangana?",
+  "q_te": "తెలంగాణ రాష్ట్ర పక్షి ఏది?",
+  "options_en": [
+   "Peacock",
+   "Indian Roller (Palapitta)",
+   "Parrot",
+   "Sparrow"
+  ],
+  "options_te": [
+   "నెమలి",
+   "పాలపిట్ట",
+   "చిలుక",
+   "పిచ్చుక"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbfe0aa942",
+  "cat": "tsap",
+  "q_en": "Araku Valley is famous for?",
+  "q_te": "అరకు లోయ దేనికి ప్రసిద్ధి?",
+  "options_en": [
+   "Coffee",
+   "Cotton",
+   "Diamonds",
+   "Silk"
+  ],
+  "options_te": [
+   "కాఫీ",
+   "పత్తి",
+   "వజ్రాలు",
+   "పట్టు"
+  ],
+  "answer_index": 0,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb2412f11c",
+  "cat": "tsap",
+  "q_en": "Kakatiya dynasty ruled from which capital?",
+  "q_te": "కాకతీయులు ఏ రాజధాని నుంచి పాలించారు?",
+  "options_en": [
+   "Golconda",
+   "Warangal",
+   "Amaravati",
+   "Vijayanagara"
+  ],
+  "options_te": [
+   "గోల్కొండ",
+   "వరంగల్",
+   "అమరావతి",
+   "విజయనగరం"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbd0178ab1",
+  "cat": "tsap",
+  "q_en": "Sri Krishnadevaraya belonged to which empire?",
+  "q_te": "శ్రీకృష్ణదేవరాయలు ఏ సామ్రాజ్యానికి చెందినవారు?",
+  "options_en": [
+   "Kakatiya",
+   "Vijayanagara",
+   "Mughal",
+   "Satavahana"
+  ],
+  "options_te": [
+   "కాకతీయ",
+   "విజయనగర",
+   "మొఘల్",
+   "శాతవాహన"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb2a5f1c11",
+  "cat": "tsap",
+  "q_en": "Which is the longest river in Telangana?",
+  "q_te": "తెలంగాణలో అత్యంత పొడవైన నది?",
+  "options_en": [
+   "Krishna",
+   "Godavari",
+   "Musi",
+   "Manjira"
+  ],
+  "options_te": [
+   "కృష్ణా",
+   "గోదావరి",
+   "మూసీ",
+   "మంజీరా"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbb105cd5a",
+  "cat": "tsap",
+  "q_en": "Ramoji Film City is near which city?",
+  "q_te": "రామోజీ ఫిల్మ్ సిటీ ఏ నగరానికి దగ్గరగా ఉంది?",
+  "options_en": [
+   "Hyderabad",
+   "Vizag",
+   "Tirupati",
+   "Vijayawada"
+  ],
+  "options_te": [
+   "హైదరాబాద్",
+   "వైజాగ్",
+   "తిరుపతి",
+   "విజయవాడ"
+  ],
+  "answer_index": 0,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb4da5c997",
+  "cat": "tsap",
+  "q_en": "Which Telugu poet wrote 'Maha Prasthanam'?",
+  "q_te": "'మహాప్రస్థానం' రాసిన కవి ఎవరు?",
+  "options_en": [
+   "Gurajada",
+   "Sri Sri",
+   "Viswanatha",
+   "C. Narayana Reddy"
+  ],
+  "options_te": [
+   "గురజాడ",
+   "శ్రీశ్రీ",
+   "విశ్వనాథ",
+   "సి. నారాయణరెడ్డి"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb977629fc",
+  "cat": "tsap",
+  "q_en": "Kuchipudi dance belongs to which state?",
+  "q_te": "కూచిపూడి నృత్యం ఏ రాష్ట్రానికి చెందినది?",
+  "options_en": [
+   "Telangana",
+   "Andhra Pradesh",
+   "Kerala",
+   "Odisha"
+  ],
+  "options_te": [
+   "తెలంగాణ",
+   "ఆంధ్రప్రదేశ్",
+   "కేరళ",
+   "ఒడిశా"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cba9c32d50",
+  "cat": "tsap",
+  "q_en": "Which port city is called the 'City of Destiny'?",
+  "q_te": "'సిటీ ఆఫ్ డెస్టినీ' అని పిలిచే నగరం?",
+  "options_en": [
+   "Kakinada",
+   "Visakhapatnam",
+   "Machilipatnam",
+   "Nellore"
+  ],
+  "options_te": [
+   "కాకినాడ",
+   "విశాఖపట్నం",
+   "మచిలీపట్నం",
+   "నెల్లూరు"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb51a6f812",
+  "cat": "india",
+  "q_en": "Who is known as the Father of the Nation in India?",
+  "q_te": "భారత జాతిపిత ఎవరు?",
+  "options_en": [
+   "Nehru",
+   "Gandhi",
+   "Patel",
+   "Ambedkar"
+  ],
+  "options_te": [
+   "నెహ్రూ",
+   "గాంధీ",
+   "పటేల్",
+   "అంబేద్కర్"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbb1dbcf79",
+  "cat": "india",
+  "q_en": "India's Independence Day is celebrated on?",
+  "q_te": "భారత స్వాతంత్ర్య దినోత్సవం ఎప్పుడు?",
+  "options_en": [
+   "26 January",
+   "15 August",
+   "2 October",
+   "26 November"
+  ],
+  "options_te": [
+   "26 జనవరి",
+   "15 ఆగస్టు",
+   "2 అక్టోబర్",
+   "26 నవంబర్"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbd61f5652",
+  "cat": "india",
+  "q_en": "National animal of India?",
+  "q_te": "భారత జాతీయ జంతువు?",
+  "options_en": [
+   "Lion",
+   "Elephant",
+   "Tiger",
+   "Leopard"
+  ],
+  "options_te": [
+   "సింహం",
+   "ఏనుగు",
+   "పులి",
+   "చిరుత"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb744b46f8",
+  "cat": "india",
+  "q_en": "How many states does India have?",
+  "q_te": "భారతదేశంలో రాష్ట్రాలు ఎన్ని?",
+  "options_en": [
+   "25",
+   "28",
+   "29",
+   "30"
+  ],
+  "options_te": [
+   "25",
+   "28",
+   "29",
+   "30"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb6b1e636e",
+  "cat": "india",
+  "q_en": "The Taj Mahal is in which city?",
+  "q_te": "తాజ్ మహల్ ఏ నగరంలో ఉంది?",
+  "options_en": [
+   "Delhi",
+   "Jaipur",
+   "Agra",
+   "Lucknow"
+  ],
+  "options_te": [
+   "ఢిల్లీ",
+   "జైపూర్",
+   "ఆగ్రా",
+   "లక్నో"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb8f829a8b",
+  "cat": "india",
+  "q_en": "Which is the national flower of India?",
+  "q_te": "భారత జాతీయ పుష్పం?",
+  "options_en": [
+   "Rose",
+   "Lotus",
+   "Jasmine",
+   "Sunflower"
+  ],
+  "options_te": [
+   "గులాబీ",
+   "కమలం",
+   "మల్లె",
+   "పొద్దుతిరుగుడు"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbe22cd4c8",
+  "cat": "india",
+  "q_en": "Who wrote the Indian national anthem?",
+  "q_te": "భారత జాతీయ గీతం రాసినది ఎవరు?",
+  "options_en": [
+   "Bankim Chandra",
+   "Rabindranath Tagore",
+   "Sarojini Naidu",
+   "Premchand"
+  ],
+  "options_te": [
+   "బంకిం చంద్ర",
+   "రవీంద్రనాథ్ ఠాగూర్",
+   "సరోజినీ నాయుడు",
+   "ప్రేమ్‌చంద్"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb0793b00c",
+  "cat": "india",
+  "q_en": "Which is the longest river in India?",
+  "q_te": "భారతదేశంలో అత్యంత పొడవైన నది?",
+  "options_en": [
+   "Godavari",
+   "Yamuna",
+   "Ganga",
+   "Brahmaputra"
+  ],
+  "options_te": [
+   "గోదావరి",
+   "యమునా",
+   "గంగా",
+   "బ్రహ్మపుత్ర"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb182aab2e",
+  "cat": "india",
+  "q_en": "The currency of India is?",
+  "q_te": "భారత కరెన్సీ?",
+  "options_en": [
+   "Dollar",
+   "Rupee",
+   "Taka",
+   "Dinar"
+  ],
+  "options_te": [
+   "డాలర్",
+   "రూపాయి",
+   "టాకా",
+   "దీనార్"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbcc794dc2",
+  "cat": "india",
+  "q_en": "Republic Day is celebrated on?",
+  "q_te": "గణతంత్ర దినోత్సవం ఎప్పుడు?",
+  "options_en": [
+   "15 August",
+   "26 January",
+   "1 May",
+   "14 November"
+  ],
+  "options_te": [
+   "15 ఆగస్టు",
+   "26 జనవరి",
+   "1 మే",
+   "14 నవంబర్"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb9c3fe98d",
+  "cat": "india",
+  "q_en": "Who was the first Prime Minister of India?",
+  "q_te": "భారత తొలి ప్రధానమంత్రి ఎవరు?",
+  "options_en": [
+   "Gandhi",
+   "Nehru",
+   "Patel",
+   "Rajendra Prasad"
+  ],
+  "options_te": [
+   "గాంధీ",
+   "నెహ్రూ",
+   "పటేల్",
+   "రాజేంద్ర ప్రసాద్"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb50b8932e",
+  "cat": "india",
+  "q_en": "The Parliament of India is located in?",
+  "q_te": "భారత పార్లమెంట్ ఎక్కడ ఉంది?",
+  "options_en": [
+   "Mumbai",
+   "New Delhi",
+   "Kolkata",
+   "Chennai"
+  ],
+  "options_te": [
+   "ముంబై",
+   "న్యూఢిల్లీ",
+   "కోల్‌కతా",
+   "చెన్నై"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb0630b5b5",
+  "cat": "india",
+  "q_en": "Which is the highest mountain peak in India?",
+  "q_te": "భారతదేశంలో ఎత్తైన శిఖరం?",
+  "options_en": [
+   "Mount Everest",
+   "Kanchenjunga",
+   "Nanda Devi",
+   "K2"
+  ],
+  "options_te": [
+   "ఎవరెస్ట్",
+   "కాంచన్‌జంగా",
+   "నందా దేవి",
+   "K2"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb48192455",
+  "cat": "india",
+  "q_en": "Children's Day in India is on?",
+  "q_te": "భారతదేశంలో బాలల దినోత్సవం?",
+  "options_en": [
+   "5 September",
+   "14 November",
+   "2 October",
+   "26 January"
+  ],
+  "options_te": [
+   "5 సెప్టెంబర్",
+   "14 నవంబర్",
+   "2 అక్టోబర్",
+   "26 జనవరి"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb84951fe5",
+  "cat": "india",
+  "q_en": "Teachers' Day (5 Sept) is the birthday of?",
+  "q_te": "ఉపాధ్యాయ దినోత్సవం (సెప్టెంబర్ 5) ఎవరి జయంతి?",
+  "options_en": [
+   "Abdul Kalam",
+   "S. Radhakrishnan",
+   "Nehru",
+   "Tagore"
+  ],
+  "options_te": [
+   "అబ్దుల్ కలాం",
+   "ఎస్. రాధాకృష్ణన్",
+   "నెహ్రూ",
+   "ఠాగూర్"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb5dc0810d",
+  "cat": "india",
+  "q_en": "'Missile Man of India' is?",
+  "q_te": "'భారత మిస్సైల్ మ్యాన్' ఎవరు?",
+  "options_en": [
+   "Homi Bhabha",
+   "APJ Abdul Kalam",
+   "C.V. Raman",
+   "Vikram Sarabhai"
+  ],
+  "options_te": [
+   "హోమీ భాభా",
+   "ఏపీజే అబ్దుల్ కలాం",
+   "సి.వి. రామన్",
+   "విక్రమ్ సారాభాయ్"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb85122b34",
+  "cat": "india",
+  "q_en": "Which city is called the Silicon Valley of India?",
+  "q_te": "భారత సిలికాన్ వ్యాలీ అని పిలిచే నగరం?",
+  "options_en": [
+   "Hyderabad",
+   "Pune",
+   "Bengaluru",
+   "Chennai"
+  ],
+  "options_te": [
+   "హైదరాబాద్",
+   "పూణే",
+   "బెంగళూరు",
+   "చెన్నై"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbae4e8598",
+  "cat": "india",
+  "q_en": "The national sport-like game most associated with India's 1983 World Cup win?",
+  "q_te": "1983 లో భారత్ ప్రపంచ కప్ గెలిచిన ఆట?",
+  "options_en": [
+   "Hockey",
+   "Cricket",
+   "Football",
+   "Kabaddi"
+  ],
+  "options_te": [
+   "హాకీ",
+   "క్రికెట్",
+   "ఫుట్‌బాల్",
+   "కబడ్డీ"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb9de8c982",
+  "cat": "india",
+  "q_en": "Which Indian state has the largest population?",
+  "q_te": "భారతదేశంలో అత్యధిక జనాభా గల రాష్ట్రం?",
+  "options_en": [
+   "Maharashtra",
+   "Bihar",
+   "Uttar Pradesh",
+   "West Bengal"
+  ],
+  "options_te": [
+   "మహారాష్ట్ర",
+   "బీహార్",
+   "ఉత్తరప్రదేశ్",
+   "పశ్చిమ బెంగాల్"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbefd8843c",
+  "cat": "india",
+  "q_en": "ISRO headquarters is in?",
+  "q_te": "ఇస్రో ప్రధాన కార్యాలయం ఎక్కడ?",
+  "options_en": [
+   "Hyderabad",
+   "Bengaluru",
+   "Sriharikota",
+   "Thiruvananthapuram"
+  ],
+  "options_te": [
+   "హైదరాబాద్",
+   "బెంగళూరు",
+   "శ్రీహరికోట",
+   "తిరువనంతపురం"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb53aea626",
+  "cat": "science",
+  "q_en": "Water boils at what temperature (sea level)?",
+  "q_te": "నీరు ఎన్ని డిగ్రీల వద్ద మరుగుతుంది (సముద్ర మట్టం)?",
+  "options_en": [
+   "50°C",
+   "90°C",
+   "100°C",
+   "120°C"
+  ],
+  "options_te": [
+   "50°C",
+   "90°C",
+   "100°C",
+   "120°C"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb60b6c496",
+  "cat": "science",
+  "q_en": "Which gas do plants absorb from air?",
+  "q_te": "మొక్కలు గాలి నుంచి ఏ వాయువును తీసుకుంటాయి?",
+  "options_en": [
+   "Oxygen",
+   "Nitrogen",
+   "Carbon dioxide",
+   "Hydrogen"
+  ],
+  "options_te": [
+   "ఆక్సిజన్",
+   "నైట్రోజన్",
+   "కార్బన్ డయాక్సైడ్",
+   "హైడ్రోజన్"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb7740f669",
+  "cat": "science",
+  "q_en": "The chemical formula of water is?",
+  "q_te": "నీటి రసాయన సూత్రం?",
+  "options_en": [
+   "CO2",
+   "H2O",
+   "O2",
+   "NaCl"
+  ],
+  "options_te": [
+   "CO2",
+   "H2O",
+   "O2",
+   "NaCl"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb64fd9ce9",
+  "cat": "science",
+  "q_en": "Which planet is called the Red Planet?",
+  "q_te": "ఎర్ర గ్రహం అని పిలిచే గ్రహం?",
+  "options_en": [
+   "Venus",
+   "Mars",
+   "Jupiter",
+   "Saturn"
+  ],
+  "options_te": [
+   "శుక్రుడు",
+   "అంగారకుడు",
+   "గురుడు",
+   "శని"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb99070d43",
+  "cat": "science",
+  "q_en": "How many bones are in the adult human body?",
+  "q_te": "పెద్దవారి శరీరంలో ఎముకలు ఎన్ని?",
+  "options_en": [
+   "106",
+   "206",
+   "306",
+   "150"
+  ],
+  "options_te": [
+   "106",
+   "206",
+   "306",
+   "150"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbad13fbf0",
+  "cat": "science",
+  "q_en": "Which organ pumps blood in the body?",
+  "q_te": "శరీరంలో రక్తాన్ని పంప్ చేసే అవయవం?",
+  "options_en": [
+   "Lungs",
+   "Liver",
+   "Heart",
+   "Kidney"
+  ],
+  "options_te": [
+   "ఊపిరితిత్తులు",
+   "కాలేయం",
+   "గుండె",
+   "మూత్రపిండం"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb4d95bdef",
+  "cat": "science",
+  "q_en": "The largest planet in our solar system?",
+  "q_te": "సౌర కుటుంబంలో అతిపెద్ద గ్రహం?",
+  "options_en": [
+   "Earth",
+   "Saturn",
+   "Jupiter",
+   "Neptune"
+  ],
+  "options_te": [
+   "భూమి",
+   "శని",
+   "గురుడు",
+   "నెప్ట్యూన్"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb7316d375",
+  "cat": "science",
+  "q_en": "Which vitamin do we get from sunlight?",
+  "q_te": "సూర్యరశ్మి నుంచి మనకు లభించే విటమిన్?",
+  "options_en": [
+   "A",
+   "B",
+   "C",
+   "D"
+  ],
+  "options_te": [
+   "A",
+   "B",
+   "C",
+   "D"
+  ],
+  "answer_index": 3,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb26f19b37",
+  "cat": "science",
+  "q_en": "Sound cannot travel through?",
+  "q_te": "శబ్దం దేని గుండా ప్రయాణించదు?",
+  "options_en": [
+   "Air",
+   "Water",
+   "Steel",
+   "Vacuum"
+  ],
+  "options_te": [
+   "గాలి",
+   "నీరు",
+   "ఉక్కు",
+   "శూన్యం"
+  ],
+  "answer_index": 3,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb06f4ddaa",
+  "cat": "science",
+  "q_en": "Which blood group is the universal donor?",
+  "q_te": "యూనివర్సల్ డోనర్ రక్త వర్గం?",
+  "options_en": [
+   "A+",
+   "B+",
+   "AB+",
+   "O-"
+  ],
+  "options_te": [
+   "A+",
+   "B+",
+   "AB+",
+   "O-"
+  ],
+  "answer_index": 3,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb4796dd35",
+  "cat": "science",
+  "q_en": "The hardest natural substance is?",
+  "q_te": "అత్యంత గట్టి సహజ పదార్థం?",
+  "options_en": [
+   "Gold",
+   "Iron",
+   "Diamond",
+   "Granite"
+  ],
+  "options_te": [
+   "బంగారం",
+   "ఇనుము",
+   "వజ్రం",
+   "గ్రానైట్"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb1e2b30c0",
+  "cat": "science",
+  "q_en": "Which gas do humans need to breathe?",
+  "q_te": "మనుషులు శ్వాసకు ఏ వాయువు అవసరం?",
+  "options_en": [
+   "Carbon dioxide",
+   "Oxygen",
+   "Nitrogen",
+   "Helium"
+  ],
+  "options_te": [
+   "కార్బన్ డయాక్సైడ్",
+   "ఆక్సిజన్",
+   "నైట్రోజన్",
+   "హీలియం"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cba61188d0",
+  "cat": "science",
+  "q_en": "Light travels fastest in?",
+  "q_te": "కాంతి దేనిలో వేగంగా ప్రయాణిస్తుంది?",
+  "options_en": [
+   "Water",
+   "Glass",
+   "Vacuum",
+   "Air"
+  ],
+  "options_te": [
+   "నీరు",
+   "గాజు",
+   "శూన్యం",
+   "గాలి"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb26ae8ba2",
+  "cat": "science",
+  "q_en": "The unit of electric current is?",
+  "q_te": "విద్యుత్ ప్రవాహ యూనిట్?",
+  "options_en": [
+   "Volt",
+   "Watt",
+   "Ampere",
+   "Ohm"
+  ],
+  "options_te": [
+   "వోల్ట్",
+   "వాట్",
+   "ఆంపియర్",
+   "ఓమ్"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb45cc7244",
+  "cat": "science",
+  "q_en": "Which is the closest star to Earth?",
+  "q_te": "భూమికి అత్యంత దగ్గరి నక్షత్రం?",
+  "options_en": [
+   "Moon",
+   "Sun",
+   "Sirius",
+   "Polaris"
+  ],
+  "options_te": [
+   "చంద్రుడు",
+   "సూర్యుడు",
+   "సిరియస్",
+   "ధ్రువ నక్షత్రం"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb7101c78e",
+  "cat": "science",
+  "q_en": "Plants make food by which process?",
+  "q_te": "మొక్కలు ఆహారం తయారు చేసే ప్రక్రియ?",
+  "options_en": [
+   "Respiration",
+   "Digestion",
+   "Photosynthesis",
+   "Evaporation"
+  ],
+  "options_te": [
+   "శ్వాసక్రియ",
+   "జీర్ణక్రియ",
+   "కిరణజన్య సంయోగక్రియ",
+   "బాష్పీభవనం"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb6a909144",
+  "cat": "science",
+  "q_en": "Which metal is liquid at room temperature?",
+  "q_te": "గది ఉష్ణోగ్రత వద్ద ద్రవంగా ఉండే లోహం?",
+  "options_en": [
+   "Iron",
+   "Mercury",
+   "Copper",
+   "Silver"
+  ],
+  "options_te": [
+   "ఇనుము",
+   "పాదరసం",
+   "రాగి",
+   "వెండి"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb6f09b738",
+  "cat": "science",
+  "q_en": "How many teeth does an adult human normally have?",
+  "q_te": "పెద్దవారికి సాధారణంగా ఎన్ని పళ్ళు ఉంటాయి?",
+  "options_en": [
+   "28",
+   "30",
+   "32",
+   "36"
+  ],
+  "options_te": [
+   "28",
+   "30",
+   "32",
+   "36"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb533f0766",
+  "cat": "science",
+  "q_en": "The Earth takes how long to go around the Sun?",
+  "q_te": "భూమి సూర్యుని చుట్టూ తిరగడానికి ఎంత సమయం?",
+  "options_en": [
+   "1 day",
+   "1 month",
+   "1 year",
+   "10 years"
+  ],
+  "options_te": [
+   "1 రోజు",
+   "1 నెల",
+   "1 సంవత్సరం",
+   "10 సంవత్సరాలు"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb84eaaa90",
+  "cat": "science",
+  "q_en": "Which part of the plant conducts photosynthesis mainly?",
+  "q_te": "మొక్కలో ప్రధానంగా ఆహారం తయారు చేసే భాగం?",
+  "options_en": [
+   "Root",
+   "Stem",
+   "Leaf",
+   "Flower"
+  ],
+  "options_te": [
+   "వేరు",
+   "కాండం",
+   "ఆకు",
+   "పువ్వు"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb39c313c1",
+  "cat": "tech",
+  "q_en": "What does 'WWW' stand for?",
+  "q_te": "'WWW' అంటే?",
+  "options_en": [
+   "World Wide Web",
+   "World Web Wide",
+   "Web World Wide",
+   "Wide World Web"
+  ],
+  "options_te": [
+   "World Wide Web",
+   "World Web Wide",
+   "Web World Wide",
+   "Wide World Web"
+  ],
+  "answer_index": 0,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb0c68dccb",
+  "cat": "tech",
+  "q_en": "Which company makes the Android operating system?",
+  "q_te": "ఆండ్రాయిడ్ ఆపరేటింగ్ సిస్టమ్ ఎవరిది?",
+  "options_en": [
+   "Apple",
+   "Microsoft",
+   "Google",
+   "Samsung"
+  ],
+  "options_te": [
+   "ఆపిల్",
+   "మైక్రోసాఫ్ట్",
+   "గూగుల్",
+   "శాంసంగ్"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbc2d38f71",
+  "cat": "tech",
+  "q_en": "'CPU' stands for?",
+  "q_te": "'CPU' పూర్తి రూపం?",
+  "options_en": [
+   "Central Processing Unit",
+   "Computer Personal Unit",
+   "Central Program Utility",
+   "Control Processing Unit"
+  ],
+  "options_te": [
+   "Central Processing Unit",
+   "Computer Personal Unit",
+   "Central Program Utility",
+   "Control Processing Unit"
+  ],
+  "answer_index": 0,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbf1aeb8ca",
+  "cat": "tech",
+  "q_en": "Which of these is NOT a programming language?",
+  "q_te": "వీటిలో ప్రోగ్రామింగ్ భాష కానిది?",
+  "options_en": [
+   "Python",
+   "Java",
+   "HTML5 Photoshop",
+   "C++"
+  ],
+  "options_te": [
+   "Python",
+   "Java",
+   "HTML5 Photoshop",
+   "C++"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb3a454846",
+  "cat": "tech",
+  "q_en": "Who founded Microsoft?",
+  "q_te": "మైక్రోసాఫ్ట్ స్థాపకుడు?",
+  "options_en": [
+   "Steve Jobs",
+   "Bill Gates",
+   "Elon Musk",
+   "Mark Zuckerberg"
+  ],
+  "options_te": [
+   "స్టీవ్ జాబ్స్",
+   "బిల్ గేట్స్",
+   "ఎలాన్ మస్క్",
+   "మార్క్ జుకర్‌బర్గ్"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb471b6578",
+  "cat": "tech",
+  "q_en": "1 GB equals how many MB?",
+  "q_te": "1 GB = ఎన్ని MB?",
+  "options_en": [
+   "100",
+   "512",
+   "1024",
+   "2048"
+  ],
+  "options_te": [
+   "100",
+   "512",
+   "1024",
+   "2048"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cba8129cf2",
+  "cat": "tech",
+  "q_en": "Which key combination is used to copy in Windows?",
+  "q_te": "విండోస్ లో కాపీ చేయడానికి కీలు?",
+  "options_en": [
+   "Ctrl+V",
+   "Ctrl+C",
+   "Ctrl+X",
+   "Ctrl+Z"
+  ],
+  "options_te": [
+   "Ctrl+V",
+   "Ctrl+C",
+   "Ctrl+X",
+   "Ctrl+Z"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb2a588c76",
+  "cat": "tech",
+  "q_en": "UPI is used for?",
+  "q_te": "UPI దేనికి ఉపయోగిస్తారు?",
+  "options_en": [
+   "Watching videos",
+   "Digital payments",
+   "Playing games",
+   "Sending emails"
+  ],
+  "options_te": [
+   "వీడియోలు చూడటానికి",
+   "డిజిటల్ చెల్లింపులకు",
+   "ఆటలకు",
+   "ఇమెయిల్ కి"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb8e369dfe",
+  "cat": "tech",
+  "q_en": "The brain of the computer is?",
+  "q_te": "కంప్యూటర్ మెదడు అని దేన్ని అంటారు?",
+  "options_en": [
+   "Monitor",
+   "Keyboard",
+   "CPU",
+   "Mouse"
+  ],
+  "options_te": [
+   "మానిటర్",
+   "కీబోర్డ్",
+   "CPU",
+   "మౌస్"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb31cab51f",
+  "cat": "tech",
+  "q_en": "Which company owns WhatsApp and Instagram?",
+  "q_te": "వాట్సాప్, ఇన్‌స్టాగ్రామ్ ఎవరి సొంతం?",
+  "options_en": [
+   "Google",
+   "Meta",
+   "Apple",
+   "Amazon"
+  ],
+  "options_te": [
+   "గూగుల్",
+   "మెటా",
+   "ఆపిల్",
+   "అమెజాన్"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb824f0bc2",
+  "cat": "tech",
+  "q_en": "'AI' stands for?",
+  "q_te": "'AI' అంటే?",
+  "options_en": [
+   "Auto Internet",
+   "Artificial Intelligence",
+   "Advanced Input",
+   "Applied Information"
+  ],
+  "options_te": [
+   "Auto Internet",
+   "Artificial Intelligence",
+   "Advanced Input",
+   "Applied Information"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb3460263c",
+  "cat": "tech",
+  "q_en": "Which of these is an input device?",
+  "q_te": "వీటిలో ఇన్‌పుట్ పరికరం?",
+  "options_en": [
+   "Printer",
+   "Speaker",
+   "Keyboard",
+   "Monitor"
+  ],
+  "options_te": [
+   "ప్రింటర్",
+   "స్పీకర్",
+   "కీబోర్డ్",
+   "మానిటర్"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb68fbc11d",
+  "cat": "tech",
+  "q_en": "'PDF' stands for?",
+  "q_te": "'PDF' పూర్తి రూపం?",
+  "options_en": [
+   "Portable Document Format",
+   "Personal Data File",
+   "Print Document Form",
+   "Public Data Format"
+  ],
+  "options_te": [
+   "Portable Document Format",
+   "Personal Data File",
+   "Print Document Form",
+   "Public Data Format"
+  ],
+  "answer_index": 0,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb229536c7",
+  "cat": "tech",
+  "q_en": "Which search engine is the most used in the world?",
+  "q_te": "ప్రపంచంలో ఎక్కువగా వాడే సెర్చ్ ఇంజిన్?",
+  "options_en": [
+   "Bing",
+   "Yahoo",
+   "Google",
+   "DuckDuckGo"
+  ],
+  "options_te": [
+   "బింగ్",
+   "యాహూ",
+   "గూగుల్",
+   "డక్‌డక్‌గో"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbc2af4c56",
+  "cat": "tech",
+  "q_en": "Aadhaar is issued by?",
+  "q_te": "ఆధార్ జారీ చేసేది?",
+  "options_en": [
+   "RBI",
+   "UIDAI",
+   "SEBI",
+   "NITI Aayog"
+  ],
+  "options_te": [
+   "RBI",
+   "UIDAI",
+   "SEBI",
+   "నీతి ఆయోగ్"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb35285b29",
+  "cat": "logic",
+  "q_en": "What is 15% of 200?",
+  "q_te": "200 లో 15% ఎంత?",
+  "options_en": [
+   "20",
+   "25",
+   "30",
+   "35"
+  ],
+  "options_te": [
+   "20",
+   "25",
+   "30",
+   "35"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbfded1580",
+  "cat": "logic",
+  "q_en": "Next number: 2, 4, 8, 16, ?",
+  "q_te": "తర్వాతి సంఖ్య: 2, 4, 8, 16, ?",
+  "options_en": [
+   "18",
+   "24",
+   "32",
+   "64"
+  ],
+  "options_te": [
+   "18",
+   "24",
+   "32",
+   "64"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbd1fb6b44",
+  "cat": "logic",
+  "q_en": "If today is Monday, what day is it after 10 days?",
+  "q_te": "ఈరోజు సోమవారం అయితే 10 రోజుల తర్వాత ఏ వారం?",
+  "options_en": [
+   "Wednesday",
+   "Thursday",
+   "Friday",
+   "Saturday"
+  ],
+  "options_te": [
+   "బుధవారం",
+   "గురువారం",
+   "శుక్రవారం",
+   "శనివారం"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb86625f46",
+  "cat": "logic",
+  "q_en": "A shirt costs ₹500 with 20% discount. Price?",
+  "q_te": "₹500 షర్ట్ పై 20% డిస్కౌంట్. ధర?",
+  "options_en": [
+   "₹380",
+   "₹400",
+   "₹420",
+   "₹450"
+  ],
+  "options_te": [
+   "₹380",
+   "₹400",
+   "₹420",
+   "₹450"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb1cc351de",
+  "cat": "logic",
+  "q_en": "Square root of 144?",
+  "q_te": "144 వర్గమూలం?",
+  "options_en": [
+   "10",
+   "11",
+   "12",
+   "14"
+  ],
+  "options_te": [
+   "10",
+   "11",
+   "12",
+   "14"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb1d5eaa89",
+  "cat": "logic",
+  "q_en": "Odd one out: Apple, Banana, Carrot, Mango",
+  "q_te": "భిన్నమైనది: ఆపిల్, అరటి, క్యారెట్, మామిడి",
+  "options_en": [
+   "Apple",
+   "Banana",
+   "Carrot",
+   "Mango"
+  ],
+  "options_te": [
+   "ఆపిల్",
+   "అరటి",
+   "క్యారెట్",
+   "మామిడి"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb7c7aeb7b",
+  "cat": "logic",
+  "q_en": "Average of 10, 20 and 30?",
+  "q_te": "10, 20, 30 సగటు?",
+  "options_en": [
+   "15",
+   "20",
+   "25",
+   "30"
+  ],
+  "options_te": [
+   "15",
+   "20",
+   "25",
+   "30"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbef0460d6",
+  "cat": "logic",
+  "q_en": "Next letter: A, C, E, G, ?",
+  "q_te": "తర్వాతి అక్షరం: A, C, E, G, ?",
+  "options_en": [
+   "H",
+   "I",
+   "J",
+   "K"
+  ],
+  "options_te": [
+   "H",
+   "I",
+   "J",
+   "K"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb173c3c4a",
+  "cat": "logic",
+  "q_en": "How many minutes are in 2.5 hours?",
+  "q_te": "2.5 గంటల్లో ఎన్ని నిమిషాలు?",
+  "options_en": [
+   "120",
+   "130",
+   "150",
+   "180"
+  ],
+  "options_te": [
+   "120",
+   "130",
+   "150",
+   "180"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb7038d3e0",
+  "cat": "logic",
+  "q_en": "If 5 pens cost ₹40, cost of 8 pens?",
+  "q_te": "5 పెన్నులు ₹40 అయితే 8 పెన్నుల ధర?",
+  "options_en": [
+   "₹56",
+   "₹60",
+   "₹64",
+   "₹72"
+  ],
+  "options_te": [
+   "₹56",
+   "₹60",
+   "₹64",
+   "₹72"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb135b9b0b",
+  "cat": "logic",
+  "q_en": "Which number is a prime?",
+  "q_te": "ప్రధాన సంఖ్య ఏది?",
+  "options_en": [
+   "9",
+   "15",
+   "17",
+   "21"
+  ],
+  "options_te": [
+   "9",
+   "15",
+   "17",
+   "21"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb19d649b0",
+  "cat": "logic",
+  "q_en": "Rahul is taller than Sita; Sita is taller than Ravi. Shortest?",
+  "q_te": "రాహుల్ సీత కంటే పొడవు; సీత రవి కంటే పొడవు. పొట్టివారు?",
+  "options_en": [
+   "Rahul",
+   "Sita",
+   "Ravi",
+   "Can't say"
+  ],
+  "options_te": [
+   "రాహుల్",
+   "సీత",
+   "రవి",
+   "చెప్పలేం"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb950e4e87",
+  "cat": "logic",
+  "q_en": "Face south, turn left. Which direction now?",
+  "q_te": "దక్షిణానికి చూస్తూ ఎడమకు తిరిగితే ఏ దిక్కు?",
+  "options_en": [
+   "North",
+   "East",
+   "West",
+   "South"
+  ],
+  "options_te": [
+   "ఉత్తరం",
+   "తూర్పు",
+   "పడమర",
+   "దక్షిణం"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbdbd57683",
+  "cat": "logic",
+  "q_en": "Which is bigger: 3/4 or 2/3?",
+  "q_te": "ఏది పెద్దది: 3/4 లేదా 2/3?",
+  "options_en": [
+   "3/4",
+   "2/3",
+   "Equal",
+   "Can't say"
+  ],
+  "options_te": [
+   "3/4",
+   "2/3",
+   "సమానం",
+   "చెప్పలేం"
+  ],
+  "answer_index": 0,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb76270167",
+  "cat": "logic",
+  "q_en": "Clock shows 3:00. Angle between hands?",
+  "q_te": "గడియారంలో 3:00. ముళ్ళ మధ్య కోణం?",
+  "options_en": [
+   "45°",
+   "60°",
+   "90°",
+   "120°"
+  ],
+  "options_te": [
+   "45°",
+   "60°",
+   "90°",
+   "120°"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb4b85a924",
+  "cat": "logic",
+  "q_en": "Sum of angles of a triangle?",
+  "q_te": "త్రిభుజం కోణాల మొత్తం?",
+  "options_en": [
+   "90°",
+   "180°",
+   "270°",
+   "360°"
+  ],
+  "options_te": [
+   "90°",
+   "180°",
+   "270°",
+   "360°"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbef586b77",
+  "cat": "logic",
+  "q_en": "20 students, 40% girls. Boys?",
+  "q_te": "20 మంది విద్యార్థుల్లో 40% అమ్మాయిలు. అబ్బాయిలు?",
+  "options_en": [
+   "8",
+   "10",
+   "12",
+   "14"
+  ],
+  "options_te": [
+   "8",
+   "10",
+   "12",
+   "14"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb08dc711c",
+  "cat": "logic",
+  "q_en": "Which comes next: Mon, Wed, Fri, ?",
+  "q_te": "తర్వాత ఏది: సోమ, బుధ, శుక్ర, ?",
+  "options_en": [
+   "Sat",
+   "Sun",
+   "Mon",
+   "Tue"
+  ],
+  "options_te": [
+   "శని",
+   "ఆది",
+   "సోమ",
+   "మంగళ"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbeab9cb20",
+  "cat": "logic",
+  "q_en": "Simple interest on ₹1000 at 10% for 1 year?",
+  "q_te": "₹1000 పై 10% వడ్డీతో 1 సంవత్సరం సాధారణ వడ్డీ?",
+  "options_en": [
+   "₹10",
+   "₹50",
+   "₹100",
+   "₹110"
+  ],
+  "options_te": [
+   "₹10",
+   "₹50",
+   "₹100",
+   "₹110"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb3e32b845",
+  "cat": "logic",
+  "q_en": "Double of half of 50?",
+  "q_te": "50 లో సగానికి రెట్టింపు?",
+  "options_en": [
+   "25",
+   "50",
+   "75",
+   "100"
+  ],
+  "options_te": [
+   "25",
+   "50",
+   "75",
+   "100"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb89053d7c",
+  "cat": "english",
+  "q_en": "Opposite of 'Happy'?",
+  "q_te": "'Happy' కి వ్యతిరేక పదం?",
+  "options_en": [
+   "Glad",
+   "Sad",
+   "Joyful",
+   "Cheerful"
+  ],
+  "options_te": [
+   "Glad",
+   "Sad",
+   "Joyful",
+   "Cheerful"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbae6f17bc",
+  "cat": "english",
+  "q_en": "Plural of 'Child'?",
+  "q_te": "'Child' బహువచనం?",
+  "options_en": [
+   "Childs",
+   "Children",
+   "Childrens",
+   "Childes"
+  ],
+  "options_te": [
+   "Childs",
+   "Children",
+   "Childrens",
+   "Childes"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cba6faddfa",
+  "cat": "english",
+  "q_en": "Choose the correct spelling.",
+  "q_te": "సరైన స్పెల్లింగ్ ఎంచుకోండి.",
+  "options_en": [
+   "Recieve",
+   "Receive",
+   "Receeve",
+   "Riceive"
+  ],
+  "options_te": [
+   "Recieve",
+   "Receive",
+   "Receeve",
+   "Riceive"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb229fa334",
+  "cat": "english",
+  "q_en": "Synonym of 'Big'?",
+  "q_te": "'Big' కి సమానార్థక పదం?",
+  "options_en": [
+   "Tiny",
+   "Large",
+   "Small",
+   "Short"
+  ],
+  "options_te": [
+   "Tiny",
+   "Large",
+   "Small",
+   "Short"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbb0d327ce",
+  "cat": "english",
+  "q_en": "She ___ to college every day.",
+  "q_te": "She ___ to college every day.",
+  "options_en": [
+   "go",
+   "goes",
+   "going",
+   "gone"
+  ],
+  "options_te": [
+   "go",
+   "goes",
+   "going",
+   "gone"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbb3be3427",
+  "cat": "english",
+  "q_en": "Past tense of 'Eat'?",
+  "q_te": "'Eat' భూతకాలం?",
+  "options_en": [
+   "Eated",
+   "Ate",
+   "Eaten",
+   "Eats"
+  ],
+  "options_te": [
+   "Eated",
+   "Ate",
+   "Eaten",
+   "Eats"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb64d405d5",
+  "cat": "english",
+  "q_en": "Which is a noun?",
+  "q_te": "వీటిలో నామవాచకం?",
+  "options_en": [
+   "Run",
+   "Quickly",
+   "Book",
+   "Beautiful"
+  ],
+  "options_te": [
+   "Run",
+   "Quickly",
+   "Book",
+   "Beautiful"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb01479cdc",
+  "cat": "english",
+  "q_en": "'Once in a blue moon' means?",
+  "q_te": "'Once in a blue moon' అర్థం?",
+  "options_en": [
+   "Every night",
+   "Very rarely",
+   "Always",
+   "Never"
+  ],
+  "options_te": [
+   "ప్రతి రాత్రి",
+   "చాలా అరుదుగా",
+   "ఎప్పుడూ",
+   "ఎప్పటికీ కాదు"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbf2f73546",
+  "cat": "english",
+  "q_en": "Choose the correct article: ___ apple a day.",
+  "q_te": "సరైన article: ___ apple a day.",
+  "options_en": [
+   "A",
+   "An",
+   "The",
+   "No article"
+  ],
+  "options_te": [
+   "A",
+   "An",
+   "The",
+   "No article"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb9ae73a81",
+  "cat": "english",
+  "q_en": "Opposite of 'Ancient'?",
+  "q_te": "'Ancient' వ్యతిరేకం?",
+  "options_en": [
+   "Old",
+   "Modern",
+   "Historic",
+   "Past"
+  ],
+  "options_te": [
+   "Old",
+   "Modern",
+   "Historic",
+   "Past"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbe0f5d4f1",
+  "cat": "english",
+  "q_en": "Fill: I have been waiting ___ 2 hours.",
+  "q_te": "పూరించండి: I have been waiting ___ 2 hours.",
+  "options_en": [
+   "since",
+   "for",
+   "from",
+   "at"
+  ],
+  "options_te": [
+   "since",
+   "for",
+   "from",
+   "at"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb61d87543",
+  "cat": "english",
+  "q_en": "Which word is spelled correctly?",
+  "q_te": "సరైన స్పెల్లింగ్?",
+  "options_en": [
+   "Definately",
+   "Definitely",
+   "Definitly",
+   "Defenitely"
+  ],
+  "options_te": [
+   "Definately",
+   "Definitely",
+   "Definitly",
+   "Defenitely"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb5a025a5d",
+  "cat": "english",
+  "q_en": "'Bring the house down' means?",
+  "q_te": "'Bring the house down' అర్థం?",
+  "options_en": [
+   "Destroy a house",
+   "Get loud applause",
+   "Sell a house",
+   "Clean a house"
+  ],
+  "options_te": [
+   "ఇల్లు కూల్చడం",
+   "పెద్ద చప్పట్లు పొందడం",
+   "ఇల్లు అమ్మడం",
+   "ఇల్లు శుభ్రం చేయడం"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbb6d91e15",
+  "cat": "english",
+  "q_en": "One who writes books is a?",
+  "q_te": "పుస్తకాలు రాసే వ్యక్తి?",
+  "options_en": [
+   "Editor",
+   "Author",
+   "Reader",
+   "Printer"
+  ],
+  "options_te": [
+   "Editor",
+   "Author",
+   "Reader",
+   "Printer"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cba1bc28c9",
+  "cat": "english",
+  "q_en": "Choose correct: He is ___ than me.",
+  "q_te": "సరైనది: He is ___ than me.",
+  "options_en": [
+   "tall",
+   "taller",
+   "tallest",
+   "more tall"
+  ],
+  "options_te": [
+   "tall",
+   "taller",
+   "tallest",
+   "more tall"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb891c44ca",
+  "cat": "fun",
+  "q_en": "How many players in a cricket team on the field?",
+  "q_te": "క్రికెట్ జట్టులో మైదానంలో ఎంతమంది ఆటగాళ్ళు?",
+  "options_en": [
+   "9",
+   "10",
+   "11",
+   "12"
+  ],
+  "options_te": [
+   "9",
+   "10",
+   "11",
+   "12"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbead455cd",
+  "cat": "fun",
+  "q_en": "Olympic Games are held every ___ years.",
+  "q_te": "ఒలింపిక్ క్రీడలు ప్రతి ___ సంవత్సరాలకు జరుగుతాయి.",
+  "options_en": [
+   "2",
+   "3",
+   "4",
+   "5"
+  ],
+  "options_te": [
+   "2",
+   "3",
+   "4",
+   "5"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb3609214e",
+  "cat": "fun",
+  "q_en": "'Baahubali' was directed by?",
+  "q_te": "'బాహుబలి' దర్శకుడు?",
+  "options_en": [
+   "Trivikram",
+   "S.S. Rajamouli",
+   "Sukumar",
+   "Koratala Siva"
+  ],
+  "options_te": [
+   "త్రివిక్రమ్",
+   "ఎస్.ఎస్. రాజమౌళి",
+   "సుకుమార్",
+   "కొరటాల శివ"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb12c69cb5",
+  "cat": "fun",
+  "q_en": "Which song from RRR won an Oscar?",
+  "q_te": "RRR లో ఆస్కార్ గెలిచిన పాట?",
+  "options_en": [
+   "Dosti",
+   "Naatu Naatu",
+   "Komuram Bheemudo",
+   "Etthara Jenda"
+  ],
+  "options_te": [
+   "దోస్తీ",
+   "నాటు నాటు",
+   "కొమురం భీముడో",
+   "ఎత్తర జెండా"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb9032c455",
+  "cat": "fun",
+  "q_en": "P.V. Sindhu plays which sport?",
+  "q_te": "పి.వి. సింధు ఆడే క్రీడ?",
+  "options_en": [
+   "Tennis",
+   "Badminton",
+   "Chess",
+   "Hockey"
+  ],
+  "options_te": [
+   "టెన్నిస్",
+   "బ్యాడ్మింటన్",
+   "చెస్",
+   "హాకీ"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbbd052f82",
+  "cat": "fun",
+  "q_en": "Which is the largest ocean?",
+  "q_te": "అతిపెద్ద మహాసముద్రం?",
+  "options_en": [
+   "Atlantic",
+   "Indian",
+   "Pacific",
+   "Arctic"
+  ],
+  "options_te": [
+   "అట్లాంటిక్",
+   "హిందూ",
+   "పసిఫిక్",
+   "ఆర్కిటిక్"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb10607366",
+  "cat": "fun",
+  "q_en": "How many colours in a rainbow?",
+  "q_te": "ఇంద్రధనుస్సులో ఎన్ని రంగులు?",
+  "options_en": [
+   "5",
+   "6",
+   "7",
+   "8"
+  ],
+  "options_te": [
+   "5",
+   "6",
+   "7",
+   "8"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbbda553fb",
+  "cat": "fun",
+  "q_en": "Which country is called the Land of the Rising Sun?",
+  "q_te": "ఉదయించే సూర్యుని దేశం?",
+  "options_en": [
+   "China",
+   "Japan",
+   "Korea",
+   "Thailand"
+  ],
+  "options_te": [
+   "చైనా",
+   "జపాన్",
+   "కొరియా",
+   "థాయిలాండ్"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbe024ba67",
+  "cat": "fun",
+  "q_en": "In chess, which piece can only move diagonally?",
+  "q_te": "చెస్ లో వికర్ణంగా మాత్రమే కదిలే పావు?",
+  "options_en": [
+   "Rook",
+   "Knight",
+   "Bishop",
+   "King"
+  ],
+  "options_te": [
+   "రూక్",
+   "నైట్",
+   "బిషప్",
+   "కింగ్"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb8b1e007e",
+  "cat": "fun",
+  "q_en": "Which is the smallest continent?",
+  "q_te": "అతి చిన్న ఖండం?",
+  "options_en": [
+   "Europe",
+   "Australia",
+   "Antarctica",
+   "South America"
+  ],
+  "options_te": [
+   "యూరప్",
+   "ఆస్ట్రేలియా",
+   "అంటార్కిటికా",
+   "దక్షిణ అమెరికా"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb5955bd38",
+  "cat": "fun",
+  "q_en": "Sachin Tendulkar is famous in which sport?",
+  "q_te": "సచిన్ టెండూల్కర్ ఏ క్రీడలో ప్రసిద్ధుడు?",
+  "options_en": [
+   "Hockey",
+   "Cricket",
+   "Football",
+   "Kabaddi"
+  ],
+  "options_te": [
+   "హాకీ",
+   "క్రికెట్",
+   "ఫుట్‌బాల్",
+   "కబడ్డీ"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbb4484537",
+  "cat": "fun",
+  "q_en": "Which is the tallest animal?",
+  "q_te": "అత్యంత ఎత్తైన జంతువు?",
+  "options_en": [
+   "Elephant",
+   "Giraffe",
+   "Camel",
+   "Horse"
+  ],
+  "options_te": [
+   "ఏనుగు",
+   "జిరాఫీ",
+   "ఒంటె",
+   "గుర్రం"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb9f6338eb",
+  "cat": "fun",
+  "q_en": "Capital of the USA?",
+  "q_te": "అమెరికా (USA) రాజధాని?",
+  "options_en": [
+   "New York",
+   "Washington D.C.",
+   "Los Angeles",
+   "Chicago"
+  ],
+  "options_te": [
+   "న్యూయార్క్",
+   "వాషింగ్టన్ డి.సి.",
+   "లాస్ ఏంజెలెస్",
+   "చికాగో"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbbbddd2e0",
+  "cat": "fun",
+  "q_en": "How many days in a leap year?",
+  "q_te": "లీప్ సంవత్సరంలో ఎన్ని రోజులు?",
+  "options_en": [
+   "364",
+   "365",
+   "366",
+   "367"
+  ],
+  "options_te": [
+   "364",
+   "365",
+   "366",
+   "367"
+  ],
+  "answer_index": 2,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbf35e4aeb",
+  "cat": "fun",
+  "q_en": "Which festival is called the festival of lights?",
+  "q_te": "దీపాల పండుగ అని పిలిచేది?",
+  "options_en": [
+   "Holi",
+   "Diwali",
+   "Sankranti",
+   "Ugadi"
+  ],
+  "options_te": [
+   "హోళీ",
+   "దీపావళి",
+   "సంక్రాంతి",
+   "ఉగాది"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb59b0c2fb",
+  "cat": "fun",
+  "q_en": "The Telugu New Year festival is?",
+  "q_te": "తెలుగు నూతన సంవత్సర పండుగ?",
+  "options_en": [
+   "Sankranti",
+   "Ugadi",
+   "Dasara",
+   "Diwali"
+  ],
+  "options_te": [
+   "సంక్రాంతి",
+   "ఉగాది",
+   "దసరా",
+   "దీపావళి"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbb656653c",
+  "cat": "fun",
+  "q_en": "FIFA World Cup is for which sport?",
+  "q_te": "ఫిఫా ప్రపంచ కప్ ఏ క్రీడకు?",
+  "options_en": [
+   "Cricket",
+   "Football",
+   "Hockey",
+   "Tennis"
+  ],
+  "options_te": [
+   "క్రికెట్",
+   "ఫుట్‌బాల్",
+   "హాకీ",
+   "టెన్నిస్"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbe8ef7a92",
+  "cat": "fun",
+  "q_en": "Which animal is known as the 'Ship of the Desert'?",
+  "q_te": "'ఎడారి ఓడ' అని పిలిచే జంతువు?",
+  "options_en": [
+   "Horse",
+   "Camel",
+   "Elephant",
+   "Donkey"
+  ],
+  "options_te": [
+   "గుర్రం",
+   "ఒంటె",
+   "ఏనుగు",
+   "గాడిద"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbe1b573cb",
+  "cat": "fun",
+  "q_en": "How many zeros in one lakh?",
+  "q_te": "ఒక లక్షలో ఎన్ని సున్నాలు?",
+  "options_en": [
+   "4",
+   "5",
+   "6",
+   "7"
+  ],
+  "options_te": [
+   "4",
+   "5",
+   "6",
+   "7"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb078517f6",
+  "cat": "fun",
+  "q_en": "Neeraj Chopra won Olympic gold in?",
+  "q_te": "నీరజ్ చోప్రా ఒలింపిక్ బంగారు పతకం ఏ క్రీడలో?",
+  "options_en": [
+   "Shooting",
+   "Javelin throw",
+   "Wrestling",
+   "Boxing"
+  ],
+  "options_te": [
+   "షూటింగ్",
+   "జావెలిన్ త్రో",
+   "రెజ్లింగ్",
+   "బాక్సింగ్"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cba753824b",
+  "cat": "career",
+  "q_en": "What does 'CV' in job applications stand for?",
+  "q_te": "ఉద్యోగ దరఖాస్తుల్లో 'CV' అంటే?",
+  "options_en": [
+   "Curriculum Vitae",
+   "Career Value",
+   "Certified Verification",
+   "Company Visit"
+  ],
+  "options_te": [
+   "Curriculum Vitae",
+   "Career Value",
+   "Certified Verification",
+   "Company Visit"
+  ],
+  "answer_index": 0,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cba991c6c7",
+  "cat": "career",
+  "q_en": "What is the minimum age to vote in India?",
+  "q_te": "భారతదేశంలో ఓటు వేయడానికి కనీస వయస్సు?",
+  "options_en": [
+   "16",
+   "18",
+   "21",
+   "25"
+  ],
+  "options_te": [
+   "16",
+   "18",
+   "21",
+   "25"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb2fd8b74b",
+  "cat": "career",
+  "q_en": "PAN card is mainly used for?",
+  "q_te": "పాన్ కార్డ్ ప్రధానంగా దేనికి?",
+  "options_en": [
+   "Driving",
+   "Income tax / finance",
+   "Passport",
+   "Voting"
+  ],
+  "options_te": [
+   "డ్రైవింగ్",
+   "ఆదాయపు పన్ను / ఆర్థిక",
+   "పాస్‌పోర్ట్",
+   "ఓటింగ్"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbc19b6615",
+  "cat": "career",
+  "q_en": "A 'savings account' is opened at a?",
+  "q_te": "'సేవింగ్స్ ఖాతా' ఎక్కడ తెరుస్తారు?",
+  "options_en": [
+   "Post office only",
+   "Bank",
+   "School",
+   "Police station"
+  ],
+  "options_te": [
+   "పోస్టాఫీసు మాత్రమే",
+   "బ్యాంక్",
+   "పాఠశాల",
+   "పోలీస్ స్టేషన్"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbcd51fe3a",
+  "cat": "career",
+  "q_en": "Which exam is for engineering admission in TS/AP?",
+  "q_te": "TS/AP లో ఇంజినీరింగ్ ప్రవేశానికి పరీక్ష?",
+  "options_en": [
+   "NEET",
+   "EAPCET",
+   "CAT",
+   "GATE"
+  ],
+  "options_te": [
+   "NEET",
+   "EAPCET",
+   "CAT",
+   "GATE"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cbc09bfc36",
+  "cat": "career",
+  "q_en": "Emergency number in India for police/ambulance?",
+  "q_te": "భారత అత్యవసర నంబర్ (పోలీస్/అంబులెన్స్)?",
+  "options_en": [
+   "100 only",
+   "112",
+   "911",
+   "108 only"
+  ],
+  "options_te": [
+   "100 మాత్రమే",
+   "112",
+   "911",
+   "108 మాత్రమే"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cba13e26c3",
+  "cat": "career",
+  "q_en": "Which exam do you write to become a bank PO?",
+  "q_te": "బ్యాంక్ PO కావడానికి రాసే పరీక్ష?",
+  "options_en": [
+   "IBPS PO",
+   "UPSC CSE",
+   "NEET",
+   "JEE"
+  ],
+  "options_te": [
+   "IBPS PO",
+   "UPSC CSE",
+   "NEET",
+   "JEE"
+  ],
+  "answer_index": 0,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb1a42eae1",
+  "cat": "career",
+  "q_en": "'Group 2' exam in Telangana is conducted by?",
+  "q_te": "తెలంగాణలో 'గ్రూప్ 2' పరీక్ష నిర్వహించేది?",
+  "options_en": [
+   "UPSC",
+   "TSPSC",
+   "SSC",
+   "RRB"
+  ],
+  "options_te": [
+   "UPSC",
+   "TSPSC",
+   "SSC",
+   "RRB"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb4e0f1a17",
+  "cat": "career",
+  "q_en": "Which document proves your date of birth commonly?",
+  "q_te": "పుట్టిన తేదీకి సాధారణ రుజువు?",
+  "options_en": [
+   "Ration card",
+   "10th class certificate",
+   "Bus pass",
+   "Library card"
+  ],
+  "options_te": [
+   "రేషన్ కార్డు",
+   "10వ తరగతి సర్టిఫికెట్",
+   "బస్ పాస్",
+   "లైబ్రరీ కార్డు"
+  ],
+  "answer_index": 1,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ },
+ {
+  "id": "cb4dc46a89",
+  "cat": "career",
+  "q_en": "Which skill is most asked in interviews?",
+  "q_te": "ఇంటర్వ్యూలలో ఎక్కువగా అడిగే నైపుణ్యం?",
+  "options_en": [
+   "Communication",
+   "Swimming",
+   "Cooking",
+   "Driving"
+  ],
+  "options_te": [
+   "కమ్యూనికేషన్",
+   "ఈత",
+   "వంట",
+   "డ్రైవింగ్"
+  ],
+  "answer_index": 0,
+  "difficulty": "easy",
+  "channel": "CAMPUS"
+ }
+]

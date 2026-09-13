@@ -117,6 +117,9 @@ def rebuild_json():
     for _pyq_name in ("pyq_bank.json", "pyq_bank_2.json", "pyq_bank_3.json", "pyq_bank_4_ssc.json"):
         _pyq = load_json(config.DATA / _pyq_name, {"questions": []})
         questions.extend(_pyq.get("questions", []))
+    # NotebookLM-digitised official papers (core/notebook.py)
+    nb = load_json(config.DATA / "notebook_bank.json", {"questions": []})
+    questions.extend(nb.get("questions", []))
     # Hand-curated bilingual GK/CA extras
     curated = load_json(config.CURATED_EXTRA_JSON, {"questions": []})
     questions.extend(curated.get("questions", []))
@@ -180,15 +183,55 @@ class Bank:
         used = set(self.used.get(channel, []))
         sigs = self._sig_set
         out = []
+        try:
+            from .verifier import postable
+        except Exception:
+            postable = None
         for q in self.by_channel(channel):
             if q["id"] in used:
+                continue
+            if postable and not postable(q):
                 continue
             sig = q_signature(q)
             # never repeat a question with the same content signature
             if sig in sigs:
                 continue
+            # paraphrase guard: same channel, near-identical wording + same
+            # option set already posted -> treat as repeat
+            if self._near_posted(q):
+                continue
             out.append(q)
         return out
+
+    def _near_posted(self, q: dict, threshold: float = 0.72) -> bool:
+        """Fuzzy repeat check against recently posted questions of the same
+        channel (bounded window so it stays O(n*window))."""
+        _STOP = {"which","what","who","the","of","is","are","was","were","in","on","to","a","an",
+                 "by","for","and","name","given","called","known","as","following","one","this",
+                 "that","these","those","with","from","at","it","its","does","did","do","has","have"}
+        def cw(t):
+            return {w for w in _re.findall(r"[a-z0-9]+", (t or "").lower()) if w not in _STOP and len(w) > 2}
+        txt = (q.get("q_en") or "")
+        tw = cw(txt)
+        opts = frozenset(str(o).strip().lower() for o in q.get("options_en", []))
+        if not txt:
+            return False
+        recent = self.used.get(q.get("channel", ""), [])[-400:]
+        if not hasattr(self, "_by_id"):
+            self._by_id = {x["id"]: x for x in self.questions}
+        for pid in recent:
+            p = self._by_id.get(pid)
+            if not p:
+                continue
+            popts = frozenset(str(o).strip().lower() for o in p.get("options_en", []))
+            same_opts = bool(opts) and len(opts & popts) >= max(3, len(opts) - 1)
+            if not same_opts or not tw:
+                continue
+            pw = cw(p.get("q_en"))
+            jac = len(tw & pw) / len(tw | pw) if (tw | pw) else 0.0
+            if jac >= threshold:
+                return True
+        return False
 
     def mark_posted(self, channel: str, questions):
         """Record these questions as permanently shown."""
@@ -229,43 +272,33 @@ class Bank:
             except Exception as e:
                 print(f"   [bank] auto top-up note: {e}")
                 break
-        src_rank = {"pyq": 0, "curated": 1, "llm-gen": 2, "offline-gen": 3}
+        # Compose the round like the REAL exam paper of this channel:
+        # subject weightage from data/exam_blueprints.json, random subject
+        # positions, easy->hard ramp, guaranteed share of advanced questions,
+        # PYQ-first, topic diversity and answer-key balance.
+        try:
+            from .blueprint import compose_round
+            chosen = compose_round(channel, pool, n)
+        except Exception as e:
+            print(f"   [bank] blueprint note: {e} — plain balanced pick")
+            chosen = self._plain_pick(pool, n)
+        self.mark_posted(channel, chosen)      # PERMANENT — never repeat
+        return chosen
+
+    @staticmethod
+    def _plain_pick(pool, n):
+        """Legacy balanced pick (PYQ-first, topic diversity, key balance)."""
         pyqs = [q for q in pool if q.get("source") == "pyq"]
         rest = [q for q in pool if q.get("source") != "pyq"]
-        ordered = pyqs + rest
+        candidates = pyqs + rest
         chosen, topics_used, keys_used = [], {}, [0, 0, 0, 0]
-        subjects_used = {}
-
-        def _ssc_subject(topic: str) -> str:
-            t = (topic or "").lower()
-            if any(k in t for k in ("reason", "analog", "coding", "series", "puzzle", "syllogism", "relation", "figure", "intelligence")):
-                return "reasoning"
-            if any(k in t for k in ("quant", "arith", "math", "ratio", "percent", "algebra", "geom", "trig", "number", "interest", "profit", "time", "average", "mensuration", "hcf")):
-                return "quant"
-            if any(k in t for k in ("english", "grammar", "vocab", "synonym", "antonym", "error", "fill", "idiom", "one word", "spelling", "sentence", "cloze")):
-                return "english"
-            return "gk"
-
-        candidates = ordered[:]
         while len(chosen) < n and candidates:
-            def score(q):
-                s_bonus = 0
-                if channel == "SSC":
-                    subj = _ssc_subject(q.get("topic", ""))
-                    s_bonus = subjects_used.get(subj, 0) * 3
-                return (src_rank.get(q.get("source", "offline-gen"), 3) * 0
-                        + topics_used.get(q.get("topic", ""), 0) * 2
-                        + s_bonus
-                        + keys_used[q["answer_index"]] + random.random())
-            candidates.sort(key=score)
+            candidates.sort(key=lambda q: topics_used.get(q.get("topic", ""), 0) * 2
+                            + keys_used[q["answer_index"]] + random.random())
             q = candidates.pop(0)
             chosen.append(q)
             topics_used[q.get("topic", "")] = topics_used.get(q.get("topic", ""), 0) + 1
-            if channel == "SSC":
-                subj = _ssc_subject(q.get("topic", ""))
-                subjects_used[subj] = subjects_used.get(subj, 0) + 1
             keys_used[q["answer_index"]] += 1
-        self.mark_posted(channel, chosen)      # PERMANENT — never repeat
         return chosen
 
     def by_id(self, qid):

@@ -25,7 +25,7 @@ class TestRegistryIntegrity(unittest.TestCase):
     def test_registry_exists_and_loads(self):
         reg = collector.load_registry()
         self.assertTrue(reg.get("sources"), "registry missing sources")
-        self.assertIn(reg["version"], ("3.0", "4.0"))
+        self.assertIn(reg["version"], ("3.0", "4.0", "4.1", "4.2", "4.3"))
 
     def test_many_sources_centrally(self):
         reg = collector.load_registry()
@@ -142,8 +142,11 @@ class TestAuditor(unittest.TestCase):
         src = {"name": "LiveFeed", "enabled": True, "type": "rss",
                "feed": "https://x/feed", "title_must": r"quiz",
                "title_not": r"(?!)\Z"}
+        from email.utils import format_datetime
+        from datetime import datetime, timezone
+        fresh = format_datetime(datetime.now(timezone.utc))
         ok_feed = lambda url: [{"title": "Daily Quiz 2026", "link": "https://x/q",
-                                "published": "Sat, 06 Sep 2026 10:00:00 +0000"}]
+                                "published": fresh}]
         r = check_source(src, http_get=lambda url: None, feed_entries=ok_feed)
         self.assertEqual(r["status"], "live")
         self.assertTrue(r["content_ok"])
@@ -357,10 +360,10 @@ class TestJinaFallback(unittest.TestCase):
 class TestSchedule(unittest.TestCase):
     def test_post_quiz_collection_runs(self):
         tasks = config.SCHEDULE
-        self.assertEqual(tasks["07:40"][0], "collect", "post-morning-quiz collect")
-        self.assertEqual(tasks["19:40"][0], "collect", "post-evening-quiz collect")
-        self.assertEqual(tasks["07:40"][1]["reason"], "post-morning-quiz")
-        self.assertEqual(tasks["19:40"][1]["reason"], "post-evening-quiz")
+        self.assertEqual(tasks["07:45"][0], "collect", "post-morning-quiz collect")
+        self.assertEqual(tasks["19:45"][0], "collect", "post-evening-quiz collect")
+        self.assertEqual(tasks["07:45"][1]["reason"], "post-morning-quiz")
+        self.assertEqual(tasks["19:45"][1]["reason"], "post-evening-quiz")
 
     def test_daily_audit_scheduled(self):
         tasks = config.SCHEDULE

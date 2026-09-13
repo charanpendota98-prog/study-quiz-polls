@@ -88,6 +88,14 @@ DRY = env("STUDENTUP_DRY", "").lower() in ("1", "true", "yes")
 # Google Form for rich registration (phone/district/WhatsApp). Put your form URL
 # in env/.env as FORM_URL=... In-bot /register handles points; this handles
 # growth + detailed analytics. See forms/GOOGLE_FORM_BLUEPRINT.md.
+# Member CRM → Google Sheet (Apps Script web app, see docs/sheet_webapp.gs)
+SHEET_WEBAPP_URL = env("SHEET_WEBAPP_URL", "")
+# The owner's Sheet (view link). Data is written via the Apps Script web app
+# deployed FROM this sheet (SHEET_WEBAPP_URL) — Google does not allow direct
+# writes from a bot without OAuth, the web app is the zero-key bridge.
+SHEET_ID = env("SHEET_ID", "1XXeHg9rym05O_4a0-5vjbUxHTNW57MAok8H7uod3C0A")
+SHEET_URL_VIEW = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit"
+SHEET_SECRET = env("SHEET_SECRET", "")
 FORM_URL = env("FORM_URL", "https://forms.gle/your-studentup-registration")
 
 # ---------------------------------------------------------------------------
@@ -214,6 +222,8 @@ CHANNELS = {
     },
 }
 
+for _k, _v in CHANNELS.items():
+    _v.setdefault("key", _k)
 PUBLIC_CHANNELS = [k for k, v in CHANNELS.items() if v["public"] and k != "JOBS"]
 
 
@@ -236,20 +246,32 @@ def channel_chat_id(key: str) -> str:
 # ---------------------------------------------------------------------------
 # TWO main quiz rounds a day (India No.1 cadence — morning + evening).
 # Add a line (e.g. "13:30": ("quiz", {"slot": 3})) to add more rounds anytime.
+PDF_INBOX_CAP_MB = 400   # hard disk cap for downloaded papers (oldest ingested deleted first)
+
 SCHEDULE = {
     # Deep multi-source exam-quiz scraping — runs all day AND twice
-    # immediately after each quiz round (07:40 / 19:40), so fresh exam
+    # immediately after each quiz round (07:45 / 19:45), so fresh exam
     # content is collected right after every round. Small polite batches +
     # seen-URL tracking mean each run pages forward to NEW content.
     # Failing sources auto-pause via collector_health.json; the 04:45 auditor
     # re-verifies all sources (content-gated) and auto-pauses/enables them.
+    "01:30": ("backfill", {}),     # deep archive sweep (3-month campaign; idle when done)
+    "01:00": ("scout", {}),        # continuous source discovery → ready queue (time-boxed, capped)
+    "02:15": ("pyq", {}),          # official previous-paper PDFs → provenance-stamped questions
     "04:45": ("audit", {}),        # daily deep source audit (content-gated)
+    "03:00": ("verify", {}),       # API-key answer + Telugu audit of new questions
     "05:30": ("collect", {"reason": "pre-dawn scrape"}),
+    "05:45": ("telegram", {}),     # public Telegram exam channels (2nd independent content path)
+    "17:15": ("telegram", {}),
+    "06:15": ("supply", {}),       # supply guard: escalates fallbacks when runway < 3 days
+    "18:15": ("supply", {}),
+    "06:30": ("verify", {"limit": 60}),
+    "18:30": ("verify", {"limit": 60}),
     "06:00": ("filler", {"reason": "morning top-up"}),
     "07:00": ("morning", {}),
     "07:30": ("quiz", {"slot": 1, "round": "Morning ⛅"}),
     "08:00": ("answer_key", {"round": "Morning ⛅"}),  # delayed key (no-op if instant)
-    "07:40": ("collect", {"reason": "post-morning-quiz"}),
+    "07:45": ("collect", {"reason": "post-morning-quiz"}),   # after the ~13-min paced round
     "08:15": ("collect", {"reason": "post-morning deep scrape"}),
     "11:00": ("collect", {"reason": "late-morning scrape"}),
     "12:30": ("coach", {}),        # daily expert reasoning/aptitude trick
@@ -257,7 +279,7 @@ SCHEDULE = {
     "16:00": ("collect", {"reason": "pre-evening top-up scrape"}),
     "19:30": ("quiz", {"slot": 2, "round": "Evening 🌙"}),
     "20:00": ("answer_key", {"round": "Evening 🌙"}),  # delayed key (no-op if instant)
-    "19:40": ("collect", {"reason": "post-evening-quiz"}),
+    "19:45": ("collect", {"reason": "post-evening-quiz"}),   # after the ~13-min paced round
     "20:15": ("collect", {"reason": "post-evening deep scrape"}),
     "21:00": ("leaderboard", {"when": "sunday"}),   # weekly toppers, Sunday only
     "21:30": ("digest", {}),
@@ -268,13 +290,33 @@ SCHEDULE = {
 QUIZ_SLOT_TIMES = ["07:30", "19:30"]
 QUIZ_SLOT_HOURS = {t.split(":")[0]: 0 for t in []}  # placeholder
 
-# Reminders fire 10 / 5 / 1 minutes before each quiz slot.
-REMINDER_BEFORE_MIN = (10, 5, 1)
+# Reminders: exactly TWO professional alerts — 5 min before (round preview)
+# and 1 min before ("starting now"). No 10-min spam.
+REMINDER_BEFORE_MIN = (5, 1)
 
 # Jobs every 30 minutes (:00 / :30) — handled specially by watch loop.
 JOBS_INTERVAL_MIN = 30
 
 POLLS_PER_SLOT = 10
+# Sunday Grand Test — weekly real-exam mock (revision of the week's toughest
+# questions + fresh ones, sections easy→hard, negative marking, double points).
+GRAND_TEST_TIME = env("GRAND_TEST_TIME", "09:00")
+GRAND_TEST_QUESTIONS = int(env("GRAND_TEST_QUESTIONS", "25") or 25)
+GRAND_TEST_TEASER_TIME = env("GRAND_TEST_TEASER_TIME", "18:00")   # Saturday
+MEGA_TEST_QUESTIONS = int(env("MEGA_TEST_QUESTIONS", "50") or 50)  # last Sunday of month
+RANK_CARDS = env("RANK_CARDS", "1").lower() not in ("0", "false", "no", "off")  # PNG cards (needs Pillow)
+BRAND_NAME = env("BRAND_NAME", "StudentUp")
+BRAND_HANDLE = env("BRAND_HANDLE", "t.me/StudentUpQuiz")   # printed on rank cards
+CHALLENGE_TIME = env("CHALLENGE_TIME", "13:00")                    # Mon–Sat Beat-the-Topper DM
+REWARDS_PROMO_TIME = env("REWARDS_PROMO_TIME", "12:00")            # Tue & Fri hub promo
+VOUCHER_DAYS = int(env("VOUCHER_DAYS", "30") or 30)
+POINT_VALUE_PAISE = int(env("POINT_VALUE_PAISE", "10") or 10)       # 100 pts ≈ ₹10 (display only)
+STAFF_IDS = [x.strip() for x in env("STAFF_IDS", "").split(",") if x.strip()]  # can /verify vouchers
+WAR_TIME = env("WAR_TIME", "21:00")                                # daily District War (DM, all members)
+WAR_QUESTIONS = int(env("WAR_QUESTIONS", "10") or 10)
+AD_SLOTS = env("AD_SLOTS", "10:30,15:30,20:45")                    # partner ad slots (hub + district DMs)
+AD_CHANNELS = [c.strip().upper() for c in env("AD_CHANNELS", "CURRENT,JOBS").split(",") if c.strip()]
+LEAGUE_POST_TIME = env("LEAGUE_POST_TIME", "08:00")                # Monday district league standings
 POLL_GAP_MIN = 2.2          # never faster than 2.2s — avoids Telegram spam flag
 POLL_GAP_MAX = 3.2
 FILLER_TRIGGER_UNUSED = 20  # if a channel bank has < this unused, top-up
@@ -290,7 +332,50 @@ TELUGU_FIRST = env("TELUGU_FIRST", "1").lower() not in ("0", "false", "no", "off
 ANSWER_MODE = (env("ANSWER_MODE", "instant") or "instant").strip().lower()
 if ANSWER_MODE not in ("instant", "delayed"):
     ANSWER_MODE = "instant"
-QUIZ_OPEN_PERIOD = int(env("QUIZ_OPEN_PERIOD", "300") or "300")  # seconds poll stays open
+QUIZ_OPEN_PERIOD = int(env("QUIZ_OPEN_PERIOD", "300") or "300")  # legacy default (unpaced)
+# REVEAL POLICY — the correct option must NEVER show before a person answers.
+# A Telegram quiz poll with open_period auto-CLOSES when the timer ends and a
+# closed quiz reveals ✅ to everyone (even non-voters). So polls are posted
+# WITHOUT open_period: the pace timer only decides when the NEXT poll goes out;
+# each poll stays open and reveals ✅/❌ privately, only after that person votes.
+POLL_AUTO_CLOSE = env("POLL_AUTO_CLOSE", "0").lower() in ("1", "true", "yes", "on")
+# Balance the correct option across A/B/C/D (deterministic per question+day)
+BALANCE_OPTIONS = env("BALANCE_OPTIONS", "1").lower() not in ("0", "false", "no", "off")
+
+# ---------------------------------------------------------------------------
+# PACED ROUNDS (exam-hall timing) — one question at a time, not a dump.
+# Every question is posted alone, stays open for a difficulty-based timer
+# and the next one is posted only after the timer ends:
+#   easy 60 s · medium 75 s · hard 90 s   (reasoning/quant hard = 90 s)
+# 10 questions ≈ 12–13 min per round, exactly like a sectional mock.
+# PACED_ROUNDS=0 restores the old burst mode.
+# ---------------------------------------------------------------------------
+PACED_ROUNDS = env("PACED_ROUNDS", "1").lower() not in ("0", "false", "no", "off")
+
+# PUBLIC_POLLS_ONLY=1 (default): the public quiz channels carry ONLY the quiz
+# rounds (T-5/T-1 alert, opener, polls, closer, answer key). Morning greeting,
+# study tip, coach lesson, CA digest and leaderboard are suppressed there
+# (they still work in the bot group / on demand). Jobs never go public.
+# REQUIRE_REGISTRATION=1: /quiz in the bot works only after the 5-step form
+# (name, state, district, exam, language) — profile saved in data/members.json.
+REQUIRE_REGISTRATION = env("REQUIRE_REGISTRATION", "1").lower() not in ("0", "false", "no", "off")
+# Where the daily champions / district cup posts go (people-content, not polls).
+# Default: CURRENT hub only, so exam channels stay 100% polls.
+CHAMPION_CHANNELS = [c.strip().upper() for c in env("CHAMPION_CHANNELS", "CURRENT").split(",") if c.strip()]
+# ⚔️ District War alert + result go to these channels (default: EVERY public quiz channel)
+WAR_CHANNELS = [c.strip().upper() for c in env("WAR_CHANNELS", ",".join(PUBLIC_CHANNELS)).split(",") if c.strip()]
+BOT_USERNAME = env("BOT_USERNAME", "")
+EXAM_DATES = env("EXAM_DATES", "")                        # 'TSPSC=2026-10-15,APPSC=2026-11-02' → countdown plan DMs
+WHATSAPP_CHANNEL = env("WHATSAPP_CHANNEL", "")           # WhatsApp channel invite link (shown in campus results)
+INSTAGRAM_HANDLE = env("INSTAGRAM_HANDLE", "@studentup")   # shown in /follow + auto-DM template
+YOUTUBE_HANDLE = env("YOUTUBE_HANDLE", "@studentup")
+PUBLIC_POLLS_ONLY = env("PUBLIC_POLLS_ONLY", "1").lower() not in ("0", "false", "no", "off")
+QUIZ_PACE_SEC = {
+    "easy": int(env("PACE_EASY_SEC", "60") or 60),
+    "medium": int(env("PACE_MEDIUM_SEC", "75") or 75),
+    "hard": int(env("PACE_HARD_SEC", "90") or 90),
+}
+PACE_BUFFER_SEC = 4          # breathing gap after a poll closes before the next
 
 # Telegram limits
 TG_POLL_OPTION_MAX = 100    # chars per option
@@ -302,3 +387,14 @@ TG_MSG_MAX = 4096
 TTL_CA = 48
 TTL_JOBS = 12
 TTL_GLOBAL = 6
+
+
+# Question verification gate (core/verifier.py):
+#   True  -> scraped/generated questions post ONLY after the API-key audit
+#   False -> lenient (post once structurally valid)
+#   "auto"-> strict whenever at least one LLM key is configured
+VERIFY_STRICT = os.environ.get("VERIFY_STRICT", "auto")
+if VERIFY_STRICT.lower() in ("1", "true", "yes"):
+    VERIFY_STRICT = True
+elif VERIFY_STRICT.lower() in ("0", "false", "no"):
+    VERIFY_STRICT = False

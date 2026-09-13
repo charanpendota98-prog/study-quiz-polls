@@ -10,6 +10,7 @@ All regexes use the lessons hard-won in production (word boundaries, lookarounds
 from __future__ import annotations
 
 import re
+from . import config
 import unicodedata
 
 # ---------------------------------------------------------------------------
@@ -167,17 +168,26 @@ def _clamp(text: str, limit: int) -> str:
     return text[: limit - 1].rstrip() + "…"
 
 
-def build_question_text(q: dict, channel_cfg: dict, telugu_first: bool = True) -> str:
+def build_question_text(q: dict, channel_cfg: dict, telugu_first: bool = True,
+                        position: str = "", badge: str = "") -> str:
     """
     Compose the poll question (≤300 chars).
     Telugu-first (default for TS/AP aspirants):
-      {emoji} {subject} • {topic}
+      {emoji} {subject} • {topic}            ← + "Q 3/10 • 🔥 Hard • ⏱ 1.5 min" in paced rounds
       {Telugu question}
       {English question}
     """
     en = (q.get("q_en") or "").strip()
     te = (q.get("q_te") or "").lstrip("⤷").strip()
     header = f"{channel_cfg['emoji']} {channel_cfg['subject']} • {q.get('topic','').title()}"
+    try:
+        from .pyq import pyq_label
+        prov = pyq_label(q)
+    except Exception:
+        prov = ""
+    meta = " • ".join(x for x in (position, badge, prov) if x)
+    if meta:
+        header += f"\n{meta}"
     if telugu_first and te:
         body = f"{te}"
         if en:
@@ -226,12 +236,18 @@ def build_explanation(q: dict, telugu_first: bool = True) -> str:
     te = (q.get("explanation_te") or "").lstrip("⤷").strip()
     if not expl and not te:
         return ""
+    try:
+        from .verifier import status_of
+        verified = status_of(q.get("id", "")) in ("ok", "fixed")
+    except Exception:
+        verified = False
+    tick = "✅" if not verified else "✅✔"   # ✔ = API-key audited answer + Telugu
     if telugu_first and te:
-        text = f"✅ {te}"
+        text = f"{tick} {te}"
         if expl:
             text += f"\n{expl}"
     else:
-        text = f"✅ {expl}" if expl else "✅"
+        text = f"{tick} {expl}" if expl else tick
         if te:
             text += f"\n⤷ {te}"
     return _clamp(text, 200)
@@ -266,6 +282,63 @@ def build_answer_key(questions: list, round_label: str = "") -> str:
             line += f"\n   {expl_en}"
         lines.append(line)
     lines.append("\n— StudentUp | PYQ-first · no repeats ✅")
+    return _clamp("\n".join(lines), 4000)
+
+
+def build_round_report(questions: list, round_label: str = "", channel_cfg: dict | None = None,
+                       poll_stats: dict | None = None) -> str:
+    """
+    Post-round REPORT CARD (posted right after the last poll closes):
+      • Q-by-Q line: number · topic · difficulty · correct letter + answer (TE/EN)
+        · % of voters who got it right (when poll stats available)
+      • Subject split, PYQ count, hardest question, quick revision tags
+    Always ≤ 4000 chars.
+    """
+    from .blueprint import difficulty_of, subject_of
+    letters = "ABCD"
+    icon = {"easy": "⚡", "medium": "🔶", "hard": "🔥"}
+    label = f"{round_label} " if round_label else ""
+    head = f"{channel_cfg['emoji']} " if channel_cfg else ""
+    lines = [f"{head}📋 {label}Round Report — రౌండ్ రిపోర్ట్", ""]
+    subs, hard, pyq = {}, [], 0
+    hardest = None
+    for i, q in enumerate(questions, 1):
+        idx = int(q.get("answer_index", 0))
+        letter = letters[idx] if 0 <= idx < 4 else "?"
+        opts = q.get("options_en") or []
+        tops = q.get("options_te") or []
+        en_opt = str(opts[idx]).strip() if 0 <= idx < len(opts) else ""
+        te_opt = str(tops[idx]).lstrip("⤷").strip() if 0 <= idx < len(tops) else ""
+        ans = te_opt or en_opt
+        if te_opt and en_opt and te_opt != en_opt:
+            ans = f"{te_opt} / {en_opt}"
+        d = difficulty_of(q)
+        sub = subject_of(q)
+        subs[sub] = subs.get(sub, 0) + 1
+        if q.get("source") == "pyq":
+            pyq += 1
+        topic = (q.get("topic") or sub).title()
+        pct = ""
+        st = (poll_stats or {}).get(q.get("id")) if poll_stats else None
+        if st and st.get("total"):
+            p = round(100 * st.get("correct", 0) / st["total"])
+            pct = f" · ✅{p}%"
+            if hardest is None or p < hardest[1]:
+                hardest = (i, p, topic)
+        src = " · 📜PYQ" if q.get("source") == "pyq" else ""
+        lines.append(f"{i}. {icon[d]} {topic}{src} → [{letter}] {ans[:60]}{pct}")
+    names = {"gk": "GK", "reasoning": "Reasoning", "quant": "Aptitude", "english": "English"}
+    split = " · ".join(f"{names.get(k, k.title())} {v}" for k, v in sorted(subs.items(), key=lambda kv: -kv[1]))
+    n_hard = sum(1 for q in questions if difficulty_of(q) == "hard")
+    lines += ["", f"📚 {split} · 📜 PYQ {pyq}/{len(questions)} · 🔥 Hard {n_hard}"]
+    if hardest:
+        lines.append(f"🧠 Toughest: Q{hardest[0]} ({hardest[2]}) — only {hardest[1]}% got it")
+    weak_topics = [(q.get("topic") or "").title() for q in questions
+                   if difficulty_of(q) == "hard" and q.get("topic")]
+    if weak_topics:
+        lines.append("🔁 Revise today / ఈరోజు రివిజన్: " + ", ".join(dict.fromkeys(weak_topics[:4])))
+    lines += ["", "🏆 Scores & district rank: /quiz · /district in our bot ⭐",
+              "— StudentUp | PYQ-first · no repeats ✅"]
     return _clamp("\n".join(lines), 4000)
 
 
@@ -321,3 +394,152 @@ def validate_question(q: dict) -> list:
     if len({str(x).strip().lower() for x in oe}) < 4:
         errs.append(f"{qid}: duplicate EN options")
     return errs
+
+
+# ---------------------------------------------------------------------------
+# ANSWER-LEAK GUARD + OPTION BALANCING (applied at send time, never stored)
+# ---------------------------------------------------------------------------
+_MARK_RE = re.compile(r"(✅|✔|☑|✓|\(\s*correct\s*\)|\[\s*correct\s*\]|\*\s*$|"
+                      r"\bans(?:wer)?\s*[:\-–]\s*[A-Da-d]\b)", re.I)
+_FIXED_ORDER_RE = re.compile(r"\b(all|none|both|neither|either)\b.*\b(above|these|them|a|b|c|d)\b|"
+                             r"\bonly\s+[a-d1-4]\b|\b[1-4a-d]\s*(and|&|,)\s*[1-4a-d]\b|"
+                             r"\bcannot be determined|\bdata (in)?adequate", re.I)
+
+
+def strip_answer_markers(text: str) -> str:
+    """Remove any tick/'(correct)'/'Ans: B' markers that would betray the key."""
+    return _MARK_RE.sub("", text or "").strip()
+
+
+def answer_leaks(q: dict) -> str:
+    """'' if safe, else a short reason the poll would expose its own answer."""
+    opts = q.get("options_en") or []
+    ai = q.get("answer_index")
+    if not isinstance(ai, int) or not 0 <= ai < len(opts):
+        return "bad_answer_index"
+    for o in list(opts) + list(q.get("options_te") or []):
+        if _MARK_RE.search(str(o or "")):
+            return "marker_in_option"
+    stem = f"{q.get('q_en','')} {q.get('q_te','')}".lower()
+    ans = str(opts[ai] or "").strip().lower()
+    if len(ans) > 3 and re.search(r"\b" + re.escape(ans) + r"\b", stem):
+        return "answer_in_stem"
+    if _MARK_RE.search(stem):
+        return "marker_in_stem"
+    return ""
+
+
+def _is_fixed_order(opts) -> bool:
+    """Options that must keep their order: 'All of the above', 'Both A and B',
+    strictly sorted numeric ladders (10/20/30/40), year ladders."""
+    txt = [str(o or "").strip() for o in opts]
+    if any(_FIXED_ORDER_RE.search(o) for o in txt):
+        return True
+    nums = []
+    for o in txt:
+        m = re.fullmatch(r"[\s₹$]*(-?\d[\d,]*(?:\.\d+)?)\s*[%a-zA-Z/²³]*", o)
+        if not m:
+            return False
+        nums.append(float(m.group(1).replace(",", "")))
+    return nums == sorted(nums) or nums == sorted(nums, reverse=True)
+
+
+def balance_options(q: dict, seed: str = "") -> dict:
+    """Return a COPY of q with options shuffled so the key isn't predictably 'B'.
+    Deterministic for (question id, seed) so channel poll, DM mirror, report and
+    answer-key all agree. Fixed-order option sets are left untouched."""
+    opts = list(q.get("options_en") or [])
+    ai = q.get("answer_index")
+    if len(opts) != 4 or not isinstance(ai, int) or not 0 <= ai < 4 or _is_fixed_order(opts):
+        return dict(q)
+    import hashlib
+    import random as _r
+    h = hashlib.sha256(f"{q.get('id','')}|{seed}".encode()).hexdigest()
+    rng = _r.Random(int(h[:12], 16))
+    perm = [0, 1, 2, 3]
+    rng.shuffle(perm)                    # perm[new_pos] = old_pos
+    te = list(q.get("options_te") or [])
+    out = dict(q)
+    out["options_en"] = [strip_answer_markers(opts[i]) for i in perm]
+    if len(te) == 4:
+        out["options_te"] = [strip_answer_markers(te[i]) for i in perm]
+    out["answer_index"] = perm.index(ai)
+    out["_perm"] = perm
+    return out
+
+
+def poll_safe(q: dict, seed: str = "") -> dict | None:
+    """Send-time gate: strip markers, balance the key position, refuse leaky
+    questions. Returns the safe copy or None (caller picks another question)."""
+    q2 = balance_options(q, seed) if getattr(config, "BALANCE_OPTIONS", True) else dict(q)
+    q2["q_en"] = strip_answer_markers(q2.get("q_en", ""))
+    q2["q_te"] = strip_answer_markers(q2.get("q_te", ""))
+    q2["options_en"] = [strip_answer_markers(o) for o in q2.get("options_en") or []]
+    if q2.get("options_te"):
+        q2["options_te"] = [strip_answer_markers(o) for o in q2["options_te"]]
+    return None if answer_leaks(q2) else q2
+
+
+MISSED_THRESHOLD = 0.5      # ≥50 % of voters wrong  → explain
+MISSED_MIN_VOTES = 5        # need a real sample first
+
+
+def most_missed(questions: list, poll_stats: dict | None, member_stats: dict | None = None,
+                limit: int = 2):
+    """Questions that MANY people got wrong: (q, wrong_pct, votes), worst first.
+    Uses channel poll totals when present, else DM-mirror member stats."""
+    out = []
+    for q in questions:
+        st = (poll_stats or {}).get(q.get("id")) or (member_stats or {}).get(q.get("id"))
+        if not st or st.get("total", 0) < MISSED_MIN_VOTES:
+            continue
+        wrong = 1 - st.get("correct", 0) / st["total"]
+        if wrong >= MISSED_THRESHOLD:
+            out.append((q, round(100 * wrong), st["total"]))
+    out.sort(key=lambda x: -x[1])
+    return out[:limit]
+
+
+def build_missed_explanations(questions: list, poll_stats: dict | None, member_stats: dict | None = None,
+                              channel_cfg: dict | None = None) -> str:
+    """Neat bilingual explanation for the most-missed questions ONLY. Uses the
+    question's own verified explanation (no generated lessons); empty string
+    when nothing crossed the threshold or explanations are missing."""
+    items = most_missed(questions, poll_stats, member_stats)
+    if not items:
+        return ""
+    letters = "ABCD"
+    head = f"{channel_cfg['emoji']} " if channel_cfg else ""
+    lines = [f"{head}🧠 ఎక్కువ మంది తప్పు చేసిన ప్రశ్న — Most missed", ""]
+    n = 0
+    for q, wrong_pct, votes in items:
+        idx = int(q.get("answer_index", 0))
+        opts_en = q.get("options_en") or []
+        opts_te = q.get("options_te") or []
+        ans_en = str(opts_en[idx]).strip() if 0 <= idx < len(opts_en) else ""
+        ans_te = str(opts_te[idx]).lstrip("⤷").strip() if 0 <= idx < len(opts_te) else ""
+        ex_en = (q.get("explanation_en") or q.get("note") or "").strip()
+        ex_te = (q.get("explanation_te") or "").lstrip("⤷").strip()
+        if not (ex_en or ex_te):
+            continue
+        n += 1
+        q_te = (q.get("q_te") or "").strip()
+        q_en = (q.get("q_en") or "").strip()
+        lines.append(f"❌ {wrong_pct}% wrong ({votes} votes)")
+        if q_te:
+            lines.append(f"ప్ర: {q_te[:220]}")
+        if q_en:
+            lines.append(f"Q: {q_en[:220]}")
+        lines.append(f"✅ {letters[idx] if 0 <= idx < 4 else '?'}) " +
+                     (f"{ans_te} / {ans_en}" if ans_te and ans_te != ans_en else (ans_te or ans_en)))
+        if ex_te:
+            lines.append(f"వివరణ: {ex_te[:400]}")
+        if ex_en:
+            lines.append(f"Why: {ex_en[:400]}")
+        if q.get("source") == "pyq" and q.get("exam"):
+            lines.append(f"📜 {q.get('exam')} {q.get('year') or ''}".strip())
+        lines.append("")
+    if not n:
+        return ""
+    lines.append("ఇది exam లో మళ్ళీ వస్తుంది — note చేసుకోండి · Save this one 📝")
+    return "\n".join(lines)[:3900]

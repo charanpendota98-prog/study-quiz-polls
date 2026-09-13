@@ -1,0 +1,2029 @@
+{
+ "_doc": [
+  "Official / verified previous-year question paper PDFs. Each entry is harvested",
+  "ONCE into data/pdf_inbox/ and ingested with exam/year/paper provenance stamped",
+  "on every question (poll header shows e.g. '📜 TSPSC Group-2 2024 · Paper-1').",
+  "Sources: board sites + Sakshi/Eenadu/CareerPower mirrors that host the same",
+  "official PDF. lang=te means a Telugu-medium paper (kept verbatim).",
+  "Add more: python3 -m core.pyq add <channel> <exam> <year> <paper> <url>"
+ ],
+ "papers": [
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-2",
+   "year": 2024,
+   "paper": "Paper-1 General Studies & Abilities",
+   "date": "2024-12-15",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2024/12/15132724/TSPSC-Group-2-Question-Paper-2024.pdf",
+   "lang": "en",
+   "via": "careerpower mirror of official TSPSC paper"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-2",
+   "year": 2024,
+   "paper": "Paper-2 History, Polity & Society",
+   "date": "2024-12-15",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2024/12/15180359/TSPSC-Group-1-Question-Paper-2.pdf",
+   "lang": "en",
+   "via": "careerpower mirror"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-2",
+   "year": 2024,
+   "paper": "Paper-3 Economy & Development",
+   "date": "2024-12-16",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2024/12/16134357/TSPSC-Group-2-Question-Paper-2024-Paper-3-1.pdf",
+   "lang": "en",
+   "via": "careerpower mirror"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-2",
+   "year": 2024,
+   "paper": "Paper-4 Telangana Movement & State Formation",
+   "date": "2024-12-16",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2024/12/16183635/TSPSC-Group-2-Question-Paper-2024-Paper-4.pdf",
+   "lang": "en",
+   "via": "careerpower mirror"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-2",
+   "year": 2016,
+   "paper": "Paper-1 General Studies & Abilities",
+   "date": "2016-11-11",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2025/01/30005251/tspsc-group-2-2016-paper-1.pdf",
+   "lang": "en",
+   "via": "careerpower mirror"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-2",
+   "year": 2016,
+   "paper": "Paper-2 History, Polity & Society",
+   "date": "2016-11-11",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2025/01/30005404/TSPSC-Group-2-Paper-2-2016.pdf",
+   "lang": "en",
+   "via": "careerpower mirror"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-2",
+   "year": 2016,
+   "paper": "Paper-3 Economy & Development",
+   "date": "2016-11-12",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2025/01/30005539/TSPSC-Group2-Paper-3-2016.pdf",
+   "lang": "en",
+   "via": "careerpower mirror"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-2",
+   "year": 2016,
+   "paper": "Paper-4 Telangana Movement (Telugu)",
+   "date": "2016-11-12",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2025/01/30005252/TSPSC-Group-II-2016-Paper-4-Telangana-Movement-State-Formation-Telugu.pdf",
+   "lang": "te",
+   "via": "careerpower mirror"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Mains",
+   "year": 2025,
+   "paper": "Paper-1 AP History & Indian Constitution (Series C)",
+   "date": "2025-02-23",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2025/04/05/GroupII_Mains_Paper_I_%20Series_C.pdf",
+   "lang": "en",
+   "via": "Sakshi Education mirror of official APPSC paper + final key"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Mains",
+   "year": 2025,
+   "paper": "Paper-2 Indian & AP Economy, Science & Technology",
+   "date": "2025-02-23",
+   "index": "https://education.sakshi.com/en/group-2/previous-papers-2025/appsc-group-2-paper-2-previous-papers-2024-pdfs-download-174635",
+   "lang": "en",
+   "via": "Sakshi Education (PDF link resolved from page)"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC CGL Tier-1",
+   "year": 2024,
+   "paper": "All shifts (memory-based, official-key aligned)",
+   "date": "2024-09-09",
+   "index": "https://www.adda247.com/jobs/ssc-cgl-previous-year-question-paper/",
+   "lang": "en",
+   "via": "Adda247 index page → PDF links",
+   "max_pdfs": 6
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC CHSL Tier-1",
+   "year": 2024,
+   "paper": "All shifts",
+   "date": "2024-07-01",
+   "index": "https://www.adda247.com/jobs/ssc-chsl-previous-year-question-paper/",
+   "lang": "en",
+   "via": "Adda247 index page → PDF links",
+   "max_pdfs": 4
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC MTS",
+   "year": 2024,
+   "paper": "All shifts",
+   "date": "2024-09-30",
+   "index": "https://www.adda247.com/jobs/ssc-mts-previous-year-question-paper/",
+   "lang": "en",
+   "via": "Adda247 index page → PDF links",
+   "max_pdfs": 4
+  },
+  {
+   "channel": "RAILWAY",
+   "exam": "RRB NTPC CBT-1",
+   "year": 2024,
+   "paper": "All shifts",
+   "date": "2024-06-01",
+   "index": "https://www.adda247.com/jobs/rrb-ntpc-previous-year-question-paper/",
+   "lang": "en",
+   "via": "Adda247 index page → PDF links",
+   "max_pdfs": 4
+  },
+  {
+   "channel": "BANKING",
+   "exam": "IBPS PO Prelims",
+   "year": 2024,
+   "paper": "Memory-based paper",
+   "date": "2024-10-19",
+   "index": "https://www.bankersadda.com/ibps-po-previous-year-question-paper/",
+   "lang": "en",
+   "via": "BankersAdda index page → PDF links",
+   "max_pdfs": 3
+  },
+  {
+   "channel": "BANKING",
+   "exam": "SBI Clerk Prelims",
+   "year": 2024,
+   "paper": "Memory-based paper",
+   "date": "2024-01-05",
+   "index": "https://www.bankersadda.com/sbi-clerk-previous-year-question-papers/",
+   "lang": "en",
+   "via": "BankersAdda index page → PDF links",
+   "max_pdfs": 3
+  },
+  {
+   "channel": "BANKING",
+   "exam": "IBPS Clerk Prelims",
+   "year": 2024,
+   "paper": "Memory-based paper",
+   "date": "2024-08-24",
+   "index": "https://www.bankersadda.com/ibps-clerk-previous-year-question-paper/",
+   "lang": "en",
+   "via": "BankersAdda index page → PDF links",
+   "max_pdfs": 3
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS Police Constable Prelims",
+   "year": 2022,
+   "paper": "Preliminary Written Test",
+   "date": "2022-08-28",
+   "index": "https://www.freshersnow.com/telangana-police-previous-papers/",
+   "lang": "en",
+   "via": "index re-pointed 11 Sep 2026",
+   "max_pdfs": 3
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS Police SI Prelims",
+   "year": 2022,
+   "paper": "Preliminary Written Test",
+   "date": "2022-08-07",
+   "index": "https://www.careerpower.in/ts-police-si-previous-year-question-papers.html",
+   "lang": "en",
+   "via": "careerpower index → PDF",
+   "max_pdfs": 3
+  },
+  {
+   "channel": "POLICE",
+   "exam": "AP Police Constable Prelims",
+   "year": 2023,
+   "paper": "Preliminary Written Test",
+   "date": "2023-01-22",
+   "index": "https://www.careerpower.in/ap-police-constable-previous-year-question-papers.html",
+   "lang": "en",
+   "via": "careerpower index → PDF",
+   "max_pdfs": 3
+  },
+  {
+   "channel": "DEFENCE",
+   "exam": "NDA",
+   "year": 2024,
+   "paper": "GAT (General Ability Test)",
+   "date": "2024-04-21",
+   "index": "https://www.adda247.com/exams/upsc/nda-previous-year-question-papers/",
+   "lang": "en",
+   "via": "index re-pointed 11 Sep 2026",
+   "max_pdfs": 3
+  },
+  {
+   "channel": "DEFENCE",
+   "exam": "Agniveer Army GD",
+   "year": 2024,
+   "paper": "CEE",
+   "date": "2024-04-22",
+   "index": "https://www.adda247.com/defence-jobs/agniveer-army-previous-year-question-paper/",
+   "lang": "en",
+   "via": "Adda247 defence index → PDF",
+   "max_pdfs": 3
+  },
+  {
+   "channel": "DEFENCE",
+   "exam": "CDS",
+   "year": 2024,
+   "paper": "General Knowledge",
+   "date": "2024-04-21",
+   "index": "https://www.adda247.com/defence-jobs/cds-previous-year-question-paper/",
+   "lang": "en",
+   "via": "Adda247 defence index → PDF",
+   "max_pdfs": 3
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-1 Prelims",
+   "year": 2024,
+   "paper": "General Studies & Mental Ability",
+   "date": "2024-06-09",
+   "index": "https://www.careerpower.in/tspsc-group-1-previous-year-question-papers.html",
+   "lang": "en",
+   "via": "careerpower index → PDF",
+   "max_pdfs": 3
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-1 Prelims",
+   "year": 2024,
+   "paper": "Paper-1 & 2",
+   "date": "2024-03-17",
+   "index": "https://www.careerpower.in/appsc-group-1-previous-year-question-papers.html",
+   "lang": "en",
+   "via": "careerpower index → PDF",
+   "max_pdfs": 4
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Screening",
+   "year": 2024,
+   "paper": "Screening Test",
+   "date": "2024-02-25",
+   "index": "https://www.careerpower.in/appsc-group-2-previous-year-question-papers.html",
+   "lang": "en",
+   "via": "careerpower index → PDF",
+   "max_pdfs": 4
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Mains",
+   "year": 2025,
+   "paper": "Paper-1 (Official, 23 Feb 2025)",
+   "date": "2025-02-23",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2026/04/02123039/APPSC-Group-2-Mains-Examination-Official-Paper-I-Held-On_-23-Feb-2025.pdf"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Mains",
+   "year": 2025,
+   "paper": "Paper-2 (Official, 23 Feb 2025)",
+   "date": "2025-02-23",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2026/04/02123035/APPSC-Group-2-Mains-Examination-Official-Paper-II-Held-On_-23-Feb-2025.pdf"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Prelims",
+   "year": 2024,
+   "paper": "Official Paper (25 Feb 2024)",
+   "date": "2024-02-25",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2026/04/02122449/APPSC-Group-II-Preliminary-Exam-Official-Paper-Held-On_-25-Feb-2024.pdf"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Prelims",
+   "year": 2019,
+   "paper": "Screening Test Set-C",
+   "date": "2019-05-05",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2025/09/24183011/APPSC_Group2-ScreeningTest_2019_Q-SET-C.pdf"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Mains",
+   "year": 2019,
+   "paper": "Paper-1 GS & Mental Ability",
+   "date": "2019-08-29",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2026/04/02123030/APPSC-Gr-II-Mains-General-Studies-and-Mental-Ability-Paper-I-29th-Aug-2019-Shift-1.pdf"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Mains",
+   "year": 2019,
+   "paper": "Paper-2",
+   "date": "2019-08-29",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2026/04/02123027/APPSC-Gr-II-Mains-General-Studies-and-Mental-Ability-Paper-II-29th-Aug-2019-Shift-1.pdf"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Mains",
+   "year": 2019,
+   "paper": "Paper-3",
+   "date": "2019-08-29",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2026/04/02123024/APPSC-Gr-II-Mains-General-Studies-and-Mental-Ability-Paper-III-29th-Aug-2019-Shift-1.pdf"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Prelims",
+   "year": 2018,
+   "paper": "Screening Test",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2025/09/24183013/APPSC-Group-2-Paper-2018.pdf"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Prelims",
+   "year": 2016,
+   "paper": "Screening Test",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2025/09/24183019/Group-II-Screening-Test-Not.No_.18-2016.pdf"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2",
+   "year": 2017,
+   "paper": "GS & Mental Ability",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2025/09/24183015/APPSC-Group-2-General-Studies-and-Mental-Ability-2017.pdf"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Mains",
+   "year": 2017,
+   "paper": "Paper-1",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2025/09/24183006/APPSC-GR2-Paper-1.pdf"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Mains",
+   "year": 2017,
+   "paper": "Paper-2",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2025/09/24183001/English-Paper-2.pdf"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Mains",
+   "year": 2017,
+   "paper": "Paper-3",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2025/09/24182958/Eng-Paper-3.pdf"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Mains",
+   "year": 2011,
+   "paper": "Paper-1 GS (with key)",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2026/04/02123021/Group-II-2011-Paper-I-General-Studies-Question-Paper-With-Key.pdf"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Mains",
+   "year": 2011,
+   "paper": "Paper-2 AP History & Polity (with key)",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2026/04/02123019/Group-II-2011-Paper-II-AP-History-PolityQuestion-Paper-With-Key.pdf"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Mains",
+   "year": 2011,
+   "paper": "Paper-3 Indian & AP Economy (with key)",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2026/04/02123017/Group-II-2011-Paper-III-Indian-AP-EconomyQuestion-Paper-With-Key.pdf"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Mains",
+   "year": 2008,
+   "paper": "Paper-1 GS",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2026/04/02123013/Group-II-2008-General-Studies-Question-Paper.pdf"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Mains",
+   "year": 2008,
+   "paper": "Paper-2 AP History & Polity",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2026/04/02123010/Group-II-2008-Paper-II-AP-History-PolityQuestion-Paper.pdf"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Mains",
+   "year": 2008,
+   "paper": "Paper-3 Economy",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2026/04/02123006/Group-II-2008-Paper-III-Indian-AP-EconomyQuestion-Paper.pdf"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-1 Prelims",
+   "year": 2020,
+   "paper": "Paper-1",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2026/03/19201932/APPSC-Group-1-Prelims-2020-Paper-1.pdf"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-1 Prelims",
+   "year": 2020,
+   "paper": "Paper-2",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2026/03/19201936/APPSC-Group-1-Prelims-2020-Paper-2.pdf"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-1 Prelims",
+   "year": 2025,
+   "paper": "Official Paper (9 Jun 2025)",
+   "date": "2025-06-09",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2025/05/22162403/TSPSC-Group-1-Prelims-9-June-2025-Question-Paper.pdf"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-1 Prelims",
+   "year": 2022,
+   "paper": "Official Paper (16 Oct 2022)",
+   "date": "2022-10-16",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2025/05/22162400/TSPSC-Group-I-Prelims-16th-Oct-2022-Question-Paper.pdf"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-1 Prelims",
+   "year": 2016,
+   "paper": "Prelims",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.careerpower.in/blog/wp-content/uploads/2025/05/22162357/TSPSC-Prelims-2016-Question-Paper.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC CGL Tier-1",
+   "year": 2025,
+   "paper": "12 Sep 2025 Shift-1",
+   "date": "2025-09-12",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/05/26154106/SSC-CGL-T-I-Similar-Paper-Held-on-12-Sep-2025-S1-English.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC CGL Tier-1",
+   "year": 2025,
+   "paper": "12 Sep 2025 Shift-2",
+   "date": "2025-09-12",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/05/26154107/SSC-CGL-T-I-Similar-Paper-Held-on-12-Sep-2025-S2-English.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC CGL Tier-1",
+   "year": 2025,
+   "paper": "12 Sep 2025 Shift-3",
+   "date": "2025-09-12",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/05/25175114/SSC-CGL-T-I-Similar-Paper-Held-on-12-Sep-2025-S3-English.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC CGL Tier-1",
+   "year": 2025,
+   "paper": "13 Sep 2025 Shift-1",
+   "date": "2025-09-13",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/05/25175115/SSC-CGL-T-I-Similar-Paper-Held-on-13-Sep-2025-S1-English.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC CGL Tier-1",
+   "year": 2025,
+   "paper": "13 Sep 2025 Shift-2",
+   "date": "2025-09-13",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/05/25175116/SSC-CGL-T-I-Similar-Paper-Held-on-13-Sep-2025-S2-English.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC CGL Tier-1",
+   "year": 2025,
+   "paper": "14 Sep 2025 Shift-1",
+   "date": "2025-09-14",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/05/25175118/SSC-CGL-T-I-Similar-Paper-Held-on-14-Sep-2025-S1-English.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC CGL Tier-1",
+   "year": 2025,
+   "paper": "15 Sep 2025 Shift-1",
+   "date": "2025-09-15",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/05/25175122/SSC-CGL-T-I-Similar-Paper-Held-on-15-Sep-2025-S1-English.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC CGL Tier-1",
+   "year": 2025,
+   "paper": "16 Sep 2025 Shift-1",
+   "date": "2025-09-16",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/05/25175126/SSC-CGL-T-I-Similar-Paper-Held-on-16-Sep-2025-S1-English.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC CGL Tier-1",
+   "year": 2025,
+   "paper": "17 Sep 2025 Shift-1",
+   "date": "2025-09-17",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/05/25175129/SSC-CGL-T-I-Similar-Paper-Held-on-17-Sep-2025-S1-English.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC CGL Tier-1",
+   "year": 2025,
+   "paper": "18 Sep 2025 Shift-1",
+   "date": "2025-09-18",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/05/25175135/SSC-CGL-T-I-Similar-Paper-Held-on-18-Sep-2025-S1-English.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC CHSL Tier-1",
+   "year": 2025,
+   "paper": "13 Nov 2025 Shift-2",
+   "date": "2025-11-13",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/2026/03/01163723/SSC-CHSL-T-I-Similar-Paper-Held-on-13-Nov-2025-S2-English.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC CHSL Tier-1",
+   "year": 2025,
+   "paper": "14 Nov 2025 Shift-3",
+   "date": "2025-11-14",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/2026/04/01164022/SSC-CHSL-T-I-Similar-Paper-Held-on-14-Nov-2025-S3-English.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC CHSL Tier-1",
+   "year": 2025,
+   "paper": "15 Nov 2025 Shift-1",
+   "date": "2025-11-15",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/2026/04/01164140/SSC-CHSL-T-I-Similar-Paper-Held-on-15-Nov-2025-S1-English.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC CHSL Tier-1",
+   "year": 2025,
+   "paper": "17 Nov 2025 Shift-1",
+   "date": "2025-11-17",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/2026/04/01164424/SSC-CHSL-T-I-Similar-Paper-Held-on-17-Nov-2025-S1-English-1.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC CHSL Tier-1",
+   "year": 2025,
+   "paper": "18 Nov 2025 Shift-1",
+   "date": "2025-11-18",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/2026/06/02183225/SSC-CHSL-T-I-Similar-Paper-Held-on-18-Nov-2025-Shift-1.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC CHSL Tier-1",
+   "year": 2024,
+   "paper": "1 Jul 2024 Shift-1 (Official)",
+   "date": "2024-07-01",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2025/07/09175148/CHSL-Exam-2024-Tier-I-01-07-2024-9-00-AM-10-00-AM-Paper.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC CHSL Tier-1",
+   "year": 2024,
+   "paper": "1 Jul 2024 Shift-2 (Official)",
+   "date": "2024-07-01",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2025/07/09175149/CHSL-Exam-2024-Tier-I-01-07-2024-11-45-AM-12-45-PM-Paper.pdf"
+  },
+  {
+   "channel": "RAILWAY",
+   "exam": "RRB NTPC Graduate CBT-2",
+   "year": 2026,
+   "paper": "10 Jul 2026 Shift-1",
+   "date": "2026-07-10",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/07/15163033/RRB-NTPC-Graduate-CBT-II-Question-Paper-10-July-2026-S1-English-exam-1.pdf"
+  },
+  {
+   "channel": "RAILWAY",
+   "exam": "RRB NTPC UG CBT-1",
+   "year": 2026,
+   "paper": "7 May 2026 Shift-1",
+   "date": "2026-05-07",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/06/28162406/RRB-NTPC-UG-Question-Paper-7-May-2026-S1eng.-exam-1.pdf"
+  },
+  {
+   "channel": "RAILWAY",
+   "exam": "RRB NTPC UG CBT-1",
+   "year": 2026,
+   "paper": "7 May 2026 Shift-2",
+   "date": "2026-05-07",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/06/28162409/RRB-NTPC-UG-Question-Paper-7-May-2026-S2eng.-exam-1.pdf"
+  },
+  {
+   "channel": "RAILWAY",
+   "exam": "RRB NTPC UG CBT-1",
+   "year": 2026,
+   "paper": "7 May 2026 Shift-3",
+   "date": "2026-05-07",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/06/28162410/RRB-NTPC-UG-Question-Paper-7-May-2026-S3eng.-exam-1.pdf"
+  },
+  {
+   "channel": "RAILWAY",
+   "exam": "RRB NTPC UG CBT-1",
+   "year": 2026,
+   "paper": "8 May 2026 Shift-1",
+   "date": "2026-05-08",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/06/28162417/RRB-NTPC-UG-Question-Paper-08-May-2026-Shift-1-exam.pdf"
+  },
+  {
+   "channel": "RAILWAY",
+   "exam": "RRB NTPC UG CBT-1",
+   "year": 2026,
+   "paper": "8 May 2026 Shift-2",
+   "date": "2026-05-08",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/06/28162412/RRB-NTPC-UG-Question-Paper-08-May-2026-Shift-2-exam.pdf"
+  },
+  {
+   "channel": "RAILWAY",
+   "exam": "RRB NTPC UG CBT-1",
+   "year": 2026,
+   "paper": "14 Jun 2026 Shift-1",
+   "date": "2026-06-14",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/06/28162433/RRB-NTPC-UG-Question-Paper-14-June-2026-Shift-1-exam.pdf"
+  },
+  {
+   "channel": "RAILWAY",
+   "exam": "RRB NTPC UG CBT-1",
+   "year": 2026,
+   "paper": "14 Jun 2026 Shift-2",
+   "date": "2026-06-14",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/06/28162429/RRB-NTPC-UG-Question-Paper-14-June-2026-Shift-2-exam.pdf"
+  },
+  {
+   "channel": "RAILWAY",
+   "exam": "RRB NTPC UG CBT-1",
+   "year": 2026,
+   "paper": "15 Jun 2026 Shift-2",
+   "date": "2026-06-15",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/06/28162437/RRB-NTPC-UG-Question-Paper-15-June-2026-Shift-2-exam.pdf"
+  },
+  {
+   "channel": "BANKING",
+   "exam": "IBPS PO Prelims",
+   "year": 2025,
+   "paper": "23 Aug 2025 Shift-1 (memory-based)",
+   "date": "2025-08-23",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.bankersadda.com/wp-content/uploads/multisite/2025/08/25114225/IBPS-PO-Pre-2025-Memory-Based-Paper-Based-on-23rd-August-1st-Shift-1.pdf"
+  },
+  {
+   "channel": "BANKING",
+   "exam": "IBPS PO Prelims",
+   "year": 2025,
+   "paper": "24 Aug 2025 Shift-1 (memory-based)",
+   "date": "2025-08-24",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.bankersadda.com/wp-content/uploads/multisite/2025/08/25195423/IBPS-PO-Pre-2025-Memory-Based-Paper-24-Aug-2025-1st-shift-Formatted-file.pdf"
+  },
+  {
+   "channel": "BANKING",
+   "exam": "IBPS PO Prelims",
+   "year": 2024,
+   "paper": "Quantitative Aptitude",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.bankersadda.com/wp-content/uploads/multisite/2024/10/19171032/IBPS-PO-Prelims-Memory-Based-2024-Quantitative-Aptitude.pdf"
+  },
+  {
+   "channel": "BANKING",
+   "exam": "IBPS PO Prelims",
+   "year": 2024,
+   "paper": "Reasoning Ability",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.bankersadda.com/wp-content/uploads/multisite/2024/10/19171033/IBPS-PO-Prelims-Memory-Based-2024-Reasoning-Ability.pdf"
+  },
+  {
+   "channel": "BANKING",
+   "exam": "IBPS PO Prelims",
+   "year": 2024,
+   "paper": "English Language",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.bankersadda.com/wp-content/uploads/multisite/2024/10/19141446/IBPS-PO-Prelims-Memory-Based-2024-English-Language-1.pdf"
+  },
+  {
+   "channel": "BANKING",
+   "exam": "IBPS PO Prelims",
+   "year": 2023,
+   "paper": "Full paper with solutions",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.bankersadda.com/wp-content/uploads/multisite/2024/07/22162227/IBPS-PO-Prelims-Previous-Year-Paper-2023.pdf"
+  },
+  {
+   "channel": "BANKING",
+   "exam": "IBPS PO Prelims",
+   "year": 2022,
+   "paper": "15 Oct 2022 Mock-02",
+   "date": "2022-10-15",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.bankersadda.com/wp-content/uploads/multisite/2025/07/19010003/IBPS-PO-Pre-2022-15th-October-Shift-Wise-Previous-Year-Papers-Mock-02.pdf"
+  },
+  {
+   "channel": "BANKING",
+   "exam": "IBPS PO Prelims",
+   "year": 2022,
+   "paper": "16 Oct 2022 Mock-05",
+   "date": "2022-10-16",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.bankersadda.com/wp-content/uploads/multisite/2025/07/19005954/IBPS-PO-Pre-2022-16th-October-Shift-Wise-Previous-Year-Papers-Mock-05-1.pdf"
+  },
+  {
+   "channel": "BANKING",
+   "exam": "SBI Clerk Prelims",
+   "year": 2025,
+   "paper": "20 Sep 2025 Shift-1",
+   "date": "2025-09-20",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.bankersadda.com/wp-content/uploads/multisite/2025/09/20214251/SBI-Clerk-Pre-2025-Memory-Based-Paper-Based-on-20th-Sep-1st-Shift.pdf"
+  },
+  {
+   "channel": "BANKING",
+   "exam": "SBI Clerk Prelims",
+   "year": 2025,
+   "paper": "22 Feb 2025 Shift-1",
+   "date": "2025-02-22",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.bankersadda.com/wp-content/uploads/multisite/2025/02/22194721/SBI-Clerk-Pre-2024-25-Memory-Based-Paper-22-Feb-2025-1st-shift-English.pdf"
+  },
+  {
+   "channel": "BANKING",
+   "exam": "SBI Clerk Prelims",
+   "year": 2025,
+   "paper": "27 Feb 2025 Shift-1",
+   "date": "2025-02-27",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.bankersadda.com/wp-content/uploads/multisite/2025/02/28131112/SBI-Clerk-Pre-2024-25-Memory-Based-Paper-27-Feb-2025-1st-shift.pdf"
+  },
+  {
+   "channel": "BANKING",
+   "exam": "SBI Clerk Prelims",
+   "year": 2024,
+   "paper": "5 Jan 2024 Mock-1",
+   "date": "2024-01-05",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.bankersadda.com/wp-content/uploads/multisite/2024/12/09115909/SBI-Clerk-Pre-2023-Memory-Based-Mock-01-5th-Jan-2024.pdf"
+  },
+  {
+   "channel": "BANKING",
+   "exam": "SBI Clerk Prelims",
+   "year": 2022,
+   "paper": "Mock-1",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.bankersadda.com/wp-content/uploads/multisite/2023/08/28182130/SBI-Clerk-Previous-Year-Paper-2022.pdf"
+  },
+  {
+   "channel": "DEFENCE",
+   "exam": "UPSC NDA-2 GAT",
+   "year": 2025,
+   "paper": "14 Sep 2025",
+   "date": "2025-09-14",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/2025/09/15111712/NDA-2-GAT-Paper-Held-on-14-Sept.-2025.pdf"
+  },
+  {
+   "channel": "DEFENCE",
+   "exam": "UPSC NDA-1 GAT",
+   "year": 2025,
+   "paper": "13 Apr 2025 Set-B",
+   "date": "2025-04-13",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2025/04/15112041/NDA-1-2025-GAT-SET-B-Question-Paper.pdf"
+  },
+  {
+   "channel": "DEFENCE",
+   "exam": "UPSC NDA-2 GAT",
+   "year": 2024,
+   "paper": "1 Sep 2024 (Official)",
+   "date": "2024-09-01",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/14/2024/09/16193646/QP-NDA-NA-II-24-GENERAL-ABILITY-TEST-020924.pdf"
+  },
+  {
+   "channel": "DEFENCE",
+   "exam": "UPSC NDA-1 GAT",
+   "year": 2024,
+   "paper": "21 Apr 2024 (Official)",
+   "date": "2024-04-21",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/14/2024/05/17150140/QP_NDANAI2024_GENERAL-ABILITY-TEST_22042024.pdf"
+  },
+  {
+   "channel": "DEFENCE",
+   "exam": "UPSC NDA-2 GAT",
+   "year": 2023,
+   "paper": "3 Sep 2023 (Official)",
+   "date": "2023-09-03",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/14/2023/09/17151722/QP-NDANA-II-2023-GAT-04092023.pdf"
+  },
+  {
+   "channel": "DEFENCE",
+   "exam": "UPSC NDA-1 GAT",
+   "year": 2023,
+   "paper": "16 Apr 2023 (Official)",
+   "date": "2023-04-16",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/14/2023/04/17163628/QP-NDA-I-23-GENERAL-ABILITY-TEST-170423.pdf"
+  },
+  {
+   "channel": "DEFENCE",
+   "exam": "UPSC NDA-2 GAT",
+   "year": 2022,
+   "paper": "4 Sep 2022 (Official)",
+   "date": "2022-09-04",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/14/2024/12/21115655/QP-NDA-II-22-GENERAL-ABILITY-TEST-050922.pdf"
+  },
+  {
+   "channel": "DEFENCE",
+   "exam": "UPSC NDA-1 GAT",
+   "year": 2022,
+   "paper": "Official",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/14/2024/12/21115851/nda-1-question-paper-general-ability-test.pdf"
+  },
+  {
+   "channel": "DEFENCE",
+   "exam": "UPSC NDA-1 GAT",
+   "year": 2021,
+   "paper": "Official",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/14/2024/12/21120014/UPSC-NDA-GAT-21-1.pdf"
+  },
+  {
+   "channel": "DEFENCE",
+   "exam": "UPSC NDA GAT",
+   "year": 2020,
+   "paper": "Official",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/14/2024/12/21120700/QP-NDA-I_II-20-GAT.pdf"
+  },
+  {
+   "channel": "DEFENCE",
+   "exam": "UPSC NDA-2 GAT",
+   "year": 2019,
+   "paper": "Official",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/14/2024/12/21120901/UPSC-NDA-GAT-19-II.pdf"
+  },
+  {
+   "channel": "DEFENCE",
+   "exam": "UPSC NDA-1 GAT",
+   "year": 2019,
+   "paper": "Official",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/14/2024/12/21120957/UPSC-NFA-GAT-19-I.pdf"
+  },
+  {
+   "channel": "DEFENCE",
+   "exam": "UPSC NDA-2 Maths",
+   "year": 2025,
+   "paper": "14 Sep 2025 Set-A",
+   "date": "2025-09-14",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2025/09/14174139/NDA-2-2025-Maths-SET-A-Question-Paper-New.pdf"
+  },
+  {
+   "channel": "DEFENCE",
+   "exam": "UPSC NDA-1 Maths",
+   "year": 2025,
+   "paper": "Set-A",
+   "date": "2025-04-13",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2025/04/15112048/NDA-1-2025-Maths-SET-A-Question-Paper.pdf"
+  },
+  {
+   "channel": "DEFENCE",
+   "exam": "UPSC NDA-2 Maths",
+   "year": 2024,
+   "paper": "Official",
+   "date": "2024-09-01",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/14/2024/09/16193606/QP-NDA-NA-II-24-MATHEMATICS-020924.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS Police SI Prelims",
+   "year": 2018,
+   "paper": "Prelims Paper",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://files.freshersnow.com/wp-content/uploads/2022/04/TS-Police-SI-2018-Prelims-Paper.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS Police SI Prelims",
+   "year": 2018,
+   "paper": "Paper-1",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://files.freshersnow.com/wp-content/uploads/2022/07/Telangana-Police-SI-Prelims-Exam-2018-Paper-1-Sample-Paper.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS Police SI Mains",
+   "year": 2018,
+   "paper": "Paper-1",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://files.freshersnow.com/wp-content/uploads/2022/07/Telangana-Police-SI-2018-Mains-Exam-Paper-1-Sample-Paper.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS Police SI Mains",
+   "year": 2018,
+   "paper": "Paper-2",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://files.freshersnow.com/wp-content/uploads/2022/07/Telangana-Police-SI-2018-Mains-Paper-2-Old-Papers.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS Police SI Mains",
+   "year": 2018,
+   "paper": "Arithmetic",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://files.freshersnow.com/wp-content/uploads/2022/04/TS-Police-SI-Arithmetic-2018-Mains-Paper.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS Police SI Prelims",
+   "year": 2016,
+   "paper": "Paper-2",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://files.freshersnow.com/wp-content/uploads/2022/07/Telangana-Police-SI-Prelims-Exam-2016-Paper-2-Old-Paper.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS Police SI Mains",
+   "year": 2016,
+   "paper": "Paper-2",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://files.freshersnow.com/wp-content/uploads/2022/07/Telangana-Police-SI-2016-Mains-Exam-Paper-2-Model-Paper.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS Police SI",
+   "year": 2016,
+   "paper": "Civil Old Paper",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://files.freshersnow.com/wp-content/uploads/2022/04/TS-SI-Civil-Old-Paper.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS Police SI",
+   "year": 2016,
+   "paper": "General Studies",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://files.freshersnow.com/wp-content/uploads/2022/04/TS-SI-General-Studies-Paper.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS Police Constable Prelims",
+   "year": 2019,
+   "paper": "Prelims (TSLPRB)",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://files.freshersnow.com/wp-content/uploads/2022/06/TSLPRB-POLICE-CONSTABLES-PRELIMINARY-2019-Model-Paper.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS Police Constable Prelims",
+   "year": 2018,
+   "paper": "Prelims (TSLPRB)",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://files.freshersnow.com/wp-content/uploads/2022/06/TSLPRB-POLICE-CONSTABLES-PRELIMINARY-2018-Model-Paper.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS Police Constable",
+   "year": 2018,
+   "paper": "Paper",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://files.freshersnow.com/wp-content/uploads/2022/04/TS-Constable-2018-Paper.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS Police Constable Prelims",
+   "year": 2016,
+   "paper": "Prelims (TSLPRB)",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://files.freshersnow.com/wp-content/uploads/2022/06/TSLPRB-POLICE-CONSTABLES-PRELIMINARY-2016-Model-Paper.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS Police Constable FWE",
+   "year": 2016,
+   "paper": "Final Written Exam",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://files.freshersnow.com/wp-content/uploads/2022/06/TSLPRB-POLICE-CONSTABLE-FINAL-WRITTEN-EXAM-2016-Model-Paper.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS Police Constable",
+   "year": 2016,
+   "paper": "Set-A",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://files.freshersnow.com/wp-content/uploads/2022/04/TS-Constable-2016-Set-A-Paper.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS Police Constable Prelims",
+   "year": 2016,
+   "paper": "Old Paper",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://files.freshersnow.com/wp-content/uploads/2022/06/TS-Police-Constable-Preliminary-Exam-Old-Paper.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS Police Constable Prelims",
+   "year": 2016,
+   "paper": "Previous Paper",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://files.freshersnow.com/wp-content/uploads/2022/06/TS-Police-Constable-Preliminary-Previous-Paper.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS Police Constable Prelims",
+   "year": 2016,
+   "paper": "Prelims Old Paper",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://files.freshersnow.com/wp-content/uploads/2022/06/TS-Police-Constable-Prelims-Old-Paper.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "AP Police Constable Prelims",
+   "year": 2023,
+   "paper": "Official Paper (22 Jan 2023)",
+   "date": "2023-01-22",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://cdn-images.prepp.in/public/image/AP_Police_Constable_Prelims_Official_Paper_Held_On_22_Jan_2023_English__716c3754c816a3fb7b1cf39a3c2af48c.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "AP Police Constable Prelims",
+   "year": 2019,
+   "paper": "6 Jan 2019",
+   "date": "2019-01-06",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://cdn-images.prepp.in/public/image/AP_Police_Constable_Prelims_6_January_2019_English_cbfbeb15b898b766de34204d6f4178c9.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "AP Police Constable Prelims",
+   "year": 2019,
+   "paper": "Official Paper-II 6 Jan 2019",
+   "date": "2019-01-06",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://cdn-images.prepp.in/public/image/notes_APPoliceConstablePrelimsOfficialPaperIIHeldon6January2019_d2a4fbf1b714cc40fb2c112ca94e0730.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "AP Police Constable Prelims",
+   "year": 2019,
+   "paper": "Paper-1 6 Jan 2019",
+   "date": "2019-01-06",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://cdn-images.prepp.in/public/image/notes_APPoliceConstablePrelimsPreviouspaper1Heldon6January2019_53bb9d5e33784934fdb70453e8991900.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "AP Police Constable Mains",
+   "year": 2019,
+   "paper": "17 Mar 2019",
+   "date": "2019-03-17",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://cdn-images.prepp.in/public/image/notes_APPoliceConstable2019MainsPreviousYearPaper17Mar2019_compressed_8af447da8002d285b6d520881939dee0.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "AP Police Constable Mains",
+   "year": 2018,
+   "paper": "Mains (held 2019)",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://cdn-images.prepp.in/public/image/AP_Police_Constable_Mains_2018_English_Held_On_2019__8dc1bce94318beed4f072097e5fc7d96.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "AP Police Constable Prelims",
+   "year": 2018,
+   "paper": "Prelims",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://cdn-images.prepp.in/public/image/notes_APPoliceConstable2018PrelimsPreviousYearPaper6Jan2019_ba50dfb9ca93db4520e4ded477cc1b6b.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "AP Police Constable Mains",
+   "year": 2017,
+   "paper": "22 Jan 2017",
+   "date": "2017-01-22",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://cdn-images.prepp.in/public/image/notes_APPoliceConstable2017MainsPreviousYearPaper22Jan2017_11cab66fb3fdfb9433a5a3a8084e9ddf.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "AP Police Constable Prelims",
+   "year": 2016,
+   "paper": "Paper-2 6 Nov 2016",
+   "date": "2016-11-06",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://cdn-images.prepp.in/public/image/notes_APPoliceConstablePrelimsPreviouspaper2Heldon6November2016_739dd4ef9b39a28eb6d3467fcfe9aa2a.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "AP Police Constable Prelims",
+   "year": 2016,
+   "paper": "6 Nov 2016",
+   "date": "2016-11-06",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://cdn-images.prepp.in/public/image/notes_APPoliceConstable2016PrelimsPreviousYearPaper6Nov2016_e9f6f4e4eded05961689113fe08d5da5.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "AP Police Constable Prelims",
+   "year": 2012,
+   "paper": "2012",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://cdn-images.prepp.in/public/image/AP_Police_Constable_2012_English__041e24043108810a34f379706e848347.pdf"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-4",
+   "year": 2023,
+   "paper": "Paper-1 General Studies (1 Jul 2023)",
+   "date": "2023-07-01",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://studybizz.com/assets/tspsc-group-4-prelims-paper1.pdf",
+   "key_url": "https://studybizz.com/assets/tspsc-group-4-key-questionpaper-1-2023-717.pdf"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-4",
+   "year": 2023,
+   "paper": "Paper-2 Secretarial Abilities (1 Jul 2023)",
+   "date": "2023-07-01",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://studybizz.com/assets/TSPSC-GROUP-IV-Paper-II-2023.pdf",
+   "key_url": "https://studybizz.com/assets/tspsc-group-4-key-questionpaper-2-2023-02-07-2023-1243.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC MTS",
+   "year": 2026,
+   "paper": "4 Feb 2026 Shift-3",
+   "date": "2026-02-04",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/2026/02/01183401/SSC-MTS-Similar-Paper-Held-on-4-Feb-2026-S3-English.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC MTS",
+   "year": 2026,
+   "paper": "5 Feb 2026 Shift-1",
+   "date": "2026-02-05",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/2026/02/01183630/SSC-MTS-Similar-Paper-Held-on-5-Feb-2026-S1-English.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC MTS",
+   "year": 2026,
+   "paper": "6 Feb 2026 Shift-1",
+   "date": "2026-02-06",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/2026/02/01183921/SSC-MTS-Similar-Paper-Held-on-6-Feb-2026-S1-English-1.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC MTS",
+   "year": 2024,
+   "paper": "30 Sep 2024 Shift-1 (Official)",
+   "date": "2024-09-30",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/2025/06/27113121/EN_SSC_MTS_2024_Official_Question_Papers_65_sets_30-09-2024_S1-min.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC MTS",
+   "year": 2024,
+   "paper": "30 Sep 2024 Shift-2 (Official)",
+   "date": "2024-09-30",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/2025/06/27113122/EN_SSC_MTS_2024_Official_Question_Papers_65_sets_30-09-2024_S2-min.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC MTS",
+   "year": 2024,
+   "paper": "1 Oct 2024 Shift-1 (Official)",
+   "date": "2024-10-01",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/2025/06/27113021/EN_SSC_MTS_2024_Official_Question_Papers_65_sets_01-10-2024_S1.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC MTS",
+   "year": 2024,
+   "paper": "7 Oct 2024 Shift-1 (Official)",
+   "date": "2024-10-07",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/2025/06/27113028/EN_SSC_MTS_2024_Official_Question_Papers_65_sets_07-01-2024_S1-min.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC MTS",
+   "year": 2024,
+   "paper": "8 Oct 2024 Shift-1 (Official)",
+   "date": "2024-10-08",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/2025/06/27113031/EN_SSC_MTS_2024_Official_Question_Papers_65_sets_08-10-2024_S1-min.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC MTS",
+   "year": 2024,
+   "paper": "9 Oct 2024 Shift-1 (Official)",
+   "date": "2024-10-09",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/2025/06/27113034/EN_SSC_MTS_2024_Official_Question_Papers_65_sets_09-10-2024_S1-min.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC GD Constable",
+   "year": 2025,
+   "paper": "4 Feb 2025 Shift-1 (Official)",
+   "date": "2025-02-04",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2025/12/02151942/SSC-GD-CONSTABLE-04-02-2025-Shift-I-Paper.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC GD Constable",
+   "year": 2025,
+   "paper": "4 Feb 2025 Shift-2 (Official)",
+   "date": "2025-02-04",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2025/12/02151943/SSC-GD-CONSTABLE-04-02-2025-Shift-II-Paper.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC GD Constable",
+   "year": 2025,
+   "paper": "5 Feb 2025 Shift-1 (Official)",
+   "date": "2025-02-05",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2025/12/02151945/SSC-GD-CONSTABLE-05-02-2025-Shift-I-Paper.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC GD Constable",
+   "year": 2025,
+   "paper": "6 Feb 2025 Shift-1 (Official)",
+   "date": "2025-02-06",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2025/12/02151951/SSC-GD-CONSTABLE-06-02-2025-Shift-I-Paper.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC GD Constable",
+   "year": 2025,
+   "paper": "7 Feb 2025 Shift-1 (Official)",
+   "date": "2025-02-07",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2025/12/02160733/SSC-GD-CONSTABLE-07-02-2025-Shift-I-Paper-1.pdf"
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC GD Constable",
+   "year": 2026,
+   "paper": "Exam-day paper Mock-1",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/04/29152700/SSC-GD-Constable-Paper-Exam-Day-Based-Mock-1-1.pdf"
+  },
+  {
+   "channel": "BANKING",
+   "exam": "IBPS Clerk Prelims",
+   "year": 2025,
+   "paper": "4 Oct 2025 Shift-1",
+   "date": "2025-10-04",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.bankersadda.com/wp-content/uploads/multisite/2025/10/07183002/IBPS-Clerk-Pre-2025-Memory-Based-Paper-Based-on-4-Oct-1st-Shift-1.pdf"
+  },
+  {
+   "channel": "BANKING",
+   "exam": "IBPS Clerk Prelims",
+   "year": 2025,
+   "paper": "5 Oct 2025 Shift-1",
+   "date": "2025-10-05",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.bankersadda.com/wp-content/uploads/multisite/2025/10/07182954/IBPS.pdf"
+  },
+  {
+   "channel": "BANKING",
+   "exam": "IBPS Clerk Prelims",
+   "year": 2024,
+   "paper": "24 Aug 2024 Shift-1",
+   "date": "2024-08-24",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.bankersadda.com/wp-content/uploads/multisite/2024/10/04235959/IBPS-Clerk-Pre-2024-Memory-Based-Paper-Based-on-24th-August-1st-Shift.pdf"
+  },
+  {
+   "channel": "BANKING",
+   "exam": "IBPS Clerk Mains",
+   "year": 2024,
+   "paper": "13 Oct 2024",
+   "date": "2024-10-13",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.bankersadda.com/wp-content/uploads/multisite/2025/09/24194804/IBPS-Clerk-Mains-Question-Paper-Held-on-13.10.2024.pdf"
+  },
+  {
+   "channel": "BANKING",
+   "exam": "IBPS Clerk Prelims",
+   "year": 2023,
+   "paper": "26 Aug 2023 Mock-1",
+   "date": "2023-08-26",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.bankersadda.com/wp-content/uploads/multisite/2024/06/20131742/IBPS-Clerk-Pre-Memory-Based-Paper-Mock-01-26.-Aug.2023.pdf"
+  },
+  {
+   "channel": "BANKING",
+   "exam": "IBPS Clerk Prelims",
+   "year": 2022,
+   "paper": "Mock-1",
+   "date": "",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.bankersadda.com/wp-content/uploads/multisite/2023/06/22161143/Formatted-IBPS-Clerk-Previous-Year-Question-Paper-2022.pdf"
+  },
+  {
+   "channel": "RAILWAY",
+   "exam": "RRB ALP CBT-2",
+   "year": 2026,
+   "paper": "28 Jul 2026 Shift-1 (with key)",
+   "date": "2026-07-28",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/2026/07/05180824/RRB_ALP_CBT_02_Answer_Key-Paper-28-07-2026-S1-English-Adda247.pdf"
+  },
+  {
+   "channel": "RAILWAY",
+   "exam": "RRB ALP CBT-2",
+   "year": 2026,
+   "paper": "28 Jul 2026 Fitter",
+   "date": "2026-07-28",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/2026/08/06170010/RRB_ALP_CBT_02_Answer_Key-Paper-28-07-2026-S1-English-ALP-Stage-2-Fitter.pdf"
+  },
+  {
+   "channel": "RAILWAY",
+   "exam": "RRB ALP CBT-2",
+   "year": 2026,
+   "paper": "28 Jul 2026 Electronics Mechanic",
+   "date": "2026-07-28",
+   "lang": "en",
+   "via": "verified 11 Sep 2026",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/2026/08/06170000/RRB_ALP_CBT_02_Answer_Key-Paper-28-07-2026-S1-English-ALP-Stage-2-Electronics-Mechanic.pdf"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "AP Police Constable (SLPRB)",
+   "year": 2023,
+   "paper": "previous papers index",
+   "lang": "en",
+   "via": "index live 11 Sep 2026",
+   "index": "https://prepp.in/ap-police-constable-exam/previous-year-question-paper",
+   "max_pdfs": 15
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC GD Constable",
+   "year": 2025,
+   "paper": "all shifts index",
+   "lang": "en",
+   "via": "index live 11 Sep 2026",
+   "index": "https://www.adda247.com/jobs/ssc-gd-previous-year-question-papers/",
+   "max_pdfs": 40
+  },
+  {
+   "channel": "SSC",
+   "exam": "SSC CPO",
+   "year": 2025,
+   "paper": "index",
+   "lang": "en",
+   "via": "linked from adda247 (unverified)",
+   "index": "https://www.adda247.com/jobs/ssc-cpo-previous-year-question-paper/",
+   "max_pdfs": 20
+  },
+  {
+   "channel": "RAILWAY",
+   "exam": "RRB ALP",
+   "year": 2026,
+   "paper": "CBT-1/CBT-2 index",
+   "lang": "en",
+   "via": "index live 11 Sep 2026",
+   "index": "https://www.adda247.com/jobs/rrb-alp-previous-year-question-papers/",
+   "max_pdfs": 30
+  },
+  {
+   "channel": "BANKING",
+   "exam": "IBPS Clerk",
+   "year": 2025,
+   "paper": "index",
+   "lang": "en",
+   "via": "index live 11 Sep 2026",
+   "index": "https://www.bankersadda.com/ibps-clerk-previous-year-question-papers/",
+   "max_pdfs": 25
+  },
+  {
+   "channel": "BANKING",
+   "exam": "SBI PO",
+   "year": 2025,
+   "paper": "index",
+   "lang": "en",
+   "via": "linked from adda247 (unverified)",
+   "index": "https://www.adda247.com/jobs/sbi-po-previous-year-question-papers/",
+   "max_pdfs": 25
+  },
+  {
+   "channel": "BANKING",
+   "exam": "IBPS RRB PO/Clerk",
+   "year": 2025,
+   "paper": "index",
+   "lang": "en",
+   "via": "pattern (unverified)",
+   "index": "https://www.bankersadda.com/ibps-rrb-previous-year-question-paper/",
+   "max_pdfs": 25
+  },
+  {
+   "channel": "DEFENCE",
+   "exam": "UPSC CDS",
+   "year": 2025,
+   "paper": "index",
+   "lang": "en",
+   "via": "testbook index (unverified PDF links)",
+   "index": "https://testbook.com/cds/previous-year-papers",
+   "max_pdfs": 20
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-2",
+   "year": 2024,
+   "paper": "Paper-1 General Studies & Abilities (Final Key)",
+   "date": "2024-12-15",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2025/03/11/P1_General_Studies.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-2",
+   "year": 2024,
+   "paper": "Paper-2 History, Polity & Society (Final Key)",
+   "date": "2024-12-15",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2025/03/12/Paper%20-II_History_Polity_Society.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-2",
+   "year": 2024,
+   "paper": "Paper-3 Economy & Development (Final Key)",
+   "date": "2024-12-16",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2025/03/12/Paper_III_Economy.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-2",
+   "year": 2024,
+   "paper": "Paper-4 Telangana Movement & State Formation (Final Key)",
+   "date": "2024-12-16",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2025/03/12/Paper-IV_Telangana%20Movement_State%20Formation.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-2",
+   "year": 2024,
+   "paper": "Paper-2 History, Polity & Society (Prelim Key)",
+   "date": "2024-12-15",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2025/01/18/TGPSC-Group2-Paper-2-QPandKey-2025.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-2",
+   "year": 2024,
+   "paper": "Paper-3 Economy & Development (Prelim Key)",
+   "date": "2024-12-16",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2025/01/18/TGPSC-Group2-Paper-3-QPandKey-2025.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-2",
+   "year": 2024,
+   "paper": "Paper-4 Telangana Movement (Prelim Key)",
+   "date": "2024-12-16",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2025/01/18/TGPSC-Group2-Paper-4-QPandKey-2025.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-3",
+   "year": 2024,
+   "paper": "Paper-1 General Studies & Abilities",
+   "date": "2024-11-17",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2024/11/17/TSPSC-Group-3-2024-paper1-Question-Paper-key.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-3",
+   "year": 2024,
+   "paper": "Paper-2 History, Polity & Society",
+   "date": "2024-11-17",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2024/11/17/tgpsc-group3-second-paper-question-paper.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-1 Prelims",
+   "year": 2024,
+   "paper": "Paper-1 General Studies (Set B)",
+   "date": "2024-03-17",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2024/03/17/APPSC-Group-1Prelims-G-Paper-1setB-2024_0.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-1 Prelims",
+   "year": 2024,
+   "paper": "Paper-2 General Aptitude (Final Key)",
+   "date": "2024-03-17",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2024/04/13/Group-I%20Paper-II%20Final%20Key_122023_13042024.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Junior Lecturers",
+   "year": 2025,
+   "paper": "Paper-1 General Studies & Mental Ability (with key)",
+   "date": "2025-07-20",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2026/02/09/PaperIGSandMA_4410091515427_20thJuly2025_162023.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Prelims",
+   "year": 2025,
+   "paper": "Prelims Question Paper-1",
+   "date": "2025",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/04/02173649/Group-2-%E2%80%93-Prelims-Exam-Question-Paper-1-2025.pdf",
+   "lang": "en",
+   "via": "Adda247 APPSC Group-2 PYQ page (official paper mirror)"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Prelims",
+   "year": 2025,
+   "paper": "Prelims Question Paper-2",
+   "date": "2025",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/04/02173653/Group-2-%E2%80%93-Prelims-Exam-Question-Paper-2-2025.pdf",
+   "lang": "en",
+   "via": "Adda247 APPSC Group-2 PYQ page (official paper mirror)"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Prelims",
+   "year": 2017,
+   "paper": "Screening Test",
+   "date": "2017",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/04/02173700/Group-2-%E2%80%93-Prelims-Exam-Question-Paper-2017.pdf",
+   "lang": "en",
+   "via": "Adda247 APPSC Group-2 PYQ page (official paper mirror)"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Prelims",
+   "year": 2019,
+   "paper": "Screening Test (5 May 2019)",
+   "date": "2019-05-05",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/04/02173704/Group-2-%E2%80%93-Prelims-Exam-Question-Paper-2019.pdf",
+   "lang": "en",
+   "via": "Adda247 APPSC Group-2 PYQ page (official paper mirror)"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Mains",
+   "year": 2019,
+   "paper": "Paper-3 Planning & Indian Economy (with key)",
+   "date": "2019",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/04/02163207/APPSC-Mains-For-Group-II-Paper-III-Planning-in-India-and-Indian-Economy-Question-Paper-with-key-2019.pdf",
+   "lang": "en",
+   "via": "Adda247 APPSC Group-2 PYQ page (official paper mirror)"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Mains",
+   "year": 2019,
+   "paper": "Paper-2 AP Social History & Constitution",
+   "date": "2019",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/04/02163209/APPSC-Mains-For-Group-II-Services-Paper-II-A.P-Social-History-and-Constitution-Question-Paper-2019.pdf",
+   "lang": "en",
+   "via": "Adda247 APPSC Group-2 PYQ page (official paper mirror)"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Mains",
+   "year": 2017,
+   "paper": "Paper-1 (Final Key, 15 Jul 2017)",
+   "date": "2017-07-15",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/04/02161115/APPSC-Group-2-Mains-Paper-I-Question-Paper-with-Final-Key-Held-on-15.07.2017.pdf",
+   "lang": "en",
+   "via": "Adda247 APPSC Group-2 PYQ page (official paper mirror)"
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-2 Mains",
+   "year": 2017,
+   "paper": "Paper-3 (Final Key, 16 Jul 2017)",
+   "date": "2017-07-16",
+   "url": "https://www.adda247.com/jobs/wp-content/uploads/sites/22/2026/04/02161119/APPSC-Group-2-Mains-Paper-III-Question-Paper-with-Final-Key-Held-on-16.07.2017.pdf",
+   "lang": "en",
+   "via": "Adda247 APPSC Group-2 PYQ page (official paper mirror)"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "AP Police Constable Prelims",
+   "year": 2023,
+   "paper": "Preliminary Written Test (with key)",
+   "date": "2023-01-22",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2023/01/22/APPoliceExam2023-final.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS SI Final",
+   "year": 2023,
+   "paper": "General Studies Paper (Code A, with key)",
+   "date": "2023-04-09",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2023/04/09/TS-SI-General%20Studies-Paper-CodeA-QuestionPaper-key-2023.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS SI Final",
+   "year": 2023,
+   "paper": "Arithmetic & Reasoning Paper (with key)",
+   "date": "2023-04-08",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2023/04/08/AP-SI-QP080423-1_key.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS Police Constable Prelims",
+   "year": 2022,
+   "paper": "Preliminary Written Test (with key)",
+   "date": "2022-08-28",
+   "url": "https://education.sakshi.com/sites/default/files/pdf/2022/08/28/TS-Constable-Question-Paper-Key-2022.pdf",
+   "lang": "en",
+   "via": "Sakshi Education (official master QP + key mirror, pdf.js viewer unwrapped)"
+  },
+  {
+   "channel": "POLICE",
+   "exam": "AP SI Prelims",
+   "year": 2023,
+   "paper": "Paper-1 & Paper-2 (official key)",
+   "date": "2023-02-19",
+   "index": "https://education.sakshi.com/en/ap-police/previous-papers-2022/ap-si-prelims-question-paper-and-exam-key-2023-news-telugu-125488",
+   "lang": "en",
+   "via": "Sakshi Education page (pdf.js viewer link resolved at harvest)",
+   "max_pdfs": 2
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS Police Constable Final",
+   "year": 2023,
+   "paper": "Final Written Exam Set A (with key)",
+   "date": "2023-04-30",
+   "index": "https://education.sakshi.com/en/ts-police/previous-papers-2023/ts-constable-final-exam-question-paper-2023-pdf-download-129926",
+   "lang": "en",
+   "via": "Sakshi Education page (pdf.js viewer link resolved at harvest)",
+   "max_pdfs": 2
+  },
+  {
+   "channel": "POLICE",
+   "exam": "AP Police Constable Mains",
+   "year": 2018,
+   "paper": "Mains (17 Mar 2019, official key)",
+   "date": "2019-03-17",
+   "index": "https://education.sakshi.com/en/ap-police/previous-papers-2018/ap-police-constable-mains-exam-2018-question-paper-official-key-held-17032019-39025",
+   "lang": "en",
+   "via": "Sakshi Education page (pdf.js viewer link resolved at harvest)",
+   "max_pdfs": 2
+  },
+  {
+   "channel": "POLICE",
+   "exam": "AP SI Prelims",
+   "year": 2018,
+   "paper": "Paper-I & II (16 Dec 2018, official key)",
+   "date": "2018-12-16",
+   "index": "https://education.sakshi.com/en/ap-police/previous-papers-2018/ap-sub-inspector-si-exam-2018-paper-i-question-paper-official-key-held-16122018-39035",
+   "lang": "en",
+   "via": "Sakshi Education page (pdf.js viewer link resolved at harvest)",
+   "max_pdfs": 2
+  },
+  {
+   "channel": "POLICE",
+   "exam": "TS SI Mains",
+   "year": 2018,
+   "paper": "GS Paper (final key)",
+   "date": "2019-04-27",
+   "index": "https://education.sakshi.com/en/ts-police/previous-papers-2018",
+   "lang": "en",
+   "via": "Sakshi Education page (pdf.js viewer link resolved at harvest)",
+   "max_pdfs": 2
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-1 Prelims",
+   "year": 2024,
+   "paper": "General Studies & Mental Ability (official key)",
+   "date": "2024-06-09",
+   "index": "https://education.sakshi.com/en/tspsc/education-news/download-tspsc-group-1-preliminary-key-and-raise-objections-until-june-17th-157560",
+   "lang": "en",
+   "via": "Sakshi Education page (pdf.js viewer link resolved at harvest)",
+   "max_pdfs": 2
+  },
+  {
+   "channel": "TSPSC",
+   "exam": "TSPSC Group-3",
+   "year": 2024,
+   "paper": "Paper-3 Economy & Development",
+   "date": "2024-11-18",
+   "index": "https://education.sakshi.com/group-3/jobs/tspsc-group-3-exam-2024-question-paper-3-key-news-telugu-167172",
+   "lang": "en",
+   "via": "Sakshi Education page (pdf.js viewer link resolved at harvest)",
+   "max_pdfs": 2
+  },
+  {
+   "channel": "APPSC",
+   "exam": "APPSC Group-1 Prelims",
+   "year": 2024,
+   "paper": "Paper-2 General Aptitude (official key)",
+   "date": "2024-03-17",
+   "index": "https://education.sakshi.com/en/appsc/previous-papers-2024/appsc-group-1-prelims-2024-paper-2-question-paper-151920",
+   "lang": "en",
+   "via": "Sakshi Education page (pdf.js viewer link resolved at harvest)",
+   "max_pdfs": 2
+  }
+ ],
+ "updated": "2026-09-11"
+}
