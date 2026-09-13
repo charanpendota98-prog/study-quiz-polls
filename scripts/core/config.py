@@ -362,6 +362,8 @@ REQUIRE_REGISTRATION = env("REQUIRE_REGISTRATION", "1").lower() not in ("0", "fa
 # Where the daily champions / district cup posts go (people-content, not polls).
 # Default: CURRENT hub only, so exam channels stay 100% polls.
 CHAMPION_CHANNELS = [c.strip().upper() for c in env("CHAMPION_CHANNELS", "CURRENT").split(",") if c.strip()]
+# ⚔️ District War alert + result go to these channels (default: EVERY public quiz channel)
+WAR_CHANNELS = [c.strip().upper() for c in env("WAR_CHANNELS", ",".join(PUBLIC_CHANNELS)).split(",") if c.strip()]
 BOT_USERNAME = env("BOT_USERNAME", "")
 EXAM_DATES = env("EXAM_DATES", "")                        # 'TSPSC=2026-10-15,APPSC=2026-11-02' → countdown plan DMs
 WHATSAPP_CHANNEL = env("WHATSAPP_CHANNEL", "")           # WhatsApp channel invite link (shown in campus results)

@@ -152,3 +152,46 @@ class TestWarRanksSquads(TestWar):
             self.assertIn("overall #1/", [t for c, t in tg.msgs if c == "1"][-1])
         finally:
             hooks.SQUADS_PATH = hp
+
+
+class ManualLaunch(unittest.TestCase):
+    def test_manual_launch_and_auto_start(self):
+        import tempfile, pathlib
+        from datetime import datetime, timedelta
+        from core import districtwar as W, config
+        tmp = tempfile.TemporaryDirectory(); W.PATH = pathlib.Path(tmp.name) / "w.json"
+        config.BOT_USERNAME = "StudentUpBot"
+
+        class KV:
+            def save(self): pass
+
+        class M:
+            members = {"1": {"registered": True, "district": "Warangal"}, "2": {"registered": True, "district": "Guntur"},
+                       "3": {"registered": False}}
+            kv = KV()
+
+        class TG:
+            def __init__(self): self.sent = []; self.polls = 0
+            def send_message(self, c, t, **k): self.sent.append((str(c), t, k.get("buttons")))
+            def polite_gap(self, a=False): pass
+            def _call(self, m, p, **k):
+                self.polls += 1; return {"ok": True, "result": {"poll": {"id": f"p{self.polls}"}}}
+            def admin_notify(self, t): self.sent.append(("admin", t, None))
+
+        class Bank:
+            def pick(self, ch, n): return []
+            def pick_adaptive(self, *a, **k): return []
+            questions = []
+        tg = TG(); now = datetime(2026, 9, 13, 18, 0, tzinfo=config.IST)
+        ok, txt = W.manual_launch(M(), tg, bank=None, minutes=5, now=now)
+        self.assertTrue(ok); self.assertIn("2 fighters alerted", txt)
+        chan = [s for s in tg.sent if s[0].startswith("@") or s[0].startswith("-")]
+        self.assertEqual(len(chan), len(config.WAR_CHANNELS)); self.assertIn("start=war", chan[0][2][0][0][1])
+        W.lobby_join(M(), "1"); W.lobby_join(M(), "2")
+        self.assertIn("Lobby OPEN", W.owner_status(M()))
+        self.assertFalse(W.maybe_auto_start(Bank(), M(), tg, now=now + timedelta(minutes=2)))   # not yet
+        # at start time: compose() finds no questions in the fake bank → not started, admin notified, lobby closed
+        W.maybe_auto_start(Bank(), M(), tg, now=now + timedelta(minutes=6))
+        self.assertFalse(W.lobby_status()["open"])
+        self.assertTrue(any(s[0] == "admin" for s in tg.sent))
+        tmp.cleanup()

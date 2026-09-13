@@ -343,7 +343,8 @@ class Bot:
                 self.tg.send_message(chat_id, crm.sheet_status_text(self.members.members), buttons=crm.sheet_buttons())
             elif value == "war":
                 from core import districtwar
-                self.tg.send_message(chat_id, districtwar.lobby_status() if hasattr(districtwar, "lobby_status") else "n/a")
+                self.tg.send_message(chat_id, districtwar.owner_status(self.members),
+                                     buttons=[[("⚔️ Launch war now (5 min)", "cmd:war now"), ("🔄 Status", "cmd:war status")]])
             else:
                 txt, _, _ = hq.render(self.members, self.bank)
                 self.tg.send_message(chat_id, txt, buttons=hq.buttons())
@@ -863,6 +864,17 @@ class Bot:
                 self.tg.send_message(chat_id, "🔔 Job track + reminders కోసం 1 నిమిషం register (+25 pts) 👇 తర్వాత /jobs")
                 self.tg.send_message(chat_id, FIRST_TIME_ASK)
                 return
+            if arg == "war" and uid:
+                from core import districtwar
+                if self.members.is_registered(uid):
+                    ok, txt = districtwar.lobby_join(self.members, uid)
+                    self.tg.send_message(chat_id, txt, buttons=None if ok else None)
+                    return
+                if not self.members.pending_step(uid):
+                    self.members.start_registration(uid, username=self._name(who))
+                self.tg.send_message(chat_id, "⚔️ War ఆడాలంటే 1 నిమిషం register (జిల్లా కావాలి, +25 pts) 👇 తర్వాత /war join")
+                self.tg.send_message(chat_id, FIRST_TIME_ASK)
+                return
             if arg in ("quiz", "register", "reg") and uid and not self.members.is_registered(uid):
                 if not self.members.pending_step(uid):
                     self.members.start_registration(uid, username=self._name(who))
@@ -949,7 +961,14 @@ class Bot:
         elif low.startswith("/war") or low.startswith("/districtwar"):
             from core import districtwar
             parts = low.split()
-            if len(parts) > 1 and parts[1] in ("join", "play", "in"):
+            if len(parts) > 1 and parts[1] == "now" and str(uid) in self._staff_ids():
+                mins = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 5
+                ok, txt = districtwar.manual_launch(self.members, self.tg, bank=self.bank, minutes=max(2, min(mins, 30)))
+                self.tg.send_message(chat_id, txt)
+            elif len(parts) > 1 and parts[1] == "status" and str(uid) in self._staff_ids():
+                self.tg.send_message(chat_id, districtwar.owner_status(self.members),
+                                     buttons=[[("⚔️ Launch war now (5 min)", "cmd:war now"), ("🔄 Status", "cmd:war status")]])
+            elif len(parts) > 1 and parts[1] in ("join", "play", "in"):
                 ok, txt = districtwar.lobby_join(self.members, uid, via_squad=(len(parts) > 2 and parts[2] == "squad"))
                 self.tg.send_message(chat_id, txt)
             else:
@@ -1865,6 +1884,7 @@ class Bot:
                     live = any(r["state"] in ("countdown", "question", "gap")
                                for r in arena._load()["rooms"].values())
                     from core import districtwar
+                    districtwar.maybe_auto_start(self.bank, self.members, self.tg)
                     if districtwar.tick(self.tg, self.members):
                         live = True
                     from core import campus

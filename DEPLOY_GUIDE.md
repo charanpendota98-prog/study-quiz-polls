@@ -124,6 +124,19 @@ Existing rows are kept; new header columns are appended automatically.
 If Google is down the push is stored in `data/sheet_queue.json` and retried at 23:30 or by `/sheet → Flush queue`.
 Owner commands: `/sheet` (status, Sync all now, Flush queue, Colleges/Partners tabs, Daily snapshot, CSV export), `/syncsheet`, `/export`.
 
+## District War — how it runs / how to launch (13 Sep 2026)
+
+* **Automatic every day** (`WAR_TIME`, default 21:00): 20:55 alert (DM to every registered member with
+  district + post in **every quiz channel** with an "⚔️ I want to play" button → `t.me/<bot>?start=war`),
+  20:59 last call, 21:00 start (only lobby joiners get the 10 questions in DM, one at a time, no late entry),
+  ~21:18 result in all channels (district ranking, top fighter per district, MVP, rivalry, season).
+  Channels list: `WAR_CHANNELS` (default all public quiz channels). Sundays 21:45 season table.
+* **Manual launch** (owner): `/war now` (lobby opens now, alerts everywhere, auto-start in 5 min),
+  `/war now 10` (10-minute lobby), `/war status`, or HQ → War button. One war per day.
+* **Squad Battle Arena** is player-driven: squad leader `/battle new` → room code → other leader
+  `/battle join RM-XXXX` → `/battle start` (or auto). Results + weekly Arena board go to the hub
+  (`CHAMPION_CHANNELS`). Owner can seed a weekend bracket with `/battle tournament`.
+
 ## Register Gate 2.0 (13 Sep 2026) — `core/gate.py`
 
 * T-5 / T-1 alerts, round opener and the Top-10 post carry the rule line

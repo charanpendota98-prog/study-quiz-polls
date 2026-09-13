@@ -605,6 +605,109 @@ def lobby_join(members, uid, via_squad=False):
                   + "9:00 కి ప్రశ్నలు ఇక్కడే. Start అయ్యాక entry లేదు 🔒")
 
 
+def channel_buttons():
+    """Channel post button → bot deep link (channels can't use callback buttons for DMs)."""
+    try:
+        from . import gate
+        link = gate.bot_link("war")
+    except Exception:
+        link = ""
+    return [[("⚔️ I want to play — join War", f"url:{link}")]] if link else None
+
+
+def channel_alert_text(minutes: int) -> str:
+    return alert_text(minutes) + "\n\n📣 Button నొక్కి bot లో join అవ్వండి (register ఒక్కసారి). ప్రశ్నలు bot DM లో వస్తాయి, result ఇక్కడ 🏆"
+
+
+def manual_launch(members, tg, bank=None, minutes=5, now=None):
+    """Owner: /war now → lobby opens NOW, alerts everywhere, war auto-starts in `minutes`
+    (bot loop tick() fires start_war when lobby.start_at passes). Returns (ok, text)."""
+    now = now or _now()
+    d = _load()
+    day = now.strftime("%Y-%m-%d")
+    if d.get("live") and d["live"].get("state") != "done":
+        return False, "⚔️ War already LIVE."
+    if day in d["season"].get(now.strftime("%Y%m"), {}).get("wars", {}):
+        return False, "⚔️ ఈరోజు war already జరిగింది (రోజుకి ఒకటి)."
+    if bank is not None and len(compose(bank)) < 8:
+        return False, "❌ war ki questions చాలవు (bank check /pyq)."
+    open_lobby(now)
+    d = _load()
+    d["lobby"]["start_at"] = (now + timedelta(minutes=minutes)).isoformat()
+    d["lobby"]["manual"] = True
+    _save(d)
+    txt = alert_text(minutes)
+    btn = lobby_buttons(minutes)
+    n = 0
+    for uid, m in members.members.items():
+        if m.get("registered") and m.get("district") and not m.get("dm_blocked"):
+            try:
+                tg.send_message(uid, txt, buttons=btn); n += 1
+            except Exception:
+                m["dm_blocked"] = True
+            if n % 25 == 0:
+                tg.polite_gap(True)
+    posted = 0
+    for ch in getattr(config, "WAR_CHANNELS", None) or getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
+        try:
+            tg.send_message(config.channel_chat_id(ch), channel_alert_text(minutes), buttons=channel_buttons()); posted += 1
+        except Exception:
+            pass
+    try:
+        members.kv.save()
+    except Exception:
+        pass
+    return True, (f"⚔️ WAR LAUNCHED — start at {(now + timedelta(minutes=minutes)).strftime('%H:%M')}\n"
+                  f"📨 {n} fighters alerted · 📣 {posted} channels posted\n"
+                  f"Lobby open → auto-start in {minutes} min (≥2 fighters కావాలి). Status: /war status")
+
+
+def maybe_auto_start(bank, members, tg, now=None):
+    """Called from bot tick: manual launch whose start_at has passed → start_war."""
+    now = now or _now()
+    try:
+        d = _load()
+        lb = d.get("lobby") or {}
+        sa = lb.get("start_at")
+        if not sa or not lb.get("open") or (d.get("live") and d["live"].get("state") != "done"):
+            return False
+        if now < datetime.fromisoformat(sa):
+            return False
+        ok, info = start_war(bank, members, tg, now)
+        d = _load(); d["lobby"].pop("start_at", None); d["lobby"]["open"] = False; _save(d)
+        if not ok:
+            try:
+                tg.admin_notify(f"District War (manual) not started: {info}")
+            except Exception:
+                pass
+        return ok
+    except Exception as e:
+        print(f"   [war] auto-start note: {e}")
+        return False
+
+
+def owner_status(members) -> str:
+    d = _load()
+    st = lobby_status()
+    live = d.get("live") or {}
+    t = getattr(config, "WAR_TIME", "21:00")
+    lines = ["⚔️ DISTRICT WAR — owner status",
+             f"🕘 Daily auto: {t} (alerts {t[:-2]}55 / T-1 · start · result ~+18 min) — .env WAR_TIME",
+             f"📣 Channels: {', '.join(getattr(config, 'WAR_CHANNELS', []) or ['CURRENT'])}"]
+    if live and live.get("state") != "done":
+        lines.append(f"🔴 LIVE now: Q{live.get('qi', 0) + 1}/{len(live.get('questions', []))} · {len(live.get('fighters', {}))} fighters")
+    elif st["open"]:
+        lb = d.get("lobby") or {}
+        when = lb.get("start_at", "")[11:16] if lb.get("start_at") else t
+        lines.append(f"🟢 Lobby OPEN → start {when} · {st['n']} in · " + " · ".join(f"{k} {v}" for k, v in sorted(st['by_district'].items(), key=lambda kv: -kv[1])[:5]))
+    else:
+        lines.append("⚪ No lobby open now")
+    wars = d["season"].get(_now().strftime("%Y%m"), {}).get("wars", {})
+    lines.append(f"📅 This month: {len(wars)} wars fought")
+    lines.append("\nManual: /war now (5 min) · /war now 10 · /war status")
+    return "\n".join(lines)
+
+
 def lobby_status():
     d = _load()
     lb = d.get("lobby") or {}

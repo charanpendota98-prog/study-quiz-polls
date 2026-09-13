@@ -755,9 +755,10 @@ class Engine:
                 if n % 25 == 0:
                     time.sleep(0 if self.dry else 1.0)
         if minutes >= 5:
-            for ch in getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
+            for ch in getattr(config, "WAR_CHANNELS", None) or getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
                 try:
-                    self.tg.send_message(config.channel_chat_id(ch), txt + "\nJoin → bot లో /war (register ఒక్కసారి)")
+                    self.tg.send_message(config.channel_chat_id(ch), districtwar.channel_alert_text(minutes),
+                                         buttons=districtwar.channel_buttons())
                 except TelegramError:
                     pass
         print(f"[war] T-{minutes} alert → {n} fighters")
@@ -777,7 +778,7 @@ class Engine:
         txt = districtwar.pop_channel_post()
         if not txt:
             return 0
-        for ch in getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
+        for ch in getattr(config, "WAR_CHANNELS", None) or getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
             try:
                 self.tg.send_message(config.channel_chat_id(ch), txt)
             except TelegramError as e:
@@ -789,7 +790,7 @@ class Engine:
         txt = districtwar.season_table()
         if not txt:
             return 0
-        for ch in channels or getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
+        for ch in channels or getattr(config, "WAR_CHANNELS", None) or getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
             try:
                 self.tg.send_message(config.channel_chat_id(ch), txt)
             except TelegramError:
