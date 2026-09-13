@@ -363,6 +363,7 @@ REQUIRE_REGISTRATION = env("REQUIRE_REGISTRATION", "1").lower() not in ("0", "fa
 # Default: CURRENT hub only, so exam channels stay 100% polls.
 CHAMPION_CHANNELS = [c.strip().upper() for c in env("CHAMPION_CHANNELS", "CURRENT").split(",") if c.strip()]
 BOT_USERNAME = env("BOT_USERNAME", "")
+EXAM_DATES = env("EXAM_DATES", "")                        # 'TSPSC=2026-10-15,APPSC=2026-11-02' → countdown plan DMs
 WHATSAPP_CHANNEL = env("WHATSAPP_CHANNEL", "")           # WhatsApp channel invite link (shown in campus results)
 INSTAGRAM_HANDLE = env("INSTAGRAM_HANDLE", "@studentup")   # shown in /follow + auto-DM template
 YOUTUBE_HANDLE = env("YOUTUBE_HANDLE", "@studentup")

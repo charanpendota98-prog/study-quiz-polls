@@ -41,4 +41,12 @@ data/scout_state.json
 data/pyq_state.json
 data/answer_pending.json
 data/supply_state.json
-data/tg_source_state.json
+data/tg_source_state.json# runtime state (bot writes these)
+data/partners.json
+data/social.json
+data/campus.json
+data/hq.json
+data/autopilot.json
+data/district_war.json
+data/arena.json
+data/round_polls.json

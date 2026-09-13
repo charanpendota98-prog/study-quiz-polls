@@ -436,3 +436,12 @@ Every exam channel now has its own competition next to the all-exam District War
 * 08:00 morning brief DM to `STAFF_IDS` only when there is news or an alert.
 * **College clubs**: `/college` → every college that ran an event, with active-this-week and leader; tap →
   card with 🔁 Re-run event · 📢 Message members · 👑 Top scorer → Ambassador (+50, badge, DM) · 🏆 Post club board.
+
+## 🤖 Autopilot (`scripts/core/autopilot.py`) — bot fixes things itself
+* Every 30 min **heal**: low question stock → runs the collector (once/day); campus events open >12 h with no
+  students → auto-closed, >6 h with students → organiser reminded once; expired vouchers released.
+* 07:30 **Personal Coach**: 3 weak-topic questions per active member (scored, round `C<date>`); 5 days in a
+  row → 🎯 Focus badge +25. `/coach`, `/coach off`.
+* 12:00 **Exam countdown** (`EXAM_DATES=TSPSC=2026-10-15,APPSC=…` in .env): D-14/7/3/1 plan DMs.
+* 18:00 **Win-back**: silent 3 / 7 / 21 days → one DM each (never more), resets when they play.
+* 22:45 **Night report** to staff: everything the autopilot did today + tomorrow's plan.

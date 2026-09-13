@@ -560,6 +560,25 @@ class Engine:
         print(f"[examboard] {period}: {n} channels")
         return n
 
+    # ------------------------------------------------------------ autopilot
+    def autopilot(self, what):
+        from . import autopilot as A
+        mem = Members()
+        bank = self.bank if hasattr(self, "bank") else None
+        if what == "heal":
+            return A.heal(bank, mem, self.tg, self.dry)
+        if what == "coach":
+            return A.coach_round(bank, mem, self.tg, self.dry)
+        if what == "coach_streaks":
+            return A.coach_streaks(mem, self.tg, self.dry)
+        if what == "winback":
+            return A.winback(mem, self.tg, self.dry)
+        if what == "countdown":
+            return A.exam_countdown(mem, self.tg, self.dry)
+        if what == "night":
+            return A.night_report(mem, self.tg, self.dry)
+        return None
+
     def morning_brief(self):
         from . import hq
         txt = hq.morning_brief(Members(), self.bank if hasattr(self, "bank") else None)

@@ -252,6 +252,20 @@ def tick(eng, now, dry=False):
             eng.partner_ad(); ran.append("partner-ad")
         except Exception as e:
             log(f"ad error: {e}")
+    # ---- autopilot
+    if now.minute in (5, 35):
+        try:
+            done = eng.autopilot("heal")
+            if done:
+                ran.append("heal")
+        except Exception as e:
+            log(f"autopilot heal error: {e}")
+    for t, what in (("07:30", "coach"), ("12:00", "countdown"), ("18:00", "winback"), ("22:40", "coach_streaks"), ("22:45", "night")):
+        if hhmm == t:
+            try:
+                eng.autopilot(what); ran.append("ap-" + what)
+            except Exception as e:
+                log(f"autopilot {what} error: {e}")
     if hhmm == "08:00":
         try:
             eng.morning_brief(); ran.append("hq-brief")

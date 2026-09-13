@@ -19,6 +19,7 @@ Commands:
   /join               📢 channels join + ✅ verify → +30 pts each
   /claim CODE         📸 Instagram/YouTube auto-DM code → points (/follow = how)
   /scout              🕵️ మీ జిల్లా shop/coaching ని refer చేయండి → partner అయితే +150
+  /coach              🎯 daily weak-topic coach (07:30) · /coach off
   /mandal <పేరు>      🏠 మీ mandal offers ముందు · /mydistrict <జిల్లా> = జిల్లా మార్చు
   /examdone           📝 exam రాశాక tap → +25 pts + exam-day offers unlock
   /partner apply      🤝 business owners: advertise to students + accept points
@@ -1036,6 +1037,17 @@ class Bot:
                 self.tg.send_message(chat_id, f"sent to {p['name']}")
             else:
                 self.tg.send_message(chat_id, campus.panel_text(self.members), buttons=campus.panel_buttons())
+        elif low.startswith("/coach"):
+            m = self.members.members.get(str(uid), {}) if uid else {}
+            parts = low.split()
+            if len(parts) > 1 and parts[1] in ("off", "stop"):
+                m["no_coach"] = True; self.members.kv.save(); self.tg.send_message(chat_id, "🎯 Coach DMs off. మళ్ళీ: /coach on"); return
+            if len(parts) > 1 and parts[1] == "on":
+                m["no_coach"] = False; self.members.kv.save(); self.tg.send_message(chat_id, "🎯 Coach DMs on — రోజూ 07:30"); return
+            weak = self.members.weak_topics(uid) if uid else []
+            self.tg.send_message(chat_id, "🎯 Personal Coach — రోజూ 07:30 కి మీ weak topics నుంచి 3 Q\n"
+                                          + (f"మీ weak topics: {', '.join(t.title() for t in weak)}\n" if weak else "ఇంకా data లేదు — కొన్ని rounds ఆడండి\n")
+                                          + f"Coach streak: {m.get('coach_streak', 0)} రోజులు · 5 → 🎯 Focus badge\nఇప్పుడే ఒకటి: /quiz · Off: /coach off")
         elif low.startswith("/mandal"):
             m = self.members.members.get(str(uid), {}) if uid else {}
             if not m.get("registered"):
