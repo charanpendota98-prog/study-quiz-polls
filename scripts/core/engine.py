@@ -560,6 +560,13 @@ class Engine:
         print(f"[examboard] {period}: {n} channels")
         return n
 
+    def jobradar(self, what):
+        from . import jobradar as JR
+        mem = Members()
+        if what == "digest":
+            return JR.daily_digest(mem, self.tg, self.dry)
+        return JR.deadline_reminders(mem, self.tg, self.dry)
+
     def sheet_nightly(self):
         from . import crm
         if self.dry:

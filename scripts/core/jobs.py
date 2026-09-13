@@ -634,9 +634,18 @@ def run(tg, dry=False, max_posts=6, fetch=None, today=None) -> int:
     posted = 0
     for j in fresh[:max_posts]:
         try:
-            tg.send_message(chat, render_card(j, today), disable_preview=True)
+            card = render_card(j, today)
+            jid, btn = None, None
+            if not dry:
+                try:
+                    from . import jobradar
+                    jid = jobradar.record(j, card)
+                    btn = jobradar.channel_buttons(jid)
+                except Exception as e:
+                    print(f"   [jobs] radar record failed: {e}")
+            tg.send_message(chat, card, disable_preview=True, buttons=btn)
             st["posted"][j.key()] = {"title": j.title, "ts": datetime.now(config.IST).isoformat(),
-                                     "last_date": j.last_date, "card": render_card(j, today)[:1500]}
+                                     "last_date": j.last_date, "card": card[:1500], "jid": jid}
             posted += 1
             tg.polite_gap(not dry)
         except Exception as e:

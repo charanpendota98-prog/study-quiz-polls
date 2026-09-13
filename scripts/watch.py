@@ -272,6 +272,12 @@ def tick(eng, now, dry=False):
                 eng.autopilot(what); ran.append("ap-" + what)
             except Exception as e:
                 log(f"autopilot {what} error: {e}")
+    for t, what in (("09:00", "remind"), ("19:00", "digest")):
+        if hhmm == t:
+            try:
+                n = eng.jobradar(what); ran.append(f"jobradar-{what}"); log(f"job radar {what}: {n} DMs")
+            except Exception as e:
+                log(f"job radar {what} error: {e}")
     if hhmm == "23:30":
         try:
             log(f"sheet nightly: {eng.sheet_nightly()}"); ran.append("sheet-nightly")

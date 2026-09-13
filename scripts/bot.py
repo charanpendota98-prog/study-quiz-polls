@@ -19,6 +19,7 @@ Commands:
   /join               📢 channels join + ✅ verify → +30 pts each
   /claim CODE         📸 Instagram/YouTube auto-DM code → points (/follow = how)
   /scout              🕵️ మీ జిల్లా shop/coaching ని refer చేయండి → partner అయితే +150
+  /jobs               📡 Job Radar — jobs matching YOUR qualification, track, reminders
   /sheet              📊 Google Sheet status, sync, tabs (staff)
   /msg                📣 Message Studio: personalised DM to segments, preview, schedule (staff)
   /card               📇 my weekly report card (share on WhatsApp status)
@@ -466,6 +467,26 @@ class Bot:
             else:
                 self.tg.send_message(chat_id, crm.sheet_status_text(self.members.members), buttons=crm.sheet_buttons())
             return
+        if kind == "jr" and uid:
+            from core import jobradar
+            if not self.members.is_registered(uid):
+                self.members.start_registration(uid, username="")
+                self.tg.send_message(chat_id, FIRST_TIME_ASK)
+                return
+            act, _, jid = value.partition(":")
+            if act == "t":
+                self.tg.send_message(chat_id, jobradar.track(uid, jid), buttons=[[("📋 Checklist", f"jr:c:{jid}"), ("✅ I applied", f"jr:a:{jid}")]])
+            elif act == "u":
+                self.tg.send_message(chat_id, jobradar.untrack(uid, jid))
+            elif act == "a":
+                self.tg.send_message(chat_id, jobradar.applied(self.members, uid, jid))
+            elif act == "c":
+                self.tg.send_message(chat_id, jobradar.checklist_text(jid))
+            elif act == "mine":
+                self.tg.send_message(chat_id, jobradar.mine_text(uid))
+            else:
+                self.tg.send_message(chat_id, jobradar.radar_text(self.members, uid), buttons=jobradar.radar_buttons(self.members, uid))
+            return
         if kind == "rp" and uid:
             from core import roster
             k, _, v = value.partition(":")
@@ -779,6 +800,20 @@ class Bot:
                         "state": "Telangana" if D.state_of(e["district"]) == "TS" else "Andhra Pradesh",
                         "district": e["district"], "exam": "Current Affairs GK"})
                     self.tg.send_message(chat_id, "✍️ Step 1 of 2 — మీ పూర్తి పేరు? / Your full name:")
+                return
+            try:
+                from core import jobradar
+                jid = jobradar.parse_start_arg(arg)
+            except Exception:
+                jid = None
+            if jid and uid:
+                if self.members.is_registered(uid):
+                    txt, btn = jobradar.job_card(jid, uid)
+                    self.tg.send_message(chat_id, txt, buttons=btn)
+                    return
+                self.members.start_registration(uid, username=self._name(who))
+                self.tg.send_message(chat_id, "🔔 Job track + reminders కోసం 1 నిమిషం register (+25 pts) 👇 తర్వాత /jobs")
+                self.tg.send_message(chat_id, FIRST_TIME_ASK)
                 return
             if arg == "offers":
                 self.tg.send_message(chat_id, "🛍 Offers claim చేయాలంటే 1 నిమిషం register (+25 pts bonus) → తర్వాత /offers 👇"
@@ -1156,6 +1191,23 @@ class Bot:
                 self.tg.send_message(chat_id, f"sent to {p['name']}")
             else:
                 self.tg.send_message(chat_id, campus.panel_text(self.members), buttons=campus.panel_buttons())
+        elif low.startswith("/jobs") and uid:
+            from core import jobradar
+            arg = (low.split(maxsplit=1)[1] if len(low.split()) > 1 else "").strip()
+            if arg == "stats" and str(uid) in self._staff_ids():
+                self.tg.send_message(chat_id, jobradar.stats_text(self.members))
+            elif not self.members.is_registered(uid):
+                if not self.members.pending_step(uid):
+                    self.members.start_registration(uid, username=self._name(who))
+                self.tg.send_message(chat_id, "📡 Job Radar (మీ qualification కి match అయ్యే jobs + reminders) కోసం ముందు register (+25 pts) 👇")
+                self.tg.send_message(chat_id, FIRST_TIME_ASK)
+            elif arg in ("off", "on"):
+                self.tg.send_message(chat_id, jobradar.set_digest(uid, arg == "on"))
+            elif arg.upper().startswith("J") and arg[1:].isdigit():
+                txt, btn = jobradar.job_card(arg.upper(), uid)
+                self.tg.send_message(chat_id, txt, buttons=btn)
+            else:
+                self.tg.send_message(chat_id, jobradar.radar_text(self.members, uid), buttons=jobradar.radar_buttons(self.members, uid))
         elif low.startswith("/sheet") and uid and str(uid) in self._staff_ids():
             from core import crm
             self.tg.send_message(chat_id, crm.sheet_status_text(self.members.members), buttons=crm.sheet_buttons())

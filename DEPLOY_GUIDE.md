@@ -124,6 +124,19 @@ Existing rows are kept; new header columns are appended automatically.
 If Google is down the push is stored in `data/sheet_queue.json` and retried at 23:30 or by `/sheet → Flush queue`.
 Owner commands: `/sheet` (status, Sync all now, Flush queue, Colleges/Partners tabs, Daily snapshot, CSV export), `/syncsheet`, `/export`.
 
+## Job Radar 2.0 (13 Sep 2026) — `core/jobradar.py`
+
+* Every job card posted to the private JOBS channel is stored on a 60-day board
+  (`data/jobs_board.json`) with parsed **minimum qualification** + deadline, and gets a
+  "🔔 Track in bot" button (deep link `t.me/<bot>?start=job<id>`, needs `BOT_USERNAME`).
+* Students: `/jobs` → only jobs matching **their qualification + state**; 🔔 Track,
+  ✅ I applied (+5 pts, max 3/day), 📋 apply checklist by category, `/jobs J12`, `/jobs off|on`.
+* Scheduler: **09:00** deadline reminders (3 days / 1 day / today, once each) for tracked
+  jobs; **19:00** Radar DM — new matching jobs of the last 24 h (max 5) to every
+  registered member not opted out.
+* Owner: `/jobs stats` — most tracked / applied jobs, radar reach, qualification split.
+  Every reminder carries the Internet-Centre filing CTA (points cashback).
+
 ## Source wave 11 Sep 2026 — TS/AP official papers via Sakshi + Adda247
 
 * `data/pyq_papers.json` → **199 papers** (TSPSC 25, APPSC 37, POLICE 42, SSC 37,
