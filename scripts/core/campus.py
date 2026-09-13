@@ -527,7 +527,7 @@ def _finish(tg, members, d, e, now):
             crm.push_member(u, members.members.get(u, {}))
         crm.push_campus(e["code"], e["name"], e["district"],
                         [{"rank": p["rank"], "uid": u, "name": p["name"], "college": p["college"], "correct": p["correct"],
-                          "total": len(e["questions"]), "pts": p["pts"]} for u, p in rows])
+                          "total": len(e["questions"]), "pts": p["pts"]} for u, p in rows], members=members.members)
     except Exception as ex:
         print(f"   [campus] sheet note: {ex}")
 

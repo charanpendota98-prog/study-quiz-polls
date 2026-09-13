@@ -560,6 +560,12 @@ class Engine:
         print(f"[examboard] {period}: {n} channels")
         return n
 
+    def sheet_nightly(self):
+        from . import crm
+        if self.dry:
+            return {"dry": True}
+        return crm.nightly_sync(Members().members)
+
     def campaigns_due(self):
         from . import messenger
         return messenger.run_due(self.tg, Members(), dry=self.dry)

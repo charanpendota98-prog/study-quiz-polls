@@ -272,6 +272,11 @@ def tick(eng, now, dry=False):
                 eng.autopilot(what); ran.append("ap-" + what)
             except Exception as e:
                 log(f"autopilot {what} error: {e}")
+    if hhmm == "23:30":
+        try:
+            log(f"sheet nightly: {eng.sheet_nightly()}"); ran.append("sheet-nightly")
+        except Exception as e:
+            log(f"sheet nightly error: {e}")
     if hhmm == "20:30" and now.weekday() == 6:
         try:
             log(f"report cards: {eng.report_cards()}"); ran.append("report-cards")

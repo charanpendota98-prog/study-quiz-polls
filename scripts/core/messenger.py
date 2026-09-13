@@ -271,6 +271,11 @@ def run_job(tg, members, job, dry=False):
     d["scheduled"] = [j for j in d["scheduled"] if j["id"] != job["id"]]
     d["history"] = (d["history"] + [job])[-50:]
     _save(d)
+    try:
+        from . import crm
+        crm.push_campaign(job)
+    except Exception:
+        pass
     return rep
 
 

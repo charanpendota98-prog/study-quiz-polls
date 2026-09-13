@@ -19,6 +19,7 @@ Commands:
   /join               📢 channels join + ✅ verify → +30 pts each
   /claim CODE         📸 Instagram/YouTube auto-DM code → points (/follow = how)
   /scout              🕵️ మీ జిల్లా shop/coaching ని refer చేయండి → partner అయితే +150
+  /sheet              📊 Google Sheet status, sync, tabs (staff)
   /msg                📣 Message Studio: personalised DM to segments, preview, schedule (staff)
   /card               📇 my weekly report card (share on WhatsApp status)
   /profile            📚 branch / year (college boards)
@@ -335,8 +336,8 @@ class Bot:
                 from core import crm
                 self.tg.send_document(chat_id, "members.csv", crm.export_csv(self.members.members), caption="All members")
             elif value == "sheet":
-                n = self.members.sync_sheet_all()
-                self.tg.send_message(chat_id, f"🧾 synced {n} rows")
+                from core import crm
+                self.tg.send_message(chat_id, crm.sheet_status_text(self.members.members), buttons=crm.sheet_buttons())
             elif value == "war":
                 from core import districtwar
                 self.tg.send_message(chat_id, districtwar.lobby_status() if hasattr(districtwar, "lobby_status") else "n/a")
@@ -447,6 +448,23 @@ class Bot:
                 self.tg.send_message(chat_id, MS.history_text())
             elif act == "templates":
                 self.tg.send_message(chat_id, MS.templates_text())
+            return
+        if kind == "sheet" and uid and str(uid) in self._staff_ids():
+            from core import crm
+            if value == "sync":
+                n = self.members.sync_sheet_all(); self.tg.send_message(chat_id, f"🔁 pushed {n} members" if crm.sheet_enabled() else "⚠️ SHEET_WEBAPP_URL not set")
+            elif value == "flush":
+                self.tg.send_message(chat_id, f"📦 flushed {crm.flush_queue()} queued pushes · {crm.queue_size()} left")
+            elif value == "colleges":
+                self.tg.send_message(chat_id, f"🏫 colleges tab: {crm.push_colleges(self.members.members)} rows")
+            elif value == "partners":
+                self.tg.send_message(chat_id, f"🏪 partners tab: {crm.push_partners()} rows")
+            elif value == "daily":
+                self.tg.send_message(chat_id, "📅 daily snapshot " + ("✅" if crm.push_daily(self.members.members) else "❌ (queued)"))
+            elif value == "csv":
+                self.tg.send_document(chat_id, f"studentup_members_{datetime.now(config.IST):%Y%m%d}.csv", crm.export_csv(self.members.members), caption="All registered members")
+            else:
+                self.tg.send_message(chat_id, crm.sheet_status_text(self.members.members), buttons=crm.sheet_buttons())
             return
         if kind == "rp" and uid:
             from core import roster
@@ -1138,6 +1156,9 @@ class Bot:
                 self.tg.send_message(chat_id, f"sent to {p['name']}")
             else:
                 self.tg.send_message(chat_id, campus.panel_text(self.members), buttons=campus.panel_buttons())
+        elif low.startswith("/sheet") and uid and str(uid) in self._staff_ids():
+            from core import crm
+            self.tg.send_message(chat_id, crm.sheet_status_text(self.members.members), buttons=crm.sheet_buttons())
         elif low.startswith("/msg") and uid and str(uid) in self._staff_ids():
             from core import messenger as MS
             arg = text[4:].strip()

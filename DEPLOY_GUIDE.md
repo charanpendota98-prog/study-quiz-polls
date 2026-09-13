@@ -105,6 +105,25 @@ Test: open the /exec URL in a private/incognito window — it must show a small 
 `{"ok":true,"service":"StudentUp CRM"}` and NOT a Google sign-in page. Then in the bot: `/syncsheet`.
 The Sheet itself stays private; the SECRET blocks anyone else from writing.
 
+### CRM v2 (13 Sep 2026) — how data lands in the Sheet
+
+Paste the new `docs/sheet_webapp.gs` (v2) over the old script and re-deploy (*New version*).
+Existing rows are kept; new header columns are appended automatically.
+
+| Tab | Written when | Shape |
+|---|---|---|
+| `members` | live on register / points change (upsert by `tg_id`); full resync 23:30 | one row per student: name, mobile, state, district, mandal, qualification, exam, points, accuracy, streak, level, college/branch/year, tests, best %, last %, referrals, verified channels, badges, ambassador, dm_blocked |
+| `rounds` | after every quiz round closes | top-10 per round (round_id, channel, rank, name, district, score, points) |
+| `campus` | when a campus event finishes | **every** student of the event (phone, branch, year, score, %, points) |
+| `colleges` | 23:30 + `/sheet → Colleges tab` | one row per college: students, phones, tests, avg last %, improved, ambassador, last event |
+| `partners` | 23:30 + `/sheet → Partners tab` | one row per partner: offers, vouchers issued / redeemed / pending |
+| `campaigns` | after every `/msg` send | audience, total/sent/blocked/failed, text |
+| `daily` | 23:30 (one row per date) | members, with_mobile, active_today, new_today, TS/AP split, answers_today, colleges |
+| `📊 Dashboard` | formulas, auto | totals, top districts/exams/colleges, 14-day growth |
+
+If Google is down the push is stored in `data/sheet_queue.json` and retried at 23:30 or by `/sheet → Flush queue`.
+Owner commands: `/sheet` (status, Sync all now, Flush queue, Colleges/Partners tabs, Daily snapshot, CSV export), `/syncsheet`, `/export`.
+
 ## Source wave 11 Sep 2026 — TS/AP official papers via Sakshi + Adda247
 
 * `data/pyq_papers.json` → **199 papers** (TSPSC 25, APPSC 37, POLICE 42, SSC 37,
