@@ -445,3 +445,11 @@ Every exam channel now has its own competition next to the all-exam District War
 * 12:00 **Exam countdown** (`EXAM_DATES=TSPSC=2026-10-15,APPSC=…` in .env): D-14/7/3/1 plan DMs.
 * 18:00 **Win-back**: silent 3 / 7 / 21 days → one DM each (never more), resets when they play.
 * 22:45 **Night report** to staff: everything the autopilot did today + tomorrow's plan.
+
+## 🎓 College mode = SIMPLE (default for every campus event)
+* `data/campus_bank.json` (140 bilingual, easy, fun Qs: TS/AP basics, India, science, tech, simple logic,
+  easy English, sports/movies, career) built by `scripts/tools/build_campus_bank.py` — add lines & rerun.
+* Balanced mix per event, 30 s per Q, never repeats for the same college; tops up with EASY exam Qs only if the
+  bank runs out. Competitive-exam questions are NOT used in college mode.
+* Need exam level for a coaching centre? `/go College | District | 15 | exam` or panel button
+  "📚 Switch to Exam level" (before start). Poster/status show the mode.

@@ -3,6 +3,7 @@ from pathlib import Path
 from datetime import timedelta
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from core import config, campus as C
+campus = C
 from core.question_bank import Bank
 
 
@@ -176,3 +177,39 @@ class TestRespect(TestCampus):
         b = C.panel_buttons(code); self.assertTrue(any("cp:csv:" in cb for row in b for _, cb in row))
         code2 = C.quick_event("X", "Guntur"); b2 = C.panel_buttons(code2)
         self.assertTrue(any(cb == f"cp:start:{code2}" for row in b2 for _, cb in row))
+
+
+class TestSimpleCollegeMode(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp()); self._old = campus.PATH; campus.PATH = self.tmp / "campus.json"
+
+    def tearDown(self):
+        campus.PATH = self._old; shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_bank_is_simple_bilingual_and_balanced(self):
+        b = campus.simple_bank()
+        self.assertGreaterEqual(len(b), 120)
+        cats = {q["cat"] for q in b}
+        self.assertTrue(set(campus.CAMPUS_MIX) <= cats)
+        for q in b:
+            self.assertTrue(q["q_te"] and q["q_en"] and len(q["options_te"]) == 4)
+            self.assertEqual(q["difficulty"], "easy")
+
+    def test_default_mode_college_simple_no_repeat_and_switch(self):
+        code = campus.quick_event("KITS", "Warangal", 15, "easy", "adm")
+        d = campus._load(); e = d["events"][code]
+        self.assertEqual(e["mode"], "college")
+        self.assertIn("Simple & fun", campus.poster_text(code))
+        qs = campus._compose(None, e, d); campus._save(d)
+        self.assertEqual(len(qs), 15)
+        self.assertTrue(all(str(q["id"]).startswith("cb") for q in qs))
+        self.assertGreaterEqual(len({q["cat"] for q in qs}), 6)          # fun mix, not one subject
+        self.assertTrue(all(q["window"] == campus.Q_WINDOW_SIMPLE for q in qs))
+        # same college next time → different questions
+        code2 = campus.quick_event("KITS", "Warangal", 15, "easy", "adm")
+        d = campus._load(); qs2 = campus._compose(None, d["events"][code2], d)
+        self.assertFalse({q["id"] for q in qs} & {q["id"] for q in qs2})
+        # organiser can switch to exam level before start (button cp:mode)
+        self.assertEqual(campus.set_mode(code2, "exam"), "exam")
+        self.assertIn("Exam level", campus.status_text(_Members(), code2))
+        self.assertTrue(any("Switch to College" in lbl for row in campus.panel_buttons(code2) for lbl, _ in row))

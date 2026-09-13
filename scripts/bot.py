@@ -391,6 +391,11 @@ class Bot:
                 self.tg.send_message(chat_id, f"🚀 Started: {info}" if ok else f"❌ {info}")
             elif act == "ping" and code:
                 self.tg.send_message(chat_id, f"🔔 pinged {campus.waiting_room_ping(self.tg, self.members, code)}")
+            elif act == "mode" and code:
+                cur = campus._load()["events"].get(code, {}).get("mode", "college")
+                new = campus.set_mode(code, "exam" if cur == "college" else "college")
+                self.tg.send_message(chat_id, campus.panel_text(self.members, code) if new else "❌ only before start",
+                                     buttons=campus.panel_buttons(code) if new else None)
             elif act == "poster" and code:
                 self.tg.send_message(chat_id, campus.poster_text(code))
             elif act == "csv" and code:
@@ -959,8 +964,9 @@ class Bot:
             f = [x.strip() for x in text[4:].split("|")]
             if len(f) < 2:
                 self.tg.send_message(chat_id, "Usage: /go <College name> | <district> [| questions] [| easy/medium/hard]"); return
+            lvl = f[3].lower() if len(f) > 3 else "easy"
             code = campus.quick_event(f[0], f[1], int(f[2]) if len(f) > 2 and f[2].isdigit() else campus.DEFAULT_Q,
-                                      f[3].lower() if len(f) > 3 else "easy", created_by=uid)
+                                      "medium" if lvl == "exam" else lvl, created_by=uid, mode="exam" if lvl == "exam" else "college")
             self.tg.send_message(chat_id, f"✅ {code} ready. Students కి ఇది పంపండి / projector లో చూపండి:")
             self.tg.send_message(chat_id, campus.poster_text(code))
             self.tg.send_message(chat_id, campus.panel_text(self.members, code), buttons=campus.panel_buttons(code))

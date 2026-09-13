@@ -36,6 +36,12 @@ from .store import load_json, save_json_atomic
 PATH = config.DATA / "campus.json"
 DEFAULT_Q = 15
 LEVELS = {"easy": ("easy",), "medium": ("easy", "medium"), "hard": ("easy", "medium", "hard")}
+# College mode = SIMPLE, fun, degree-level (data/campus_bank.json: TS/AP basics, India, science, tech,
+# simple logic, easy English, sports/movies, career). NOT competitive-exam difficulty.
+# "college" (default) = simple bank only (+easy exam Qs if the bank runs out); "exam" = old exam-level mix.
+CAMPUS_BANK = config.DATA / "campus_bank.json"
+CAMPUS_MIX = {"tsap": 0.2, "india": 0.15, "science": 0.15, "tech": 0.1, "logic": 0.15, "english": 0.1, "fun": 0.1, "career": 0.05}
+Q_WINDOW_SIMPLE = 30
 Q_WINDOW = {"easy": 40, "medium": 55, "hard": 70}
 GAP_SEC = 4
 PTS_CORRECT, PTS_SPEED_MAX = 10, 5
@@ -66,7 +72,7 @@ def _code(existing):
 
 
 # ================================================================== events
-def new_event(name, district, colleges, n_q=DEFAULT_Q, level="medium", created_by=""):
+def new_event(name, district, colleges, n_q=DEFAULT_Q, level="medium", created_by="", mode="college"):
     d = _load()
     code = _code(d["events"])
     cols = [c.strip()[:40] for c in colleges if c.strip()][:12]
@@ -74,16 +80,30 @@ def new_event(name, district, colleges, n_q=DEFAULT_Q, level="medium", created_b
         cols = ["General"]
     d["events"][code] = {"code": code, "name": name.strip()[:60], "district": district.strip(), "colleges": cols,
                          "n_q": max(5, min(int(n_q), 30)), "level": level if level in LEVELS else "medium",
+                         "mode": "exam" if str(mode).lower().startswith("ex") else "college",
                          "state": "open", "created": _now().isoformat(), "by": str(created_by),
                          "players": {}, "questions": [], "qi": 0, "answers": {}, "q_open": None, "q_close": None}
     _save(d)
     return code
 
 
-def quick_event(college, district, n_q=DEFAULT_Q, level="easy", created_by=""):
-    """One college, one command: /go <College> | <district>  → code + link + poster."""
+def quick_event(college, district, n_q=DEFAULT_Q, level="easy", created_by="", mode="college"):
+    """One college, one command: /go <College> | <district>  → code + link + poster (simple college mode)."""
     name = f"{college.strip()[:30]} × StudentUp Challenge"
-    return new_event(name, district, [college], n_q, level, created_by)
+    return new_event(name, district, [college], n_q, level, created_by, mode)
+
+
+def set_mode(code, mode):
+    d = _load(); e = d["events"].get(code)
+    if not e or e["state"] != "open":
+        return None
+    e["mode"] = "exam" if mode == "exam" else "college"
+    _save(d)
+    return e["mode"]
+
+
+def mode_label(e):
+    return "🎓 College level (simple & fun)" if e.get("mode", "college") == "college" else f"📚 Exam level ({e.get('level', 'medium')})"
 
 
 def join_buttons():
@@ -114,6 +134,7 @@ def poster_text(code):
     return "\n".join([
         f"🎓 {e['name']}",
         f"📍 {e['district']} · {e['n_q']} questions · phone లోనే exam",
+             ("😎 Simple & fun — GK, science, tech, movies, logic. Anyone can play!" if e.get("mode", "college") == "college" else "📚 Exam-level questions"),
         "",
         "1️⃣ ఈ link open చేయండి (లేదా QR scan):",
         f"   {link}",
@@ -132,7 +153,7 @@ def links_text(code):
     if not e:
         return "Event not found."
     bot = config.BOT_USERNAME or "StudentUpBot"
-    lines = [f"🎓 {e['name']} · {e['district']} · {e['n_q']} Q · level {e['level']}", "",
+    lines = [f"🎓 {e['name']} · {e['district']} · {e['n_q']} Q · {mode_label(e)}", "",
              "College links (print / QR / WhatsApp — students tap → auto college tag):"]
     for i, c in enumerate(e["colleges"], 1):
         lines.append(f"{i}. {c}\n   https://t.me/{bot}?start=c{code[3:]}-{i}")
@@ -199,8 +220,54 @@ def on_registered(members, uid):
     return e
 
 
-def _compose(bank, e):
-    """Degree-friendly common syllabus: GK, reasoning, aptitude, English, CA — no-repeat via bank."""
+def simple_bank():
+    from .store import load_json
+    return load_json(CAMPUS_BANK, []) or []
+
+
+def _compose_simple(bank, e, d):
+    """Simple college-level set: balanced across fun categories; never repeats within the same college
+    (used ids tracked per college in campus.json['used_simple'])."""
+    used_all = d.setdefault("used_simple", {})
+    key = (e["colleges"][0] if e.get("colleges") else e["name"]).lower()
+    used = set(used_all.get(key, []))
+    pool = [q for q in simple_bank() if q["id"] not in used]
+    if len(pool) < e["n_q"]:                       # college exhausted the bank → reset their history
+        used = set(); pool = simple_bank()
+    by_cat = {}
+    for q in pool:
+        by_cat.setdefault(q.get("cat", "fun"), []).append(q)
+    for qs in by_cat.values():
+        random.shuffle(qs)
+    n = e["n_q"]; chosen = []
+    for cat, frac in CAMPUS_MIX.items():
+        for q in by_cat.get(cat, [])[:max(1, round(n * frac))]:
+            if len(chosen) < n:
+                chosen.append(q)
+    rest = [q for qs in by_cat.values() for q in qs if q not in chosen]
+    random.shuffle(rest)
+    chosen += rest[:n - len(chosen)]
+    if len(chosen) < n and bank is not None:       # top up with EASY exam questions only
+        try:
+            e2 = dict(e, n_q=n - len(chosen), level="easy")
+            chosen += _compose_exam(bank, e2)
+        except Exception:
+            pass
+    random.shuffle(chosen)
+    used_all[key] = list(used | {q["id"] for q in chosen if str(q["id"]).startswith("cb")})[-2000:]
+    return [{"id": q["id"], "q_en": q.get("q_en", ""), "q_te": q.get("q_te", ""), "options_en": q.get("options_en", []),
+             "options_te": q.get("options_te", []), "answer_index": int(q["answer_index"]),
+             "window": q.get("window", Q_WINDOW_SIMPLE), "channel": q.get("channel", "CAMPUS"), "cat": q.get("cat", "")} for q in chosen[:n]]
+
+
+def _compose(bank, e, d=None):
+    if e.get("mode", "college") == "college":
+        return _compose_simple(bank, e, d if d is not None else _load())
+    return _compose_exam(bank, e)
+
+
+def _compose_exam(bank, e):
+    """Exam-level mix (mode='exam'): GK, reasoning, aptitude, English, CA — no-repeat via bank."""
     from .districtwar import _subject
     from .blueprint import difficulty_of
     allowed = LEVELS[e["level"]]
@@ -259,7 +326,7 @@ def start(bank, members, tg, code, now=None):
     ready = {u: p for u, p in e["players"].items() if (members.members.get(u) or {}).get("registered")}
     if len(ready) < 2:
         return False, f"only {len(ready)} registered students joined"
-    qs = _compose(bank, e)
+    qs = _compose(bank, e, d)
     if len(qs) < 5:
         return False, f"not enough questions ({len(qs)})"
     e["players"] = ready
@@ -626,6 +693,7 @@ def status_text(members, code):
     for p in e["players"].values():
         per[p["college"]] = per.get(p["college"], 0) + 1
     lines = [f"🎓 {e['code']} {e['name']} · {e['district']} · state: {e['state']}",
+             f"📝 {e['n_q']} Q · {mode_label(e)}",
              f"👥 joined {len(e['players'])} · registered {reg}" + (f" · Q{e['qi'] + 1}/{len(e['questions'])}" if e["state"] in ("question", "gap") else "")]
     lines += [f"  🏫 {c}: {n}" for c, n in sorted(per.items(), key=lambda x: -x[1])]
     if e["state"] == "open":
@@ -749,8 +817,10 @@ def panel_buttons(code=None):
         e = d["events"][code]
         rows = []
         if e["state"] == "open":
+            sw = ("📚 Switch to Exam level", f"cp:mode:{code}") if e.get("mode", "college") == "college" else ("🎓 Switch to College level", f"cp:mode:{code}")
             rows += [[("🚀 START exam", f"cp:start:{code}"), ("🔔 Ping students", f"cp:ping:{code}")],
-                     [("📋 Poster / link", f"cp:poster:{code}"), ("🔄 Refresh", f"cp:status:{code}")]]
+                     [("📋 Poster / link", f"cp:poster:{code}"), sw],
+                     [("🔄 Refresh", f"cp:status:{code}")]]
         elif e["state"] in ("question", "gap"):
             rows += [[("🔄 Live status", f"cp:status:{code}")]]
         else:
