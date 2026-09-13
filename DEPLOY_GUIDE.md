@@ -472,3 +472,9 @@ Every exam channel now has its own competition next to the all-exam District War
   crowd prior (if any) must not contradict — otherwise the question stays parked. Nothing is ever posted
   with a guessed key.
 * Fixed: word-boundary filter (previously "joint air exercise" was dropped because it contained "join").
+
+## 📇 Weekly Report Card (`core/reportcard.py`)
+* Sunday 20:30 every member with ≥5 answers this week gets a shareable card (PNG when Pillow + Telugu font
+  installed, always with a text caption): week Q/accuracy, 7-day bars, district & state rank, streak, points,
+  strong topic + topic to fix, college, badges, referral link. `/card` any time.
+* Members now keep a 14-day `daylog` (answered/correct per day) — powers the card and future analytics.

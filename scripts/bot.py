@@ -19,6 +19,7 @@ Commands:
   /join               📢 channels join + ✅ verify → +30 pts each
   /claim CODE         📸 Instagram/YouTube auto-DM code → points (/follow = how)
   /scout              🕵️ మీ జిల్లా shop/coaching ని refer చేయండి → partner అయితే +150
+  /card               📇 my weekly report card (share on WhatsApp status)
   /profile            📚 branch / year (college boards)
   /retest <College> [| 15 | 18:30]   🔁 same students, exam again in DM (staff)
   /roster <College>   📋 college data + CSV (staff)
@@ -1073,6 +1074,11 @@ class Bot:
                 self.tg.send_message(chat_id, f"sent to {p['name']}")
             else:
                 self.tg.send_message(chat_id, campus.panel_text(self.members), buttons=campus.panel_buttons())
+        elif low.startswith("/card") and uid:
+            from core import reportcard
+            if not self.members.members.get(str(uid), {}).get("registered"):
+                self.tg.send_message(chat_id, "📇 Report card కి ముందు register అవ్వండి: /register"); return
+            reportcard.send_card(self.tg, self.members, str(uid))
         elif low.startswith("/profile"):
             from core import roster
             m = self.members.members.get(str(uid), {}) if uid else {}

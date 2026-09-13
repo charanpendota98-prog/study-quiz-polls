@@ -206,6 +206,15 @@ class Members:
             earned += P_DAILY_FIRST            # daily participation bonus
             events.append(f"+{P_DAILY_FIRST} daily")
         m["last_active"] = today
+        # 14-day daily log for the weekly report card: day -> [answered, correct]
+        dl = m.setdefault("daylog", {})
+        rec = dl.setdefault(today, [0, 0])
+        rec[0] += 1
+        if correct:
+            rec[1] += 1
+        if len(dl) > 14:
+            for k in sorted(dl)[:-14]:
+                dl.pop(k, None)
 
         leveled_up = None
         if correct:

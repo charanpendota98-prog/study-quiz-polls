@@ -560,6 +560,10 @@ class Engine:
         print(f"[examboard] {period}: {n} channels")
         return n
 
+    def report_cards(self):
+        from . import reportcard
+        return reportcard.weekly_send(self.tg, Members(), dry=self.dry)
+
     def college_toppers(self):
         from . import roster
         txt = roster.weekly_toppers(Members())
