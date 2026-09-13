@@ -407,7 +407,6 @@ class Bot:
             return
         if kind == "cmd" and uid:
             # button from a campaign message → run that command for the student
-            fake = dict(cb.get("message", {}) if isinstance(cb, dict) else {})
             self.handle_message({"chat": {"id": int(chat_id)}, "from": {"id": uid, "first_name": ""}, "text": value if value.startswith("/") else "/" + value})
             return
         if kind == "msg" and uid and str(uid) in self._staff_ids():
@@ -1537,6 +1536,13 @@ class Bot:
                 f"⤷ నమోదైన సభ్యులు: {n_all}")
         elif low.startswith("/channels"):
             self.tg.send_message(chat_id, self._channels_list())
+        elif low.startswith("/") and chat_id == str(uid):
+            # unknown command or a staff-only command sent by a student → friendly menu instead of silence
+            cmd = low.split()[0].split("@")[0]
+            self.tg.send_message(chat_id, f"🤔 {cmd} నాకు తెలియదు లేదా staff కోసం మాత్రమే.\n\n"
+                                          "ముఖ్యమైనవి:\n• /quiz — practice · /coach — weak topics\n• /wallet /offers — points & discounts\n"
+                                          "• /rank /card — మీ rank, report card\n• /squad — friends తో · /war — 9 PM District War\n"
+                                          "• /jobs — notifications · /help — అన్నీ")
 
     def _render_badges(self, uid):
         p = self.members.profile(uid) if uid else None

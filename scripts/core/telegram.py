@@ -87,7 +87,10 @@ class Telegram:
                     raise TelegramError(f"{method} fatal {code}: {desc}")
                 # Retry on 429 / 5xx
                 wait = backoff
-                if "retry_after" in desc.lower():
+                ra = (parsed.get("parameters") or {}).get("retry_after") if isinstance(parsed, dict) else None
+                if isinstance(ra, (int, float)) and ra > 0:
+                    wait = min(float(ra) + 0.5, 60)
+                elif "retry_after" in desc.lower():
                     try:
                         wait = float(desc.split("retry_after")[1].split()[0].strip(":()"))
                     except Exception:
