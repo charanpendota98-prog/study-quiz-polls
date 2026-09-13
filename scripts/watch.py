@@ -266,6 +266,11 @@ def tick(eng, now, dry=False):
                 eng.autopilot(what); ran.append("ap-" + what)
             except Exception as e:
                 log(f"autopilot {what} error: {e}")
+    if hhmm == "09:00" and now.weekday() == 0:
+        try:
+            eng.college_toppers(); ran.append("college-toppers")
+        except Exception as e:
+            log(f"college toppers error: {e}")
     if hhmm == "08:00":
         try:
             eng.morning_brief(); ran.append("hq-brief")

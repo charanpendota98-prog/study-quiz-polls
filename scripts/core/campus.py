@@ -458,6 +458,12 @@ def _finish(tg, members, d, e, now):
     members.kv.save()
     _save(d)
     text = render_result(e, rows, cols)
+    try:   # roster: attempts + Most Improved (vs each student's previous test)
+        from . import roster as R
+        imp = R.record_event(members, e)
+        text += R.improved_text(imp)
+    except Exception as ex:
+        print(f"   [campus] roster note: {ex}")
     btns = join_buttons()
     for u, p in rows:
         me = f"\n\n🫵 మీరు: #{p['rank']}/{len(rows)} · {p['pts']} pts · {p['correct']}/{len(e['questions'])} ✅ · {p['college']}"
@@ -497,6 +503,10 @@ def _finish(tg, members, d, e, now):
     if e.get("by"):
         try:
             tg.send_message(e["by"], college_report(e))
+            from . import roster as R
+            pr = R.progress_report(members, e["colleges"][0]) if e.get("colleges") else ""
+            if pr and e.get("retest"):
+                tg.send_message(e["by"], pr)
         except Exception:
             pass
     # organiser: summary + CSV

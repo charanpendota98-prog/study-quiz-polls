@@ -266,7 +266,8 @@ def club_card(members, college):
              "Next actions 👇"]
     btns = [[("🔁 Re-run event", f"club:rerun:{college[:50]}"), ("📢 Message members", f"club:msg:{college[:50]}")],
             [("👑 Top scorer → leader", f"club:lead:{college[:50]}"), ("🏆 Post club board", f"club:board:{college[:50]}")],
-            [("⬅️ Colleges", "hq:colleges")]]
+            [("🧪 Retest in 10 min", f"club:retest:{college[:50]}"), ("📋 Roster + CSV", f"club:roster:{college[:50]}")],
+            [("📈 Progress report", f"club:progress:{college[:50]}"), ("⬅️ Colleges", "hq:colleges")]]
     return "\n".join(lines), btns
 
 

@@ -560,6 +560,18 @@ class Engine:
         print(f"[examboard] {period}: {n} channels")
         return n
 
+    def college_toppers(self):
+        from . import roster
+        txt = roster.weekly_toppers(Members())
+        if not txt or self.dry:
+            return txt
+        for ch in getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
+            try:
+                self.tg.send_message(config.channel_chat_id(ch), txt)
+            except Exception:
+                pass
+        return txt
+
     # ------------------------------------------------------------ autopilot
     def autopilot(self, what):
         from . import autopilot as A

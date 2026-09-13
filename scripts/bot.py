@@ -19,6 +19,9 @@ Commands:
   /join               📢 channels join + ✅ verify → +30 pts each
   /claim CODE         📸 Instagram/YouTube auto-DM code → points (/follow = how)
   /scout              🕵️ మీ జిల్లా shop/coaching ని refer చేయండి → partner అయితే +150
+  /profile            📚 branch / year (college boards)
+  /retest <College> [| 15 | 18:30]   🔁 same students, exam again in DM (staff)
+  /roster <College>   📋 college data + CSV (staff)
   /coach              🎯 daily weak-topic coach (07:30) · /coach off
   /mandal <పేరు>      🏠 మీ mandal offers ముందు · /mydistrict <జిల్లా> = జిల్లా మార్చు
   /examdone           📝 exam రాశాక tap → +25 pts + exam-day offers unlock
@@ -354,6 +357,24 @@ class Bot:
                 code = campus.quick_event(college, c.get("district", ""), created_by=uid)
                 self.tg.send_message(chat_id, f"✅ {code} ready for {college}"); self.tg.send_message(chat_id, campus.poster_text(code))
                 self.tg.send_message(chat_id, campus.panel_text(self.members, code), buttons=campus.panel_buttons(code))
+            elif act == "retest":
+                from core import roster
+                code, n = roster.schedule_retest(self.members, college, created_by=uid)
+                if code:
+                    pinged = roster.ping_retest(self.tg, code)
+                    self.tg.send_message(chat_id, f"🧪 {code}: {n} students enrolled, {pinged} invited · auto-start in 10 min", buttons=campus.panel_buttons(code))
+                else:
+                    self.tg.send_message(chat_id, "❌ no registered students for this college")
+            elif act == "roster":
+                from core import roster
+                self.tg.send_message(chat_id, roster.roster_text(self.members, college))
+                try:
+                    self.tg.send_document(chat_id, f"roster_{college[:20]}.csv", roster.roster_csv(self.members, college).encode("utf-8"), caption="Roster + all test attempts")
+                except Exception:
+                    pass
+            elif act == "progress":
+                from core import roster
+                self.tg.send_message(chat_id, roster.progress_report(self.members, college) or "No tests yet for this college.")
             elif act == "msg":
                 if not hasattr(self, "_club_msg"):
                     self._club_msg = {}
@@ -381,6 +402,12 @@ class Bot:
                 self.tg.answer_callback(cq.get("id", ""), "ok")
             except TelegramError:
                 pass
+            return
+        if kind == "rp" and uid:
+            from core import roster
+            k, _, v = value.partition(":")
+            txt, b = roster.handle_callback(self.members, uid, k, v)
+            self.tg.send_message(chat_id, txt, buttons=b)
             return
         if kind == "cp" and uid and str(uid) in self._staff_ids():
             from core import campus
@@ -632,6 +659,9 @@ class Bot:
                             f"• Points = మీ జిల్లా shops/coaching/restaurant discounts (/offers) + application discounts\n"
                             f"• Results & toppers పేర్లతో మా channels లో — join అయ్యి చూడండి 👇",
                             buttons=campus.join_buttons())
+                        from core import roster
+                        if roster.needs_profile(self.members.members.get(str(uid), {})):
+                            t, b = roster.profile_prompt(); self.tg.send_message(chat_id, t, buttons=b)
                 except Exception:
                     pass
                 try:
@@ -1043,6 +1073,45 @@ class Bot:
                 self.tg.send_message(chat_id, f"sent to {p['name']}")
             else:
                 self.tg.send_message(chat_id, campus.panel_text(self.members), buttons=campus.panel_buttons())
+        elif low.startswith("/profile"):
+            from core import roster
+            m = self.members.members.get(str(uid), {}) if uid else {}
+            m.pop("_prof_skipped", None)
+            t, b = roster.profile_prompt()
+            self.tg.send_message(chat_id, (f"📚 ఇప్పుడు: {m.get('branch', '—')} {m.get('year', '')}\n" if m.get("branch") else "") + t, buttons=b)
+        elif low.startswith("/retest") and uid and str(uid) in self._staff_ids():
+            from core import roster, campus
+            arg = text[7:].strip()
+            if not arg:
+                cols = sorted({m.get("college") for m in self.members.members.values() if m.get("college")})
+                self.tg.send_message(chat_id, "🔁 /retest <College> [| N Q] [| HH:MM]\nColleges: " + (", ".join(cols[:30]) or "none yet"))
+                return
+            f = [x.strip() for x in arg.split("|")]
+            n_q = int(f[1]) if len(f) > 1 and f[1].isdigit() else 15
+            at = None
+            for x in f[1:]:
+                if ":" in x:
+                    try:
+                        hh, mm = x.split(":"); at = datetime.now(config.IST).replace(hour=int(hh), minute=int(mm), second=0, microsecond=0)
+                    except Exception:
+                        at = None
+            code, n = roster.schedule_retest(self.members, f[0], n_q, at, created_by=uid)
+            if not code:
+                self.tg.send_message(chat_id, f"❌ '{f[0]}' కి students లేరు. /college చూడండి."); return
+            pinged = roster.ping_retest(self.tg, code)
+            self.tg.send_message(chat_id, f"🔁 {code} scheduled · {n} students enrolled · {pinged} invited\n"
+                                          f"⏰ Auto-start {datetime.fromisoformat(campus._load()['events'][code]['auto_start']).strftime('%H:%M')} (or start now below)",
+                                 buttons=campus.panel_buttons(code))
+        elif low.startswith("/roster") and uid and str(uid) in self._staff_ids():
+            from core import roster
+            college = text[7:].strip()
+            if not college:
+                self.tg.send_message(chat_id, "📋 /roster <College> → roster card + CSV"); return
+            self.tg.send_message(chat_id, roster.roster_text(self.members, college))
+            try:
+                self.tg.send_document(chat_id, f"roster_{college[:20]}.csv", roster.roster_csv(self.members, college).encode("utf-8"), caption="Roster with all test attempts")
+            except Exception:
+                pass
         elif low.startswith("/coach"):
             m = self.members.members.get(str(uid), {}) if uid else {}
             parts = low.split()
@@ -1551,6 +1620,11 @@ class Bot:
                     if districtwar.tick(self.tg, self.members):
                         live = True
                     from core import campus
+                    try:
+                        from core import roster as _R
+                        _R.auto_start_due(self.bank, self.members, self.tg)
+                    except Exception:
+                        pass
                     if campus.tick(self.tg, self.members):
                         live = True
                 except Exception as e:

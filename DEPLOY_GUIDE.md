@@ -453,3 +453,13 @@ Every exam channel now has its own competition next to the all-exam District War
   bank runs out. Competitive-exam questions are NOT used in college mode.
 * Need exam level for a coaching centre? `/go College | District | 15 | exam` or panel button
   "📚 Switch to Exam level" (before start). Poster/status show the mode.
+
+## 📋 College Roster + Retest series (`scripts/core/roster.py`)
+* After a campus student registers: one-tap branch (B.Tech/Degree/Inter/PG/Diploma) → year (+5). `/profile` later.
+* Every attempt saved on the member (`tests[]`: code, date, %, rank). Result posts get **📈 Most Improved**
+  (vs own previous test, +40/25/15, badge). Retest organiser gets a **Progress report** (test-by-test avg,
+  % of students improved, branch-wise).
+* `/retest <College> [| 15 | 18:30]` or club-card button "🧪 Retest in 10 min": all students of that college
+  are auto-enrolled, invited by DM, exam auto-starts at the time — no walk-in, no link needed.
+* `/roster <College>` (or club button) → roster card + CSV (phone, branch, year, all tests, best/last/Δ).
+* Monday 09:00: 🏆 College Toppers of the week → hub channels (per-college top 3).
