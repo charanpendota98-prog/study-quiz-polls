@@ -489,6 +489,14 @@ class Bot:
             else:
                 self.tg.send_message(chat_id, NB.howto_text(), buttons=NB.buttons())
             return
+        if kind == "gate" and uid:
+            if self.members.is_registered(uid):
+                self.tg.send_message(chat_id, "✅ మీరు already registered! /quiz ఆడండి · /wallet చూడండి")
+            else:
+                if not self.members.pending_step(uid):
+                    self.members.start_registration(uid, username="")
+                self.tg.send_message(chat_id, FIRST_TIME_ASK)
+            return
         if kind == "jr" and uid:
             from core import jobradar
             if not self.members.is_registered(uid):
@@ -853,6 +861,13 @@ class Bot:
                     return
                 self.members.start_registration(uid, username=self._name(who))
                 self.tg.send_message(chat_id, "🔔 Job track + reminders కోసం 1 నిమిషం register (+25 pts) 👇 తర్వాత /jobs")
+                self.tg.send_message(chat_id, FIRST_TIME_ASK)
+                return
+            if arg in ("quiz", "register", "reg") and uid and not self.members.is_registered(uid):
+                if not self.members.pending_step(uid):
+                    self.members.start_registration(uid, username=self._name(who))
+                lp = (self.members.members.get(str(uid)) or {}).get("locked_points", 0)
+                self.tg.send_message(chat_id, (f"🔓 {lp} points unlock అవుతాయి — " if lp else "") + "1 నిమిషం registration (+25 bonus pts) 👇")
                 self.tg.send_message(chat_id, FIRST_TIME_ASK)
                 return
             if arg == "offers":

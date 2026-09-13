@@ -124,6 +124,17 @@ Existing rows are kept; new header columns are appended automatically.
 If Google is down the push is stored in `data/sheet_queue.json` and retried at 23:30 or by `/sheet → Flush queue`.
 Owner commands: `/sheet` (status, Sync all now, Flush queue, Colleges/Partners tabs, Daily snapshot, CSV export), `/syncsheet`, `/export`.
 
+## Register Gate 2.0 (13 Sep 2026) — `core/gate.py`
+
+* T-5 / T-1 alerts, round opener and the Top-10 post carry the rule line
+  ("points + Top-10 name/district only for registered"), a live footer
+  (👥 registered · 🆕 today · 🔒 N players / pts locked) and a **📝 Register** button
+  (`t.me/<BOT_USERNAME>?start=quiz` → straight into the form). Set `BOT_USERNAME` in .env.
+* After every round: un-registered players who answered get ONE DM/day with their score
+  and locked points + Register button.
+* 20:05 daily chase: locked-points / half-form users DMed on day 1, 2, 3, 7, 14 then stop.
+* HQ shows the gate line (registered · half-done forms · locked pts).
+
 ## NotebookLM bridge (13 Sep 2026) — `core/notebook.py`
 
 Scanned / odd-layout papers that `pdftotext` cannot parse are digitised through Google

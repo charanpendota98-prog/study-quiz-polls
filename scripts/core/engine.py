@@ -129,7 +129,12 @@ class Engine:
             total_secs = sum(pace_seconds(q) + config.PACE_BUFFER_SEC for q in qs) if paced else 0
             opener = self._round_opener(cfg, label, qs, n_pyq, mode_note, paced, total_secs)
             try:
-                self.tg.send_message(config.channel_chat_id(ch), opener)
+                from . import gate as _gate
+                _btn = _gate.cta_buttons()
+            except Exception:
+                _btn = None
+            try:
+                self.tg.send_message(config.channel_chat_id(ch), opener, buttons=_btn)
             except TelegramError as e:
                 print(f"   [slot] {ch} opener failed: {e}")
             self.tg.polite_gap(not self.dry)
@@ -188,8 +193,18 @@ class Engine:
                         top += "\n" + ml
                 except Exception as e:
                     print(f"   [mystery] {e}")
+                _gbtn = None
+                try:
+                    from . import gate
+                    _rows, _n_all = mem.round_top(round_id, ch, limit=10_000)
+                    if top:
+                        top += "\n\n" + gate.top10_tail(mem, max(0, _n_all - len(_rows)))
+                    _gbtn = gate.cta_buttons()
+                    gate.after_round_dms(mem, self.tg, round_id, ch, len(qs), dry=self.dry)
+                except Exception as e:
+                    print(f"   [gate] {e}")
                 if top:
-                    self.tg.send_message(config.channel_chat_id(ch), top)
+                    self.tg.send_message(config.channel_chat_id(ch), top, buttons=_gbtn)
                     self._dm_round_cards(mem, round_id, ch, round_label or "")
                     self._rank_cards(mem, round_id, ch, f"{round_label or 'Round'}")
                     self._share_posters(mem, round_id, ch, round_label or "Round")
@@ -559,6 +574,10 @@ class Engine:
                 print(f"   [examboard] {ch}: {e}")
         print(f"[examboard] {period}: {n} channels")
         return n
+
+    def gate_chase(self):
+        from . import gate
+        return gate.chase_locked(Members(), self.tg, self.dry)
 
     def jobradar(self, what):
         from . import jobradar as JR
@@ -1094,8 +1113,12 @@ class Engine:
             lines.append(mystery_opener_line())
         except Exception:
             pass
-        lines += [mode_note,
-                  "Points & ranks: /quiz in our bot group ⭐"]
+        lines += [mode_note]
+        try:
+            from . import gate
+            lines.append(gate.alert_block(self._members if getattr(self, "_members", None) else Members()))
+        except Exception:
+            lines.append("Points & ranks: /quiz in our bot ⭐")
         return "\n".join(lines)
 
     @staticmethod
@@ -1333,8 +1356,16 @@ class Engine:
                 msg = (f"🚀 {cfg['emoji']} {cfg['subject']} Quiz — 1 నిమిషంలో మొదలు!\n"
                        f"Starting in 1 minute. Q1 arrives at the top of the minute. "
                        f"All the best 🔥")
+            btn = None
             try:
-                self.tg.send_message(config.channel_chat_id(ch), msg)
+                from . import gate
+                mem = getattr(self, "_members", None) or Members()
+                msg += "\n\n" + gate.alert_block(mem)
+                btn = gate.cta_buttons()
+            except Exception as e:
+                print(f"   [gate] {e}")
+            try:
+                self.tg.send_message(config.channel_chat_id(ch), msg, buttons=btn)
             except TelegramError as e:
                 print(f"   [reminder] {ch} failed: {e}")
         print(f"[reminder] T-{slot_minutes} min sent")

@@ -172,6 +172,11 @@ def render(members, bank=None):
         lines.append("📍 " + " · ".join(f"{d} {n}" for d, n in mx["top_districts"]))
     if mx["top_colleges"]:
         lines.append("🏫 " + " · ".join(f"{c[:14]} {n}" for c, n in mx["top_colleges"]))
+    try:
+        from . import gate
+        lines.append(gate.owner_line(members))
+    except Exception:
+        pass
     lines.append("")
     lines += (["⚠️ ALERTS:"] + [f"• {x}" for x in al]) if al else ["✅ No alerts"]
     return "\n".join(lines), mx, al

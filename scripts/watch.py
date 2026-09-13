@@ -272,6 +272,11 @@ def tick(eng, now, dry=False):
                 eng.autopilot(what); ran.append("ap-" + what)
             except Exception as e:
                 log(f"autopilot {what} error: {e}")
+    if hhmm == "20:05":
+        try:
+            log(f"gate chase: {eng.gate_chase()} DMs"); ran.append("gate-chase")
+        except Exception as e:
+            log(f"gate chase error: {e}")
     for t, what in (("09:00", "remind"), ("19:00", "digest")):
         if hhmm == t:
             try:
