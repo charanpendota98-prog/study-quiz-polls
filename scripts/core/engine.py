@@ -560,6 +560,10 @@ class Engine:
         print(f"[examboard] {period}: {n} channels")
         return n
 
+    def campaigns_due(self):
+        from . import messenger
+        return messenger.run_due(self.tg, Members(), dry=self.dry)
+
     def report_cards(self):
         from . import reportcard
         return reportcard.weekly_send(self.tg, Members(), dry=self.dry)

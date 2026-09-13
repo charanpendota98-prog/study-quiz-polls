@@ -478,3 +478,11 @@ Every exam channel now has its own competition next to the all-exam District War
   installed, always with a text caption): week Q/accuracy, 7-day bars, district & state rank, streak, points,
   strong topic + topic to fix, college, badges, referral link. `/card` any time.
 * Members now keep a 14-day `daylog` (answered/correct per day) — powers the card and future analytics.
+
+## 📣 Message Studio (`core/messenger.py`) — your message to registered students, individually
+* `/msg` → audience buttons (All · Active 7d · Silent 7d+ · Campus · Has phone · Top 100 · District/Exam/College
+  pickers with counts) → type text or send photo+caption → **personalised preview** → ✅ Send now / ⏰ 6 PM /
+  ⏰ Tomorrow 9 AM / ✏️ Edit / ❌ Cancel. Delivery report (sent/blocked/failed) DMed; `/msg history`.
+* Placeholders `{name} {first} {district} {points} {exam} {college} {rank} {streak}`; button lines
+  `[Open quiz](/quiz)` / `[Apply](https://…)` become inline buttons. Quiet hours 22:00–07:00 auto-queue to 07:05.
+* 6 Telugu templates: `/msg templates`. Scheduled jobs run from the watch loop every minute.

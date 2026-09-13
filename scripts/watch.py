@@ -252,6 +252,12 @@ def tick(eng, now, dry=False):
             eng.partner_ad(); ran.append("partner-ad")
         except Exception as e:
             log(f"ad error: {e}")
+    # ---- scheduled campaigns (/msg)
+    try:
+        if eng.campaigns_due():
+            ran.append("campaign")
+    except Exception as e:
+        log(f"campaign error: {e}")
     # ---- autopilot
     if now.minute in (5, 35):
         try:

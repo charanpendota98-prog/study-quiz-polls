@@ -19,6 +19,7 @@ Commands:
   /join               📢 channels join + ✅ verify → +30 pts each
   /claim CODE         📸 Instagram/YouTube auto-DM code → points (/follow = how)
   /scout              🕵️ మీ జిల్లా shop/coaching ని refer చేయండి → partner అయితే +150
+  /msg                📣 Message Studio: personalised DM to segments, preview, schedule (staff)
   /card               📇 my weekly report card (share on WhatsApp status)
   /profile            📚 branch / year (college boards)
   /retest <College> [| 15 | 18:30]   🔁 same students, exam again in DM (staff)
@@ -404,6 +405,50 @@ class Bot:
             except TelegramError:
                 pass
             return
+        if kind == "cmd" and uid:
+            # button from a campaign message → run that command for the student
+            fake = dict(cb.get("message", {}) if isinstance(cb, dict) else {})
+            self.handle_message({"chat": {"id": int(chat_id)}, "from": {"id": uid, "first_name": ""}, "text": value if value.startswith("/") else "/" + value})
+            return
+        if kind == "msg" and uid and str(uid) in self._staff_ids():
+            from core import messenger as MS
+            act, _, v = value.partition(":")
+            if act == "home":
+                MS.clear_draft(uid)
+                self.tg.send_message(chat_id, "📣 MESSAGE STUDIO — ఎవరికి పంపాలి?", buttons=MS.audience_buttons())
+            elif act == "aud":
+                spec = next((a for a in MS.AUDIENCES if a[0] == v), None)
+                if spec and spec[2] is None:
+                    self.tg.send_message(chat_id, f"ఎంచుకోండి ({v}):", buttons=MS.pick_buttons(self.members, v))
+                elif spec:
+                    MS.start_draft(uid, spec[2])
+                    n = len(MS.select(self.members, spec[2]))
+                    self.tg.send_message(chat_id, f"✅ Audience: {spec[1]} — {n} students\n\n✍️ ఇప్పుడు మీ message type చేయండి (text లేదా photo+caption).\n"
+                                                  "Placeholders: {name} {district} {points} · Button line: [Open quiz](/quiz)\nTemplates: /msg templates")
+            elif act == "set":
+                k, _, val = v.partition("=")
+                MS.start_draft(uid, {k: val})
+                n = len(MS.select(self.members, {k: val}))
+                self.tg.send_message(chat_id, f"✅ Audience: {MS.seg_label({k: val})} — {n} students\n\n✍️ ఇప్పుడు మీ message type చేయండి.")
+            elif act == "send":
+                when = MS.when_for(v)
+                job = MS.schedule(uid, when)
+                if not job:
+                    self.tg.send_message(chat_id, "❌ draft లేదు — /msg"); return
+                if v == "now" and not MS.in_quiet():
+                    rep = MS.run_job(self.tg, self.members, job)
+                    self.tg.send_message(chat_id, MS.report_text(job))
+                else:
+                    self.tg.send_message(chat_id, f"⏰ Scheduled: {when.strftime('%d %b %I:%M %p')} · {MS.seg_label(job['seg'])}\nCancel: /msg cancel {job['id']}")
+            elif act == "edit":
+                self.tg.send_message(chat_id, "✏️ కొత్త text పంపండి (audience అలాగే ఉంటుంది):")
+            elif act == "cancel":
+                MS.clear_draft(uid); self.tg.send_message(chat_id, "❌ Cancelled.")
+            elif act == "history":
+                self.tg.send_message(chat_id, MS.history_text())
+            elif act == "templates":
+                self.tg.send_message(chat_id, MS.templates_text())
+            return
         if kind == "rp" and uid:
             from core import roster
             k, _, v = value.partition(":")
@@ -626,6 +671,16 @@ class Bot:
         text = (msg.get("text") or msg.get("caption") or "").strip()
         low = text.lower()
 
+        if msg.get("photo") and uid and str(uid) in self._staff_ids():
+            from core import messenger as MS
+            if MS.get_draft(uid) is not None:
+                MS.set_content(uid, text, msg["photo"][-1].get("file_id", ""))
+                pv, rows, n = MS.preview(self.members, uid)
+                if n == 0:
+                    self.tg.send_message(chat_id, "⚠️ ఈ audience లో students లేరు. /msg"); MS.clear_draft(uid)
+                else:
+                    self.tg.send_message(chat_id, pv, buttons=rows)
+                return
         if msg.get("photo") and uid and chat_id == str(uid) and not low.startswith("/partner"):
             from core import social
             plat = "yt" if "you" in low or "yt" in low else "ig"
@@ -980,6 +1035,16 @@ class Bot:
                 self.tg.send_message(chat_id, txt, buttons=btns)
             else:
                 self.tg.send_message(chat_id, hq.club_list_text(self.members), buttons=hq.club_buttons(self.members))
+        elif uid and str(uid) in self._staff_ids() and not low.startswith("/") and __import__("core.messenger", fromlist=["x"]).get_draft(uid) is not None:
+            from core import messenger as MS
+            photo = msg["photo"][-1].get("file_id", "") if msg.get("photo") else ""
+            if not text and not photo:
+                return
+            MS.set_content(uid, text, photo)
+            pv, rows, n = MS.preview(self.members, uid)
+            if n == 0:
+                self.tg.send_message(chat_id, "⚠️ ఈ audience లో students లేరు. /msg", buttons=None); MS.clear_draft(uid); return
+            self.tg.send_message(chat_id, pv, buttons=rows)
         elif getattr(self, "_club_msg", {}).get(str(uid)) and not low.startswith("/"):
             from core import hq
             college = self._club_msg.pop(str(uid))
@@ -1074,6 +1139,19 @@ class Bot:
                 self.tg.send_message(chat_id, f"sent to {p['name']}")
             else:
                 self.tg.send_message(chat_id, campus.panel_text(self.members), buttons=campus.panel_buttons())
+        elif low.startswith("/msg") and uid and str(uid) in self._staff_ids():
+            from core import messenger as MS
+            arg = text[4:].strip()
+            if arg.startswith("history"):
+                self.tg.send_message(chat_id, MS.history_text())
+            elif arg.startswith("templates"):
+                self.tg.send_message(chat_id, MS.templates_text())
+            elif arg.startswith("cancel"):
+                jid = arg.split()[-1]
+                self.tg.send_message(chat_id, f"🗑 cancelled {MS.cancel_scheduled(jid)} job(s)")
+            else:
+                MS.clear_draft(uid)
+                self.tg.send_message(chat_id, "📣 MESSAGE STUDIO — register అయిన students కి individual DM.\nఎవరికి పంపాలి?", buttons=MS.audience_buttons())
         elif low.startswith("/card") and uid:
             from core import reportcard
             if not self.members.members.get(str(uid), {}).get("registered"):
