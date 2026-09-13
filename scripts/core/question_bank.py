@@ -117,6 +117,9 @@ def rebuild_json():
     for _pyq_name in ("pyq_bank.json", "pyq_bank_2.json", "pyq_bank_3.json", "pyq_bank_4_ssc.json"):
         _pyq = load_json(config.DATA / _pyq_name, {"questions": []})
         questions.extend(_pyq.get("questions", []))
+    # NotebookLM-digitised official papers (core/notebook.py)
+    nb = load_json(config.DATA / "notebook_bank.json", {"questions": []})
+    questions.extend(nb.get("questions", []))
     # Hand-curated bilingual GK/CA extras
     curated = load_json(config.CURATED_EXTRA_JSON, {"questions": []})
     questions.extend(curated.get("questions", []))

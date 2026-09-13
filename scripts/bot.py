@@ -20,6 +20,7 @@ Commands:
   /claim CODE         📸 Instagram/YouTube auto-DM code → points (/follow = how)
   /scout              🕵️ మీ జిల్లా shop/coaching ని refer చేయండి → partner అయితే +150
   /jobs               📡 Job Radar — jobs matching YOUR qualification, track, reminders
+  /notebook           📓 NotebookLM → official PYQ import (prompt, paste, ✅ import)
   /sheet              📊 Google Sheet status, sync, tabs (staff)
   /msg                📣 Message Studio: personalised DM to segments, preview, schedule (staff)
   /card               📇 my weekly report card (share on WhatsApp status)
@@ -53,6 +54,7 @@ Usage:
   python3 bot.py --dry
 """
 from datetime import datetime
+import re
 import sys
 import time
 import argparse
@@ -467,6 +469,26 @@ class Bot:
             else:
                 self.tg.send_message(chat_id, crm.sheet_status_text(self.members.members), buttons=crm.sheet_buttons())
             return
+        if kind == "nb" and uid and str(uid) in self._staff_ids():
+            from core import notebook as NB
+            act, _, arg = value.partition(":")
+            if act == "p":
+                self.tg.send_message(chat_id, NB.prompt_for(arg))
+            elif act == "commit":
+                n, txt = NB.commit(uid, by=str(uid))
+                self.tg.send_message(chat_id, txt)
+                if n:
+                    try:
+                        self.bank = Bank()
+                    except Exception:
+                        pass
+            elif act == "discard":
+                NB.clear_draft(uid); self.tg.send_message(chat_id, "🗑 discarded")
+            elif act == "status":
+                self.tg.send_message(chat_id, NB.status_text())
+            else:
+                self.tg.send_message(chat_id, NB.howto_text(), buttons=NB.buttons())
+            return
         if kind == "jr" and uid:
             from core import jobradar
             if not self.members.is_registered(uid):
@@ -709,6 +731,24 @@ class Bot:
         text = (msg.get("text") or msg.get("caption") or "").strip()
         low = text.lower()
 
+        if uid and str(uid) in self._staff_ids() and chat_id == str(uid):
+            from core import notebook as NB
+            doc = msg.get("document") or {}
+            fname = (doc.get("file_name") or "").lower()
+            blob = None
+            if doc and (fname.endswith(".txt") or fname.endswith(".json") or fname.endswith(".md")):
+                try:
+                    blob = self.tg.download_file(doc.get("file_id", "")).decode("utf-8", "replace")
+                except Exception as e:
+                    self.tg.send_message(chat_id, f"⚠️ file download failed: {e}"); return
+            elif re.search(r"^\s*#{2,4}\s*Q\b", text, re.M) or (text.startswith("[") and '"q_en"' in text):
+                blob = text
+            if blob is not None:
+                pv = NB.preview(blob)
+                NB.save_draft(uid, blob)
+                btn = [[("✅ Import " + str(len(pv["ok"])), "nb:commit"), ("❌ Discard", "nb:discard")]] if pv["ok"] else None
+                self.tg.send_message(chat_id, NB.preview_text(pv), buttons=btn)
+                return
         if msg.get("photo") and uid and str(uid) in self._staff_ids():
             from core import messenger as MS
             if MS.get_draft(uid) is not None:
@@ -1208,6 +1248,21 @@ class Bot:
                 self.tg.send_message(chat_id, txt, buttons=btn)
             else:
                 self.tg.send_message(chat_id, jobradar.radar_text(self.members, uid), buttons=jobradar.radar_buttons(self.members, uid))
+        elif low.startswith("/notebook") and uid and str(uid) in self._staff_ids():
+            from core import notebook as NB
+            parts = text.split()
+            sub = parts[1].lower() if len(parts) > 1 else ""
+            if sub == "prompt" and len(parts) > 2:
+                ch = parts[2].upper()
+                if ch not in config.CHANNELS:
+                    self.tg.send_message(chat_id, "channel: TSPSC APPSC SSC BANKING RAILWAY POLICE DEFENCE CURRENT")
+                else:
+                    extra = " ".join(parts[3:])
+                    self.tg.send_message(chat_id, NB.prompt_for(ch, paper=extra))
+            elif sub == "status":
+                self.tg.send_message(chat_id, NB.status_text())
+            else:
+                self.tg.send_message(chat_id, NB.howto_text(), buttons=NB.buttons())
         elif low.startswith("/sheet") and uid and str(uid) in self._staff_ids():
             from core import crm
             self.tg.send_message(chat_id, crm.sheet_status_text(self.members.members), buttons=crm.sheet_buttons())
@@ -1543,6 +1598,21 @@ class Bot:
         elif low.startswith("/scout"):
             from core.scout import status_text as _scout_status
             self.tg.send_message(chat_id, _scout_status())
+        elif low.startswith("/pyq") and len(low.split()) > 1 and low.split()[1] == "papers" and str(uid) in self._staff_ids():
+            # official paper PDF list per channel → paste into NotebookLM as sources
+            from core.pyq import load_papers
+            ch = low.split()[2].upper() if len(low.split()) > 2 else ""
+            papers = [p for p in load_papers() if not ch or p.get("channel") == ch]
+            if not papers:
+                self.tg.send_message(chat_id, "usage: /pyq papers TSPSC (APPSC SSC BANKING RAILWAY POLICE DEFENCE)")
+            else:
+                lines = [f"{p.get('channel')} · {p.get('exam')} {p.get('year')} · {p.get('paper', '')}\n{p.get('url') or p.get('index')}" for p in papers]
+                body = "\n\n".join(lines)
+                if len(body) > 3500:
+                    self.tg.send_document(chat_id, f"pyq_papers_{ch or 'all'}.txt", body.encode("utf-8"),
+                                          caption=f"📜 {len(papers)} official paper PDFs — NotebookLM లో upload చేయండి → /notebook prompt {ch or 'TSPSC'}")
+                else:
+                    self.tg.send_message(chat_id, f"📜 {len(papers)} official papers\n\n" + body)
         elif low.startswith("/pyq"):
             from core.pyq import status_text
             from core.question_bank import Bank

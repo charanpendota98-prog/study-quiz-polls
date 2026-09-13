@@ -124,6 +124,18 @@ Existing rows are kept; new header columns are appended automatically.
 If Google is down the push is stored in `data/sheet_queue.json` and retried at 23:30 or by `/sheet → Flush queue`.
 Owner commands: `/sheet` (status, Sync all now, Flush queue, Colleges/Partners tabs, Daily snapshot, CSV export), `/syncsheet`, `/export`.
 
+## NotebookLM bridge (13 Sep 2026) — `core/notebook.py`
+
+Scanned / odd-layout papers that `pdftotext` cannot parse are digitised through Google
+NotebookLM (free, OCR + official key reasoning) and imported into the **same validated bank**.
+
+1. `/pyq papers TSPSC` → list/.txt of the 199 registered official paper PDF URLs → upload to a NotebookLM notebook (paper + final key).
+2. `/notebook prompt TSPSC [paper name]` → strict extraction prompt (exact question, official key, EN + Telugu, `### Q` blocks, 50 per reply).
+3. Paste NotebookLM's answer into the bot (or send it as .txt/.json) → preview: valid / already-in-bank / rejected with reasons
+   (4 options, answer, Telugu script only, numbers match, no answer leak, blocked topics) → **✅ Import**.
+4. Questions land in `data/notebook_bank.json` with `source=pyq`, exam/year/paper/qno provenance → `rebuild_json` → polls show the 📜 stamp.
+   `/notebook status` = counts per exam. Nothing is auto-trusted: rejected blocks are listed so you can ask NotebookLM to fix them.
+
 ## Job Radar 2.0 (13 Sep 2026) — `core/jobradar.py`
 
 * Every job card posted to the private JOBS channel is stored on a 60-day board

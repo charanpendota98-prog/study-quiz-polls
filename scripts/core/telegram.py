@@ -159,6 +159,19 @@ class Telegram:
         except Exception as e:
             raise TelegramError(f"sendPhoto: {e}")
 
+    def download_file(self, file_id: str, max_bytes: int = 2_000_000) -> bytes:
+        """getFile + fetch bytes (small text/json uploads)."""
+        if self.dry:
+            return b""
+        res = self._call("getFile", {"file_id": file_id})
+        path = (res.get("result") or {}).get("file_path")
+        if not path:
+            raise TelegramError("getFile: no file_path")
+        import urllib.request
+        url = f"https://api.telegram.org/file/bot{self.token}/{path}"
+        with urllib.request.urlopen(url, timeout=60) as r:
+            return r.read(max_bytes)
+
     def send_document(self, chat_id: str, filename: str, data: bytes, caption: str = "") -> dict:
         """Upload a small file (CSV export) via multipart/form-data — stdlib only."""
         if self.dry:
