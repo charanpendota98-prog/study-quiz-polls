@@ -122,3 +122,34 @@ class TgSourceTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TgCrowdPriorTests(unittest.TestCase):
+    HTML = """<div class="tgme_widget_message js-widget_message" data-post="sscquizparmar/90441">
+    <div class="tgme_widget_message_poll"><div class="tgme_widget_message_poll_question">On which date is World TB Day observed annually?</div>
+    <div class="tgme_widget_message_poll_option"><div class="tgme_widget_message_poll_option_percent">68%</div><div class="tgme_widget_message_poll_option_text">March 24</div></div>
+    <div class="tgme_widget_message_poll_option"><div class="tgme_widget_message_poll_option_percent">17%</div><div class="tgme_widget_message_poll_option_text">April 1</div></div>
+    <div class="tgme_widget_message_poll_option"><div class="tgme_widget_message_poll_option_percent">10%</div><div class="tgme_widget_message_poll_option_text">March 15</div></div>
+    <div class="tgme_widget_message_poll_option"><div class="tgme_widget_message_poll_option_percent">5%</div><div class="tgme_widget_message_poll_option_text">April 24</div></div>
+    <div class="tgme_widget_message_poll_votes">1.2K voters</div></div></div>
+    <div class="tgme_widget_message js-widget_message" data-post="sscquizparmar/90442">
+    <div class="tgme_widget_message_poll"><div class="tgme_widget_message_poll_question">Veer Guardian 2026 is a joint air exercise between India and which country?</div>
+    <div class="tgme_widget_message_poll_option"><div class="tgme_widget_message_poll_option_percent">20%</div><div class="tgme_widget_message_poll_option_text">France</div></div>
+    <div class="tgme_widget_message_poll_option"><div class="tgme_widget_message_poll_option_percent">34%</div><div class="tgme_widget_message_poll_option_text">USA</div></div>
+    <div class="tgme_widget_message_poll_option"><div class="tgme_widget_message_poll_option_percent">35%</div><div class="tgme_widget_message_poll_option_text">Japan</div></div>
+    <div class="tgme_widget_message_poll_option"><div class="tgme_widget_message_poll_option_percent">11%</div><div class="tgme_widget_message_poll_option_text">Australia</div></div>
+    <div class="tgme_widget_message_poll_votes">100 voters</div></div></div>"""
+
+    def test_vote_shares_become_crowd_prior_only_when_clear(self):
+        msgs = tgsource.parse_preview(self.HTML)
+        self.assertEqual(msgs[0]["shares"], [68, 17, 10, 5]); self.assertEqual(msgs[0]["voters"], 1200)
+        raws, _ = tgsource.items_from_messages(msgs, "sscquizparmar", "SSC")
+        self.assertEqual(len(raws), 2)
+        self.assertEqual(raws[0]["crowd_index"], 0)          # clear lead → prior
+        self.assertIsNone(raws[1]["crowd_index"])            # 34 vs 35 → no prior
+        self.assertTrue(all(r["answer_pending"] and r["answer_index"] is None for r in raws))   # still never posted unsolved
+
+    def test_new_live_channels_present(self):
+        names = {u for u, _, _ in tgsource.CHANNELS}
+        for u in ("Adda247Telugu", "sscquizparmar", "sscwallahpw", "civiccentredotin"):
+            self.assertIn(u, names)

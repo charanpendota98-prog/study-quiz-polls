@@ -38,6 +38,8 @@ STATE_FILE = config.DATA / "tg_source_state.json"
 PREVIEW = "https://t.me/s/{u}"
 MAX_PAGES = 3
 MAX_MSGS_PER_CHANNEL = 60
+CROWD_MIN_VOTERS = 60      # vote share is used as a 3rd opinion only when enough people voted
+CROWD_LEAD_GAP = 12        # …and the leading option is clearly ahead (percentage points)
 
 
 # ---- curated public exam channels (username, channel, lang) ----------------
@@ -45,6 +47,8 @@ MAX_MSGS_PER_CHANNEL = 60
 # Junk-y "join our paid batch" channels are excluded deliberately.
 CHANNELS = [
     # ---- TS / AP (Telugu-first) ----
+    ("Adda247Telugu", "TSPSC", "en"),             # 27K · daily CA quiz polls, TS/AP focus (live 2026-09)
+    ("civiccentredotin", "APPSC", "en"),          # CivicCentre IAS APPSC/TGPSC (live 2026-09)
     ("EducationalHub", "CURRENT", "en"),          # daily CA/GA/GS quiz polls (UPSC/TSPSC/APPSC/SSC)
     ("telangana_groups", "TSPSC", "te"),          # studybizz TS group exams
     ("telangana_jobs", "TSPSC", "te"),
@@ -58,6 +62,9 @@ CHANNELS = [
     ("gvs_rajkumar_ias_study_circle", "TSPSC", "te"),
     ("aphistorygroup2", "APPSC", "te"),
     # ---- SSC ----
+    ("sscquizparmar", "SSC", "en"),               # 542K · GK/Eng/Reasoning/Maths quiz polls daily (live 2026-09)
+    ("sscwallahpw", "SSC", "en"),                 # 171K · PW SSC polls + PYQs (live 2026-09)
+    ("ThePundits_Official", "SSC", "en"),         # 421K · SSC quizzes (live 2026-09)
     ("sscadda_official", "SSC", "en"),            # SSC Adda247 (quiz polls + CA quiz PDFs)
     ("SSC_CGL_QUIZ_TREASURE", "SSC", "en"),
     ("SscAdda", "SSC", "en"),
@@ -78,6 +85,7 @@ CHANNELS = [
     ("SbiZone", "BANKING", "en"),
     ("RbiZone", "BANKING", "en"),
     ("InsuranceZone", "BANKING", "en"),
+    ("UPSC_Prelims_MCQs_Quiz", "DEFENCE", "en"),  # PYQ/MCQ polls (GS overlap NDA/CDS)
     # ---- Defence ----
     ("sscadda_247", "DEFENCE", "en"),             # UPSC/State PSC (NDA/CDS GK overlaps)
     ("CivilServicesAdda", "DEFENCE", "en"),
@@ -100,6 +108,7 @@ class _Msgs(HTMLParser):
         self._cur = None
         self._stack = []
         self._in_poll_q = self._in_opt = self._in_text = self._in_doc = False
+        self._in_pct = self._in_votes = False
         self._buf = ""
 
     def handle_starttag(self, tag, attrs):
@@ -108,13 +117,17 @@ class _Msgs(HTMLParser):
         if "tgme_widget_message " in cls + " " and a.get("data-post"):
             self._flush()
             self._cur = {"id": a["data-post"], "text": "", "poll_q": "", "options": [],
-                         "doc": "", "date": ""}
+                         "doc": "", "date": "", "shares": [], "voters": 0}
         if not self._cur:
             return
         if "tgme_widget_message_poll_question" in cls:
             self._in_poll_q = True; self._buf = ""
+        elif "tgme_widget_message_poll_option_percent" in cls:
+            self._in_pct = True; self._buf = ""
         elif "tgme_widget_message_poll_option_text" in cls:
             self._in_opt = True; self._buf = ""
+        elif "tgme_widget_message_poll_votes" in cls:
+            self._in_votes = True; self._buf = ""
         elif "tgme_widget_message_text" in cls and "js-message_text" in cls:
             self._in_text = True; self._buf = ""
         elif "tgme_widget_message_document_title" in cls:
@@ -125,7 +138,7 @@ class _Msgs(HTMLParser):
             self._buf += "\n"
 
     def handle_data(self, data):
-        if self._in_poll_q or self._in_opt or self._in_text or self._in_doc:
+        if self._in_poll_q or self._in_opt or self._in_text or self._in_doc or self._in_pct or self._in_votes:
             self._buf += data
 
     def handle_endtag(self, tag):
@@ -135,6 +148,17 @@ class _Msgs(HTMLParser):
             self._cur["poll_q"] = _clean(self._buf); self._in_poll_q = False
         elif tag == "div" and self._in_opt:
             self._cur["options"].append(_clean(self._buf)); self._in_opt = False
+        elif tag == "div" and self._in_pct:
+            m = re.search(r"(\d+)", self._buf)
+            self._cur["shares"].append(int(m.group(1)) if m else 0); self._in_pct = False
+        elif tag == "div" and self._in_votes:
+            m = re.search(r"([\d,.]+)\s*(K?)", self._buf, re.I)
+            if m:
+                try:
+                    self._cur["voters"] = int(float(m.group(1).replace(",", "")) * (1000 if m.group(2) else 1))
+                except ValueError:
+                    pass
+            self._in_votes = False
         elif tag == "div" and self._in_text:
             self._cur["text"] = _html.unescape(self._buf).strip(); self._in_text = False
         elif tag == "div" and self._in_doc:
@@ -165,7 +189,7 @@ def parse_preview(page_html: str):
 
 
 # ---------------------------------------------------------------- items
-_BAD_Q = re.compile(r"join|batch|discount|offer|subscribe|link in bio|paid|telegram|whatsapp",
+_BAD_Q = re.compile(r"\b(?:join(?:ed|ing)?|batch|discount|offer|subscribe|link in bio|paid|telegram|whatsapp)\b",
                     re.I)
 
 
@@ -180,10 +204,16 @@ def items_from_messages(msgs, username, channel_default, lang="en"):
         if m["poll_q"] and 2 <= len(m["options"]) <= 4 and not _BAD_Q.search(m["poll_q"]):
             opts = [o for o in m["options"] if o]
             if len(opts) == 4 and len(m["poll_q"]) >= 15:
+                crowd = None
+                if len(m.get("shares") or []) == 4 and m.get("voters", 0) >= CROWD_MIN_VOTERS:
+                    order = sorted(range(4), key=lambda i: -m["shares"][i])
+                    if m["shares"][order[0]] - m["shares"][order[1]] >= CROWD_LEAD_GAP:
+                        crowd = order[0]
                 raws.append({"q_en": m["poll_q"], "options_en": opts, "answer_index": None,
                              "explanation_en": "", "title": title, "url": link,
                              "answer_pending": True, "lang": lang,
-                             "channel_hint": channel_default})
+                             "channel_hint": channel_default,
+                             "crowd_index": crowd, "voters": m.get("voters", 0)})
         # 2. text MCQs with answers (Q1 ... (a) ... Ans: b)
         if m["text"] and re.search(r"(?i)\bans(?:wer)?\s*[:\-–]|జవాబు|उत्तर", m["text"]):
             lines = [ln.strip() for ln in m["text"].split("\n") if ln.strip()]

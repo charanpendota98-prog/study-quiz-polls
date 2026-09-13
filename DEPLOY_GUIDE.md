@@ -463,3 +463,12 @@ Every exam channel now has its own competition next to the all-exam District War
   are auto-enrolled, invited by DM, exam auto-starts at the time — no walk-in, no link needed.
 * `/roster <College>` (or club button) → roster card + CSV (phone, branch, year, all tests, best/last/Δ).
 * Monday 09:00: 🏆 College Toppers of the week → hub channels (per-college top 3).
+
+## 📡 Telegram quiz-poll sources (upgrade)
+* `core/tgsource.py` curated list now 45+ public channels incl. **Adda247Telugu, CivicCentre IAS, SSC Quiz Parmar
+  (542K), SSC Wallah, The Pundits** (all previewed live 2026-09-13). Polls arrive with **vote shares**: when
+  ≥60 voters and the top option leads by ≥12 pts it is stored as a *crowd prior*.
+* Release rule (unchanged + stricter): two independent LLM solves must agree with high confidence, AND the
+  crowd prior (if any) must not contradict — otherwise the question stays parked. Nothing is ever posted
+  with a guessed key.
+* Fixed: word-boundary filter (previously "joint air exercise" was dropped because it contained "join").

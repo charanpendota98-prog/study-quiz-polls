@@ -113,7 +113,8 @@ def _park(polls):
             continue
         items.append({"q_en": p["q_en"], "options_en": p["options_en"],
                       "channel": p.get("channel_hint", "CURRENT"), "url": p.get("url", ""),
-                      "title": p.get("title", ""), "seen": _now(), "tries": 0})
+                      "title": p.get("title", ""), "seen": _now(), "tries": 0,
+                      "crowd_index": p.get("crowd_index"), "voters": p.get("voters", 0)})
         seen.add(k)
     items = items[-PENDING_CAP:]
     save_json_atomic(PENDING_FILE, {"count": len(items), "items": items})
@@ -150,9 +151,16 @@ def solve_pending(limit=SOLVE_BATCH, llm=None, dry=False):
                 b = _solve(llm, q)
             except Exception:
                 a = b = None
-            if a and b and a["answer_index"] == b["answer_index"] and \
-                    min(a["confidence"], b["confidence"]) >= MIN_CONF and \
-                    not ({"ambiguous", "multiple_correct", "no_correct"} & set(a["flags"] + b["flags"])):
+            crowd = it.get("crowd_index")
+            agree = a and b and a["answer_index"] == b["answer_index"] and \
+                min(a["confidence"], b["confidence"]) >= MIN_CONF and \
+                not ({"ambiguous", "multiple_correct", "no_correct"} & set(a["flags"] + b["flags"]))
+            # crowd prior (hundreds of aspirants' votes): if it clearly disagrees with both models,
+            # do not release — park for another try (models can slip on very recent CA).
+            if agree and crowd is not None and crowd != a["answer_index"]:
+                agree = False
+                stats["crowd_veto"] = stats.get("crowd_veto", 0) + 1
+            if agree:
                 lines = [f"Q1. {it['q_en']}"] + \
                         [f"{'ABCD'[i]}) {o}" for i, o in enumerate(it["options_en"])] + \
                         [f"Answer: {'ABCD'[a['answer_index']]}"]

@@ -229,7 +229,8 @@ def run(limit=120, only=None, dry=False, llm=None, include_trusted=True):
             continue
         todo.append(q)
     # strict sources first, newest first
-    todo.sort(key=lambda q: (q.get("source") in TRUSTED_SOURCES,
+    todo.sort(key=lambda q: (q.get("key_confidence") != "crowd",      # crowd keys first: they can't post until verified
+                             q.get("source") in TRUSTED_SOURCES,
                              -(len(q.get("collected_on") or ""))))
     stats = {"checked": 0, "ok": 0, "fixed": 0, "quarantine": 0, "pending": 0,
              "llm": bool(llm)}
@@ -270,6 +271,8 @@ def postable(q: dict, strict: bool | None = None) -> bool:
         return True
     if s == "quarantine":
         return False
+    if q.get("key_confidence") == "crowd":
+        return False                 # crowd-sourced key is never posted unverified
     if strict is None:
         strict = _strict_default()
     src = q.get("source", "pyq")
