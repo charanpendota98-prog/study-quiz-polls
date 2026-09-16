@@ -142,6 +142,25 @@ def alerts(mx):
     stale = [e for e in mx.get("events_open", []) if (_now() - datetime.fromisoformat(e["created"])).total_seconds() > 6 * 3600]
     for e in stale[:3]:
         a.append(f"🎓 {e['code']} {e['name'][:20]} open for {int((_now() - datetime.fromisoformat(e['created'])).total_seconds() // 3600)}h — start or close")
+    try:   # 🏆 cup matches sitting idle > 2h → smart nudge (they run in parallel!)
+        from . import cup as CU
+        from . import campus as _C
+        ev = _C._load()["events"]
+        for c in CU._load()["cups"].values():
+            if c.get("state") != "live":
+                continue
+            n_stale = 0
+            for rnd in c["rounds"]:
+                for p in rnd["pairs"]:
+                    e = ev.get(p.get("event") or "")
+                    if e and e["state"] == "open" and \
+                            (_now() - datetime.fromisoformat(e["created"])).total_seconds() > 2 * 3600:
+                        n_stale += 1
+            if n_stale:
+                lb, dn, tt = CU.cup_progress(c)
+                a.append(f"🏆 {c['code']}: {n_stale} cup match(es) open >2h ({lb} {dn}/{tt}) — start them, they run in parallel")
+    except Exception:
+        pass
     if mx["members"] and mx["joined_hub"] / mx["members"] < 0.4:
         a.append(f"📢 only {round(100 * mx['joined_hub'] / mx['members'])}% verified channel join — nudge")
     if mx["blocked"] > 0.1 * max(mx["members"], 1):

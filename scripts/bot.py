@@ -318,7 +318,8 @@ class Bot:
 
     def _refresh_panel(self, cq, chat_id, code):
         """Smart admin panel: update the SAME message in place instead of
-        spamming a new one after every button tap (edit → fallback to send)."""
+        spamming a new one after every button tap. If nothing changed
+        ('message is not modified') we do NOTHING — never a duplicate."""
         from core import campus
         txt = campus.panel_text(self.members, code)
         btns = campus.panel_buttons(code)
@@ -334,8 +335,9 @@ class Bot:
                         for row in btns]}
                 self.tg._call("editMessageText", payload)
                 return
-            except Exception:
-                pass
+            except Exception as e:
+                if "not modified" in str(e).lower():
+                    return                 # identical panel → no duplicate, ever
         self.tg.send_message(chat_id, txt, buttons=btns)
 
     def handle_callback(self, cq):
@@ -633,8 +635,9 @@ class Bot:
                                 [{"text": lab, "callback_data": cb} for lab, cb in row]
                                 for row in (C.cup_buttons(code) or [])]}})
                         edited = True
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        if "not modified" in str(e).lower():
+                            edited = True          # identical → do NOT duplicate
                 if not edited:
                     self.tg.send_message(chat_id, txt, buttons=C.cup_buttons(code))
             elif act == "ping":

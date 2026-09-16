@@ -229,5 +229,62 @@ class TestCupOps(unittest.TestCase):
         self.assertIn("Now:", txt)
 
 
+class TestSmartPanelRefresh(unittest.TestCase):
+    """Button taps must NEVER spam duplicate panels:
+    edit in place; if nothing changed → do nothing; only send on real errors."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self._campus_old = campus.PATH
+        campus.PATH = self.tmp / "campus.json"
+        import bot as botmod
+        self.botmod = botmod
+
+    def tearDown(self):
+        campus.PATH = self._campus_old
+
+    def _bot(self, raise_msg=None):
+        class _TG:
+            def __init__(self):
+                self.raised = raise_msg
+                self.sent, self.edited = [], []
+
+            def _call(self, method, payload):
+                if self.raised:
+                    from core.telegram import TelegramError
+                    raise TelegramError(self.raised)
+                self.edited.append(payload)
+                return {"ok": True}
+
+            def send_message(self, chat, text, **kw):
+                self.sent.append((chat, text))
+                return {}
+
+        class _Members:
+            members = {}
+
+        b = object.__new__(self.botmod.Bot)
+        b.members = _Members()
+        b.tg = _TG()
+        return b
+
+    def test_edit_in_place(self):
+        b = self._bot()
+        b._refresh_panel({"message": {"message_id": 5}}, "123", None)
+        self.assertEqual(len(b.tg.edited), 1)
+        self.assertEqual(b.tg.sent, [])                 # no new message
+
+    def test_not_modified_never_duplicates(self):
+        b = self._bot("Bad Request: message is not modified")
+        b._refresh_panel({"message": {"message_id": 5}}, "123", None)
+        self.assertEqual(b.tg.sent, [])                 # identical → silence
+        self.assertEqual(b.tg.edited, [])
+
+    def test_real_error_falls_back_to_send(self):
+        b = self._bot("Bad Request: message identifier is not specified")
+        b._refresh_panel({}, "123", None)               # no message_id → send
+        self.assertEqual(len(b.tg.sent), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
