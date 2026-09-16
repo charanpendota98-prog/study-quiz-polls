@@ -43,6 +43,16 @@ def _day(dt=None):
     return (dt or datetime.now(config.IST)).strftime("%Y-%m-%d")
 
 
+def norm_mobile(raw) -> str:
+    """' +91 93944-83300 ' -> '9394483300' (or '' if not a valid 10-digit number)."""
+    digits = re.sub(r"\D", "", str(raw or ""))
+    if len(digits) == 12 and digits.startswith("91"):
+        digits = digits[2:]
+    if len(digits) == 10 and digits[0] in "6789":
+        return digits
+    return ""
+
+
 def level_for(points: int):
     idx = 0
     for i, (thresh, *_rest) in enumerate(LEVELS):
@@ -124,6 +134,17 @@ class Members:
 
     def register(self, uid, name=None, exam=None, lang=None, username="", **extra):
         m = self._get(uid)
+        # 🚫 mobile numbers are unique: never overwrite/assign one that already
+        # belongs to a different registered member (duplicate-account guard).
+        mb = norm_mobile(extra.get("mobile") or extra.get("phone"))
+        if mb:
+            holder = self.find_by_mobile(mb)
+            if holder and str(holder) != str(uid):
+                extra = {k: v for k, v in extra.items() if k not in ("mobile", "phone")}
+                extra["mobile_conflict_with"] = str(holder)
+            else:
+                extra["mobile"] = mb
+                extra.pop("phone", None)
         if name:
             m["name"] = name
         if username:
@@ -521,6 +542,33 @@ class Members:
     def is_registered(self, uid) -> bool:
         m = self.members.get(str(uid))
         return bool(m and m.get("registered"))
+
+    # ------------------------------------------------------------ uniqueness
+    def mobile_index(self) -> dict:
+        """mobile -> uid for every member that has a valid mobile number."""
+        idx = {}
+        for uid, m in self.members.items():
+            mb = norm_mobile(m.get("mobile"))
+            if mb:
+                idx[mb] = uid
+        return idx
+
+    def find_by_mobile(self, mobile):
+        """uid of the member holding this mobile number, or None."""
+        mb = norm_mobile(mobile)
+        if not mb:
+            return None
+        return self.mobile_index().get(mb)
+
+    def already_registered_text(self, uid) -> str:
+        """Shown when a registered user triggers /register (or any re-ask):
+        registration is strictly one-time — confirm the account instead."""
+        m = self.members.get(str(uid)) or {}
+        head = ("✅ మీరు ఇప్పటికే రిజిస్టర్ అయ్యారు — మళ్ళీ అవసరం లేదు (ఒక్కసారే, ఎప్పటికీ గుర్తు ఉంటుంది).\n"
+                "⤷ You are already registered — one-time only, never asked again.\n")
+        if m.get("mobile"):
+            head += f"📱 మీ నంబర్: {m['mobile']} · మార్చాలంటే staff కి చెప్పండి.\n"
+        return head + "\n" + self.render_profile(uid)
 
     # ------------------------------------------------------------ districts
     def district_board(self, limit=10):
@@ -946,12 +994,23 @@ class Members:
 
     # ------------------------------------------------------------ register flow
     def start_registration(self, uid, username="", quick=None):
-        """quick={'state_code','state','district','qualification','exam'} → only name + mobile asked."""
+        """quick={'state_code','state','district','qualification','exam'} → only name + mobile asked.
+
+        Registration is ONE-TIME: already-registered members are never asked
+        again (returns False, no pending state created). An in-progress form is
+        kept as-is so progress isn't lost. Returns True when a form is active.
+        """
+        if self.is_registered(uid):
+            return False
+        st = self.pending.get(str(uid))
+        if st and not quick:
+            return True          # already filling the form — don't reset progress
         st = {"step": "name", "username": username}
         if quick:
             st.update({k: v for k, v in quick.items() if v}); st["quick"] = True
         self.pending[str(uid)] = st
         self.kv.save()
+        return True
 
     def pending_step(self, uid):
         return self.pending.get(str(uid))
@@ -1022,15 +1081,29 @@ class Members:
                                   "for exam alerts & prizes. Send `skip` to skip.\n"
                                   "⤷ మొబైల్ నంబర్ పంపండి (లేదా skip):")
         if st["step"] == "mobile":
-            digits = re.sub(r"\D", "", text)
             if text.lower() in ("skip", "no", "వద్దు", "-"):
                 mobile = ""
-            elif len(digits) == 12 and digits.startswith("91"):
-                mobile = digits[2:]
-            elif len(digits) == 10 and digits[0] in "6789":
-                mobile = digits
             else:
-                return "ask_mobile", "Send a valid 10-digit mobile (starts 6–9) or `skip`.\n⤷ సరైన నంబర్ లేదా skip పంపండి."
+                mobile = norm_mobile(text)
+                if not mobile:
+                    return "ask_mobile", "Send a valid 10-digit mobile (starts 6–9) or `skip`.\n⤷ సరైన నంబర్ లేదా skip పంపండి."
+            # 🚫 duplicate guard — one mobile = one account, one person = one entry
+            if mobile:
+                holder = self.find_by_mobile(mobile)
+                if holder and str(holder) != str(uid):
+                    hm = self.members.get(str(holder)) or {}
+                    st["last_dup"] = {"mobile": mobile, "holder": str(holder),
+                                      "name": hm.get("name", ""), "district": hm.get("district", ""),
+                                      "ts": now_iso()}
+                    self.kv.save()
+                    return "duplicate", (
+                        f"⚠️ ఈ నంబర్ ({mobile}) ఇప్పటికే రిజిస్టర్ అయింది — "
+                        f"{hm.get('name') or 'player'} · {hm.get('district') or '—'}.\n"
+                        "ఒక్కరికి ఒకటే అకౌంట్ — అది మీదే అయితే అదే అకౌంట్ వాడండి (లేదా staff కి చెప్పండి).\n"
+                        "వేరే నంబర్ ఉంటే పంపండి, లేకపోతే `skip` పంపండి.\n\n"
+                        f"⤷ This number is already registered ({hm.get('name') or 'player'} · "
+                        f"{hm.get('district') or '—'}). One person = one account only.\n"
+                        "Send a different number, or `skip`.")
             exam = st.get("exam") or default_exam or "TSPSC"
             self.register(uid, name=st.get("name"), exam=exam, lang="Both",
                           username=st.get("username", ""),

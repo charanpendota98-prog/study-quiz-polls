@@ -42,7 +42,10 @@ Commands:
   /stats /profile     your points, level, rank, accuracy, streak
   /rank /leaderboard  points-based top players
   /hq                 🏢 owner dashboard (staff) · /college = college clubs
+  /college add        🏫 phone-friendly college event wizard (name → district buttons)
   /campus             🎓 college event / college-vs-college war (organisers)
+  /cup                🏆 College Cup — cricket-style knockout (3–16 colleges, parallel rounds)
+  /campuswar          🎓 students: request your own college war (staff approve)
   /warrank            🎖 మీ War rank (🪖→🐉) + all-time war board
   /top tspsc          📊 exam-wise Top 10 (today) · /top tspsc week · /top tspsc districts
   /levels             points & level rules
@@ -119,6 +122,11 @@ LOCKED_NUDGE = (
     "⤷ {pts} పాయింట్లు లాక్‌లో ఉన్నాయి — పేరు పంపి రిజిస్ట్రేషన్ పూర్తి చేయండి."
 )
 
+COLLEGE_WIZ_NAME = (
+    "🏫 New college event — Step 1/3 (ఇకపై | కొట్టాల్సిన అవసరం లేదు)\n"
+    "College పేరు పంపండి / Send the college name (type only this one thing):"
+)
+
 HELP = (
     "ℹ️ *StudentUp — ఎలా పనిచేస్తుంది*\n"
     "1️⃣ ఒక్కసారి register (పేరు → జిల్లా → exam → mobile) +25 pts. మళ్ళీ అడగము.\n"
@@ -182,6 +190,20 @@ class Bot:
             qs = self.bank.pick(ch, 1)
             q = qs[0] if qs else None
         if not q:
+            # 📭 never stay silent: tell the player + make it visible for staff
+            try:
+                self.tg.send_message(chat_id,
+                    "📭 ఇప్పుడు ఈ కేటగిరీలో కొత్త ప్రశ్నలు లేవు (అన్నీ వాడేశాం) — కొత్తవి వచ్చాక మళ్ళీ /quiz ట్రై చేయండి.\n"
+                    "⤷ No fresh questions in stock right now — staff has been notified. Try /quiz again soon!\n"
+                    "(Staff: collector run చెయ్యండి / VERIFY_STRICT చూడండి — /hq లో స్టాక్ కనిపిస్తుంది)")
+            except TelegramError:
+                pass
+            for aid in self._staff_ids():
+                try:
+                    self.tg.send_message(aid, f"⚠️ /quiz empty stock alert — channel {ch or 'default'}, user {uid}. "
+                                              "Run the collector or check verification (see /hq).")
+                except TelegramError:
+                    pass
             return
         if not tag:
             tag = "📜 PYQ" if q.get("source") == "pyq" else "📝 Practice"
@@ -243,6 +265,80 @@ class Bot:
         if row:
             rows.append(row)
         return rows
+
+    def _finish_college_wizard(self, chat_id, uid, district):
+        """Wizard step 3 done → create the event(s).
+
+        1 college → quick event · 2 colleges → college-vs-college war ·
+        3+ colleges → ask: war (one shot) or 🏆 cricket-style knockout CUP.
+        """
+        from core import campus
+        wz = campus.wiz_get(uid) or {}
+        colleges = wz.get("colleges") or []
+        first = (wz.get("name") or "").strip()
+        if first and first not in colleges:
+            colleges.insert(0, first)
+        colleges = [c.strip()[:40] for c in colleges if c and c.strip()]
+        if not colleges:
+            colleges = ["General"]
+        if (wz.get("kind") == "cup"):
+            # 🏆 cup wizard → straight to a knockout cup (bot builds the bracket)
+            from core import cup as C
+            campus.wiz_clear(uid)
+            code, msg = C.cup_new(district, colleges, name=f"{district} College Cup", created_by=uid)
+            self.tg.send_message(chat_id, msg)
+            if code:
+                self.tg.send_message(chat_id, C.render_cup(code), buttons=C.cup_buttons(code))
+            return
+        if len(colleges) >= 3:
+            campus.wiz_set(uid, district=district, step="mode")
+            self.tg.send_message(chat_id,
+                f"🏫 {len(colleges)} colleges · {district}\n\n"
+                "ఎలా ఆడించాలి? / How should they play?\n"
+                "🏆 CUP = cricket-style knockout (rounds → semis → FINAL, matches parallel)\n"
+                "🤝 WAR = అందరూ ఒకేసారి ఒకటే exam (college-vs-college)",
+                buttons=[[("🏆 KNOCKOUT CUP (smart)", "cwmode:cup")],
+                         [("🤝 Single WAR (one exam)", "cwmode:war")]])
+            return
+        campus.wiz_clear(uid)
+        try:
+            if len(colleges) == 1:
+                code = campus.quick_event(colleges[0], district, created_by=uid)
+            else:
+                code = campus.new_event(f"{district} College War ⚔️", district, colleges,
+                                        created_by=uid)
+        except Exception as ex:
+            self.tg.send_message(chat_id, f"❌ Event create fail: {ex}")
+            return
+        self.tg.send_message(chat_id, f"✅ {code} ready — {', '.join(colleges)} · {district} ✅\n"
+                                      "Students కి ఈ link పంపండి / తరగతి గదిలో చూపించండి 👇")
+        self.tg.send_message(chat_id, campus.poster_text(code))
+        self.tg.send_message(chat_id, campus.panel_text(self.members, code),
+                             buttons=campus.panel_buttons(code))
+
+    def _refresh_panel(self, cq, chat_id, code):
+        """Smart admin panel: update the SAME message in place instead of
+        spamming a new one after every button tap. If nothing changed
+        ('message is not modified') we do NOTHING — never a duplicate."""
+        from core import campus
+        txt = campus.panel_text(self.members, code)
+        btns = campus.panel_buttons(code)
+        mid = (cq.get("message") or {}).get("message_id")
+        if mid:
+            try:
+                payload = {"chat_id": chat_id, "message_id": mid,
+                           "text": txt[:config.TG_MSG_MAX]}
+                if btns:
+                    payload["reply_markup"] = {"inline_keyboard": [
+                        [({"text": lab, "url": str(cb)[4:]} if str(cb).startswith("url:") else
+                          {"text": lab, "callback_data": str(cb)[:64]}) for lab, cb in row]
+                        for row in btns]}
+                self.tg._call("editMessageText", payload)
+                return
+            except Exception as e:
+                if "not modified" in str(e).lower():
+                    return                 # identical panel → no duplicate, ever
+        self.tg.send_message(chat_id, txt, buttons=btns)
 
     def handle_callback(self, cq):
         """Inline-button taps (qualification step, future menus)."""
@@ -524,10 +620,186 @@ class Bot:
             txt, b = roster.handle_callback(self.members, uid, k, v)
             self.tg.send_message(chat_id, txt, buttons=b)
             return
-        if kind == "cp" and uid and str(uid) in self._staff_ids():
+        if kind == "cupc" and uid and str(uid) in self._staff_ids():
+            from core import cup as C
+            act, _, code = value.partition(":")
+            if act == "bracket":
+                txt = C.render_cup(code)
+                edited = False
+                mid = (cq.get("message") or {}).get("message_id")
+                if mid:      # refresh the same bracket message in place
+                    try:
+                        self.tg._call("editMessageText", {
+                            "chat_id": chat_id, "message_id": mid, "text": txt[:config.TG_MSG_MAX],
+                            "reply_markup": {"inline_keyboard": [
+                                [{"text": lab, "callback_data": cb} for lab, cb in row]
+                                for row in (C.cup_buttons(code) or [])]}})
+                        edited = True
+                    except Exception as e:
+                        if "not modified" in str(e).lower():
+                            edited = True          # identical → do NOT duplicate
+                if not edited:
+                    self.tg.send_message(chat_id, txt, buttons=C.cup_buttons(code))
+            elif act == "ping":
+                from core import campus
+                codes = C.cup_ping_targets(code)
+                if not codes:
+                    try:
+                        self.tg.answer_callback(cq.get("id", ""), "no open matches")
+                    except TelegramError:
+                        pass
+                else:
+                    n = 0
+                    for ec in codes:
+                        try:
+                            n += campus.waiting_room_ping(self.tg, self.members, ec)
+                        except Exception:
+                            pass
+                    try:
+                        self.tg.answer_callback(cq.get("id", ""), f"pinged {n} students")
+                    except TelegramError:
+                        pass
+                    self.tg.send_message(chat_id, f"🔔 pinged {n} students across {len(codes)} open matches.")
+                return
+            elif act == "panel":
+                from core import campus
+                self.tg.send_message(chat_id, campus.panel_text(self.members),
+                                     buttons=campus.panel_buttons())
+            try:
+                self.tg.answer_callback(cq.get("id", ""), "ok")
+            except TelegramError:
+                pass
+            return
+        if kind == "cwr" and uid and str(uid) in self._staff_ids():
+            from core import campus
+            rid, _, act = value.partition(":")
+            info = campus.request_act(rid, approve=(act == "1"))
+            if info:
+                r = info["request"]
+                if info.get("approved"):
+                    code = info.get("code")
+                    self.tg.send_message(chat_id, f"✅ {rid} approved → {code} created · organiser tg {r.get('uid')}")
+                    try:
+                        self.tg.send_message(r["uid"],
+                            f"🎉 మీ '{r.get('college', '')}' college war APPROVE అయింది! Event: {code}\n"
+                            "ఈ poster + link classmates కి పంపండి — వాళ్ళు ఓపెన్ చేయగానే join అవుతారు.\n"
+                            "అందరూ join అయ్యాక కింద 🚀 START exam బటన్ నొక్కండి — ప్రశ్నలు అందరికీ ఒకేసారి వస్తాయి 👇")
+                        self.tg.send_message(r["uid"], campus.poster_text(code))
+                        self.tg.send_message(r["uid"], campus.panel_text(self.members, code),
+                                             buttons=campus.panel_buttons(code))
+                    except TelegramError:
+                        pass
+                else:
+                    self.tg.send_message(chat_id, f"🚫 {rid} denied")
+                    try:
+                        self.tg.send_message(r["uid"], "❌ మీ college war request ఇప్పుదుకి approve కాలేదు — వివరాలకి StudentUp staff ని అడగండి.")
+                    except TelegramError:
+                        pass
+            else:
+                self.tg.send_message(chat_id, "⏳ ఈ request ఇప్పటికే పూర్తయింది లేదా దొరకలేదు.")
+            try:
+                self.tg.answer_callback(cq.get("id", ""), "ok")
+            except TelegramError:
+                pass
+            return
+        if kind in ("cwstate", "cw", "cwmore", "cwmode") and uid and str(uid) in self._staff_ids():
+            from core import campus
+            wz = campus.wiz_get(uid)
+            if not wz:
+                return
+            if kind == "cwmore" and wz.get("step") == "more":
+                if value == "again":
+                    campus.wiz_set(uid, step="name2")
+                    self.tg.send_message(chat_id, "🏫 Next college పేరు పంపండి / Send the next college name:")
+                else:  # done → pick state
+                    campus.wiz_set(uid, step="state")
+                    self.tg.send_message(chat_id,
+                        "🗺 ఈ colleges ఏ జిల్లాలో? / Which district?\nTap a button ⬇️",
+                        buttons=[[("🟪 Telangana / తెలంగాణ", "cwstate:TS"),
+                                  ("🟦 Andhra Pradesh / ఆంధ్రప్రదేశ్", "cwstate:AP")],
+                                 [("🌐 Other / typed district", "cwstate:OTHER")]])
+                try:
+                    self.tg.answer_callback(cq.get("id", ""), "ok")
+                except TelegramError:
+                    pass
+                return
+            if kind == "cwmode" and wz.get("step") == "mode":
+                from core import cup as C
+                colleges = wz.get("colleges") or []
+                district = wz.get("district") or ""
+                campus.wiz_clear(uid)
+                if value == "cup":
+                    code, msg = C.cup_new(district, colleges, name=f"{district} College Cup",
+                                          created_by=uid)
+                    self.tg.send_message(chat_id, msg)
+                    if code:
+                        self.tg.send_message(chat_id, C.render_cup(code), buttons=C.cup_buttons(code))
+                else:
+                    try:
+                        code = campus.new_event(f"{district} College War ⚔️", district, colleges,
+                                                created_by=uid)
+                        self.tg.send_message(chat_id, f"✅ {code} ready — {len(colleges)} colleges war ⚔️")
+                        self.tg.send_message(chat_id, campus.links_text(code))
+                        self.tg.send_message(chat_id, campus.panel_text(self.members, code),
+                                             buttons=campus.panel_buttons(code))
+                    except Exception as ex:
+                        self.tg.send_message(chat_id, f"❌ {ex}")
+                try:
+                    self.tg.answer_callback(cq.get("id", ""), "ok")
+                except TelegramError:
+                    pass
+                return
+            if wz.get("step") not in ("state", "district"):
+                return
+            if kind == "cwstate":
+                if value == "OTHER":
+                    campus.wiz_set(uid, state_code="OTHER", step="district_text")
+                    self.tg.send_message(chat_id, "📍 జిల్లా పేరు టైప్ చేయండి / Type the district name:")
+                else:
+                    from core import districts as D
+                    campus.wiz_set(uid, state_code=value, step="district")
+                    rows, row = [], []
+                    for en, _te in D.sorted_districts(value):
+                        label = en if len(en) <= 28 else en[:27] + "…"
+                        row.append((label, f"cw:{en}"[:64]))
+                        if len(row) == 2:
+                            rows.append(row); row = []
+                    if row:
+                        rows.append(row)
+                    st = D.STATES.get(value, (value, value))
+                    self.tg.send_message(chat_id,
+                        f"✅ {st[0]}\n\n📍 Step 3/3 — ఏ జిల్లా? / Which district?\nTap your district below ⬇️",
+                        buttons=rows)
+            else:
+                self._finish_college_wizard(chat_id, uid, value)
+            try:
+                self.tg.answer_callback(cq.get("id", ""), "ok")
+            except TelegramError:
+                pass
+            return
+        if kind == "cp" and uid:
             from core import campus
             act, _, code = value.partition(":")
             code = None if code == "-" else code
+            # staff always; a student organiser may control ONLY their own event
+            is_staff = str(uid) in self._staff_ids()
+            if not is_staff:
+                ev = campus._load()["events"].get(code) if code else None
+                organiser = bool(ev and str(ev.get("by")) == str(uid))
+                if not organiser or act == "new":
+                    try:
+                        self.tg.answer_callback(cq.get("id", ""), "staff only")
+                    except TelegramError:
+                        pass
+                    return
+            if act == "new":
+                campus.wiz_start(uid)
+                self.tg.send_message(chat_id, COLLEGE_WIZ_NAME)
+                try:
+                    self.tg.answer_callback(cq.get("id", ""), "ok")
+                except TelegramError:
+                    pass
+                return
             if act == "start" and code:
                 ok, info = campus.start(self.bank, self.members, self.tg, code)
                 self.tg.send_message(chat_id, f"🚀 Started: {info}" if ok else f"❌ {info}")
@@ -574,8 +846,11 @@ class Bot:
                             pass
                     self.tg.send_message(chat_id, "🏅 sent")
             elif act == "help":
-                self.tg.send_message(chat_id, "కొత్త event: /go SR College | Warangal\n(2 colleges war: /campus new Fest | Warangal | A ; B)")
-            self.tg.send_message(chat_id, campus.panel_text(self.members, code), buttons=campus.panel_buttons(code))
+                self.tg.send_message(chat_id, "కొత్త event (buttons తో): ➕ బటన్ లేదా /college add\n"
+                                              "typing తో అయితే: /go SR College | Warangal\n"
+                                              "(2+ colleges: /college add లో ➕ బటన్ తో ఎన్ని అయినా · /cup new = knockout)\n"
+                                              "(2 colleges war: /campus new Fest | Warangal | A ; B)")
+            self._refresh_panel(cq, chat_id, code)      # same message updates in place
             try:
                 self.tg.answer_callback(cq.get("id", ""), "ok")
             except TelegramError:
@@ -788,6 +1063,16 @@ class Bot:
             status, reply = self.members.registration_input(uid, text)
             if reply:
                 self.tg.send_message(chat_id, reply, buttons=self._step_buttons(uid, status))
+            if status == "duplicate":
+                # 🚫 same mobile twice → staff alert (no second account created)
+                dup = (self.members.pending_step(uid) or {}).get("last_dup") or {}
+                for aid in self._staff_ids():
+                    try:
+                        self.tg.send_message(aid, f"🚫 Duplicate mobile blocked — {dup.get('mobile', '?')} "
+                                                  f"already belongs to {dup.get('name', '')} ({dup.get('district', '')}, "
+                                                  f"tg {dup.get('holder', '')}); attempted by {self._name(who)} ({uid}).")
+                    except TelegramError:
+                        pass
             if status == "done":
                 self.tg.admin_note = None
                 try:
@@ -819,6 +1104,37 @@ class Bot:
                 except Exception:
                     pass
             return
+
+        # 🏫 College-add wizard (staff, phone-friendly: name → ➕ more colleges → state → district buttons)
+        if uid and str(uid) in self._staff_ids() and not low.startswith("/"):
+            from core import campus
+            wz = campus.wiz_get(uid)
+            if wz and wz.get("step") in ("name", "name2"):
+                name = text.strip()[:40]
+                if len(name) < 2:
+                    self.tg.send_message(chat_id, "College పేరు 2+ అక్షరాలు — మళ్ళీ పంపండి:")
+                else:
+                    cols = wz.get("colleges") or []
+                    if name not in cols:
+                        cols.append(name)
+                    campus.wiz_set(uid, name=name, colleges=cols, step="more")
+                    shown = "\n".join(f"  {i}. {c}" for i, c in enumerate(cols, 1))
+                    self.tg.send_message(chat_id,
+                        f"🏫 Colleges so far ({len(cols)}):\n{shown}\n\n"
+                        "ఇంకా కాలేజీలు ఉన్నాయా? / More colleges?\n"
+                        "➕ నొక్కి ఇంకా యాడ్ చేయొచ్చు — ఎన్ని అయినా (క్రికెట్ కప్ లాగ!)\n"
+                        "అయిపోయాక ✅ నొక్కండి",
+                        buttons=[[("➕ Add another college", "cwmore:again"),
+                                  ("✅ Done → district", "cwmore:done")]])
+                return
+            if wz and wz.get("step") == "district_text":
+                from core import districts as D
+                _st, canon = D.match_any_district(text)
+                if canon:
+                    self._finish_college_wizard(chat_id, uid, canon)
+                else:
+                    self.tg.send_message(chat_id, "❓ జిల్లా దొరకలేదు — పేరు సరిగ్గా టైప్ చేయండి (e.g. Warangal / Siddipet):")
+                return
 
         if low.startswith("/start"):
             linked = self.members.link_if_pending(uid, self._name(who),
@@ -914,11 +1230,15 @@ class Bot:
         elif low.startswith("/levels") or low.startswith("/points"):
             self.tg.send_message(chat_id, LEVELS_TEXT, parse_mode="Markdown")
         elif low.startswith("/register") or low.startswith("/signup"):
-            self.members.start_registration(uid, username=self._name(who))
-            self.tg.send_message(
-                chat_id,
-                "📝 One-time registration (name → state → district → qualification → mobile).\nStep 1 of 5 — What is your full name?\n"
-                "⤷ మీ పూర్తి పేరు పంపండి:")
+            # One-time only: registered members are never asked again.
+            if uid and self.members.is_registered(uid):
+                self.tg.send_message(chat_id, self.members.already_registered_text(uid))
+            else:
+                self.members.start_registration(uid, username=self._name(who))
+                self.tg.send_message(
+                    chat_id,
+                    "📝 One-time registration (name → state → district → qualification → mobile).\nStep 1 of 5 — What is your full name?\n"
+                    "⤷ మీ పూర్తి పేరు పంపండి:")
         elif low.startswith("/cancel"):
             self.members.cancel_registration(uid)
             self.tg.send_message(chat_id, "Registration cancelled. /register to retry.\n⤷ రద్దు చేయబడింది.")
@@ -1149,6 +1469,11 @@ class Bot:
         elif low.startswith("/college") and str(uid) in self._staff_ids():
             from core import hq
             rest = text.split(maxsplit=1)[1].strip() if len(text.split()) > 1 else ""
+            if rest.lower() in ("add", "new"):
+                from core import campus
+                campus.wiz_start(uid)
+                self.tg.send_message(chat_id, COLLEGE_WIZ_NAME)
+                return
             if rest.lower().startswith("lead "):
                 f = [x.strip() for x in rest[5:].split("|")]
                 if len(f) == 2:
@@ -1205,6 +1530,81 @@ class Bot:
                 self.tg.send_message(chat_id, joingate.gate_text(m, "Full list"), buttons=joingate.buttons(m))
                 return
             self.tg.send_message(chat_id, campus.my_score(self.members, uid), buttons=campus.join_buttons())
+        elif low.startswith("/campuswar") and uid:
+            # 🎓 students create their own college war/test (staff approve with one tap)
+            from core import campus
+            if not self.members.is_registered(uid):
+                if self.members.start_registration(uid, username=self._name(who)):
+                    self.tg.send_message(chat_id, "🎓 College war పెట్టాలంటే ముందు 1 నిమిషం రిజిస్టర్ (+25 pts) 👇")
+                    self.tg.send_message(chat_id, FIRST_TIME_ASK)
+                return
+            arg = text.split(maxsplit=1)[1].strip() if len(text.split()) > 1 else ""
+            f = [x.strip() for x in arg.split("|")]
+            if len(f) < 2 or not f[0] or not f[1]:
+                self.tg.send_message(chat_id, "🎓 మీ సొంత college war/test — ఇక్కడే పెట్టుకోండి!\n"
+                                              "Usage: /campuswar <College పేరు> | <District>\n"
+                                              "e.g.  /campuswar SR College | Warangal\n\n"
+                                              "Staff approve చేయగానే మీకు poster + classmates కి పంపే link వస్తుంది 🚀\n"
+                                              "⤷ అప్పటిదాకా ఫ్రెండ్స్‌తో /squad · /battle ఆడండి!")
+                return
+            m = self.members.members.get(str(uid)) or {}
+            rid = campus.student_request(uid, f[0], f[1], name=m.get("name", ""))
+            self.tg.send_message(chat_id, f"✅ Request {rid} పంపారు — {f[0]}, {f[1]}.\n"
+                                          "Staff ఒకే అనగానే మీకు ఇక్కడే poster + share link వస్తుంది 🚀\n"
+                                          "Classmates అందరూ ఆ లింక్ తో join అవుతారు — పేర్లతో results!\n"
+                                          "⤷ ఆగలేకపోతే ఇప్పుడే /squad /battle!")
+            for aid in self._staff_ids():
+                try:
+                    self.tg.send_message(aid, f"🎓 College-war request {rid}: {f[0]} | {f[1]} — "
+                                              f"by {m.get('name', '') or uid} ({uid})",
+                                         buttons=[[("✅ Approve", f"cwr:{rid}:1"), ("❌ Deny", f"cwr:{rid}:0")]])
+                except TelegramError:
+                    pass
+            return
+        elif low.startswith("/cup") and str(uid) in self._staff_ids():
+            from core import cup as C
+            parts = text.split(maxsplit=2)
+            sub = parts[1].strip() if len(parts) > 1 else ""
+            rest = parts[2] if len(parts) > 2 else ""
+            if sub == "new":
+                f = [x.strip() for x in rest.split("|")]
+                if not rest.strip():
+                    # 🧠 zero-typing: district buttons + college loop, bot builds the cup
+                    from core import campus
+                    campus.wiz_start(uid)
+                    campus.wiz_set(uid, kind="cup")
+                    self.tg.send_message(chat_id,
+                        "🏆 CUP wizard — అన్నీ బటన్స్ తో, ఒక్క పేరు మాత్రమే టైప్ చేయండి.\n"
+                        "Step 1: మొదటి కాలేజీ పేరు పంపండి ➕ తో ఇంకెన్ని అయినా యాడ్ చేయొచ్చు (3+).")
+                    return
+                if len(f) < 2 or ";" not in f[1]:
+                    self.tg.send_message(chat_id,
+                        "🏆 Usage: /cup new <District> | College A ; College B ; College C …\n"
+                        "(3–16 colleges · cricket-style knockout · parallel matches · auto semis/final)\n"
+                        "💡 typing వద్దంటే: /cup new (ఖాళీగా పంపండి) → బటన్స్ వస్తాయి")
+                    return
+                cols = [c.strip() for c in f[1].split(";") if c.strip()]
+                code, msg = C.cup_new(f[0], cols, name=f"{f[0]} College Cup", created_by=uid)
+                self.tg.send_message(chat_id, msg)
+                if code:
+                    self.tg.send_message(chat_id, C.render_cup(code), buttons=C.cup_buttons(code))
+            elif sub == "ping":
+                codes = C.cup_ping_targets(rest.strip().upper())
+                if not codes:
+                    self.tg.send_message(chat_id, "⏳ ఈ cup లో ఇప్పుడు open matches లేవు (అన్నీ అయిపోయాయి లేదా నడుస్తున్నాయి).")
+                else:
+                    from core import campus
+                    n = 0
+                    for ec in codes:
+                        try:
+                            n += campus.waiting_room_ping(self.tg, self.members, ec)
+                        except Exception:
+                            pass
+                    self.tg.send_message(chat_id, f"🔔 pinged {n} students across {len(codes)} open cup matches.")
+            elif sub.upper().startswith("CUP-"):
+                self.tg.send_message(chat_id, C.render_cup(sub.upper()), buttons=C.cup_buttons(sub.upper()))
+            else:
+                self.tg.send_message(chat_id, C.list_cups())
         elif low.startswith("/campus"):
             from core import campus
             parts = text.split(maxsplit=2)
@@ -1212,7 +1612,8 @@ class Bot:
             rest = parts[2] if len(parts) > 2 else ""
             if str(uid) not in self._staff_ids():
                 self.tg.send_message(chat_id, "🎓 మీ college లో StudentUp exam + college-vs-college war కావాలా?\n"
-                                              "College పేరు · జిల్లా · students సంఖ్య · మీ phone → /partner apply లో పంపండి, team వస్తుంది!\n"
+                                              "📲 మీరే పెట్టుకోండి: /campuswar <College> | <District> (staff ఒకే అంటే చాలు)\n"
+                                              "లేదా College పేరు · జిల్లా · students సంఖ్య · మీ phone → /partner apply లో పంపండి, team వస్తుంది!\n"
                                               "(Top 10 కి gifts · అందరికీ points · results channel లో పేర్లతో)")
                 return
             if sub == "new":
@@ -1895,6 +2296,22 @@ class Bot:
                         pass
                     if campus.tick(self.tg, self.members):
                         live = True
+                    try:      # 🏆 College Cup: next-round / champion announcements
+                        from core import cup as C
+                        for an in C.pop_announces():
+                            if an.get("to") == "hub":
+                                for ch in getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):
+                                    try:
+                                        self.tg.send_message(config.channel_chat_id(ch), an["text"])
+                                    except TelegramError:
+                                        pass
+                            for aid in self._staff_ids():
+                                try:
+                                    self.tg.send_message(aid, an["text"])
+                                except TelegramError:
+                                    pass
+                    except Exception as e:
+                        print(f"[cup] announce note: {e}")
                 except Exception as e:
                     print(f"[arena] tick error: {e}")
                 for upd in self.tg.get_updates(timeout=3 if live else 50):

@@ -404,6 +404,23 @@ def district_table(live, members):
     return rows
 
 
+def district_heroes(live, members, per=2):
+    """Top fighters of EVERY district (not just the winner's) — the 'top-2
+    list from each district' that makes every district see its own people.
+    Returns [(district, [(uid, fighter), ...]), ...] ordered like district_table."""
+    by_d = {}
+    for uid, f in live.get("fighters", {}).items():
+        if f.get("answered", 0) == 0 or not f.get("district"):
+            continue
+        by_d.setdefault(f["district"], []).append((str(uid), f))
+    order = {r["district"]: i for i, r in enumerate(district_table(live, members))}
+    out = []
+    for dname, fs in sorted(by_d.items(), key=lambda kv: order.get(kv[0], 999)):
+        fs.sort(key=lambda x: (-x[1].get("pts", 0), -x[1].get("correct", 0)))
+        out.append((dname, fs[:per]))
+    return out
+
+
 def _finish(tg, members, d, now):
     live = d["live"]
     live["state"] = "done"
@@ -467,6 +484,20 @@ def _finish(tg, members, d, now):
     d["live"] = live
     d["polls"] = {}
     _save(d)
+    try:  # 📊 record the war in the Google Sheet ('rounds' tab, channel=WAR)
+        from . import crm
+        if crm.sheet_enabled():
+            hrows = []
+            for dname, hs in district_heroes(live, members, per=2):
+                for uid, f in hs:
+                    mm = members.members.get(uid) or {}
+                    hrows.append({"uid": uid, "name": mm.get("name") or "", "district": dname,
+                                  "correct": f.get("correct", 0), "total": len(live["questions"]),
+                                  "points": f.get("pts", 0)})
+            if hrows:
+                crm.push_round_top(live["day"], "WAR", hrows)
+    except Exception as e:
+        print(f"   [war] sheet note: {e}")
     text = render_result(live, rows, members, mvp, season, now)
     # DM everyone who fought + personal line
     for uid, f in live["fighters"].items():
@@ -506,6 +537,18 @@ def render_result(live, rows, members, mvp, season, now):
         for j, (uid, f) in enumerate(best, 1):
             mm = members.members.get(uid) or {}
             lines.append(f"  {j}. {mm.get('name', '')[:16]} · {f['district']} — {f['pts']} pts ({f['correct']}/{n_q})")
+    # 🏅 every district sees its own TOP-2 (names from that district only)
+    heroes = district_heroes(live, members, per=2)
+    if heroes:
+        lines += ["", "🏅 జిల్లా హీరోలు — ప్రతి జిల్లా టాప్-2 / each district's TOP-2:"]
+        for dname, hs in heroes[:10]:
+            parts = []
+            for i, (uid, f) in enumerate(hs, 1):
+                mm = members.members.get(uid) or {}
+                parts.append(f"{i}. {(mm.get('name') or 'Player')[:14]} {f['pts']}pts {f['correct']}✅")
+            lines.append(f"  {dname}: " + " · ".join(parts))
+        if len(heroes) > 10:
+            lines.append(f"  … +{len(heroes) - 10} more districts")
     st = live.get("state_rows") or []
     if len(st) == 2:
         a, b = st
