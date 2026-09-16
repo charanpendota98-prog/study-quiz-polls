@@ -530,6 +530,11 @@ def _finish(tg, members, d, e, now):
                           "total": len(e["questions"]), "pts": p["pts"]} for u, p in rows], members=members.members)
     except Exception as ex:
         print(f"   [campus] sheet note: {ex}")
+    try:   # 🏆 College Cup: advance the knockout bracket if this was a cup match
+        from . import cup
+        cup.on_event_done(members, e)
+    except Exception as ex:
+        print(f"   [campus] cup note: {ex}")
 
 
 def render_result(e, rows, cols, limit=10):
