@@ -495,6 +495,23 @@ def _finish(tg, members, r, d, now):
                          "mvp": mvp_uid})
     d["history"] = d["history"][-500:]
     _save(d)
+    try:  # 📊 record the match in the Google Sheet ('rounds' tab, channel=ARENA)
+        from . import crm
+        if crm.sheet_enabled() and r.get("players"):
+            squad_of = {}
+            for c, s in r["squads"].items():
+                for u in s["members"]:
+                    squad_of[str(u)] = s["name"]
+            prows = []
+            for u, p in sorted(r["players"].items(), key=lambda kv: -kv[1].get("pts", 0))[:20]:
+                mm = members.members.get(u) or {}
+                sq = squad_of.get(str(u), "")
+                prows.append({"uid": u, "name": (mm.get("name") or "Player") + (f" [{sq}]" if sq else ""),
+                              "district": mm.get("district", ""), "correct": p.get("correct", 0),
+                              "total": p.get("correct", 0) + p.get("wrong", 0), "points": p.get("pts", 0)})
+            crm.push_round_top(r["code"], "ARENA", prows)
+    except Exception as e:
+        print(f"   [arena] sheet note: {e}")
     from . import districts as D
     text = scoreboard(r, members, final=True)
     w = rows[0][3]

@@ -805,6 +805,81 @@ def college_league(members, days=30, limit=10):
 
 
 # ============================================================ control panel (buttons)
+# ------------------------------------------------------------ student-created wars
+# Students can request their own college war/test: /campuswar <College> | <District>.
+# Staff approve with one tap → event auto-created, student becomes the organiser
+# (gets the poster + deep link to share with classmates).
+def student_request(uid, college, district, name=""):
+    import random
+    d = _load()
+    reqs = d.setdefault("requests", {})
+    while True:
+        rid = "RQ-" + "".join(random.choice("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") for _ in range(3))
+        if rid not in reqs:
+            break
+    reqs[rid] = {"uid": str(uid), "name": name, "college": college.strip()[:60],
+                 "district": district.strip()[:30], "ts": _now().isoformat(), "status": "pending"}
+    # keep only the latest 200 requests
+    if len(reqs) > 200:
+        for k in sorted(reqs, key=lambda x: reqs[x].get("ts", ""))[:-200]:
+            reqs.pop(k, None)
+    _save(d)
+    return rid
+
+
+def request_act(rid, approve=True):
+    """Staff tap → approve (create the event) or deny. Returns info dict or None."""
+    d = _load()
+    r = d.get("requests", {}).get(rid)
+    if not r or r.get("status") != "pending":
+        return None
+    if not approve:
+        r["status"] = "denied"
+        _save(d)
+        return {"request": r, "approved": False}
+    code = quick_event(r["college"], r["district"], created_by=r["uid"])
+    d = _load()                      # quick_event wrote a fresh copy — reload!
+    r = d["requests"][rid]
+    r["status"] = "approved"
+    r["event"] = code
+    _save(d)
+    return {"request": r, "approved": True, "code": code}
+
+
+def pending_requests():
+    d = _load()
+    return [(rid, r) for rid, r in sorted(d.get("requests", {}).items(), key=lambda kv: kv[1].get("ts", ""))
+            if r.get("status") == "pending"]
+
+
+# ------------------------------------------------------------ college-add wizard
+# Phone-friendly event creation: college name (typed) → state buttons → district
+# buttons → event ready. No "|" syntax needed. State lives in campus.json.
+def wiz_start(uid):
+    d = _load()
+    d.setdefault("wizard", {})[str(uid)] = {"step": "name", "ts": _now().isoformat()}
+    _save(d)
+
+
+def wiz_get(uid):
+    return _load().get("wizard", {}).get(str(uid))
+
+
+def wiz_set(uid, **kw):
+    d = _load()
+    st = d.setdefault("wizard", {}).setdefault(str(uid), {"step": "name"})
+    st.update(kw)
+    _save(d)
+    return st
+
+
+def wiz_clear(uid):
+    d = _load()
+    if str(uid) in d.get("wizard", {}):
+        d["wizard"].pop(str(uid))
+        _save(d)
+
+
 def panel_text(members, code=None):
     d = _load()
     if code and code in d["events"]:
@@ -816,8 +891,9 @@ def panel_text(members, code=None):
         for e in live:
             lines.append(f"• {e['code']} {e['name'][:26]} · {len(e['players'])}👥 · {e['state']}")
     else:
-        lines.append("No active event. Start one: /go <College> | <district>")
-    lines += ["", "Buttons 👇 (typing అవసరం లేదు)"]
+        lines.append("No active event.\nStart one with the ➕ button below (typing అవసరం లేదు)\n"
+                     "or /go <College> | <district>")
+    lines += ["", "Buttons 👇"]
     return "\n".join(lines)
 
 
@@ -841,5 +917,6 @@ def panel_buttons(code=None):
     rows = []
     for e in sorted(d["events"].values(), key=lambda x: x["created"], reverse=True)[:6]:
         rows.append([(f"{'🟢' if e['state'] == 'open' else '🔵' if e['state'] in ('question', 'gap') else '⚪'} {e['code']} {e['name'][:20]}", f"cp:status:{e['code']}")])
-    rows.append([("➕ New: /go <College> | <district>", "cp:help:-")])
+    rows.append([("➕ New college event (buttons)", "cp:new:-")])
+    rows.append([("ℹ️ /go syntax help", "cp:help:-")])
     return rows

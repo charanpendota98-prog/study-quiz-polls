@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import hashlib
 import random
+import re
 from datetime import datetime, timedelta
 
 from . import config
@@ -160,9 +161,21 @@ def _sq():
 def _code(data):
     alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
     while True:
-        c = "".join(random.choice(alphabet) for _ in range(5))
+        c = "".join(random.choice(alphabet) for _ in range(4))
         if c not in data["squads"]:
             return c
+
+
+def squad_code_display(code: str) -> str:
+    return code if code.startswith("SQ-") else f"SQ-{code}"
+
+
+def squad_code_normalize(raw: str) -> str:
+    """'sq-7k4q' / 'SQ 7K4Q' / '7k4q' → stored bare code ('7K4Q')."""
+    c = (raw or "").strip().upper()
+    if c.startswith("SQ"):
+        c = c[2:].lstrip("-–_ ")
+    return re.sub(r"[^A-Z0-9]", "", c)
 
 
 def squad_create(members, uid, name: str):
@@ -178,9 +191,11 @@ def squad_create(members, uid, name: str):
                             "created": datetime.now(config.IST).isoformat()}
     data["by_uid"][str(uid)] = code
     save_json_atomic(SQUADS_PATH, data)
-    return code, (f"👥 Squad '{name}' created! Code: {code}\n"
-                  f"Friends ని పిలవండి: bot లో /squad join {code}  (3–5 members)\n"
-                  f"Squad score = అందరి ✅ కలిపి · ప్రతి సోమవారం Squad Top-5 channel లో పేర్లతో 🏆")
+    disp = squad_code_display(code)
+    return code, (f"👥 Squad '{name}' created! Code: {disp}\n"
+                  f"Friends ని పిలవండి: bot లో /squad join {disp}  (2–5 members)\n"
+                  f"Squad score = అందరి ✅ కలిపి · ప్రతి సోమవారం Squad Top-5 channel లో పేర్లతో 🏆\n"
+                  f"⚔️ Squad vs Squad race కోసం: /battle new")
 
 
 def squad_join(members, uid, code: str):
@@ -188,10 +203,12 @@ def squad_join(members, uid, code: str):
     if not m.get("registered"):
         return None, "ముందు register అవ్వండి — /start"
     data = _sq()
-    code = (code or "").upper().strip()
-    s = data["squads"].get(code)
+    norm = squad_code_normalize(code)
+    s = data["squads"].get(norm) or data["squads"].get((code or "").upper().strip())
+    if s:
+        code = norm if norm in data["squads"] else (code or "").upper().strip()
     if not s:
-        return None, "Squad code తప్పు."
+        return None, f"Squad code దొరకలేదు ({squad_code_display(norm or (code or '').upper().strip())}). Leader అడిగి మళ్ళీ ట్రై చేయండి."
     if str(uid) in data["by_uid"]:
         return None, "మీరు already ఒక squad లో ఉన్నారు."
     if len(s["members"]) >= 5:
@@ -254,14 +271,15 @@ def render_squad(members, uid):
     s = data["squads"][code]
     rows, per_uid = squad_week_scores(members)
     rank = next((i for i, (_t, x) in enumerate(rows, 1) if x["code"] == code), None)
-    lines = [f"👥 {s['name']} · code {code} · {len(s['members'])}/5", ""]
+    lines = [f"👥 {s['name']} · code {squad_code_display(code)} · {len(s['members'])}/5", ""]
     for u in sorted(s["members"], key=lambda u: -per_uid.get(u, 0)):
         mm = members.members.get(u) or {}
         lines.append(f"  {'👑' if u == s['leader'] else '•'} {mm.get('name', 'Player')[:18]} · {mm.get('district', '')} — {per_uid.get(u, 0)} ✅")
     total = sum(per_uid.get(u, 0) for u in s["members"])
     lines += ["", f"This week: {total} ✅" + (f" · squad rank #{rank}" if rank else " (need 2+ members to rank)")]
     if len(s["members"]) < 5:
-        lines.append(f"ఇంకా {5 - len(s['members'])} మందిని పిలవండి: /squad join {code}")
+        lines.append(f"ఇంకా {5 - len(s['members'])} మందిని పిలవండి: /squad join {squad_code_display(code)}")
+    lines.append("⚔️ Squad vs Squad race: /battle new · /battle list")
     return "\n".join(lines)
 
 
