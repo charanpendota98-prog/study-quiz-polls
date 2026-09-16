@@ -191,6 +191,43 @@ class TestCupWizardMode(unittest.TestCase):
         self.assertEqual(wz["colleges"], ["SR College", "Vignan"])
         self.assertEqual(wz["step"], "more")
 
+    def test_wizard_cup_kind_flag(self):
+        """Zero-typing cup flow: /cup new starts the wizard in kind=cup mode."""
+        campus.wiz_start(6)
+        campus.wiz_set(6, kind="cup")
+        self.assertEqual(campus.wiz_get(6)["kind"], "cup")
+
+
+class TestCupOps(unittest.TestCase):
+    """Progress display, ping targets, and buttons for running a cup."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self._cup_old, self._campus_old = cup.PATH, campus.PATH
+        cup.PATH = self.tmp / "cup.json"
+        campus.PATH = self.tmp / "campus.json"
+
+    def tearDown(self):
+        cup.PATH, campus.PATH = self._cup_old, self._campus_old
+
+    def test_progress_ping_and_buttons(self):
+        code, _ = cup.cup_new("Warangal", ["A", "B", "C", "D"], name="Ops Cup")
+        c = cup._load()["cups"][code]
+        label, done, total = cup.cup_progress(c)
+        self.assertIn("SEMI", label)
+        self.assertEqual((done, total), (0, 2))
+        # both semis are open → both are ping targets
+        targets = cup.cup_ping_targets(code)
+        self.assertEqual(len(targets), 2)
+        # buttons: refresh + ping + panel
+        flat = [cb for row in cup.cup_buttons(code) for _lab, cb in row]
+        self.assertTrue(any(x.startswith("cupc:ping:") for x in flat))
+        self.assertTrue(any(x.startswith("cupc:bracket:") for x in flat))
+        # render shows the live progress line
+        txt = cup.render_cup(code)
+        self.assertIn("0/2", txt)
+        self.assertIn("Now:", txt)
+
 
 if __name__ == "__main__":
     unittest.main()

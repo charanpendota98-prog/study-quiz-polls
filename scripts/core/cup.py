@@ -261,13 +261,42 @@ def pop_announces() -> list:
 
 
 # ------------------------------------------------------------------ display
+def cup_progress(cup) -> tuple:
+    """(round_label, done, total) of the current (latest) round."""
+    rnd = cup["rounds"][-1]
+    done = sum(1 for p in rnd["pairs"] if p["winner"])
+    return rnd["label"], done, len(rnd["pairs"])
+
+
+def cup_ping_targets(code) -> list:
+    """Event codes of this cup's matches that are still waiting for students."""
+    from . import campus
+    d = _load()
+    cup = d["cups"].get(code)
+    ev = campus._load()["events"]
+    out = []
+    if not cup:
+        return out
+    for rnd in cup["rounds"]:
+        for p in rnd["pairs"]:
+            e = ev.get(p.get("event") or "")
+            if e and e["state"] == "open":
+                out.append(e["code"])
+    return out
+
+
 def render_cup(code) -> str:
     d = _load()
     cup = d["cups"].get(code)
     if not cup:
         return "❓ Cup దొరకలేదు — /cup లిస్ట్ చూడండి."
-    lines = [f"🏆 {cup['name']} · {cup['code']} · {cup['district']}",
-             f"👥 {len(cup['colleges'])} colleges · {'LIVE' if cup['state'] == 'live' else 'DONE'}", ""]
+    label, done, total = cup_progress(cup)
+    head = [f"🏆 {cup['name']} · {cup['code']} · {cup['district']}",
+            f"👥 {len(cup['colleges'])} colleges · {'LIVE' if cup['state'] == 'live' else 'DONE'}"]
+    if cup["state"] == "live":
+        head.append(f"📊 Now: {label} — {done}/{total} matches done" +
+                    (" · 🚀 START పెట్టాల్సినవి ఉన్నాయి!" if done < total else " · next round వస్తోంది…"))
+    lines = head + [""]
     for rnd in cup["rounds"]:
         lines.append(f"── {rnd['label']} ──")
         for p in rnd["pairs"]:
@@ -304,5 +333,6 @@ def cup_buttons(code=None):
     rows = []
     if code:
         rows.append([("🔄 Refresh bracket", f"cupc:bracket:{code}"),
-                     ("🏫 All matches panel", f"cupc:panel:{code}")])
+                     ("🔔 Ping all waiting rooms", f"cupc:ping:{code}")])
+        rows.append([("🏫 All matches panel", f"cupc:panel:{code}")])
     return rows or None

@@ -281,6 +281,15 @@ class Bot:
         colleges = [c.strip()[:40] for c in colleges if c and c.strip()]
         if not colleges:
             colleges = ["General"]
+        if (wz.get("kind") == "cup"):
+            # 🏆 cup wizard → straight to a knockout cup (bot builds the bracket)
+            from core import cup as C
+            campus.wiz_clear(uid)
+            code, msg = C.cup_new(district, colleges, name=f"{district} College Cup", created_by=uid)
+            self.tg.send_message(chat_id, msg)
+            if code:
+                self.tg.send_message(chat_id, C.render_cup(code), buttons=C.cup_buttons(code))
+            return
         if len(colleges) >= 3:
             campus.wiz_set(uid, district=district, step="mode")
             self.tg.send_message(chat_id,
@@ -628,6 +637,27 @@ class Bot:
                         pass
                 if not edited:
                     self.tg.send_message(chat_id, txt, buttons=C.cup_buttons(code))
+            elif act == "ping":
+                from core import campus
+                codes = C.cup_ping_targets(code)
+                if not codes:
+                    try:
+                        self.tg.answer_callback(cq.get("id", ""), "no open matches")
+                    except TelegramError:
+                        pass
+                else:
+                    n = 0
+                    for ec in codes:
+                        try:
+                            n += campus.waiting_room_ping(self.tg, self.members, ec)
+                        except Exception:
+                            pass
+                    try:
+                        self.tg.answer_callback(cq.get("id", ""), f"pinged {n} students")
+                    except TelegramError:
+                        pass
+                    self.tg.send_message(chat_id, f"🔔 pinged {n} students across {len(codes)} open matches.")
+                return
             elif act == "panel":
                 from core import campus
                 self.tg.send_message(chat_id, campus.panel_text(self.members),
@@ -1535,16 +1565,39 @@ class Bot:
             rest = parts[2] if len(parts) > 2 else ""
             if sub == "new":
                 f = [x.strip() for x in rest.split("|")]
+                if not rest.strip():
+                    # 🧠 zero-typing: district buttons + college loop, bot builds the cup
+                    from core import campus
+                    campus.wiz_start(uid)
+                    campus.wiz_set(uid, kind="cup")
+                    self.tg.send_message(chat_id,
+                        "🏆 CUP wizard — అన్నీ బటన్స్ తో, ఒక్క పేరు మాత్రమే టైప్ చేయండి.\n"
+                        "Step 1: మొదటి కాలేజీ పేరు పంపండి ➕ తో ఇంకెన్ని అయినా యాడ్ చేయొచ్చు (3+).")
+                    return
                 if len(f) < 2 or ";" not in f[1]:
                     self.tg.send_message(chat_id,
                         "🏆 Usage: /cup new <District> | College A ; College B ; College C …\n"
-                        "(3–16 colleges · cricket-style knockout · rounds parallel · auto semis/final)")
+                        "(3–16 colleges · cricket-style knockout · parallel matches · auto semis/final)\n"
+                        "💡 typing వద్దంటే: /cup new (ఖాళీగా పంపండి) → బటన్స్ వస్తాయి")
                     return
                 cols = [c.strip() for c in f[1].split(";") if c.strip()]
                 code, msg = C.cup_new(f[0], cols, name=f"{f[0]} College Cup", created_by=uid)
                 self.tg.send_message(chat_id, msg)
                 if code:
                     self.tg.send_message(chat_id, C.render_cup(code), buttons=C.cup_buttons(code))
+            elif sub == "ping":
+                codes = C.cup_ping_targets(rest.strip().upper())
+                if not codes:
+                    self.tg.send_message(chat_id, "⏳ ఈ cup లో ఇప్పుడు open matches లేవు (అన్నీ అయిపోయాయి లేదా నడుస్తున్నాయి).")
+                else:
+                    from core import campus
+                    n = 0
+                    for ec in codes:
+                        try:
+                            n += campus.waiting_room_ping(self.tg, self.members, ec)
+                        except Exception:
+                            pass
+                    self.tg.send_message(chat_id, f"🔔 pinged {n} students across {len(codes)} open cup matches.")
             elif sub.upper().startswith("CUP-"):
                 self.tg.send_message(chat_id, C.render_cup(sub.upper()), buttons=C.cup_buttons(sub.upper()))
             else:

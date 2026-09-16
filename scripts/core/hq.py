@@ -173,6 +173,17 @@ def render(members, bank=None):
     if mx["top_colleges"]:
         lines.append("🏫 " + " · ".join(f"{c[:14]} {n}" for c, n in mx["top_colleges"]))
     try:
+        from . import cup as CU
+        live_cups = [c for c in CU._load()["cups"].values() if c["state"] == "live"]
+        if live_cups:
+            parts = []
+            for c in live_cups[:3]:
+                lb, dn, tt = CU.cup_progress(c)
+                parts.append(f"{c['code']} {c['name'][:16]} ({lb} {dn}/{tt})")
+            lines.append("🏆 Cups LIVE: " + " · ".join(parts))
+    except Exception:
+        pass
+    try:
         from . import gate
         lines.append(gate.owner_line(members))
     except Exception:
