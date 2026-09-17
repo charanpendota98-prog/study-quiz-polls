@@ -262,6 +262,8 @@ def _send(payload: dict, post=None) -> bool:
 
 
 def _post(payload: dict, post=None) -> bool:
+    if not sheet_enabled():
+        return False
     payload["secret"] = SHEET_SECRET
     payload["ts"] = datetime.now(config.IST).isoformat(timespec="seconds")
     try:
