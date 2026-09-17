@@ -42,6 +42,7 @@ var TABS = {
   partners: ["partner_id", "name", "type", "district", "mandal", "status", "offers", "vouchers_issued", "redeemed", "pending", "plan", "updated_at"],
   campaigns: ["ts", "by", "audience", "total", "sent", "blocked", "failed", "text"],
   daily: ["date", "members", "with_mobile", "active_today", "new_today", "ts_members", "ap_members", "answers_today", "rounds_today", "colleges", "partners"],
+  requests: ["ts", "req_id", "tg_id", "name", "college", "district", "status", "event_code", "created_at"],
   log: ["ts", "action", "rows", "ok", "error"]
 };
 var KEYS = { members: "tg_id", colleges: "college", partners: "partner_id" };   // upsert keys
@@ -62,6 +63,7 @@ function doPost(e) {
         case "colleges": n = upsert_("colleges", body.rows || [], body.ts); break;
         case "partners": n = upsert_("partners", body.rows || [], body.ts); break;
         case "campaign": n = append_("campaigns", [body.row], body.ts, false); break;
+        case "request":  n = append_("requests", [body.row], body.ts, false); break;
         case "daily":   n = daily_(body.row); break;
         case "ping":    n = 0; break;
         default: throw new Error("unknown action: " + body.action);

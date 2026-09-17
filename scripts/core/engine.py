@@ -1105,7 +1105,8 @@ class Engine:
         if paced:
             lines += [f"⏱ ఒక్కో ప్రశ్న 1–1.5 నిమిషాలు (easy 1 · hard 1.5) — "
                       f"one question at a time, exam-hall pace",
-                      f"🕒 Round ≈ {self._fmt_min(total_secs)}"]
+                      f"🕒 Round ≈ {self._fmt_min(total_secs)}",
+                      "⏳ 3... 2... 1... Ready! Q1 వస్తోంది... 🔥"]
         try:
             from .hooks import live_line, mystery_opener_line
             ll = live_line(self._members if getattr(self, "_members", None) else Members(), cfg.get("key", ""))

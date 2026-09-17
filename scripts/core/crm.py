@@ -184,6 +184,23 @@ def push_campaign(job: dict, post=None) -> bool:
                                                   "blocked": r.get("blocked", 0), "failed": r.get("failed", 0), "text": (job.get("text") or "")[:200]}}, post)
 
 
+def push_request(req_id: str, r: dict, status: str = "", event_code: str = "", post=None) -> bool:
+    """Record student campuswar request in Google Sheet 'requests' tab."""
+    if not sheet_enabled():
+        return False
+    row = {
+        "req_id": req_id,
+        "tg_id": r.get("uid", ""),
+        "name": r.get("name", ""),
+        "college": r.get("college", ""),
+        "district": r.get("district", ""),
+        "status": status or r.get("status", "pending"),
+        "event_code": event_code or r.get("event", ""),
+        "created_at": r.get("ts", "")
+    }
+    return _post({"action": "request", "row": row}, post)
+
+
 def push_daily(members: dict, extra: dict | None = None, post=None) -> bool:
     """One snapshot row per day (computed by the bot, so it works even if the Sheet trigger is never set)."""
     if not sheet_enabled():

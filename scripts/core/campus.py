@@ -841,6 +841,11 @@ def request_act(rid, approve=True):
     if not approve:
         r["status"] = "denied"
         _save(d)
+        try:
+            from . import crm
+            crm.push_request(rid, r, status="denied")
+        except Exception:
+            pass
         return {"request": r, "approved": False}
     code = quick_event(r["college"], r["district"], created_by=r["uid"])
     d = _load()                      # quick_event wrote a fresh copy — reload!
@@ -848,6 +853,11 @@ def request_act(rid, approve=True):
     r["status"] = "approved"
     r["event"] = code
     _save(d)
+    try:
+        from . import crm
+        crm.push_request(rid, r, status="approved", event_code=code)
+    except Exception:
+        pass
     return {"request": r, "approved": True, "code": code}
 
 
