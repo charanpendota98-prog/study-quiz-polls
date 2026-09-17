@@ -586,6 +586,53 @@ class Bot:
             else:
                 self.tg.send_message(chat_id, NB.howto_text(), buttons=NB.buttons())
             return
+        if kind == "arena" and uid:
+            from core import arena
+            act, _, arg = value.partition(":")
+            if not self.members.is_registered(uid):
+                self.members.start_registration(uid, username="")
+                self.tg.send_message(chat_id, FIRST_TIME_ASK)
+                return
+            if act == "new":
+                n = int(arg) if arg.isdigit() else arena.DEFAULT_Q
+                r, msg = arena.room_new(self.members, uid, n)
+                self.tg.send_message(chat_id, msg)
+                if r:
+                    for u in r["players"]:
+                        if u != str(uid):
+                            try:
+                                self.tg.send_message(u, f"🎮 మీ squad room {r['code']} open చేసింది — ready ఉండండి!")
+                            except TelegramError:
+                                pass
+            elif act == "list":
+                self.tg.send_message(chat_id, arena.list_rooms())
+            elif act == "top":
+                self.tg.send_message(chat_id, arena.render_top(self.members))
+            elif act == "leave":
+                self.tg.send_message(chat_id, arena.room_leave(uid))
+            try:
+                self.tg.answer_callback(cq.get("id", ""), "ok")
+            except TelegramError:
+                pass
+            return
+        if kind == "sq" and uid:
+            from core import hooks
+            if not self.members.is_registered(uid):
+                self.members.start_registration(uid, username="")
+                self.tg.send_message(chat_id, FIRST_TIME_ASK)
+                return
+            if value == "create":
+                m = self.members.members.get(str(uid)) or {}
+                _c, msg = hooks.squad_create(self.members, uid, f"{m.get('district', 'Fighters')} Squad")
+                self.tg.send_message(chat_id, msg, buttons=hooks.squad_buttons(uid))
+            elif value == "leave":
+                msg = hooks.squad_leave(uid)
+                self.tg.send_message(chat_id, msg, buttons=hooks.squad_buttons(uid))
+            try:
+                self.tg.answer_callback(cq.get("id", ""), "ok")
+            except TelegramError:
+                pass
+            return
         if kind == "gate" and uid:
             if self.members.is_registered(uid):
                 self.tg.send_message(chat_id, "✅ మీరు already registered! /quiz ఆడండి · /wallet చూడండి")
@@ -1349,7 +1396,7 @@ class Bot:
                     created, msg = arena.tournament_create(self.bank, self.members)
                     self.tg.send_message(chat_id, msg)
             else:
-                self.tg.send_message(chat_id, arena.my_status(self.members, uid))
+                self.tg.send_message(chat_id, arena.my_status(self.members, uid), buttons=arena.arena_buttons(uid))
         elif low.startswith("/squad") or low.startswith("/team"):
             from core import hooks
             parts = text.split(maxsplit=2)
@@ -1362,7 +1409,7 @@ class Bot:
                 msg = hooks.squad_leave(uid)
             else:
                 msg = hooks.render_squad(self.members, uid)
-            self.tg.send_message(chat_id, msg)
+            self.tg.send_message(chat_id, msg, buttons=hooks.squad_buttons(uid))
         elif low.startswith("/offers") or low.startswith("/shops") or low.startswith("/deals"):
             from core import partners, rewards
             if not self.members.is_registered(uid):
@@ -2296,8 +2343,9 @@ class Bot:
                         pass
                     if campus.tick(self.tg, self.members):
                         live = True
-                    try:      # 🏆 College Cup: next-round / champion announcements
+                    try:      # 🏆 College Cup: next-round / champion announcements + unstarted match reminders
                         from core import cup as C
+                        C.check_reminders(self.tg, staff_ids=self._staff_ids())
                         for an in C.pop_announces():
                             if an.get("to") == "hub":
                                 for ch in getattr(config, "CHAMPION_CHANNELS", ["CURRENT"]):

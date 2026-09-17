@@ -31,6 +31,7 @@ PATH = config.DATA / "cup.json"
 MIN_COLLEGES, MAX_COLLEGES = 3, 16
 CHAMPION_PTS, RUNNER_PTS, FINAL_MVP_PTS = 50, 25, 25
 MATCH_Q, MATCH_LEVEL = 15, "easy"
+BIG_MATCH_Q = int(getattr(config, "CUP_BIG_MATCH_Q", 25) or 25)
 
 
 def _now():
@@ -82,7 +83,10 @@ def _make_match(cup, d, rnd_idx, a, b):
     label = cup["rounds"][rnd_idx]["label"]
     clean = label.replace("🏆 ", "").replace("⚡ ", "").replace("🔥 ", "")
     name = f"{cup['name']} · {clean}: {a} vs {b}"
-    code = campus.new_event(name[:70], cup["district"], [a, b], MATCH_Q,
+    q_count = cup.get("n_q", MATCH_Q)
+    if cup.get("double_big") and any(w in label for w in ("FINAL", "SEMI")):
+        q_count = max(q_count, BIG_MATCH_Q)
+    code = campus.new_event(name[:70], cup["district"], [a, b], q_count,
                             MATCH_LEVEL, created_by=cup.get("by", ""), mode="college")
     cd = campus._load()
     e = cd["events"].get(code)
@@ -94,7 +98,7 @@ def _make_match(cup, d, rnd_idx, a, b):
     return pair
 
 
-def cup_new(district, colleges, name="", created_by="", n_q=MATCH_Q):
+def cup_new(district, colleges, name="", created_by="", n_q=MATCH_Q, double_big=True):
     """Create a knockout cup. Returns (code, summary) or (None, error)."""
     cols = []
     for c in colleges:
@@ -114,7 +118,7 @@ def cup_new(district, colleges, name="", created_by="", n_q=MATCH_Q):
     cup = {"code": code, "name": (name or f"{district} College Cup").strip()[:50],
            "district": district, "colleges": cols, "created": _now().isoformat(),
            "by": str(created_by), "state": "live", "champion": None, "runner": None,
-           "n_q": int(n_q), "rounds": [], "announce": []}
+           "n_q": int(n_q), "double_big": bool(double_big), "rounds": [], "announce": []}
     d["cups"][code] = cup
     pairs = [{"a": slots[i], "b": slots[i + 1]} for i in range(0, len(slots), 2)]
     rnd = {"label": label_for(len(pairs)), "pairs": []}
@@ -185,6 +189,18 @@ def _round_complete(cup, d, members, e):
     for i in range(0, len(winners), 2):
         a, b = winners[i], (winners[i + 1] if i + 1 < len(winners) else None)
         nxt["pairs"].append(_make_match(cup, d, ri2, a, b))
+
+    # Auto announce round winners + next round preview to hub / channels
+    round_summary = "\n".join(
+        f"  ⚔️ {p['winner']} def. {p['a'] if p['winner'] == p['b'] else p['b']} ({p.get('score', '')})"
+        for p in rnd["pairs"] if p.get("winner") and not p.get("bye")
+    )
+    cup["announce"].append({"to": "hub", "text":
+        f"📣 {cup['name']} — {rnd['label']} RESULTS!\n" +
+        (round_summary + "\n" if round_summary else "") +
+        f"⏩ Advancing to {nxt['label']}: {', '.join(w for w in winners if w)}\n"
+        f"Next matches coming up! 🏆"})
+
     cup["announce"].append({"to": "staff", "text":
         f"🏆 {cup['name']} ({cup['code']}) — {nxt['label']} READY\n" +
         "\n".join(f"  ⚔️ {p['a']} vs {p['b']} · event {p['event']} · /campus start {p['event']}"
@@ -246,6 +262,54 @@ def _crown(cup, d, members, champion, final_round, final_event):
             crm.push_round_top(cup["code"], "CUP", rows[:MAX_COLLEGES])
     except Exception:
         pass
+
+
+def check_reminders(tg, staff_ids=(), now=None) -> list[str]:
+    """Check cups for matches left unstarted for >= 2 hours and alert staff directly."""
+    now = now or _now()
+    d = _load()
+    try:
+        from . import campus
+        cd = campus._load()
+        ev = cd.get("events", {})
+    except Exception:
+        ev = {}
+    pings = []
+    changed = False
+    for cup in d.get("cups", {}).values():
+        if cup.get("state") != "live":
+            continue
+        reminded = cup.setdefault("reminded_events", {})
+        for rnd in cup.get("rounds", []):
+            for p in rnd.get("pairs", []):
+                eid = p.get("event")
+                if not eid or p.get("winner") or p.get("bye"):
+                    continue
+                e = ev.get(eid)
+                if not e or e.get("state") != "open":
+                    continue
+                try:
+                    c_dt = datetime.fromisoformat(e["created"])
+                    if c_dt.tzinfo is None and now.tzinfo is not None:
+                        c_dt = c_dt.replace(tzinfo=now.tzinfo)
+                    age_hours = (now - c_dt).total_seconds() / 3600.0
+                except Exception:
+                    age_hours = 0
+                if age_hours >= 2.0 and eid not in reminded:
+                    msg = (f"⏰ CUP MATCH REMINDER: Event {eid} ({p['a']} vs {p['b']}) in "
+                           f"{cup['name']} has been open for {age_hours:.1f}h without start!\n"
+                           f"Tap to start: /campus start {eid}")
+                    pings.append(msg)
+                    reminded[eid] = now.isoformat()
+                    changed = True
+                    for sid in staff_ids:
+                        try:
+                            tg.send_message(sid, msg)
+                        except Exception:
+                            pass
+    if changed:
+        _save(d)
+    return pings
 
 
 def pop_announces() -> list:

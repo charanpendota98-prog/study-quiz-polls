@@ -779,24 +779,24 @@
     {
       "id": "P092",
       "channel": "DEFENCE",
-      "topic": "Physics",
-      "q_en": "The SI unit of force is? (Agniveer/NDA PYQ)",
-      "q_te": "⤷ బలం యొక్క SI యూనిట్?",
+      "topic": "Mechanics",
+      "q_en": "The SI unit of momentum is? (Agniveer/NDA PYQ)",
+      "q_te": "⤷ ద్రవ్యవేగం యొక్క SI యూనిట్ ఏది?",
       "options_en": [
+        "kg·m/s",
         "Joule",
         "Newton",
-        "Watt",
         "Pascal"
       ],
       "options_te": [
+        "kg·m/s",
         "జూల్",
         "న్యూటన్",
-        "వాట్",
         "పాస్కల్"
       ],
-      "answer_index": 1,
-      "explanation_en": "Force SI unit is Newton (N = kg·m/s²).",
-      "explanation_te": "బలం SI యూనిట్ న్యూటన్.",
+      "answer_index": 0,
+      "explanation_en": "Momentum (p = mv) SI unit is kg·m/s.",
+      "explanation_te": "ద్రవ్యవేగం (p = mv) SI యూనిట్ kg·m/s.",
       "source": "pyq",
       "bank": "pyq",
       "exam": "Agniveer"

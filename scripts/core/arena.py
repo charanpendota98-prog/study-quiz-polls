@@ -565,6 +565,14 @@ def render_top(members, limit=10):
     return "\n".join(lines)
 
 
+def arena_buttons(uid=None):
+    rows = [
+        [("⚔️ Create Battle (10 Q)", "arena:new:10"), ("📋 Open Rooms", "arena:list")],
+        [("🏆 Squad Top Rankings", "arena:top"), ("🚪 Leave Room", "arena:leave")]
+    ]
+    return rows
+
+
 def my_status(members, uid):
     d = _load()
     r = _room_of(d, uid)

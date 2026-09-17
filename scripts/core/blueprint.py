@@ -202,20 +202,29 @@ def compose_round(channel: str, pool: list, n: int = 10, rng=None) -> list:
     if ramp:
         ordered = []
         remaining = chosen[:]
+        last_subj = None
         for pos in range(len(chosen)):
             want = ramp[pos] if pos < len(ramp) else "medium"
-            idx = next((i for i, t in enumerate(remaining) if t[2] == want), None)
+            # Prefer items with matching difficulty and alternating subject (interleaved positions)
+            idx = next((i for i, t in enumerate(remaining) if t[2] == want and (last_subj is None or t[1] != last_subj)), None)
             if idx is None:
-                # nearest difficulty
+                idx = next((i for i, t in enumerate(remaining) if t[2] == want), None)
+            if idx is None:
+                # nearest difficulty with subject diversity preference
                 order = {"easy": ["medium", "hard"], "medium": ["easy", "hard"],
                          "hard": ["medium", "easy"]}[want]
                 for alt in order:
+                    idx = next((i for i, t in enumerate(remaining) if t[2] == alt and (last_subj is None or t[1] != last_subj)), None)
+                    if idx is not None:
+                        break
                     idx = next((i for i, t in enumerate(remaining) if t[2] == alt), None)
                     if idx is not None:
                         break
             if idx is None:
                 idx = 0
-            ordered.append(remaining.pop(idx))
+            pick = remaining.pop(idx)
+            last_subj = pick[1]
+            ordered.append(pick)
         chosen = ordered
     return [t[0] for t in chosen]
 

@@ -616,6 +616,14 @@ def _priority(j: Job) -> tuple:
 def run(tg, dry=False, max_posts=6, fetch=None, today=None) -> int:
     """Post fresh job cards to the PRIVATE jobs channel. Returns posts made."""
     chat = config.channel_chat_id("JOBS")
+    if not chat:
+        print("   [jobs] CHANNEL_JOBS not configured — skipping jobs post")
+        return 0
+    # Guard: jobs must NEVER post to exam quiz channels (SSC, TSPSC, etc.)
+    exam_chats = {config.channel_chat_id(k) for k in config.PUBLIC_CHANNELS if config.channel_chat_id(k)}
+    if chat in exam_chats:
+        print(f"   [jobs] SAFETY BLOCK: chat {chat} is configured as an exam quiz channel! Jobs post cancelled.")
+        return 0
     st = _load_state()
     jobs = collect_jobs(fetch=fetch)
     fresh = [j for j in jobs if not _is_dup(st, j)]

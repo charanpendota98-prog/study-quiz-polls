@@ -41,6 +41,7 @@ from . import config
 from .store import load_json, save_json_atomic
 
 SQUADS_PATH = config.DATA / "squads.json"
+MAX_SQUAD_MEMBERS = int(getattr(config, "MAX_SQUAD_MEMBERS", 10) or 10)
 SHIELD_EVERY = 7
 SHIELD_MAX = 2
 MILESTONES = {7: 50, 30: 200, 100: 1000}
@@ -193,7 +194,7 @@ def squad_create(members, uid, name: str):
     save_json_atomic(SQUADS_PATH, data)
     disp = squad_code_display(code)
     return code, (f"👥 Squad '{name}' created! Code: {disp}\n"
-                  f"Friends ని పిలవండి: bot లో /squad join {disp}  (2–5 members)\n"
+                  f"Friends ని పిలవండి: bot లో /squad join {disp}  (2–{MAX_SQUAD_MEMBERS} members)\n"
                   f"Squad score = అందరి ✅ కలిపి · ప్రతి సోమవారం Squad Top-5 channel లో పేర్లతో 🏆\n"
                   f"⚔️ Squad vs Squad race కోసం: /battle new")
 
@@ -211,8 +212,8 @@ def squad_join(members, uid, code: str):
         return None, f"Squad code దొరకలేదు ({squad_code_display(norm or (code or '').upper().strip())}). Leader అడిగి మళ్ళీ ట్రై చేయండి."
     if str(uid) in data["by_uid"]:
         return None, "మీరు already ఒక squad లో ఉన్నారు."
-    if len(s["members"]) >= 5:
-        return None, "ఈ squad full (5/5)."
+    if len(s["members"]) >= MAX_SQUAD_MEMBERS:
+        return None, f"ఈ squad full ({MAX_SQUAD_MEMBERS}/{MAX_SQUAD_MEMBERS})."
     s["members"].append(str(uid))
     data["by_uid"][str(uid)] = code
     save_json_atomic(SQUADS_PATH, data)
@@ -221,7 +222,7 @@ def squad_join(members, uid, code: str):
         members.add_referral(uid, s["leader"])
     except Exception:
         pass
-    return s, f"✅ Joined squad '{s['name']}' ({len(s['members'])}/5). కలిసి ఆడండి, కలిసి గెలవండి 🔥"
+    return s, f"✅ Joined squad '{s['name']}' ({len(s['members'])}/{MAX_SQUAD_MEMBERS}). కలిసి ఆడండి, కలిసి గెలవండి 🔥"
 
 
 def squad_leave(uid):
@@ -271,16 +272,33 @@ def render_squad(members, uid):
     s = data["squads"][code]
     rows, per_uid = squad_week_scores(members)
     rank = next((i for i, (_t, x) in enumerate(rows, 1) if x["code"] == code), None)
-    lines = [f"👥 {s['name']} · code {squad_code_display(code)} · {len(s['members'])}/5", ""]
+    lines = [f"👥 {s['name']} · code {squad_code_display(code)} · {len(s['members'])}/{MAX_SQUAD_MEMBERS}", ""]
     for u in sorted(s["members"], key=lambda u: -per_uid.get(u, 0)):
         mm = members.members.get(u) or {}
         lines.append(f"  {'👑' if u == s['leader'] else '•'} {mm.get('name', 'Player')[:18]} · {mm.get('district', '')} — {per_uid.get(u, 0)} ✅")
     total = sum(per_uid.get(u, 0) for u in s["members"])
     lines += ["", f"This week: {total} ✅" + (f" · squad rank #{rank}" if rank else " (need 2+ members to rank)")]
-    if len(s["members"]) < 5:
-        lines.append(f"ఇంకా {5 - len(s['members'])} మందిని పిలవండి: /squad join {squad_code_display(code)}")
+    if len(s["members"]) < MAX_SQUAD_MEMBERS:
+        lines.append(f"ఇంకా {MAX_SQUAD_MEMBERS - len(s['members'])} మందిని పిలవండి: /squad join {squad_code_display(code)}")
     lines.append("⚔️ Squad vs Squad race: /battle new · /battle list")
     return "\n".join(lines)
+
+
+def squad_buttons(uid=None):
+    data = _sq()
+    code = data["by_uid"].get(str(uid)) if uid else None
+    if not code:
+        return [
+            [("➕ Create Squad", "sq:create"), ("📋 Top Squads", "arena:top")],
+            [("⚔️ Squad Battles (/battle)", "arena:list")]
+        ]
+    s = data["squads"].get(code, {})
+    disp = squad_code_display(code)
+    rows = [
+        [("⚔️ Battle Now (10 Q)", "arena:new:10"), ("📋 Open Rooms", "arena:list")],
+        [("🏆 Squad Rankings", "arena:top"), ("🚪 Leave Squad", "sq:leave")]
+    ]
+    return rows
 
 
 def render_squad_top(members, limit=5, cfg=None):

@@ -335,6 +335,12 @@ def start(bank, members, tg, code, now=None):
     e["started"] = now.isoformat()
     d["polls"] = {k: v for k, v in d["polls"].items() if v[0] != code}
     _save(d)
+    # Countdown alert before Q1
+    for uid in ready:
+        try:
+            tg.send_message(uid, f"⏳ 3... 2... 1... Ready! {e['name']} Q1 వస్తోంది... 🔥")
+        except Exception:
+            pass
     _open_question(tg, d, e, 0, now)
     return True, {"players": len(ready), "questions": len(qs)}
 
@@ -841,6 +847,11 @@ def request_act(rid, approve=True):
     if not approve:
         r["status"] = "denied"
         _save(d)
+        try:
+            from . import crm
+            crm.push_request(rid, r, status="denied")
+        except Exception:
+            pass
         return {"request": r, "approved": False}
     code = quick_event(r["college"], r["district"], created_by=r["uid"])
     d = _load()                      # quick_event wrote a fresh copy — reload!
@@ -848,6 +859,11 @@ def request_act(rid, approve=True):
     r["status"] = "approved"
     r["event"] = code
     _save(d)
+    try:
+        from . import crm
+        crm.push_request(rid, r, status="approved", event_code=code)
+    except Exception:
+        pass
     return {"request": r, "approved": True, "code": code}
 
 
