@@ -615,6 +615,24 @@ class Bot:
             except TelegramError:
                 pass
             return
+        if kind == "sq" and uid:
+            from core import hooks
+            if not self.members.is_registered(uid):
+                self.members.start_registration(uid, username="")
+                self.tg.send_message(chat_id, FIRST_TIME_ASK)
+                return
+            if value == "create":
+                m = self.members.members.get(str(uid)) or {}
+                _c, msg = hooks.squad_create(self.members, uid, f"{m.get('district', 'Fighters')} Squad")
+                self.tg.send_message(chat_id, msg, buttons=hooks.squad_buttons(uid))
+            elif value == "leave":
+                msg = hooks.squad_leave(uid)
+                self.tg.send_message(chat_id, msg, buttons=hooks.squad_buttons(uid))
+            try:
+                self.tg.answer_callback(cq.get("id", ""), "ok")
+            except TelegramError:
+                pass
+            return
         if kind == "gate" and uid:
             if self.members.is_registered(uid):
                 self.tg.send_message(chat_id, "✅ మీరు already registered! /quiz ఆడండి · /wallet చూడండి")
@@ -1391,7 +1409,7 @@ class Bot:
                 msg = hooks.squad_leave(uid)
             else:
                 msg = hooks.render_squad(self.members, uid)
-            self.tg.send_message(chat_id, msg)
+            self.tg.send_message(chat_id, msg, buttons=hooks.squad_buttons(uid))
         elif low.startswith("/offers") or low.startswith("/shops") or low.startswith("/deals"):
             from core import partners, rewards
             if not self.members.is_registered(uid):
