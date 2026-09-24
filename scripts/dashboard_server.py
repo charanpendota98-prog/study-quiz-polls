@@ -5,11 +5,12 @@ Features:
   1. Dynamic Channel Manager:
      - Add any new Telegram Channel / Exam name.
      - Auto-configures syllabus subjects, exam blueprint, and builds fresh polls automatically.
-  2. WhatsApp 100+ / 150+ Groups Anti-Ban Engine:
-     - Group categories (POLICE, CENTRAL, SSC, RAILWAY, BANKING, TSPSC, APPSC).
-     - Automated targeted delivery: Police groups get Police polls, Central get Central/SSC/RRB polls, etc.
-     - Anti-Ban protection: Zero-width invisible text jitter (unique hash per group), human-like randomized delays (4-12s), safety pauses.
-     - Central broadcast with image/attachment & rich text.
+  2. WhatsApp 100+ / 150+ Groups Interleaved Anti-Ban Engine:
+     - Smart 2-by-2 interleaved round-robin posting with 20-30s natural thinking gaps.
+     - While students in Group 1 & 2 think/answer, rotates to Group 3 & 4.
+     - Morning / Evening Shift Filters (e.g. Police Morning vs AP Police Evening).
+     - Two-phase delivery: Post question -> wait for thinking -> Post official answer key & explanation.
+     - Non-blocking background worker with live progress bar and stop button.
   3. Live Metrics, District Wars, Squad Arena & Google Sheet CRM Sync.
 """
 import sys
@@ -27,7 +28,7 @@ sys.path.insert(0, str(ROOT))
 from core import config
 from core.members import Members
 from core.question_bank import Bank
-from core import hooks, districtwar, arena, campus, crm, whatsapp_bot, channel_router
+from core import hooks, districtwar, arena, campus, crm, whatsapp_pipeline, channel_router
 from core.telegram import Telegram
 
 PORT = int(config.env("DASHBOARD_PORT", "5000"))
@@ -90,16 +91,19 @@ HTML_PAGE = """<!DOCTYPE html>
     .status-pill.open { background: rgba(16, 185, 129, 0.2); color: #34d399; }
     .status-pill.closed { background: rgba(239, 68, 68, 0.2); color: #f87171; }
     .category-tag { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); padding: 3px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .shift-tag { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); padding: 3px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .progress-bar-container { width: 100%; background: #1e293b; border-radius: 9999px; height: 10px; overflow: hidden; margin-top: 10px; margin-bottom: 10px; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); width: 0%; transition: width 0.3s; }
   </style>
 </head>
 <body>
   <div class="header">
     <div>
       <h1>🚀 StudentUp Central Management & Anti-Ban Hub</h1>
-      <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">100+ WhatsApp Groups Anti-Ban Dispatcher & Dynamic Channels Controller</p>
+      <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">100+ WhatsApp Groups Interleaved Anti-Ban Pipeline & Dynamic Channels</p>
     </div>
     <div style="display:flex; gap:10px; align-items:center;">
-      <span class="badge-shield">🛡️ ANTI-BAN STEALTH ON</span>
+      <span class="badge-shield">🛡️ ANTI-BAN INTERLEAVED ACTIVE</span>
       <span class="badge-live">● ENGINE LIVE</span>
       <button class="btn btn-outline" onclick="location.reload()">🔄 Refresh</button>
     </div>
@@ -129,53 +133,77 @@ HTML_PAGE = """<!DOCTYPE html>
   </div>
 
   <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('tab-wa-dispatch')">🛡️ WhatsApp 100+ Anti-Ban Dispatcher</button>
+    <button class="tab-btn active" onclick="switchTab('tab-wa-dispatch')">🛡️ WhatsApp 100+ Interleaved Dispatcher</button>
     <button class="tab-btn" onclick="switchTab('tab-dynamic-channels')">📢 Telegram Channels & Dynamic Builder</button>
     <button class="tab-btn" onclick="switchTab('tab-control')">⚡ Fast Actions & District War</button>
     <button class="tab-btn" onclick="switchTab('tab-squads')">👥 Squad Wars & Arena</button>
     <button class="tab-btn" onclick="switchTab('tab-members')">📋 Registered Members & CRM</button>
   </div>
 
-  <!-- TAB 1: WHATSAPP ANTI-BAN DISPATCHER -->
+  <!-- TAB 1: WHATSAPP INTERLEAVED ANTI-BAN DISPATCHER -->
   <div id="tab-wa-dispatch" class="tab-pane active">
     <div class="panel-card">
-      <h2>🛡️ Multi-Group Targeted Dispatcher (Anti-Ban & Stealth)</h2>
+      <h2>🛡️ Smart Interleaved Dispatcher (2-by-2 Groups with 20-30s Gap)</h2>
       <p style="color:var(--text-muted); font-size:13px; margin-bottom:16px;">
-        Auto-matches exam syllabus: <b>Police groups receive Police polls</b>, <b>Central/SSC/RRB receive Central polls</b>, and <b>Banking groups receive Banking polls</b>. Invisible zero-width text alters every post hash so WhatsApp anti-spam algorithms cannot detect mass broadcasts.
+        Aspirants Group 1 & 2 లో ఆలోచించి సమాధానం ఇచ్చేలోపు (40-60s), సిస్టమ్ ఖాళీగా ఉండకుండా 20-30s సహజ గ్యాప్‌తో Group 3 & 4 కి వెళ్లి క్వశ్చన్ పోస్ట్ చేస్తుంది! Question పంపిన కాసేపటికి Answer Key & Explanation రిలీజ్ అవుతుంది.
       </p>
 
       <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px;">
         <div>
-          <label>Target Group Category Filter:</label>
-          <select id="wa-target-category">
-            <option value="ALL">🌐 Broadcast to ALL Connected Groups (100+ Mode)</option>
-            <option value="POLICE">👮 Police Exam Groups (TS Police SI, AP Police Constable)</option>
-            <option value="SSC">🏛️ Central Jobs & SSC Groups (CGL, CHSL, MTS)</option>
-            <option value="RAILWAY">🚆 Railway RRB Groups (NTPC, Group D, ALP)</option>
-            <option value="BANKING">🏦 Banking Aspirants Groups (SBI, IBPS PO/Clerk)</option>
-            <option value="TSPSC">📘 TSPSC Groups (Telangana Group 2, 3, 4)</option>
-            <option value="APPSC">📗 APPSC Groups (Andhra Group 2, 4)</option>
-          </select>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+            <div>
+              <label>🎯 Exam Category Filter:</label>
+              <select id="wa-target-category">
+                <option value="ALL">🌐 ALL Categories (100+ Mode)</option>
+                <option value="POLICE">👮 Police Exam Groups (TS Police SI, AP Police)</option>
+                <option value="SSC">🏛️ Central Jobs & SSC Groups (CGL, CHSL, MTS)</option>
+                <option value="RAILWAY">🚆 Railway RRB Groups (NTPC, Group D)</option>
+                <option value="BANKING">🏦 Banking Aspirants Groups (SBI, IBPS)</option>
+                <option value="TSPSC">📘 TSPSC Groups (Telangana Groups)</option>
+                <option value="APPSC">📗 APPSC Groups (Andhra Groups)</option>
+              </select>
+            </div>
+            <div>
+              <label>⏰ Time / Shift Filter:</label>
+              <select id="wa-target-shift">
+                <option value="ALL">☀️/🌙 All Shifts (Morning + Evening)</option>
+                <option value="MORNING">🌅 Morning Shift (07:00 AM - 12:00 PM)</option>
+                <option value="EVENING">🌆 Evening Shift (05:00 PM - 10:00 PM)</option>
+              </select>
+            </div>
+          </div>
 
           <label>Optional: Central Announcement or Message Text (Leave blank to send auto-built exam polls):</label>
-          <textarea id="wa-broadcast-msg" rows="4" placeholder="Enter custom update or study notification..."></textarea>
+          <textarea id="wa-broadcast-msg" rows="3" placeholder="Enter custom update or study notification..."></textarea>
 
-          <label>Optional Image / Attachment URL (Posts photo along with text):</label>
+          <label>Optional Photo / Poster URL (Posts image along with text):</label>
           <input type="text" id="wa-attachment-url" placeholder="https://example.com/daily-current-affairs-poster.jpg">
 
           <div style="display:flex; gap:10px; margin-top:8px;">
-            <button class="btn btn-accent" onclick="runWABroadcast(true)">🚀 Send Syllabus Quiz Polls (Category-Matched)</button>
-            <button class="btn btn-purple" onclick="runWABroadcast(false)">📢 Send Custom Announcement with Anti-Ban</button>
+            <button class="btn btn-accent" onclick="startInterleaved(true)">🚀 Start 2-by-2 Interleaved Quiz Rounds</button>
+            <button class="btn btn-purple" onclick="startInterleaved(false)">📢 Send Custom Announcement</button>
+            <button class="btn btn-danger" onclick="stopInterleaved()">🛑 Stop Pipeline</button>
+          </div>
+
+          <div style="margin-top:14px;">
+            <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted);">
+              <span id="pipeline-status-text">Status: Idle</span>
+              <span id="pipeline-progress-text">0 / 0 Groups</span>
+            </div>
+            <div class="progress-bar-container">
+              <div id="pipeline-progress-bar" class="progress-bar"></div>
+            </div>
           </div>
         </div>
 
         <div style="background:#0f172a; border:1px solid var(--border); border-radius:10px; padding:16px;">
-          <h3 style="font-size:14px; margin-bottom:12px; color:#38bdf8;">⚙️ Anti-Ban Safeguards</h3>
+          <h3 style="font-size:14px; margin-bottom:12px; color:#38bdf8;">⚙️ Interleaved Anti-Ban Setup</h3>
           <div style="font-size:12px; line-height:1.7; color:var(--text-muted);">
-            ✔ <b>Zero-Width Hash Jitter:</b> Unique binary string per group.<br>
-            ✔ <b>Dynamic Delay:</b> 4 to 12s randomized human intervals.<br>
-            ✔ <b>Smart Safety Pauses:</b> Automatic rest periods every 15 groups.<br>
-            ✔ <b>Exam Isolation:</b> Police groups only get Police polls.<br>
+            ✔ <b>2-by-2 Group Rotation:</b> Rotates across groups while students contemplate answers.<br>
+            ✔ <b>Random 20–30s Human Delays:</b> Zero robotic pattern.<br>
+            ✔ <b>Two-Phase Delivery:</b> Question first, Answer Key after delay.<br>
+            ✔ <b>Invisible Hash Markers:</b> Dynamic zero-width characters in each post.<br>
+            ✔ <b>Exam Segregation:</b> Police questions never leak to Banking/SSC groups.<br>
           </div>
           <div style="margin-top:14px;">
             <label style="font-size:12px;">WhatsApp Webhook / Gateway Endpoint (Optional):</label>
@@ -195,6 +223,7 @@ HTML_PAGE = """<!DOCTYPE html>
               <th>ID</th>
               <th>Group Title</th>
               <th>Category</th>
+              <th>Shift</th>
               <th>JID / Link</th>
               <th>Status</th>
               <th>Action</th>
@@ -204,23 +233,27 @@ HTML_PAGE = """<!DOCTYPE html>
         </table>
 
         <div style="display:flex; gap:10px; margin-top:16px; background:#0f172a; padding:12px; border-radius:8px;">
-          <input type="text" id="new-wa-title" placeholder="Group Title (e.g. Hyderabad TS Police SI Prep)">
+          <input type="text" id="new-wa-title" placeholder="Group Title (e.g. Warangal TS Police SI Batch)">
           <input type="text" id="new-wa-jid" placeholder="Group JID or Invite link">
-          <select id="new-wa-category" style="width:200px;">
-            <option value="AUTO">🤖 Auto-Detect from Name</option>
+          <select id="new-wa-category" style="width:160px;">
+            <option value="AUTO">🤖 Auto Category</option>
             <option value="POLICE">POLICE</option>
             <option value="SSC">SSC / Central</option>
             <option value="RAILWAY">RAILWAY</option>
             <option value="BANKING">BANKING</option>
             <option value="TSPSC">TSPSC</option>
             <option value="APPSC">APPSC</option>
-            <option value="CURRENT">Current Affairs</option>
+          </select>
+          <select id="new-wa-shift" style="width:140px;">
+            <option value="ALL_DAY">All-Day</option>
+            <option value="MORNING">Morning Shift</option>
+            <option value="EVENING">Evening Shift</option>
           </select>
           <button class="btn btn-accent" style="white-space:nowrap;" onclick="addNewWAGroup()">➕ Connect Group</button>
         </div>
       </div>
 
-      <div id="wa-log-box" class="log-box" style="margin-top:16px;">WhatsApp Anti-Ban Dispatch status ready.</div>
+      <div id="wa-log-box" class="log-box" style="margin-top:16px;">WhatsApp Interleaved Dispatcher ready.</div>
     </div>
   </div>
 
@@ -387,6 +420,32 @@ HTML_PAGE = """<!DOCTYPE html>
       }
     }
 
+    async function pollPipelineStatus() {
+      try {
+        const res = await fetch('/api/whatsapp/pipeline_status');
+        const d = await res.json();
+        const statText = document.getElementById('pipeline-status-text');
+        const progText = document.getElementById('pipeline-progress-text');
+        const bar = document.getElementById('pipeline-progress-bar');
+        const logBox = document.getElementById('wa-log-box');
+
+        if (d.running) {
+          statText.innerHTML = '🟢 <b>RUNNING:</b> ' + (d.current_group ? ('Posting in ' + d.current_group) : 'Rotating pairs...');
+          const pct = d.total > 0 ? Math.round((d.progress / d.total) * 100) : 0;
+          bar.style.width = pct + '%';
+          progText.innerText = d.progress + ' / ' + d.total + ' Groups (' + pct + '%)';
+        } else {
+          statText.innerText = 'Status: Idle';
+        }
+        if (d.logs && d.logs.length > 0) {
+          logBox.innerText = d.logs.join('\\n');
+          logBox.scrollTop = logBox.scrollHeight;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
     async function loadWAGroups() {
       const res = await fetch('/api/whatsapp/groups');
       const d = await res.json();
@@ -398,6 +457,7 @@ HTML_PAGE = """<!DOCTYPE html>
           <td>${g.id}</td>
           <td><b>${g.name}</b></td>
           <td><span class="category-tag">${g.category || 'GENERAL'}</span></td>
+          <td><span class="shift-tag">${g.shift || 'ALL_DAY'}</span></td>
           <td style="font-family:monospace; font-size:12px;">${g.jid}</td>
           <td><span class="status-pill ${g.active ? 'open' : 'closed'}">${g.active ? 'Active' : 'Paused'}</span></td>
           <td><button class="btn btn-outline" style="padding:4px 8px; font-size:11px;" onclick="deleteWAGroup('${g.id}')">Delete</button></td>
@@ -411,11 +471,12 @@ HTML_PAGE = """<!DOCTYPE html>
       const name = document.getElementById('new-wa-title').value.trim();
       const jid = document.getElementById('new-wa-jid').value.trim();
       const category = document.getElementById('new-wa-category').value;
+      const shift = document.getElementById('new-wa-shift').value;
       if (!name || !jid) return alert('Enter group name and JID / Link');
       await fetch('/api/whatsapp/add_group', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({name, jid, category})
+        body: JSON.stringify({name, jid, category, shift})
       });
       document.getElementById('new-wa-title').value = '';
       document.getElementById('new-wa-jid').value = '';
@@ -434,27 +495,33 @@ HTML_PAGE = """<!DOCTYPE html>
       fetchStats();
     }
 
-    async function runWABroadcast(isQuestion) {
-      const log = document.getElementById('wa-log-box');
+    async function startInterleaved(isQuestion) {
       const cat = document.getElementById('wa-target-category').value;
+      const shift = document.getElementById('wa-target-shift').value;
       const msg = document.getElementById('wa-broadcast-msg').value;
       const att = document.getElementById('wa-attachment-url').value;
-      const gateway = document.getElementById('wa-gateway-input').value;
+      const gw = document.getElementById('wa-gateway-input').value;
 
-      log.innerText = 'Starting Anti-Ban broadcast across category: ' + cat + '...';
-      const res = await fetch('/api/whatsapp/broadcast', {
+      const res = await fetch('/api/whatsapp/start_pipeline', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
-          is_question: isQuestion,
           category: cat,
+          shift: shift,
+          is_question: isQuestion,
           custom_msg: msg,
           attachment: att,
-          gateway: gateway
+          gateway: gw,
+          delay_min: 20,
+          delay_max: 30
         })
       });
       const d = await res.json();
-      log.innerText = d.log || JSON.stringify(d, null, 2);
+      if (!d.ok) alert(d.message);
+    }
+
+    async function stopInterleaved() {
+      await fetch('/api/whatsapp/stop_pipeline', {method: 'POST'});
     }
 
     async function loadChannels() {
@@ -588,6 +655,7 @@ HTML_PAGE = """<!DOCTYPE html>
     loadWAGroups();
     loadChannels();
     setInterval(fetchStats, 10000);
+    setInterval(pollPipelineStatus, 1500);
   </script>
 </body>
 </html>
@@ -623,7 +691,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             st_war = districtwar.lobby_status()
             reg = [m for m in mb.members.values() if m.get("registered")]
             tot_pts = sum(m.get("points", 0) for m in mb.members.values())
-            wa = whatsapp_bot.load_wa_registry()
+            wa = whatsapp_pipeline.load_wa_registry()
             all_ch = channel_router.get_all_channels()
             self._send_json({
                 "total_members": len(mb.members),
@@ -636,7 +704,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
 
         if p.path == "/api/whatsapp/groups":
-            self._send_json(whatsapp_bot.load_wa_registry())
+            self._send_json(whatsapp_pipeline.load_wa_registry())
+            return
+
+        if p.path == "/api/whatsapp/pipeline_status":
+            self._send_json(whatsapp_pipeline.get_broadcast_status())
             return
 
         if p.path == "/api/channels":
@@ -679,33 +751,47 @@ class DashboardHandler(BaseHTTPRequestHandler):
             name = body.get("name", "").strip()
             jid = body.get("jid", "").strip()
             cat = body.get("category", "AUTO")
-            new_g = whatsapp_bot.add_group(name, jid, cat)
+            shift = body.get("shift", "ALL_DAY")
+            new_g = whatsapp_pipeline.add_group(name, jid, cat, shift)
             self._send_json({"ok": True, "group": new_g})
             return
 
         if p.path == "/api/whatsapp/remove_group":
             gid = body.get("id")
-            ok = whatsapp_bot.remove_group(gid)
+            ok = whatsapp_pipeline.remove_group(gid)
             self._send_json({"ok": ok})
             return
 
-        if p.path == "/api/whatsapp/broadcast":
+        if p.path == "/api/whatsapp/start_pipeline":
             cat = body.get("category", "ALL")
+            shift = body.get("shift", "ALL")
             is_q = body.get("is_question", True)
             msg = body.get("custom_msg", "")
             att = body.get("attachment", "")
             gw = body.get("gateway", "").strip()
-            if gw:
-                reg = whatsapp_bot.load_wa_registry()
-                reg["gateway_url"] = gw
-                whatsapp_bot.save_wa_registry(reg)
+            delay_min = int(body.get("delay_min", 20))
+            delay_max = int(body.get("delay_max", 30))
 
-            res = whatsapp_bot.broadcast(
+            if gw:
+                reg = whatsapp_pipeline.load_wa_registry()
+                reg["gateway_url"] = gw
+                whatsapp_pipeline.save_wa_registry(reg)
+
+            res = whatsapp_pipeline.start_interleaved_broadcast(
                 target_category=cat,
+                shift_filter=shift,
                 is_question=is_q,
                 custom_message=msg,
-                attachment_url=att
+                attachment_url=att,
+                two_phase_answer=True,
+                delay_min=delay_min,
+                delay_max=delay_max
             )
+            self._send_json(res)
+            return
+
+        if p.path == "/api/whatsapp/stop_pipeline":
+            res = whatsapp_pipeline.stop_broadcast()
             self._send_json(res)
             return
 
@@ -724,7 +810,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
             from core.engine import Engine
             eng = Engine(dry=False)
 
-            # Map to base exam if custom channel
             all_ch = channel_router.get_all_channels()
             ch_cfg = all_ch.get(ch, {})
             base = ch_cfg.get("base_exam", ch)
