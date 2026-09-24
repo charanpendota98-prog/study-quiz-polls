@@ -4,19 +4,54 @@
       "id": "G1",
       "name": "TSPSC Aspirants Hub",
       "jid": "120363012345678901@g.us",
-      "active": true
+      "active": true,
+      "category": "TSPSC"
     },
     {
       "id": "G2",
       "name": "APPSC Group 2 & 4 Warriors",
       "jid": "120363098765432101@g.us",
-      "active": true
+      "active": true,
+      "category": "POLICE"
     },
     {
       "id": "G3",
       "name": "SSC CGL / Railway RRB Prep",
       "jid": "120363011223344551@g.us",
-      "active": true
+      "active": true,
+      "category": "SSC"
+    },
+    {
+      "id": "G_4_163",
+      "name": "Telangana TS Police Constable & SI Official",
+      "jid": "120363099999999999@g.us",
+      "category": "POLICE",
+      "active": true,
+      "created_at": "2026-09-24 17:32"
+    },
+    {
+      "id": "G_5_163",
+      "name": "AP Police SI & Civil Prep",
+      "jid": "120363088888888888@g.us",
+      "category": "POLICE",
+      "active": true,
+      "created_at": "2026-09-24 17:32"
+    },
+    {
+      "id": "G_6_163",
+      "name": "Railway RRB NTPC Central Group",
+      "jid": "120363077777777777@g.us",
+      "category": "SSC",
+      "active": true,
+      "created_at": "2026-09-24 17:32"
+    },
+    {
+      "id": "G_7_163",
+      "name": "State Bank SBI PO / Clerk Aspirants",
+      "jid": "120363066666666666@g.us",
+      "category": "BANKING",
+      "active": true,
+      "created_at": "2026-09-24 17:32"
     }
   ],
   "gateway_url": "",

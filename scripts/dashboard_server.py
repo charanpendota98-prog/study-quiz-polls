@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 """
-STUDENTUP — FULL CONTROL WEB DASHBOARD & AUTOMATION HUB
-Zero-dependency, standalone HTTP server running on standard library.
+STUDENTUP — FULL CONTROL WEB DASHBOARD & ADVANCED AUTOMATION HUB
 Features:
-  1. Live Stats: Members, Registered Count, Verified, Active, Points, Top Districts.
-  2. Member Directory & Google Sheet Sync trigger.
-  3. Squad & Battle Arena Control: View squads, active rooms, trigger matches.
-  4. District War Control: Live status, open lobby, manual launch, timer triggers.
-  5. Quiz Polls & Channel Broadcast: Send poll to Telegram public channels or DMs.
-  6. WhatsApp Multi-Group Automation:
-     - Manage WhatsApp groups list (add/remove phone numbers, group invite links, group IDs).
-     - Automated staggered posting: post poll / message to one group, wait delay, post to next group.
-     - Webhook/API integration for WhatsApp Gateway (UltraMsg, WPPConnect, Baileys, GreenAPI, or custom).
+  1. Dynamic Channel Manager:
+     - Add any new Telegram Channel / Exam name.
+     - Auto-configures syllabus subjects, exam blueprint, and builds fresh polls automatically.
+  2. WhatsApp 100+ / 150+ Groups Anti-Ban Engine:
+     - Group categories (POLICE, CENTRAL, SSC, RAILWAY, BANKING, TSPSC, APPSC).
+     - Automated targeted delivery: Police groups get Police polls, Central get Central/SSC/RRB polls, etc.
+     - Anti-Ban protection: Zero-width invisible text jitter (unique hash per group), human-like randomized delays (4-12s), safety pauses.
+     - Central broadcast with image/attachment & rich text.
+  3. Live Metrics, District Wars, Squad Arena & Google Sheet CRM Sync.
 """
 import sys
 import os
@@ -28,64 +27,17 @@ sys.path.insert(0, str(ROOT))
 from core import config
 from core.members import Members
 from core.question_bank import Bank
-from core import hooks, districtwar, arena, campus, crm
+from core import hooks, districtwar, arena, campus, crm, whatsapp_bot, channel_router
 from core.telegram import Telegram
 
 PORT = int(config.env("DASHBOARD_PORT", "5000"))
-WA_GROUPS_FILE = config.DATA / "whatsapp_groups.json"
-
-
-def _load_wa_groups():
-    if WA_GROUPS_FILE.exists():
-        try:
-            with open(WA_GROUPS_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            pass
-    return {
-        "groups": [
-            {"id": "G1", "name": "TSPSC Aspirants Hub", "jid": "120363012345678901@g.us", "active": True},
-            {"id": "G2", "name": "APPSC Group 2 & 4 Warriors", "jid": "120363098765432101@g.us", "active": True},
-            {"id": "G3", "name": "SSC CGL / Railway RRB Prep", "jid": "120363011223344551@g.us", "active": True}
-        ],
-        "gateway_url": "",
-        "gateway_token": "",
-        "post_delay_sec": 5,
-        "logs": []
-    }
-
-
-def _save_wa_groups(d):
-    config.DATA.mkdir(parents=True, exist_ok=True)
-    with open(WA_GROUPS_FILE, "w", encoding="utf-8") as f:
-        json.dump(d, f, indent=2, ensure_ascii=False)
-
-
-def format_poll_for_wa(q, cfg_name="StudentUp"):
-    tf = bool(getattr(config, "TELUGU_FIRST", True))
-    q_text = q.get("q_te", "") if tf and q.get("q_te") else q.get("q_en", "")
-    sub_text = q.get("q_en", "") if tf and q.get("q_te") else q.get("q_te", "")
-    lines = [f"🎯 *{cfg_name} — Daily Exam Quiz*", ""]
-    lines.append(f"❓ *{q_text}*")
-    if sub_text and sub_text != q_text:
-        lines.append(f"({sub_text})")
-    lines.append("")
-    opts = q.get("options_te") if tf and q.get("options_te") else q.get("options_en", [])
-    letters = ["A", "B", "C", "D", "E"]
-    for i, opt in enumerate(opts):
-        lines.append(f"  *{letters[i]}*. {opt}")
-    lines += ["", f"🏆 *Answer Index*: Option {letters[int(q.get('answer_index', 0))]}",
-              f"💡 *Explanation*: {q.get('explanation_te') or q.get('explanation_en') or 'Official PYQ Key'}",
-              "", "📲 Bot లో ఆడి ర్యాంక్ పొందండి: t.me/" + (config.BOT_USERNAME or "StudentUpBot")]
-    return "\n".join(lines)
-
 
 HTML_PAGE = """<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>StudentUp — Ultimate Control Dashboard</title>
+  <title>StudentUp — Ultimate Control & WhatsApp Anti-Ban Hub</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -98,92 +50,249 @@ HTML_PAGE = """<!DOCTYPE html>
       --accent-hover: #059669;
       --danger: #ef4444;
       --warning: #f59e0b;
+      --purple: #8b5cf6;
       --text: #f8fafc;
       --text-muted: #94a3b8;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
     body { background: var(--bg); color: var(--text); padding: 24px; min-height: 100vh; }
-    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 28px; }
-    .header h1 { font-size: 26px; font-weight: 800; display: flex; align-items: center; gap: 10px; }
+    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 24px; }
+    .header h1 { font-size: 24px; font-weight: 800; display: flex; align-items: center; gap: 10px; }
     .badge-live { background: rgba(16, 185, 129, 0.15); color: var(--accent); border: 1px solid var(--accent); padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; }
-    .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; margin-bottom: 28px; }
-    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; position: relative; overflow: hidden; }
+    .badge-shield { background: rgba(139, 92, 246, 0.15); color: var(--purple); border: 1px solid var(--purple); padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; }
+    .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
     .stat-card .label { font-size: 13px; color: var(--text-muted); font-weight: 500; }
-    .stat-card .val { font-size: 32px; font-weight: 800; margin-top: 8px; }
+    .stat-card .val { font-size: 30px; font-weight: 800; margin-top: 6px; }
     .stat-card .desc { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
-    .tabs { display: flex; gap: 10px; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
-    .tab-btn { background: transparent; border: none; color: var(--text-muted); font-size: 15px; font-weight: 600; padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px; overflow-x: auto; }
+    .tab-btn { background: transparent; border: none; color: var(--text-muted); font-size: 14px; font-weight: 600; padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
     .tab-btn.active { background: var(--primary); color: #fff; }
     .tab-pane { display: none; }
     .tab-pane.active { display: block; }
-    .panel-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 24px; margin-bottom: 24px; }
-    .panel-card h2 { font-size: 18px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
-    .btn { background: var(--primary); color: #fff; border: none; padding: 10px 18px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+    .panel-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 22px; margin-bottom: 20px; }
+    .panel-card h2 { font-size: 18px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .btn { background: var(--primary); color: #fff; border: none; padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s; display: inline-flex; align-items: center; gap: 6px; }
     .btn:hover { background: var(--primary-hover); }
     .btn-accent { background: var(--accent); }
     .btn-accent:hover { background: var(--accent-hover); }
+    .btn-purple { background: var(--purple); }
     .btn-danger { background: var(--danger); }
     .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
     .btn-outline:hover { background: var(--border); }
-    input, select, textarea { width: 100%; padding: 11px 14px; background: #0f172a; border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 14px; margin-top: 6px; margin-bottom: 16px; }
+    input, select, textarea { width: 100%; padding: 10px 14px; background: #0f172a; border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; margin-top: 6px; margin-bottom: 14px; }
     input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); border-color: transparent; }
     table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
-    th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+    th, td { text-align: left; padding: 11px 13px; border-bottom: 1px solid var(--border); }
     th { color: var(--text-muted); font-weight: 600; background: rgba(15, 23, 42, 0.6); }
-    .log-box { background: #050811; border: 1px solid var(--border); border-radius: 8px; padding: 14px; font-family: monospace; font-size: 12px; max-height: 220px; overflow-y: auto; color: #38bdf8; white-space: pre-wrap; margin-top: 12px; }
+    .log-box { background: #050811; border: 1px solid var(--border); border-radius: 8px; padding: 14px; font-family: monospace; font-size: 12px; max-height: 240px; overflow-y: auto; color: #38bdf8; white-space: pre-wrap; margin-top: 12px; }
     .status-pill { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
     .status-pill.open { background: rgba(16, 185, 129, 0.2); color: #34d399; }
     .status-pill.closed { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+    .category-tag { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); padding: 3px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; }
   </style>
 </head>
 <body>
   <div class="header">
     <div>
-      <h1>🚀 StudentUp Super-Admin Dashboard</h1>
-      <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">Full Telegram & WhatsApp Automated Management Engine</p>
+      <h1>🚀 StudentUp Central Management & Anti-Ban Hub</h1>
+      <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">100+ WhatsApp Groups Anti-Ban Dispatcher & Dynamic Channels Controller</p>
     </div>
-    <div style="display:flex; gap:12px; align-items:center;">
-      <span class="badge-live">● SYSTEM ACTIVE</span>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <span class="badge-shield">🛡️ ANTI-BAN STEALTH ON</span>
+      <span class="badge-live">● ENGINE LIVE</span>
       <button class="btn btn-outline" onclick="location.reload()">🔄 Refresh</button>
     </div>
   </div>
 
   <div class="grid-stats">
     <div class="stat-card">
-      <div class="label">Total Members</div>
-      <div class="val" id="stat-members">...</div>
-      <div class="desc">Aspirants on platform</div>
+      <div class="label">WhatsApp Groups Active</div>
+      <div class="val" id="stat-wa-count" style="color:#60a5fa;">...</div>
+      <div class="desc">100+ groups safe queue</div>
     </div>
     <div class="stat-card">
-      <div class="label">Registered & Verified</div>
+      <div class="label">Telegram Channels</div>
+      <div class="val" id="stat-tg-count" style="color:var(--purple);">...</div>
+      <div class="desc">Live exam channels</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Registered Students</div>
       <div class="val" id="stat-reg" style="color:var(--accent);">...</div>
-      <div class="desc">Profile complete with Mobile</div>
+      <div class="desc">Verified profiles in CRM</div>
     </div>
     <div class="stat-card">
       <div class="label">Total Points Earned</div>
       <div class="val" id="stat-points" style="color:var(--warning);">...</div>
       <div class="desc">Active gamification balance</div>
     </div>
-    <div class="stat-card">
-      <div class="label">District War State</div>
-      <div class="val" id="stat-war">...</div>
-      <div class="desc" id="stat-war-sub">9:00 PM Daily Battle</div>
-    </div>
   </div>
 
   <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('tab-control')">⚡ Fast Actions</button>
-    <button class="tab-btn" onclick="switchTab('tab-whatsapp')">💬 WhatsApp Group Automation</button>
-    <button class="tab-btn" onclick="switchTab('tab-polls')">📊 Telegram Channels Polls</button>
-    <button class="tab-btn" onclick="switchTab('tab-squads')">👥 Squads & Battle Arena</button>
-    <button class="tab-btn" onclick="switchTab('tab-members')">📋 Registered Members</button>
+    <button class="tab-btn active" onclick="switchTab('tab-wa-dispatch')">🛡️ WhatsApp 100+ Anti-Ban Dispatcher</button>
+    <button class="tab-btn" onclick="switchTab('tab-dynamic-channels')">📢 Telegram Channels & Dynamic Builder</button>
+    <button class="tab-btn" onclick="switchTab('tab-control')">⚡ Fast Actions & District War</button>
+    <button class="tab-btn" onclick="switchTab('tab-squads')">👥 Squad Wars & Arena</button>
+    <button class="tab-btn" onclick="switchTab('tab-members')">📋 Registered Members & CRM</button>
   </div>
 
-  <!-- TAB: FAST ACTIONS -->
-  <div id="tab-control" class="tab-pane active">
+  <!-- TAB 1: WHATSAPP ANTI-BAN DISPATCHER -->
+  <div id="tab-wa-dispatch" class="tab-pane active">
+    <div class="panel-card">
+      <h2>🛡️ Multi-Group Targeted Dispatcher (Anti-Ban & Stealth)</h2>
+      <p style="color:var(--text-muted); font-size:13px; margin-bottom:16px;">
+        Auto-matches exam syllabus: <b>Police groups receive Police polls</b>, <b>Central/SSC/RRB receive Central polls</b>, and <b>Banking groups receive Banking polls</b>. Invisible zero-width text alters every post hash so WhatsApp anti-spam algorithms cannot detect mass broadcasts.
+      </p>
+
+      <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px;">
+        <div>
+          <label>Target Group Category Filter:</label>
+          <select id="wa-target-category">
+            <option value="ALL">🌐 Broadcast to ALL Connected Groups (100+ Mode)</option>
+            <option value="POLICE">👮 Police Exam Groups (TS Police SI, AP Police Constable)</option>
+            <option value="SSC">🏛️ Central Jobs & SSC Groups (CGL, CHSL, MTS)</option>
+            <option value="RAILWAY">🚆 Railway RRB Groups (NTPC, Group D, ALP)</option>
+            <option value="BANKING">🏦 Banking Aspirants Groups (SBI, IBPS PO/Clerk)</option>
+            <option value="TSPSC">📘 TSPSC Groups (Telangana Group 2, 3, 4)</option>
+            <option value="APPSC">📗 APPSC Groups (Andhra Group 2, 4)</option>
+          </select>
+
+          <label>Optional: Central Announcement or Message Text (Leave blank to send auto-built exam polls):</label>
+          <textarea id="wa-broadcast-msg" rows="4" placeholder="Enter custom update or study notification..."></textarea>
+
+          <label>Optional Image / Attachment URL (Posts photo along with text):</label>
+          <input type="text" id="wa-attachment-url" placeholder="https://example.com/daily-current-affairs-poster.jpg">
+
+          <div style="display:flex; gap:10px; margin-top:8px;">
+            <button class="btn btn-accent" onclick="runWABroadcast(true)">🚀 Send Syllabus Quiz Polls (Category-Matched)</button>
+            <button class="btn btn-purple" onclick="runWABroadcast(false)">📢 Send Custom Announcement with Anti-Ban</button>
+          </div>
+        </div>
+
+        <div style="background:#0f172a; border:1px solid var(--border); border-radius:10px; padding:16px;">
+          <h3 style="font-size:14px; margin-bottom:12px; color:#38bdf8;">⚙️ Anti-Ban Safeguards</h3>
+          <div style="font-size:12px; line-height:1.7; color:var(--text-muted);">
+            ✔ <b>Zero-Width Hash Jitter:</b> Unique binary string per group.<br>
+            ✔ <b>Dynamic Delay:</b> 4 to 12s randomized human intervals.<br>
+            ✔ <b>Smart Safety Pauses:</b> Automatic rest periods every 15 groups.<br>
+            ✔ <b>Exam Isolation:</b> Police groups only get Police polls.<br>
+          </div>
+          <div style="margin-top:14px;">
+            <label style="font-size:12px;">WhatsApp Webhook / Gateway Endpoint (Optional):</label>
+            <input type="text" id="wa-gateway-input" placeholder="http://localhost:3000/send or GreenAPI/UltraMsg">
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:24px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h3>📋 Managed WhatsApp Groups Directory</h3>
+          <button class="btn btn-outline" onclick="loadWAGroups()">🔄 Refresh Groups</button>
+        </div>
+        <table id="table-wa-groups">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Group Title</th>
+              <th>Category</th>
+              <th>JID / Link</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+
+        <div style="display:flex; gap:10px; margin-top:16px; background:#0f172a; padding:12px; border-radius:8px;">
+          <input type="text" id="new-wa-title" placeholder="Group Title (e.g. Hyderabad TS Police SI Prep)">
+          <input type="text" id="new-wa-jid" placeholder="Group JID or Invite link">
+          <select id="new-wa-category" style="width:200px;">
+            <option value="AUTO">🤖 Auto-Detect from Name</option>
+            <option value="POLICE">POLICE</option>
+            <option value="SSC">SSC / Central</option>
+            <option value="RAILWAY">RAILWAY</option>
+            <option value="BANKING">BANKING</option>
+            <option value="TSPSC">TSPSC</option>
+            <option value="APPSC">APPSC</option>
+            <option value="CURRENT">Current Affairs</option>
+          </select>
+          <button class="btn btn-accent" style="white-space:nowrap;" onclick="addNewWAGroup()">➕ Connect Group</button>
+        </div>
+      </div>
+
+      <div id="wa-log-box" class="log-box" style="margin-top:16px;">WhatsApp Anti-Ban Dispatch status ready.</div>
+    </div>
+  </div>
+
+  <!-- TAB 2: DYNAMIC CHANNELS & EXAM BUILDER -->
+  <div id="tab-dynamic-channels" class="tab-pane">
+    <div class="panel-card">
+      <h2>📢 Telegram Channels & Dynamic Exam Builder</h2>
+      <p style="color:var(--text-muted); font-size:13px; margin-bottom:16px;">
+        Add any new Telegram Channel or Exam name. The system automatically builds syllabus subjects, question pool, and delivers exam-accurate polls without manual coding.
+      </p>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+        <div style="background:#0f172a; padding:18px; border-radius:10px; border:1px solid var(--border);">
+          <h3 style="font-size:15px; margin-bottom:12px;">➕ Register New Exam Channel</h3>
+          <label>Channel / Exam Name:</label>
+          <input type="text" id="new-ch-name" placeholder="e.g. TS Police Sub Inspector 2026">
+
+          <label>Exam Category (or Auto-Detect):</label>
+          <select id="new-ch-base">
+            <option value="AUTO">🤖 Auto-Detect (SI/Constable -> POLICE, CGL -> SSC, etc.)</option>
+            <option value="POLICE">Police Exams (SI / Constable / APSP / TSSP)</option>
+            <option value="SSC">SSC Exams (CGL / CHSL / MTS / GD)</option>
+            <option value="RAILWAY">Railway RRB (NTPC / Group D / ALP)</option>
+            <option value="BANKING">Banking (IBPS PO / SBI Clerk / RRB)</option>
+            <option value="TSPSC">TSPSC (Group 2, 3, 4)</option>
+            <option value="APPSC">APPSC (Group 2, 4)</option>
+            <option value="DEFENCE">Defence (NDA, CDS, AFCAT)</option>
+            <option value="CURRENT">Current Affairs & Daily GK</option>
+          </select>
+
+          <label>Telegram Chat ID or @username (optional for preview):</label>
+          <input type="text" id="new-ch-chatid" placeholder="@MyNewPoliceExamChannel or -100123456789">
+
+          <button class="btn btn-accent" onclick="createNewChannel()">⚡ Register Channel & Auto-Build Polls</button>
+        </div>
+
+        <div>
+          <h3 style="font-size:15px; margin-bottom:12px;">📢 Instant Telegram Poll Broadcaster</h3>
+          <label>Choose Channel to Post Poll:</label>
+          <select id="post-poll-channel"></select>
+
+          <div style="display:flex; gap:10px; margin-top:8px;">
+            <button class="btn btn-accent" onclick="sendChannelPoll(1)">📢 Post 1 Exam-Specific Poll</button>
+            <button class="btn btn-outline" onclick="sendChannelPoll(5)">📢 Post 5 Round Polls</button>
+          </div>
+          <div id="tg-poll-log" class="log-box" style="margin-top:14px;">Select channel and dispatch.</div>
+        </div>
+      </div>
+
+      <div style="margin-top:24px;">
+        <h3>Active Telegram Channels Registry</h3>
+        <table id="table-channels">
+          <thead>
+            <tr>
+              <th>Channel Key</th>
+              <th>Channel Title</th>
+              <th>Base Exam Syllabus</th>
+              <th>Audience</th>
+              <th>Chat Target</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: FAST ACTIONS & DISTRICT WAR -->
+  <div id="tab-control" class="tab-pane">
     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
       <div class="panel-card">
-        <h2>⚔️ District War Instant Control</h2>
+        <h2>⚔️ District War Instant Controller</h2>
         <p style="color:var(--text-muted); font-size:13px; margin-bottom:14px;">
           Lobby status, countdown and manual launch trigger for all TS & AP districts.
         </p>
@@ -208,99 +317,7 @@ HTML_PAGE = """<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- TAB: WHATSAPP AUTOMATION -->
-  <div id="tab-whatsapp" class="tab-pane">
-    <div class="panel-card">
-      <h2>💬 WhatsApp Multi-Group Automatic Sender</h2>
-      <p style="color:var(--text-muted); font-size:13px; margin-bottom:14px;">
-        Auto-broadcast exam quiz polls, messages & answer keys to multiple WhatsApp groups with automated delay (staggered delivery).
-      </p>
-
-      <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px;">
-        <div>
-          <label>Select Exam Channel Question to Post:</label>
-          <select id="wa-exam-channel">
-            <option value="CURRENT">Current Affairs & GK</option>
-            <option value="TSPSC">TSPSC (Group 2/3/4)</option>
-            <option value="APPSC">APPSC (Group 2/4)</option>
-            <option value="SSC">SSC (CGL/CHSL/MTS)</option>
-            <option value="RAILWAY">Railway RRB (NTPC/Group D)</option>
-            <option value="BANKING">Banking (IBPS/SBI)</option>
-            <option value="POLICE">Police SI & Constable</option>
-          </select>
-
-          <label>Or Type Custom Announcement / Message:</label>
-          <textarea id="wa-custom-msg" rows="4" placeholder="Type message to blast across WhatsApp groups..."></textarea>
-
-          <div style="display:flex; gap:12px; align-items:center;">
-            <button class="btn btn-accent" onclick="sendWhatsApp(true)">🚀 Send Question Poll to All Groups (Automated)</button>
-            <button class="btn btn-outline" onclick="sendWhatsApp(false)">📝 Send Custom Message</button>
-          </div>
-        </div>
-
-        <div>
-          <label>Stagger Delay Between Groups (seconds):</label>
-          <input type="number" id="wa-delay" value="5" min="1" max="60">
-
-          <label>WhatsApp Gateway API URL (optional):</label>
-          <input type="text" id="wa-gateway" placeholder="http://localhost:3000/send or GreenAPI/UltraMsg">
-
-          <div style="font-size:12px; color:var(--text-muted); line-height:1.5;">
-            💡 <b>Automated Queue:</b> One group is sent, waits N seconds, then smoothly posts to the next group to prevent spam flags.
-          </div>
-        </div>
-      </div>
-
-      <div style="margin-top:20px;">
-        <h3>Connected WhatsApp Groups</h3>
-        <table id="table-wa-groups">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Group Name</th>
-              <th>Group ID / Link</th>
-              <th>Status</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-        <div style="display:flex; gap:10px; margin-top:12px;">
-          <input type="text" id="new-wa-name" placeholder="Group Name (e.g. Warangal TSPSC)">
-          <input type="text" id="new-wa-jid" placeholder="Group JID or Invite Link">
-          <button class="btn" onclick="addWAGroup()">➕ Add Group</button>
-        </div>
-      </div>
-
-      <div id="wa-log" class="log-box" style="margin-top:16px;">WhatsApp delivery logs will appear here...</div>
-    </div>
-  </div>
-
-  <!-- TAB: TELEGRAM POLLS -->
-  <div id="tab-polls" class="tab-pane">
-    <div class="panel-card">
-      <h2>📊 Send Instant Quiz Poll to Telegram Channel</h2>
-      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
-        <div>
-          <label>Choose Channel:</label>
-          <select id="tg-channel">
-            <option value="TSPSC">📘 TSPSC Quiz Channel</option>
-            <option value="APPSC">📗 APPSC Quiz Channel</option>
-            <option value="SSC">🏛️ SSC Quiz Channel</option>
-            <option value="BANKING">🏦 Banking Quiz Channel</option>
-            <option value="RAILWAY">🚆 Railway Quiz Channel</option>
-            <option value="POLICE">👮 Police Quiz Channel</option>
-            <option value="CURRENT">🗞️ Current Affairs Channel</option>
-          </select>
-          <button class="btn btn-accent" onclick="postChannelPoll()">📢 Post 1 Fresh Poll Now</button>
-          <button class="btn" onclick="postChannelPoll(5)" style="margin-left:8px;">📢 Post 5 Round Polls</button>
-        </div>
-        <div id="tg-poll-result" class="log-box">Select channel and post. Polls are strictly exam-specific.</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- TAB: SQUADS & ARENA -->
+  <!-- TAB 4: SQUADS & ARENA -->
   <div id="tab-squads" class="tab-pane">
     <div class="panel-card">
       <h2>👥 Registered Squads & Battle Rooms</h2>
@@ -323,7 +340,7 @@ HTML_PAGE = """<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- TAB: MEMBERS DIRECTORY -->
+  <!-- TAB 5: MEMBERS DIRECTORY -->
   <div id="tab-members" class="tab-pane">
     <div class="panel-card">
       <h2>📋 Registered Student Members</h2>
@@ -351,23 +368,150 @@ HTML_PAGE = """<!DOCTYPE html>
       document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
       event.target.classList.add('active');
       document.getElementById(id).classList.add('active');
+      if (id === 'tab-wa-dispatch') loadWAGroups();
+      if (id === 'tab-dynamic-channels') loadChannels();
       if (id === 'tab-squads') loadSquads();
       if (id === 'tab-members') loadMembers();
-      if (id === 'tab-whatsapp') loadWAGroups();
     }
 
     async function fetchStats() {
       try {
         const res = await fetch('/api/stats');
         const data = await res.json();
-        document.getElementById('stat-members').innerText = data.total_members;
+        document.getElementById('stat-wa-count').innerText = data.wa_groups_count || '0';
+        document.getElementById('stat-tg-count').innerText = data.channels_count || '0';
         document.getElementById('stat-reg').innerText = data.registered_members;
         document.getElementById('stat-points').innerText = data.total_points.toLocaleString();
-        document.getElementById('stat-war').innerText = data.war_status.open ? 'OPEN 🟢' : 'SCHEDULED';
-        document.getElementById('stat-war-sub').innerText = data.war_status.open ? (data.war_status.n + ' fighters in lobby') : '9:00 PM Daily';
       } catch (e) {
         console.error(e);
       }
+    }
+
+    async function loadWAGroups() {
+      const res = await fetch('/api/whatsapp/groups');
+      const d = await res.json();
+      const tbody = document.querySelector('#table-wa-groups tbody');
+      tbody.innerHTML = '';
+      (d.groups || []).forEach(g => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${g.id}</td>
+          <td><b>${g.name}</b></td>
+          <td><span class="category-tag">${g.category || 'GENERAL'}</span></td>
+          <td style="font-family:monospace; font-size:12px;">${g.jid}</td>
+          <td><span class="status-pill ${g.active ? 'open' : 'closed'}">${g.active ? 'Active' : 'Paused'}</span></td>
+          <td><button class="btn btn-outline" style="padding:4px 8px; font-size:11px;" onclick="deleteWAGroup('${g.id}')">Delete</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+      if (d.gateway_url) document.getElementById('wa-gateway-input').value = d.gateway_url;
+    }
+
+    async function addNewWAGroup() {
+      const name = document.getElementById('new-wa-title').value.trim();
+      const jid = document.getElementById('new-wa-jid').value.trim();
+      const category = document.getElementById('new-wa-category').value;
+      if (!name || !jid) return alert('Enter group name and JID / Link');
+      await fetch('/api/whatsapp/add_group', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name, jid, category})
+      });
+      document.getElementById('new-wa-title').value = '';
+      document.getElementById('new-wa-jid').value = '';
+      loadWAGroups();
+      fetchStats();
+    }
+
+    async function deleteWAGroup(id) {
+      if (!confirm('Remove this group?')) return;
+      await fetch('/api/whatsapp/remove_group', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id})
+      });
+      loadWAGroups();
+      fetchStats();
+    }
+
+    async function runWABroadcast(isQuestion) {
+      const log = document.getElementById('wa-log-box');
+      const cat = document.getElementById('wa-target-category').value;
+      const msg = document.getElementById('wa-broadcast-msg').value;
+      const att = document.getElementById('wa-attachment-url').value;
+      const gateway = document.getElementById('wa-gateway-input').value;
+
+      log.innerText = 'Starting Anti-Ban broadcast across category: ' + cat + '...';
+      const res = await fetch('/api/whatsapp/broadcast', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          is_question: isQuestion,
+          category: cat,
+          custom_msg: msg,
+          attachment: att,
+          gateway: gateway
+        })
+      });
+      const d = await res.json();
+      log.innerText = d.log || JSON.stringify(d, null, 2);
+    }
+
+    async function loadChannels() {
+      const res = await fetch('/api/channels');
+      const d = await res.json();
+      const tbody = document.querySelector('#table-channels tbody');
+      const select = document.getElementById('post-poll-channel');
+      tbody.innerHTML = '';
+      select.innerHTML = '';
+      for (const [key, ch] of Object.entries(d.channels || {})) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><b>${key}</b></td>
+          <td>${ch.emoji || '🎯'} ${ch.name}</td>
+          <td><span class="category-tag">${ch.base_exam || key}</span></td>
+          <td style="color:var(--text-muted);">${ch.audience || '—'}</td>
+          <td style="font-family:monospace;">${ch.chat_id || ch.username || '—'}</td>
+        `;
+        tbody.appendChild(tr);
+
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.innerText = (ch.emoji || '🎯') + ' ' + ch.name + ' (' + (ch.base_exam || key) + ')';
+        select.appendChild(opt);
+      }
+    }
+
+    async function createNewChannel() {
+      const name = document.getElementById('new-ch-name').value.trim();
+      const base = document.getElementById('new-ch-base').value;
+      const chatid = document.getElementById('new-ch-chatid').value.trim();
+      if (!name) return alert('Enter channel or exam name');
+
+      const res = await fetch('/api/channels/register', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name, exam_type: base, chat_id: chatid})
+      });
+      const d = await res.json();
+      alert('Channel registered: ' + d.channel.name + ' (Syllabus: ' + d.channel.base_exam + ')');
+      document.getElementById('new-ch-name').value = '';
+      document.getElementById('new-ch-chatid').value = '';
+      loadChannels();
+      fetchStats();
+    }
+
+    async function sendChannelPoll(count) {
+      const ch = document.getElementById('post-poll-channel').value;
+      const log = document.getElementById('tg-poll-log');
+      log.innerText = 'Generating and posting ' + count + ' poll(s) for ' + ch + '...';
+      const res = await fetch('/api/post_poll', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({channel: ch, count: count || 1})
+      });
+      const d = await res.json();
+      log.innerText = d.message || JSON.stringify(d);
     }
 
     async function triggerWar(act, mins) {
@@ -380,7 +524,6 @@ HTML_PAGE = """<!DOCTYPE html>
       });
       const d = await res.json();
       box.innerText = d.message || JSON.stringify(d);
-      fetchStats();
     }
 
     async function syncSheet(act) {
@@ -390,19 +533,6 @@ HTML_PAGE = """<!DOCTYPE html>
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({act})
-      });
-      const d = await res.json();
-      box.innerText = d.message || JSON.stringify(d);
-    }
-
-    async function postChannelPoll(count) {
-      const ch = document.getElementById('tg-channel').value;
-      const box = document.getElementById('tg-poll-result');
-      box.innerText = 'Posting poll(s) to ' + ch + '...';
-      const res = await fetch('/api/post_poll', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({channel: ch, count: count || 1})
       });
       const d = await res.json();
       box.innerText = d.message || JSON.stringify(d);
@@ -454,68 +584,9 @@ HTML_PAGE = """<!DOCTYPE html>
       }
     }
 
-    async function loadWAGroups() {
-      const res = await fetch('/api/whatsapp/groups');
-      const d = await res.json();
-      const tbody = document.querySelector('#table-wa-groups tbody');
-      tbody.innerHTML = '';
-      (d.groups || []).forEach(g => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${g.id}</td>
-          <td><b>${g.name}</b></td>
-          <td>${g.jid}</td>
-          <td><span class="status-pill ${g.active ? 'open' : 'closed'}">${g.active ? 'Active' : 'Paused'}</span></td>
-          <td><button class="btn btn-outline" style="padding:4px 8px; font-size:11px;" onclick="removeWAGroup('${g.id}')">Delete</button></td>
-        `;
-        tbody.appendChild(tr);
-      });
-      if (d.gateway_url) document.getElementById('wa-gateway').value = d.gateway_url;
-      if (d.post_delay_sec) document.getElementById('wa-delay').value = d.post_delay_sec;
-    }
-
-    async function addWAGroup() {
-      const name = document.getElementById('new-wa-name').value.trim();
-      const jid = document.getElementById('new-wa-jid').value.trim();
-      if (!name || !jid) return alert('Enter group name and JID / Link');
-      await fetch('/api/whatsapp/add_group', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({name, jid})
-      });
-      document.getElementById('new-wa-name').value = '';
-      document.getElementById('new-wa-jid').value = '';
-      loadWAGroups();
-    }
-
-    async function removeWAGroup(id) {
-      if (!confirm('Remove this group?')) return;
-      await fetch('/api/whatsapp/remove_group', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({id})
-      });
-      loadWAGroups();
-    }
-
-    async function sendWhatsApp(isQuestion) {
-      const log = document.getElementById('wa-log');
-      log.innerText = 'Initiating staggered delivery across WhatsApp groups...';
-      const channel = document.getElementById('wa-exam-channel').value;
-      const customMsg = document.getElementById('wa-custom-msg').value;
-      const delay = parseInt(document.getElementById('wa-delay').value) || 5;
-      const gateway = document.getElementById('wa-gateway').value;
-
-      const res = await fetch('/api/whatsapp/broadcast', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({is_question: isQuestion, channel, custom_msg: customMsg, delay, gateway})
-      });
-      const d = await res.json();
-      log.innerText = d.log || JSON.stringify(d, null, 2);
-    }
-
     fetchStats();
+    loadWAGroups();
+    loadChannels();
     setInterval(fetchStats, 10000);
   </script>
 </body>
@@ -546,18 +617,32 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if p.path in ("/", "/index.html", "/dashboard"):
             self._send_html(HTML_PAGE)
             return
+
         if p.path == "/api/stats":
             mb = Members()
             st_war = districtwar.lobby_status()
             reg = [m for m in mb.members.values() if m.get("registered")]
             tot_pts = sum(m.get("points", 0) for m in mb.members.values())
+            wa = whatsapp_bot.load_wa_registry()
+            all_ch = channel_router.get_all_channels()
             self._send_json({
                 "total_members": len(mb.members),
                 "registered_members": len(reg),
                 "total_points": tot_pts,
-                "war_status": st_war
+                "war_status": st_war,
+                "wa_groups_count": len(wa.get("groups", [])),
+                "channels_count": len(all_ch)
             })
             return
+
+        if p.path == "/api/whatsapp/groups":
+            self._send_json(whatsapp_bot.load_wa_registry())
+            return
+
+        if p.path == "/api/channels":
+            self._send_json({"channels": channel_router.get_all_channels()})
+            return
+
         if p.path == "/api/squads":
             sq_data = hooks._sq()
             self._send_json({
@@ -565,6 +650,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 "squads": sq_data.get("squads", {})
             })
             return
+
         if p.path == "/api/members":
             mb = Members()
             arr = []
@@ -580,9 +666,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 })
             self._send_json({"members": arr})
             return
-        if p.path == "/api/whatsapp/groups":
-            self._send_json(_load_wa_groups())
-            return
+
         self.send_response(404)
         self.end_headers()
 
@@ -590,6 +674,72 @@ class DashboardHandler(BaseHTTPRequestHandler):
         p = urllib.parse.urlparse(self.path)
         length = int(self.headers.get("Content-Length", 0))
         body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+
+        if p.path == "/api/whatsapp/add_group":
+            name = body.get("name", "").strip()
+            jid = body.get("jid", "").strip()
+            cat = body.get("category", "AUTO")
+            new_g = whatsapp_bot.add_group(name, jid, cat)
+            self._send_json({"ok": True, "group": new_g})
+            return
+
+        if p.path == "/api/whatsapp/remove_group":
+            gid = body.get("id")
+            ok = whatsapp_bot.remove_group(gid)
+            self._send_json({"ok": ok})
+            return
+
+        if p.path == "/api/whatsapp/broadcast":
+            cat = body.get("category", "ALL")
+            is_q = body.get("is_question", True)
+            msg = body.get("custom_msg", "")
+            att = body.get("attachment", "")
+            gw = body.get("gateway", "").strip()
+            if gw:
+                reg = whatsapp_bot.load_wa_registry()
+                reg["gateway_url"] = gw
+                whatsapp_bot.save_wa_registry(reg)
+
+            res = whatsapp_bot.broadcast(
+                target_category=cat,
+                is_question=is_q,
+                custom_message=msg,
+                attachment_url=att
+            )
+            self._send_json(res)
+            return
+
+        if p.path == "/api/channels/register":
+            name = body.get("name", "").strip()
+            exam_t = body.get("exam_type", "")
+            chat_id = body.get("chat_id", "")
+            info = channel_router.register_channel(name, chat_id=chat_id, exam_type=exam_t)
+            self._send_json({"ok": True, "channel": info})
+            return
+
+        if p.path == "/api/post_poll":
+            ch = body.get("channel", "CURRENT")
+            count = int(body.get("count", 1))
+            bank = Bank()
+            from core.engine import Engine
+            eng = Engine(dry=False)
+
+            # Map to base exam if custom channel
+            all_ch = channel_router.get_all_channels()
+            ch_cfg = all_ch.get(ch, {})
+            base = ch_cfg.get("base_exam", ch)
+
+            sent = 0
+            for _ in range(count):
+                qs = bank.pick(base, 1)
+                if not qs:
+                    qs = bank.pick("CURRENT", 1)
+                if qs:
+                    ok = eng.send_quiz(base, qs[0])
+                    if ok:
+                        sent += 1
+            self._send_json({"ok": True, "message": f"Dispatched {sent} question(s) strictly adhering to {base} syllabus!"})
+            return
 
         if p.path == "/api/war":
             act = body.get("act", "status")
@@ -614,86 +764,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
             else:
                 q = crm.flush_queue()
                 self._send_json({"ok": True, "message": f"Flushed {q} queued items to Google Sheet."})
-            return
-
-        if p.path == "/api/post_poll":
-            ch = body.get("channel", "CURRENT")
-            count = int(body.get("count", 1))
-            bank = Bank()
-            from core.engine import Engine
-            eng = Engine(dry=False)
-            sent = 0
-            for _ in range(count):
-                qs = bank.pick(ch, 1)
-                if qs:
-                    ok = eng.send_quiz(ch, qs[0])
-                    if ok:
-                        sent += 1
-            self._send_json({"ok": True, "message": f"Sent {sent} poll(s) directly to Telegram {ch} channel!"})
-            return
-
-        if p.path == "/api/whatsapp/add_group":
-            name = body.get("name", "").strip()
-            jid = body.get("jid", "").strip()
-            d = _load_wa_groups()
-            gid = "G" + str(len(d["groups"]) + 1)
-            d["groups"].append({"id": gid, "name": name, "jid": jid, "active": True})
-            _save_wa_groups(d)
-            self._send_json({"ok": True})
-            return
-
-        if p.path == "/api/whatsapp/remove_group":
-            gid = body.get("id")
-            d = _load_wa_groups()
-            d["groups"] = [g for g in d["groups"] if g["id"] != gid]
-            _save_wa_groups(d)
-            self._send_json({"ok": True})
-            return
-
-        if p.path == "/api/whatsapp/broadcast":
-            d = _load_wa_groups()
-            groups = [g for g in d.get("groups", []) if g.get("active")]
-            delay = int(body.get("delay", 5))
-            gateway = body.get("gateway", "").strip() or d.get("gateway_url", "")
-            if gateway:
-                d["gateway_url"] = gateway
-            d["post_delay_sec"] = delay
-            _save_wa_groups(d)
-
-            is_q = body.get("is_question", True)
-            ch = body.get("channel", "CURRENT")
-            custom_msg = body.get("custom_msg", "")
-
-            if is_q:
-                bank = Bank()
-                qs = bank.pick(ch, 1)
-                text = format_poll_for_wa(qs[0], config.CHANNELS.get(ch, {}).get("name", "StudentUp")) if qs else "No questions in bank."
-            else:
-                text = custom_msg or "StudentUp Exam Notification"
-
-            logs = []
-            logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] Starting WhatsApp broadcast to {len(groups)} groups with {delay}s delay...")
-            
-            for i, grp in enumerate(groups, 1):
-                logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] Delivering to Group {i}/{len(groups)}: '{grp['name']}' ({grp['jid']})...")
-                # If a live WhatsApp Gateway endpoint is configured, POST to it
-                if gateway:
-                    try:
-                        req_data = json.dumps({"recipient": grp["jid"], "message": text}).encode("utf-8")
-                        req = urllib.request.Request(gateway, data=req_data, headers={"Content-Type": "application/json"})
-                        with urllib.request.urlopen(req, timeout=10) as r:
-                            logs.append(f"  -> Success: HTTP {r.status}")
-                    except Exception as ex:
-                        logs.append(f"  -> Gateway dispatch note: {ex}")
-                else:
-                    logs.append(f"  -> Dispatched formatted poll (Native Queue Sim): OK")
-                
-                if i < len(groups):
-                    logs.append(f"  -> Waiting {delay}s before next group...")
-                    time.sleep(min(delay, 2))  # responsive pause in request
-
-            logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] All {len(groups)} WhatsApp groups successfully processed!")
-            self._send_json({"ok": True, "log": "\n".join(logs)})
             return
 
         self.send_response(404)

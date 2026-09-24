@@ -1,0 +1,28 @@
+{
+  "channels": {
+    "TS_POLICE_SI_2026_BATCH": {
+      "key": "TS_POLICE_SI_2026_BATCH",
+      "name": "TS Police SI 2026 Batch",
+      "base_exam": "POLICE",
+      "emoji": "👮",
+      "subject": "TS Police SI 2026 Batch Exam Prep (Police Exams)",
+      "public": true,
+      "chat_id": "@ts_police_si_quiz",
+      "username": "TSPoliceSI2026Batch",
+      "audience": "Aspirants targeting TS Police SI 2026 Batch & POLICE",
+      "topics": [
+        "opposite words",
+        "coding-decoding",
+        "blood relation",
+        "direction-distance",
+        "figure count",
+        "statement-conclusion",
+        "missing letter series",
+        "syllogism",
+        "analogy",
+        "number series"
+      ],
+      "ts_ap_weight": 0.35
+    }
+  }
+}
