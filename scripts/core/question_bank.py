@@ -213,6 +213,18 @@ def load_academic_questions():
     return items
 
 
+def load_dynamic_questions():
+    """Load dynamic generated questions for custom runtime channels."""
+    dyn_file = config.DATA / "dynamic_generated_bank.json"
+    if not dyn_file.exists():
+        return []
+    try:
+        data = load_json(dyn_file, {"questions": []})
+        return data.get("questions", [])
+    except Exception:
+        return []
+
+
 def load_bank(force_rebuild=False):
     """Load canonical bank; rebuild from MD if missing or forced."""
     if force_rebuild or not config.BANK_JSON.exists():
@@ -226,6 +238,11 @@ def load_bank(force_rebuild=False):
     if acad:
         existing_ids = {q.get("id") for q in qs}
         qs = list(qs) + [q for q in acad if q.get("id") not in existing_ids]
+    # Merge dynamic generated questions
+    dyn = load_dynamic_questions()
+    if dyn:
+        existing_ids = {q.get("id") for q in qs}
+        qs = list(qs) + [q for q in dyn if q.get("id") not in existing_ids]
     return qs
 
 

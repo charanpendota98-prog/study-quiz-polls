@@ -305,6 +305,29 @@
         "health schemes"
       ],
       "ts_ap_weight": 0.3
+    },
+    "TS_CIVIL_ENGINEERING___IRRIGATION": {
+      "key": "TS_CIVIL_ENGINEERING___IRRIGATION",
+      "name": "TS Civil Engineering & Irrigation",
+      "base_exam": "CURRENT",
+      "emoji": "🗞️",
+      "subject": "TS Civil Engineering & Irrigation Exam Prep (Current Affairs GK)",
+      "public": true,
+      "chat_id": "",
+      "username": "TSCivilEngineering&Irrigation",
+      "audience": "Aspirants targeting TS Civil Engineering & Irrigation & CURRENT",
+      "topics": [
+        "government schemes",
+        "ISRO",
+        "RBI",
+        "constitution",
+        "defence",
+        "central budget",
+        "elections",
+        "railway infrastructure",
+        "health schemes"
+      ],
+      "ts_ap_weight": 0.3
     }
   }
 }

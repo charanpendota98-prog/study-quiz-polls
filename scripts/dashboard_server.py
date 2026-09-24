@@ -842,7 +842,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
             exam_t = body.get("exam_type", "")
             chat_id = body.get("chat_id", "")
             info = channel_router.register_channel(name, chat_id=chat_id, exam_type=exam_t)
-            self._send_json({"ok": True, "channel": info})
+
+            # Auto-synthesize custom questions immediately for this new channel
+            try:
+                from core import dynamic_generator
+                dynamic_generator.synthesize_quiz(info["key"], name, count=5)
+            except Exception as e:
+                print(f"Auto-synthesizer note: {e}")
+
+            self._send_json({"ok": True, "channel": info, "message": f"Channel registered & 5 syllabus questions synthesized!"})
             return
 
         if p.path == "/api/post_poll":
