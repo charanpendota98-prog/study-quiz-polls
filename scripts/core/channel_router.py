@@ -13,6 +13,8 @@ CUSTOM_CHANNELS_FILE = config.DATA / "custom_channels.json"
 
 # Exam taxonomy keywords mapping exam titles to internal knowledge banks
 TAXONOMY = {
+    "TS_BTECH": ["BTECH", "B.TECH", "ENGINEERING", "GATE", "CSE", "ECE", "EEE", "MECHANICAL", "CIVIL", "CAMPUS PLACEMENT", "CRT", "SOFTWARE"],
+    "TS_DEGREE": ["DEGREE", "B.COM", "BSC", "B.SC", "B.A", "BA", "ICET", "COMMERCE", "LIFE SCIENCES", "GENERAL DEGREE"],
     "TS_10TH": ["10TH", "SSC BOARD", "CLASS 10", "TENTH", "10TH CLASS", "SSC CLASS 10"],
     "TS_INTER": ["INTER", "INTERMEDIATE", "MPC", "BIPC", "CEC", "HEC", "11TH", "12TH", "IPE", "EAMCET"],
     "TS_DIPLOMA": ["DIPLOMA", "POLYCET", "POLYTECHNIC", "ECET", "SBTET", "C-20", "C-21"],

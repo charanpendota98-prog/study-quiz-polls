@@ -98,6 +98,52 @@
         "TS GK"
       ],
       "ts_ap_weight": 0.45
+    },
+    "TS_DEGREE_STUDENTS__B_COM_B_SC_B_A": {
+      "key": "TS_DEGREE_STUDENTS__B_COM_B_SC_B_A",
+      "name": "TS Degree Students (B.Com/B.Sc/B.A)",
+      "base_exam": "TS_DEGREE",
+      "emoji": "🗞️",
+      "subject": "TS Degree Students (B.Com/B.Sc/B.A) Exam Prep (Current Affairs GK)",
+      "public": true,
+      "chat_id": "@ts_degree_students",
+      "username": "TSDegreeStudents",
+      "audience": "Telangana Degree Colleges — B.Com, B.Sc, B.A students community",
+      "topics": [
+        "government schemes",
+        "ISRO",
+        "RBI",
+        "constitution",
+        "defence",
+        "central budget",
+        "elections",
+        "railway infrastructure",
+        "health schemes"
+      ],
+      "ts_ap_weight": 0.3
+    },
+    "TS_B_TECH_ENGINEERING___PLACEMENT_HUB": {
+      "key": "TS_B_TECH_ENGINEERING___PLACEMENT_HUB",
+      "name": "TS B.Tech Engineering & Placement Hub",
+      "base_exam": "TS_BTECH",
+      "emoji": "🗞️",
+      "subject": "TS B.Tech Engineering & Placement Hub Exam Prep (Current Affairs GK)",
+      "public": true,
+      "chat_id": "@ts_btech_placements",
+      "username": "TSBTechPlacements",
+      "audience": "JNTUH, OU & Private Engineering colleges B.Tech students & Campus Placements",
+      "topics": [
+        "government schemes",
+        "ISRO",
+        "RBI",
+        "constitution",
+        "defence",
+        "central budget",
+        "elections",
+        "railway infrastructure",
+        "health schemes"
+      ],
+      "ts_ap_weight": 0.3
     }
   }
 }

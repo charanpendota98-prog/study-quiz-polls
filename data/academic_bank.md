@@ -1,4 +1,4 @@
-# TS ACADEMIC QUIZ BANK — SSC 10th, INTERMEDIATE & DIPLOMA POLYCET / ECET
+# TS & AP ACADEMIC & HIGHER EDUCATION QUIZ BANK — 10th, Inter, Diploma, Degree & B.Tech
 
 ## Channel: TS_10TH
 ### Topic: Physical Science — Chemical Reactions
@@ -122,3 +122,85 @@ Q: What is the SI unit of Force?
 - D: Watt (వాట్)
 Explanation: Force = mass * acceleration (kg * m/s^2), which is named Newton (N).
 Exam: TS POLYCET / SBTET Diploma
+
+## Channel: TS_DEGREE
+### Topic: Commerce & Economics — National Income & GDP
+Q: What does Gross Domestic Product (GDP) measure in an economy?
+⤷ దేశ ఆర్థిక వ్యవస్థలో స్థూల జాతీయోత్పత్తి (GDP) దేనిని కొలుస్తుంది?
+- A: Total agricultural production only (వ్యవసాయ ఉత్పత్తి మాత్రమే)
+- B: Monetary value of all final goods and services produced within a country (దేశంలో ఉత్పత్తి అయ్యే అంతిమ వస్తువులు, సేవల ద్రవ్య విలువ) [correct]
+- C: Net income from foreign remittances (విదేశీ ఆదాయం మాత్రమే)
+- D: Government tax collections (ప్రభుత్వ పన్ను వసూళ్లు)
+Explanation: GDP is the total monetary value of all finished goods and services produced within a country's borders in a specific time period.
+Exam: TS Degree B.Com / B.A & Competitive Exams
+
+### Topic: Science & General Studies — Cell Biology & Genetics
+Q: Which organelle is famously known as the 'Powerhouse of the Cell'?
+⤷ కణంలో ఏ కణాంగాన్ని 'కణ శక్త్యాగారము' (Powerhouse of the Cell) అని పిలుస్తారు?
+- A: Ribosome (రైబోజోమ్)
+- B: Nucleus (కేంద్రకం)
+- C: Mitochondria (మైటోకాండ్రియా) [correct]
+- D: Golgi Apparatus (గాల్జీ సంక్లిష్టం)
+Explanation: Mitochondria generate most of the chemical energy needed by the cell in the form of ATP.
+Exam: TS Degree B.Sc & Science Exams
+
+### Topic: Computer Applications — DBMS & SQL
+Q: In Database Management Systems (DBMS), what does SQL stand for?
+⤷ డేటాబేస్ మేనేజ్మెంట్ సిస్టమ్స్‌లో SQL పూర్తి రూపం ఏమిటి?
+- A: Structured Query Language [correct]
+- B: Simple Question Language
+- C: Sequential Query Logic
+- D: System Query Level
+Explanation: SQL (Structured Query Language) is the standard language for relational database management.
+Exam: TS Degree B.Sc Comp / B.Com Comp
+
+### Topic: Aptitude & Placements — Ratio and Proportion
+Q: If A:B = 2:3 and B:C = 4:5, then what is the combined ratio A:B:C?
+⤷ A:B = 2:3 మరియు B:C = 4:5 అయితే, A:B:C నిష్పత్తి ఎంత?
+- A: 8:12:15 [correct]
+- B: 6:8:10
+- C: 2:4:5
+- D: 8:10:15
+Explanation: A:B = 8:12 (multiplying by 4) and B:C = 12:15 (multiplying by 3), so A:B:C = 8:12:15.
+Exam: TS Degree Placement Tests & ICET
+
+## Channel: TS_BTECH
+### Topic: Data Structures & Algorithms (DSA) — Time Complexity
+Q: What is the worst-case time complexity of Binary Search on a sorted array of n elements?
+⤷ n మూలకాలు ఉన్న సార్టెడ్ అరేలో బైనరీ సెర్చ్ యొక్క వర్స్ట్-కేస్ టైమ్ కాంప్లెక్సిటీ ఎంత?
+- A: O(1)
+- B: O(n)
+- C: O(log n) [correct]
+- D: O(n log n)
+Explanation: Binary Search cuts the search space in half at each iteration, giving O(log n) time complexity.
+Exam: B.Tech CSE / IT & Software Placement Drive
+
+### Topic: Operating Systems — Concurrency & Deadlocks
+Q: Which of the following conditions is NOT a necessary condition for a deadlock to occur (Coffman conditions)?
+⤷ ఆపరేటింగ్ సిస్టమ్స్‌లో డెడ్‌లాక్ ఏర్పడటానికి ఈ క్రింది వాటిలో ఏది అవసరమైన షరతు కాదు?
+- A: Mutual Exclusion
+- B: Hold and Wait
+- C: Preemption allowed (ప్రీఎమ్ప్షన్ అనుమతించబడుతుంది) [correct]
+- D: Circular Wait
+Explanation: No preemption is required for deadlock; if preemption is allowed, deadlock cannot occur.
+Exam: GATE CSE & B.Tech Tech Drive
+
+### Topic: Electrical & Electronics Engineering — Circuit Theory
+Q: Kirchhoff's Current Law (KCL) is based on the principle of conservation of which quantity?
+⤷ కిర్చాఫ్ కరెంట్ లా (KCL) ఏ భౌతిక రాశి నిత్యత్వ నియమంపై ఆధారపడి ఉంటుంది?
+- A: Energy (శక్తి)
+- B: Electric Charge (విద్యుత్ ఆవేశం) [correct]
+- C: Momentum (ద్రవ్యవేగం)
+- D: Magnetic Flux (అయస్కాంత అభివాహం)
+Explanation: KCL states total current entering a junction equals total current leaving it, conserving electric charge.
+Exam: B.Tech ECE / EEE & GATE / Campus Placements
+
+### Topic: General Aptitude & Placement Coding — Logic
+Q: In Python, what is the output of print(type([]))?
+⤷ పైథాన్‌లో print(type([])) యొక్క ఔట్‌పుట్ ఏమిటి?
+- A: <class 'tuple'>
+- B: <class 'list'> [correct]
+- C: <class 'set'>
+- D: <class 'array'>
+Explanation: [] denotes an empty list literal in Python, so its type is <class 'list'>.
+Exam: Campus Recruitment Training (TCS, Infosys, Wipro, Cognizant)
