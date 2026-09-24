@@ -556,7 +556,19 @@ def render_result(e, rows, cols, limit=10):
             bar = "█" * max(1, int(8 * c["score"] / max(lead, 1)))
             lines.append(f"{medals[i]} {c['college']} {bar} {c['score']:g} · {c['n']}👥 · 🎯{c['acc']}% · ⭐{c['top'][0][:12]}")
         lines += [f"🏆 WINNER: {cols[0]['college']} 🎉 (+{COLLEGE_WIN_PTS} pts each)", ""]
-    lines.append("🏆 TOP 10")
+
+    # 🌟 SPECIAL TOP 3 CHAMPIONS SPOTLIGHT FOR ALL STUDENTS
+    if rows:
+        lines.append("🌟 ══════════════════════════════ 🌟")
+        lines.append("🥇🥈🥉 SPECIAL TOP 3 WINNERS (టాప్ 3 విజేతలు):")
+        lines.append("🌟 ══════════════════════════════ 🌟")
+        top3_medals = ["🥇 1st Place Champion", "🥈 2nd Place Runner-Up", "🥉 3rd Place Third"]
+        for i, (u, p) in enumerate(rows[:3]):
+            b = f" 🎁+{PODIUM[i]} pts bonus" if i in PODIUM else ""
+            lines.append(f"{top3_medals[i]}: {p['name']} ({p['college']})\n   -> మార్కులు: {p['correct']}/{n_q} ✅ · {p['pts']} pts{b}")
+        lines.append("🌟 ══════════════════════════════ 🌟\n")
+
+    lines.append("🏆 TOP 10 RANKERS:")
     for i, (u, p) in enumerate(rows[:limit]):
         b = f" 🎁+{PODIUM[i]}" if i in PODIUM else ""
         lines.append(f"{medals[i]} {p['name'][:20]} · {p['college'][:14]} — {p['pts']} pts ({p['correct']}/{n_q}){b}")
@@ -690,7 +702,21 @@ def college_report(e):
              "📊 " + " · ".join(f"{k} {v}" for k, v in dist.items()), ""]
     if len(cols) > 1:
         lines.append("🏫 Colleges: " + " · ".join(f"{c['college']} {c['acc']}% ({c['n']})" for c in cols))
-    lines += ["🏆 Toppers:"] + [f"  {i}. {p['name']} · {p['college']} — {p['correct']}/{n_q}" for i, (u, p) in enumerate(rows[:5], 1)]
+    
+    # 🌟 SPECIAL TOP 3 CHAMPIONS SECTION
+    lines.append("")
+    lines.append("🌟 ══════════════════════════════ 🌟")
+    lines.append("🥇🥈🥉 SPECIAL TOP 3 CHAMPIONS (విజేతలు):")
+    lines.append("🌟 ══════════════════════════════ 🌟")
+    medals = ["🥇 1st Prize Winner", "🥈 2nd Prize Winner", "🥉 3rd Prize Winner"]
+    for i, (u, p) in enumerate(rows[:3]):
+        pts_str = f"{p['pts']} pts"
+        score_str = f"{p['correct']}/{n_q} ✅"
+        lines.append(f"{medals[i]}: {p['name']} ({p['college']}) — {score_str} · {pts_str}")
+    lines.append("🌟 ══════════════════════════════ 🌟")
+    lines.append("")
+
+    lines += ["🏆 Top 10 Toppers List:"] + [f"  {i}. {p['name']} · {p['college']} — {p['correct']}/{n_q} ({p['pts']} pts)" for i, (u, p) in enumerate(rows[:10], 1)]
     lines += ["", "About StudentUp: TS & AP aspirants కోసం free daily exam-prep platform — 8 exam channels "
               "(TSPSC · APPSC · Banking · Railway · Police · Defence · SSC · Current Affairs), రోజూ timed quiz rounds, "
               "District Wars, previous-paper questions Telugu + English, points → study material & local discounts.",
