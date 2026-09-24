@@ -155,19 +155,30 @@ HTML_PAGE = """<!DOCTYPE html>
               <label>🎯 Exam Category Filter:</label>
               <select id="wa-target-category">
                 <option value="ALL">🌐 ALL Categories & Groups (100+ Mode)</option>
-                <option value="ITI_ALL">🔧 TS & AP ITI (Electrician / Fitter / NCVT / Apprentice)</option>
-                <option value="OPEN_UNIV">🏛️ Open Universities (BRAOU / IGNOU / ANUCDE Distance)</option>
-                <option value="TS_BTECH">💻 TS B.Tech Students (CSE/ECE/EEE/CRT Placements)</option>
-                <option value="TS_DEGREE">🎓 TS Degree Students (B.Com/B.Sc/B.A/ICET)</option>
-                <option value="TS_DIPLOMA">⚙️ TS Diploma & POLYCET / ECET</option>
-                <option value="TS_INTER">📘 TS Intermediate (MPC/BiPC/CEC/EAMCET)</option>
-                <option value="TS_10TH">🎒 TS 10th Class Board (SSC Science/Maths/Social)</option>
-                <option value="POLICE">👮 Police Exam Groups (TS Police SI, AP Police)</option>
-                <option value="SSC">🏛️ Central Jobs & SSC Groups (CGL, CHSL, MTS)</option>
-                <option value="RAILWAY">🚆 Railway RRB Groups (NTPC, Group D)</option>
-                <option value="BANKING">🏦 Banking Aspirants Groups (SBI, IBPS)</option>
-                <option value="TSPSC">📘 TSPSC State & Districts Groups (Telangana)</option>
-                <option value="APPSC">📗 APPSC State & Districts Groups (Andhra Pradesh)</option>
+                <optgroup label="🎓 Telangana (TS) Student Communities">
+                  <option value="TS_BTECH">💻 TS B.Tech (JNTUH/OU/Placements)</option>
+                  <option value="TS_DEGREE">🎓 TS Degree (B.Com/B.Sc/B.A)</option>
+                  <option value="TS_DIPLOMA">⚙️ TS Diploma & POLYCET</option>
+                  <option value="TS_INTER">📘 TS Intermediate (MPC/BiPC)</option>
+                  <option value="TS_10TH">🎒 TS 10th Class Board (SSC)</option>
+                  <option value="TSPSC">🏛️ TSPSC State & TS Districts</option>
+                </optgroup>
+                <optgroup label="🌊 Andhra Pradesh (AP) Student Communities">
+                  <option value="AP_BTECH">💻 AP B.Tech (JNTUK/JNTUA/Placements)</option>
+                  <option value="AP_DEGREE">🎓 AP Degree (AU/SVU/ANU)</option>
+                  <option value="AP_DIPLOMA">⚙️ AP Diploma & POLYCET</option>
+                  <option value="AP_INTER">📘 AP Intermediate (BIEAP/EAPCET)</option>
+                  <option value="AP_10TH">🎒 AP 10th Class Board (BSEAP)</option>
+                  <option value="APPSC">🏛️ APPSC State & AP Districts</option>
+                </optgroup>
+                <optgroup label="🔧 Technical, Open Distance & Govt Exams">
+                  <option value="ITI_ALL">🔧 TS & AP ITI (Electrician/Fitter/NCVT)</option>
+                  <option value="OPEN_UNIV">🏛️ Open Universities (BRAOU/IGNOU/Distance)</option>
+                  <option value="POLICE">👮 Police Exams (SI / Constable)</option>
+                  <option value="SSC">🏛️ Central Jobs & SSC (CGL, CHSL, MTS)</option>
+                  <option value="RAILWAY">🚆 Railway RRB (NTPC, Group D)</option>
+                  <option value="BANKING">🏦 Banking Aspirants (SBI, IBPS)</option>
+                </optgroup>
               </select>
             </div>
             <div>
@@ -244,13 +255,18 @@ HTML_PAGE = """<!DOCTYPE html>
           <input type="text" id="new-wa-jid" placeholder="Group JID or Invite link">
           <select id="new-wa-category" style="width:160px;">
             <option value="AUTO">🤖 Auto Category</option>
-            <option value="ITI_ALL">TS & AP ITI</option>
-            <option value="OPEN_UNIV">Open Universities</option>
-            <option value="TS_BTECH">TS B.Tech Placements</option>
-            <option value="TS_DEGREE">TS Degree Colleges</option>
+            <option value="AP_BTECH">AP B.Tech</option>
+            <option value="AP_DEGREE">AP Degree</option>
+            <option value="AP_DIPLOMA">AP Diploma</option>
+            <option value="AP_INTER">AP Intermediate</option>
+            <option value="AP_10TH">AP 10th Class</option>
+            <option value="TS_BTECH">TS B.Tech</option>
+            <option value="TS_DEGREE">TS Degree</option>
             <option value="TS_DIPLOMA">TS Diploma</option>
             <option value="TS_INTER">TS Intermediate</option>
             <option value="TS_10TH">TS 10th Class</option>
+            <option value="ITI_ALL">TS & AP ITI</option>
+            <option value="OPEN_UNIV">Open Universities</option>
             <option value="POLICE">POLICE</option>
             <option value="SSC">SSC / Central</option>
             <option value="RAILWAY">RAILWAY</option>
@@ -287,14 +303,19 @@ HTML_PAGE = """<!DOCTYPE html>
 
           <label>Exam Category (or Auto-Detect):</label>
           <select id="new-ch-base">
-            <option value="AUTO">🤖 Auto-Detect (ITI, Open Univ, B.Tech, Degree, Police, etc.)</option>
-            <option value="ITI_ALL">TS & AP ITI (Electrician / Fitter / NCVT / Apprentice)</option>
-            <option value="OPEN_UNIV">Open Universities (BRAOU / IGNOU / Distance Education)</option>
+            <option value="AUTO">🤖 Auto-Detect (AP B.Tech, AP Degree, TS, ITI, Police, etc.)</option>
+            <option value="AP_BTECH">AP B.Tech (JNTUK, JNTUA, Engineering & Placements)</option>
+            <option value="AP_DEGREE">AP Degree (AU, SVU, ANU B.Com, B.Sc, B.A)</option>
+            <option value="AP_DIPLOMA">AP Diploma & POLYCET / ECET (SBTET)</option>
+            <option value="AP_INTER">AP Intermediate (BIEAP MPC/BiPC & EAPCET)</option>
+            <option value="AP_10TH">AP 10th Class Board (BSEAP SSC)</option>
             <option value="TS_BTECH">TS B.Tech (Engineering / Coding / CRT Placements)</option>
             <option value="TS_DEGREE">TS Degree (B.Com, B.Sc, B.A, ICET)</option>
             <option value="TS_DIPLOMA">TS Diploma & POLYCET / ECET</option>
             <option value="TS_INTER">TS Intermediate (MPC/BiPC/CEC)</option>
             <option value="TS_10TH">TS 10th Class Board (SSC)</option>
+            <option value="ITI_ALL">TS & AP ITI (Electrician / Fitter / NCVT / Apprentice)</option>
+            <option value="OPEN_UNIV">Open Universities (BRAOU / IGNOU / Distance Education)</option>
             <option value="POLICE">Police Exams (SI / Constable / APSP / TSSP)</option>
             <option value="SSC">SSC Exams (CGL / CHSL / MTS / GD)</option>
             <option value="RAILWAY">Railway RRB (NTPC / Group D / ALP)</option>

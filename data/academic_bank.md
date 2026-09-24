@@ -41,6 +41,47 @@ Q: The Indira Sagar (Polavaram) project is built across which river?
 Explanation: Polavaram is a major multi-purpose irrigation project on Godavari river.
 Exam: TS SSC Class 10 Board Exam
 
+## Channel: AP_10TH
+### Topic: AP Physical Science — Reflection of Light & Curved Mirrors
+Q: What is the relation between Radius of Curvature (R) and Focal Length (f) of a spherical mirror?
+⤷ గోళాకార దర్పణం యొక్క వక్రతా వ్యాసార్థం (R) మరియు నాభ్యాంతరం (f) మధ్య సంబంధం ఏమిటి?
+- A: R = f / 2
+- B: R = 2 * f [correct]
+- C: f = 2 * R
+- D: R = f + 2
+Explanation: For spherical mirrors with small apertures, Radius of Curvature is twice the focal length (R = 2f).
+Exam: AP SSC Class 10 Board Exam
+
+### Topic: AP Mathematics — Progressions & Quadratic Equations
+Q: What is the 10th term of the Arithmetic Progression (AP): 2, 7, 12, 17, ...?
+⤷ అంకశ్రేఢి 2, 7, 12, 17, ... లో 10వ పదం ఎంత?
+- A: 42
+- B: 47 [correct]
+- C: 50
+- D: 52
+Explanation: a = 2, d = 5. nth term an = a + (n - 1)d -> a10 = 2 + (9 * 5) = 47.
+Exam: AP SSC Board Exam & AP POLYCET
+
+### Topic: AP Biological Science — Transportation & Circulatory System
+Q: Which blood vessels carry oxygenated blood from lungs to the human heart?
+⤷ ఊపిరితిత్తుల నుండి ఆక్సిజన్‌తో కూడిన రక్తాన్ని గుండెకు చేర్చే రక్తనాళాలు ఏవి?
+- A: Pulmonary Artery (పుపుస ధమని)
+- B: Pulmonary Veins (పుపుస సిరలు) [correct]
+- C: Superior Vena Cava (బృహత్ సిర)
+- D: Renal Artery (వృక్క ధమని)
+Explanation: Pulmonary veins carry oxygen-rich blood from lungs directly into left atrium of heart.
+Exam: AP SSC Class 10 Board Exam
+
+### Topic: AP Social Studies — Andhra Pradesh Geography & Economy
+Q: Which seaport is famously known as the natural harbour and 'Jewel of the East Coast' in Andhra Pradesh?
+⤷ ఆంధ్రప్రదేశ్‌లో సహజ నౌకాశ్రయంగా మరియు 'తూర్పు తీర రత్నం'గా ప్రసిద్ధి చెందిన ఓడరేవు ఏది?
+- A: Kakinada Port
+- B: Visakhapatnam Port [correct]
+- C: Machilipatnam Port
+- D: Krishnapatnam Port
+Explanation: Visakhapatnam Port is a landlocked natural harbour nestled between Dolphin's Nose hill and Ross Hill.
+Exam: AP 10th Social Studies & AP State Exams
+
 ## Channel: TS_INTER
 ### Topic: Mathematics 1A / 1B — Matrices & Functions
 Q: If matrix A = [[2, 0], [0, 2]], then what is the determinant of A?
@@ -81,6 +122,47 @@ Q: In which year was Telangana officially formed as the 29th State of India?
 - D: 26 January 2015
 Explanation: Telangana was legally formed on 2 June 2014 under the AP Reorganisation Act, 2014.
 Exam: TS Intermediate Arts & Civics
+
+## Channel: AP_INTER
+### Topic: AP Mathematics — Integration & Limits
+Q: What is the value of definite integral integral(cos(x) dx) from 0 to pi/2?
+⤷ 0 నుండి pi/2 వరకు integral(cos(x) dx) యొక్క విలువ ఎంత?
+- A: 0
+- B: 1 [correct]
+- C: -1
+- D: 2
+Explanation: integral(cos x dx) = sin x. sin(pi/2) - sin(0) = 1 - 0 = 1.
+Exam: AP Intermediate BIEAP & AP EAPCET
+
+### Topic: AP Physics — Thermodynamics & Heat
+Q: What is the efficiency of a Carnot engine operating between temperatures T1 (source) and T2 (sink)?
+⤷ T1 మరియు T2 ఉష్ణోగ్రతల మధ్య పనిచేసే కార్నోట్ ఇంజిన్ యొక్క సామర్థ్యం (Efficiency) ఎంత?
+- A: 1 - (T2 / T1) [correct]
+- B: 1 + (T2 / T1)
+- C: T2 / T1
+- D: 1 - (T1 / T2)
+Explanation: Efficiency eta = 1 - (T_sink / T_source) = 1 - (T2 / T1).
+Exam: AP Intermediate IPE & AP EAPCET
+
+### Topic: AP Chemistry — Solutions & Raoult's Law
+Q: According to Raoult's Law, the relative lowering of vapour pressure of a dilute solution is equal to what?
+⤷ రౌల్ట్ నియమం ప్రకారం విలీన ద్రావణం యొక్క బాష్పపీడన సాపేక్ష నిమ్నత దేనికి సమానం?
+- A: Mole fraction of solvent
+- B: Mole fraction of solute (ద్రావితం యొక్క మోల్ భాగం) [correct]
+- C: Molarity of solution
+- D: Molality of solvent
+Explanation: Relative lowering of vapour pressure (P0 - P)/P0 equals mole fraction of non-volatile solute (x2).
+Exam: AP Intermediate BIEAP & EAPCET
+
+### Topic: AP History & Civics — Andhra Movement & Statehood
+Q: Who made the supreme sacrifice of a 58-day fast for the formation of separate Andhra State in 1952?
+⤷ 1952లో ప్రత్యేక ఆంధ్ర రాష్ట్ర ఏర్పాటు కోసం 58 రోజుల పాటు ఆమరణ నిరాహార దీక్ష చేసి ప్రాణత్యాగం చేసింది ఎవరు?
+- A: Tanguturi Prakasam Pantulu
+- B: Amarajeevi Potti Sreeramulu [correct]
+- C: Alluri Sitarama Raju
+- D: Burgula Ramakrishna Rao
+Explanation: Amarajeevi Potti Sreeramulu's 58-day fast led to the creation of Andhra State on 1 October 1953.
+Exam: AP Intermediate Civics & AP State Heritage
 
 ## Channel: TS_DIPLOMA
 ### Topic: Engineering Mathematics — Differential Equations
@@ -123,6 +205,47 @@ Q: What is the SI unit of Force?
 Explanation: Force = mass * acceleration (kg * m/s^2), which is named Newton (N).
 Exam: TS POLYCET / SBTET Diploma
 
+## Channel: AP_DIPLOMA
+### Topic: AP SBTET Polytechnic — C-20 / C-23 Engineering Mathematics
+Q: What is the value of limit as x approaches 0 of sin(x) / x?
+⤷ x సున్నాకి చేరినప్పుడు (x -> 0) sin(x) / x యొక్క అవధి (Limit) ఎంత?
+- A: 0
+- B: 1 [correct]
+- C: Infinity
+- D: Not defined
+Explanation: Standard calculus trigonometric limit: lim(x->0) (sin x / x) = 1.
+Exam: AP SBTET Diploma & AP ECET
+
+### Topic: AP Polytechnic Electrical Engineering — Transformers
+Q: On which fundamental scientific principle does an electrical Transformer operate?
+⤷ ఎలక్ట్రికల్ ట్రాన్స్‌ఫార్మర్ ఏ ప్రాథమిక శాస్త్రీయ సూత్రంపై పనిచేస్తుంది?
+- A: Self-Induction
+- B: Mutual Induction (పరస్పర ప్రేరణ) [correct]
+- C: Fleming's Left Hand Rule
+- D: Joule's Heating Effect
+Explanation: A transformer transfers electrical energy between circuits through mutual electromagnetic induction.
+Exam: AP SBTET Diploma EEE & AP ECET
+
+### Topic: AP Mechanical / Civil — Strength of Materials
+Q: In Strength of Materials, what is Hooke's Law within elastic limit?
+⤷ స్థితిస్థాపక అవధిలో హుక్ నియమం (Hooke's Law) ప్రకారం ఏది సరైనది?
+- A: Stress is directly proportional to Strain (ప్రతిబలం అనులోమానుపాతంలో వికృతికి ఉంటుంది) [correct]
+- B: Stress is inversely proportional to Strain
+- C: Stress = Strain^2
+- D: Strain is independent of Stress
+Explanation: Hooke's Law: Stress / Strain = Modulus of Elasticity (constant) within elastic limit.
+Exam: AP SBTET Mechanical / Civil & ECET
+
+### Topic: AP Electronics & Microprocessors
+Q: How many bits make up one Byte of digital memory?
+⤷ డిజిటల్ మెమరీలో ఒక బైట్ (1 Byte) లో ఎన్ని బిట్లు ఉంటాయి?
+- A: 4 bits (1 Nibble)
+- B: 8 bits [correct]
+- C: 16 bits
+- D: 32 bits
+Explanation: 1 Byte = 8 bits. 4 bits = 1 Nibble.
+Exam: AP SBTET ECE / CME Diploma
+
 ## Channel: TS_DEGREE
 ### Topic: Commerce & Economics — National Income & GDP
 Q: What does Gross Domestic Product (GDP) measure in an economy?
@@ -164,6 +287,47 @@ Q: If A:B = 2:3 and B:C = 4:5, then what is the combined ratio A:B:C?
 Explanation: A:B = 8:12 (multiplying by 4) and B:C = 12:15 (multiplying by 3), so A:B:C = 8:12:15.
 Exam: TS Degree Placement Tests & ICET
 
+## Channel: AP_DEGREE
+### Topic: AP Universities Degree — Financial Accounting & Banking
+Q: In double-entry bookkeeping, what is the fundamental Golden Rule for Nominal Accounts?
+⤷ నామమాత్రపు ఖాతాల (Nominal Accounts) ప్రాథమిక సూత్రం ఏమిటి?
+- A: Debit all expenses and losses, Credit all incomes and gains (ఖర్చులు, నష్టాలను డెబిట్ చేయండి; ఆదాయాలు, లాభాలను క్రెడిట్ చేయండి) [correct]
+- B: Debit what comes in, Credit what goes out
+- C: Debit the receiver, Credit the giver
+- D: Credit all expenses, Debit all gains
+Explanation: Golden Rule of Accounting: Nominal Accounts: Debit all expenses and losses, Credit all incomes and gains.
+Exam: AP Degree B.Com (Andhra Univ, SVU, Acharya Nagarjuna)
+
+### Topic: AP Degree Sciences — Organic Chemistry & Functional Groups
+Q: Which functional group is present in Ethyl Alcohol (Ethanol)?
+⤷ ఇథైల్ ఆల్కహాల్ (ఇథనాల్) లో ఉండే ప్రమేయ సమూహం (Functional group) ఏది?
+- A: -CHO (Aldehyde)
+- B: -OH (Alcoholic hydroxyl) [correct]
+- C: -COOH (Carboxylic acid)
+- D: -CO- (Ketone)
+Explanation: Alcohols contain hydroxyl group (-OH) attached to saturated carbon (C2H5OH).
+Exam: AP Degree B.Sc Chemistry
+
+### Topic: AP Degree General Studies — AP Reorganisation Act 2014
+Q: Under the Andhra Pradesh Reorganisation Act 2014, how many Lok Sabha seats were allocated to the residual State of Andhra Pradesh?
+⤷ ఆంధ్రప్రదేశ్ పునర్వ్యవస్థీకరణ చట్టం 2014 ప్రకారం ఆంధ్రప్రదేశ్ రాష్ట్రానికి ఎన్ని లోక్‌సభ స్థానాలు కేటాయించబడ్డాయి?
+- A: 17
+- B: 25 [correct]
+- C: 42
+- D: 28
+Explanation: Out of 42 combined seats, 25 Lok Sabha seats belong to Andhra Pradesh and 17 to Telangana.
+Exam: AP Degree GS, AP ICET & APPSC
+
+### Topic: AP Placement Quantitative Aptitude — Time and Work
+Q: If pipe A can fill a tank in 6 hours and pipe B in 12 hours, how long will they take to fill the tank together?
+⤷ ఒక తొట్టిని పైప్ A 6 గంటల్లో, పైప్ B 12 గంటల్లో నింపగలిగితే, రెండూ కలిసి ఎన్ని గంటల్లో నింపుతాయి?
+- A: 3 hours
+- B: 4 hours [correct]
+- C: 5 hours
+- D: 6 hours
+Explanation: 1/6 + 1/12 = 3/12 = 1/4. Together they take 4 hours.
+Exam: AP Degree Campus Placement Drives & AP ICET
+
 ## Channel: TS_BTECH
 ### Topic: Data Structures & Algorithms (DSA) — Time Complexity
 Q: What is the worst-case time complexity of Binary Search on a sorted array of n elements?
@@ -204,6 +368,47 @@ Q: In Python, what is the output of print(type([]))?
 - D: <class 'array'>
 Explanation: [] denotes an empty list literal in Python, so its type is <class 'list'>.
 Exam: Campus Recruitment Training (TCS, Infosys, Wipro, Cognizant)
+
+## Channel: AP_BTECH
+### Topic: AP Engineering — Object-Oriented Programming (Java/C++)
+Q: In Object-Oriented Programming (OOP), what is the ability of an object to take on many forms called?
+⤷ ఆబ్జెక్ట్ ఓరియెంటెడ్ ప్రోగ్రామింగ్‌లో ఒక ఆబ్జెక్ట్ అనేక రూపాలను తీసుకునే సామర్థ్యాన్ని ఏమంటారు?
+- A: Encapsulation
+- B: Polymorphism (పాలిమార్ఫిజం) [correct]
+- C: Inheritance
+- D: Abstraction
+Explanation: Polymorphism (meaning 'many forms') allows methods to do different things based on the object it is acting upon.
+Exam: JNTU Kakinada, JNTU Anantapur & AP Tech Placements
+
+### Topic: Computer Networks — OSI Model
+Q: Which layer of the 7-layer OSI Model is responsible for end-to-end packet routing and IP addressing?
+⤷ 7 లేయర్ల OSI మోడల్‌లో ఎండ్-టు-ఎండ్ ప్యాకెట్ రూటింగ్ మరియు IP అడ్రసింగ్‌కు ఏ లేయర్ బాధ్యత వహిస్తుంది?
+- A: Data Link Layer
+- B: Network Layer (నెట్‌వర్క్ లేయర్) [correct]
+- C: Transport Layer
+- D: Session Layer
+Explanation: The Network Layer (Layer 3) handles routing, logical addressing (IPv4/IPv6), and traffic control.
+Exam: AP B.Tech IT / CSE & Campus Drives
+
+### Topic: AP Engineering Mathematics — Eigenvalues
+Q: If a 2x2 matrix has eigenvalues 3 and 5, what is the trace (sum of diagonal elements) of the matrix?
+⤷ ఒక 2x2 మాత్రిక యొక్క ఐగెన్ విలువలు 3 మరియు 5 అయితే, ఆ మాత్రిక యొక్క ట్రేస్ (Trace) ఎంత?
+- A: 2
+- B: 8 [correct]
+- C: 15
+- D: 1.6
+Explanation: The sum of the eigenvalues of a matrix always equals the Trace (sum of main diagonal elements) of the matrix: 3 + 5 = 8.
+Exam: GATE & AP Engineering Mathematics
+
+### Topic: AP Placement Coding — SQL Joins
+Q: Which SQL clause returns all rows from the left table and matched rows from the right table?
+⤷ SQL లో లెఫ్ట్ టేబుల్ నుండి అన్ని రికార్డులు మరియు రైట్ టేబుల్ నుండి మ్యాచ్ అయిన రికార్డులను ఏ జాయింట్ అందిస్తుంది?
+- A: INNER JOIN
+- B: LEFT JOIN (LEFT OUTER JOIN) [correct]
+- C: RIGHT JOIN
+- D: FULL OUTER JOIN
+Explanation: LEFT JOIN returns all records from the left table, and matched records from right table (NULL if no match).
+Exam: AP Campus Placements (Wipro, TCS, Capgemini, Accenture)
 
 ## Channel: ITI_ALL
 ### Topic: Electrician Trade — AC & DC Circuits

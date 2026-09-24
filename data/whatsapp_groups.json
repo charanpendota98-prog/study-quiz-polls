@@ -158,6 +158,51 @@
       "shift": "EVENING",
       "active": true,
       "created_at": "2026-09-24 18:11"
+    },
+    {
+      "id": "G_19_974",
+      "name": "AP 10th Class Board Exam 2026 Toppers Hub",
+      "jid": "120363012345678921@g.us",
+      "category": "AP_10TH",
+      "shift": "EVENING",
+      "active": true,
+      "created_at": "2026-09-24 18:19"
+    },
+    {
+      "id": "G_20_974",
+      "name": "AP Intermediate BIEAP & EAPCET Study Circle",
+      "jid": "120363012345678922@g.us",
+      "category": "AP_INTER",
+      "shift": "EVENING",
+      "active": true,
+      "created_at": "2026-09-24 18:19"
+    },
+    {
+      "id": "G_21_974",
+      "name": "AP Diploma SBTET Polytechnic & ECET Forum",
+      "jid": "120363012345678923@g.us",
+      "category": "AP_DIPLOMA",
+      "shift": "ALL_DAY",
+      "active": true,
+      "created_at": "2026-09-24 18:19"
+    },
+    {
+      "id": "G_22_974",
+      "name": "AP Degree Colleges AU & SVU Students Union",
+      "jid": "120363012345678924@g.us",
+      "category": "AP_DEGREE",
+      "shift": "MORNING",
+      "active": true,
+      "created_at": "2026-09-24 18:19"
+    },
+    {
+      "id": "G_23_974",
+      "name": "AP B.Tech Engineering Placements JNTUK & JNTUA",
+      "jid": "120363012345678925@g.us",
+      "category": "AP_BTECH",
+      "shift": "ALL_DAY",
+      "active": true,
+      "created_at": "2026-09-24 18:19"
     }
   ],
   "gateway_url": "",

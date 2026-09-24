@@ -190,6 +190,121 @@
         "health schemes"
       ],
       "ts_ap_weight": 0.3
+    },
+    "AP_10TH_CLASS_BOARD__BSEAP": {
+      "key": "AP_10TH_CLASS_BOARD__BSEAP",
+      "name": "AP 10th Class Board (BSEAP)",
+      "base_exam": "TS_10TH",
+      "emoji": "🗞️",
+      "subject": "AP 10th Class Board (BSEAP) Exam Prep (Current Affairs GK)",
+      "public": true,
+      "chat_id": "@ap_ssc_10th_quiz",
+      "username": "APSSC10thQuiz",
+      "audience": "Andhra Pradesh SSC 10th Class Board & POLYCET aspirants",
+      "topics": [
+        "government schemes",
+        "ISRO",
+        "RBI",
+        "constitution",
+        "defence",
+        "central budget",
+        "elections",
+        "railway infrastructure",
+        "health schemes"
+      ],
+      "ts_ap_weight": 0.3
+    },
+    "AP_INTERMEDIATE__BIEAP___EAPCET": {
+      "key": "AP_INTERMEDIATE__BIEAP___EAPCET",
+      "name": "AP Intermediate (BIEAP & EAPCET)",
+      "base_exam": "TS_INTER",
+      "emoji": "🗞️",
+      "subject": "AP Intermediate (BIEAP & EAPCET) Exam Prep (Current Affairs GK)",
+      "public": true,
+      "chat_id": "@ap_inter_quiz",
+      "username": "APInterQuiz",
+      "audience": "AP Intermediate 1st & 2nd Year MPC/BiPC & EAPCET",
+      "topics": [
+        "government schemes",
+        "ISRO",
+        "RBI",
+        "constitution",
+        "defence",
+        "central budget",
+        "elections",
+        "railway infrastructure",
+        "health schemes"
+      ],
+      "ts_ap_weight": 0.3
+    },
+    "AP_DIPLOMA___POLYCET___ECET": {
+      "key": "AP_DIPLOMA___POLYCET___ECET",
+      "name": "AP Diploma & POLYCET / ECET",
+      "base_exam": "TS_DIPLOMA",
+      "emoji": "🗞️",
+      "subject": "AP Diploma & POLYCET / ECET Exam Prep (Current Affairs GK)",
+      "public": true,
+      "chat_id": "@ap_diploma_polycet",
+      "username": "APDiplomaPolycet",
+      "audience": "AP SBTET C-20/C-23 Polytechnic & ECET students",
+      "topics": [
+        "government schemes",
+        "ISRO",
+        "RBI",
+        "constitution",
+        "defence",
+        "central budget",
+        "elections",
+        "railway infrastructure",
+        "health schemes"
+      ],
+      "ts_ap_weight": 0.3
+    },
+    "AP_DEGREE_COLLEGES__ANDHRA_UNIV___SVU": {
+      "key": "AP_DEGREE_COLLEGES__ANDHRA_UNIV___SVU",
+      "name": "AP Degree Colleges (Andhra Univ & SVU)",
+      "base_exam": "TS_DEGREE",
+      "emoji": "🗞️",
+      "subject": "AP Degree Colleges (Andhra Univ & SVU) Exam Prep (Current Affairs GK)",
+      "public": true,
+      "chat_id": "@ap_degree_students",
+      "username": "APDegreeStudents",
+      "audience": "Andhra Pradesh Degree Colleges — AU, SVU, ANU B.Com, B.Sc, B.A",
+      "topics": [
+        "government schemes",
+        "ISRO",
+        "RBI",
+        "constitution",
+        "defence",
+        "central budget",
+        "elections",
+        "railway infrastructure",
+        "health schemes"
+      ],
+      "ts_ap_weight": 0.3
+    },
+    "AP_B_TECH_ENGINEERING___PLACEMENTS": {
+      "key": "AP_B_TECH_ENGINEERING___PLACEMENTS",
+      "name": "AP B.Tech Engineering & Placements",
+      "base_exam": "TS_BTECH",
+      "emoji": "🗞️",
+      "subject": "AP B.Tech Engineering & Placements Exam Prep (Current Affairs GK)",
+      "public": true,
+      "chat_id": "@ap_btech_placements",
+      "username": "APBTechPlacements",
+      "audience": "JNTUK, JNTUA & AP Engineering colleges campus recruitment",
+      "topics": [
+        "government schemes",
+        "ISRO",
+        "RBI",
+        "constitution",
+        "defence",
+        "central budget",
+        "elections",
+        "railway infrastructure",
+        "health schemes"
+      ],
+      "ts_ap_weight": 0.3
     }
   }
 }
