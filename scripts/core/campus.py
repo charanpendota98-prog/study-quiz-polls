@@ -72,25 +72,27 @@ def _code(existing):
 
 
 # ================================================================== events
-def new_event(name, district, colleges, n_q=DEFAULT_Q, level="medium", created_by="", mode="college"):
+def new_event(name, district, colleges, n_q=DEFAULT_Q, level="medium", created_by="", mode="college", subjects=None):
     d = _load()
     code = _code(d["events"])
     cols = [c.strip()[:40] for c in colleges if c.strip()][:12]
     if not cols:
         cols = ["General"]
+    subjs = [s.strip() for s in (subjects or []) if s.strip()] or ["reasoning", "quant", "gs", "english", "ca"]
     d["events"][code] = {"code": code, "name": name.strip()[:60], "district": district.strip(), "colleges": cols,
                          "n_q": max(5, min(int(n_q), 30)), "level": level if level in LEVELS else "medium",
                          "mode": "exam" if str(mode).lower().startswith("ex") else "college",
+                         "subjects": subjs,
                          "state": "open", "created": _now().isoformat(), "by": str(created_by),
                          "players": {}, "questions": [], "qi": 0, "answers": {}, "q_open": None, "q_close": None}
     _save(d)
     return code
 
 
-def quick_event(college, district, n_q=DEFAULT_Q, level="easy", created_by="", mode="college"):
+def quick_event(college, district, n_q=DEFAULT_Q, level="easy", created_by="", mode="college", subjects=None):
     """One college, one command: /go <College> | <district>  → code + link + poster (simple college mode)."""
     name = f"{college.strip()[:30]} × StudentUp Challenge"
-    return new_event(name, district, [college], n_q, level, created_by, mode)
+    return new_event(name, district, [college], n_q, level, created_by, mode, subjects=subjects)
 
 
 def set_mode(code, mode):

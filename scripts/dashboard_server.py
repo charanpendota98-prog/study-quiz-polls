@@ -313,8 +313,9 @@ HTML_PAGE = """<!DOCTYPE html>
             <div>
               <label>Number of Questions:</label>
               <select id="campus-nq">
-                <option value="10">10 Questions (Quick 10-Min Test)</option>
-                <option value="15">15 Questions (Standard Test)</option>
+                <option value="5">5 Questions (Fast 5-Min Test)</option>
+                <option value="10" selected>10 Questions (Standard 10-Min Test)</option>
+                <option value="15">15 Questions (15-Min Test)</option>
                 <option value="20">20 Questions (Grand Challenge)</option>
               </select>
             </div>
@@ -328,7 +329,17 @@ HTML_PAGE = """<!DOCTYPE html>
             </div>
           </div>
 
-          <button class="btn btn-accent" style="margin-top:8px;" onclick="createCampusEvent()">🚀 Generate College Exam Link & QR Code</button>
+          <label style="margin-top:6px;">Select Subjects to Include in Exam:</label>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:12px; margin-bottom:12px; background:#050811; padding:10px; border-radius:8px; border:1px solid var(--border);">
+            <label><input type="checkbox" id="subj-reasoning" checked> 🧩 Reasoning & Logic Puzzles</label>
+            <label><input type="checkbox" id="subj-quant" checked> 🔢 Quantitative Aptitude / Maths</label>
+            <label><input type="checkbox" id="subj-science" checked> 🔬 General Science & Tech</label>
+            <label><input type="checkbox" id="subj-english" checked> 📖 General English & Vocabulary</label>
+            <label><input type="checkbox" id="subj-ca" checked> 🗞️ Current Affairs & GK</label>
+            <label><input type="checkbox" id="subj-coding"> 💻 Coding & Computer Science</label>
+          </div>
+
+          <button class="btn btn-accent" style="margin-top:4px;" onclick="createCampusEvent()">🚀 Generate College Exam Link & QR Code</button>
         </div>
 
         <div>
@@ -364,84 +375,6 @@ HTML_PAGE = """<!DOCTYPE html>
 
   <!-- TAB 3: EXCEL / SHEET IMPORTER -->
   <div id="tab-excel-import" class="tab-pane">
-    <div class="panel-card">
-      <h2>📊 Excel / Google Sheets Fast Importer (100+ to 150+ Groups & Channels)</h2>
-      <p style="color:var(--text-muted); font-size:13px; margin-bottom:14px;">
-        మీరు Excel లేదా Google Sheet నుండి 50, 100 లేదా 150 గ్రూపులు / ఛానెల్ లింకులు నేరుగా కాపీ చేసి క్రింద పేస్ట్ చేయండి! సిస్టమ్ ఆటోమేటిక్‌గా కేటగిరీలను డిటెక్ట్ చేసి సేవ్ చేస్తుంది.
-      </p>
-
-      <div style="background:#0f172a; padding:12px; border-radius:8px; margin-bottom:14px; font-size:12px; color:var(--text-muted);">
-        💡 <b>Excel Columns (Tab / Comma separated):</b><br>
-        <code>Group or Channel Name | Link or JID | Category (Optional) | Shift (Optional: MORNING/EVENING/ALL_DAY)</code>
-      </div>
-
-      <textarea id="excel-paste-text" rows="8" placeholder="Paste your Excel / Google Sheet rows here...
-Example:
-Warangal TS Police SI Batch	120363012345678990@g.us	POLICE	EVENING
-AP B.Tech Guntur Campus	120363012345678991@g.us	AP_BTECH	MORNING
-Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY"></textarea>
-
-      <div style="display:flex; gap:12px; align-items:center;">
-        <button class="btn btn-accent" onclick="importExcelSheet()">📥 Import All Groups & Channels from Excel</button>
-        <button class="btn btn-outline" onclick="document.getElementById('excel-paste-text').value=''">Clear Box</button>
-      </div>
-
-      <div id="excel-import-log" class="log-box" style="margin-top:16px;">Importer ready. Paste rows and click Import.</div>
-    </div>
-  </div>
-
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-            <div>
-              <label>Number of Questions:</label>
-              <select id="campus-nq">
-                <option value="10">10 Questions (Quick 10-Min Test)</option>
-                <option value="15">15 Questions (Standard Test)</option>
-                <option value="20">20 Questions (Grand Challenge)</option>
-              </select>
-            </div>
-            <div>
-              <label>Difficulty Level:</label>
-              <select id="campus-level">
-                <option value="easy">Easy (Engaging GK/Tech/Science)</option>
-                <option value="medium">Medium (Competitive Level)</option>
-                <option value="hard">Hard (Advanced / GATE)</option>
-              </select>
-            </div>
-          </div>
-
-          <button class="btn btn-accent" style="margin-top:8px;" onclick="createCampusEvent()">🚀 Generate College Exam Link & QR Code</button>
-        </div>
-
-        <div>
-          <h3 style="font-size:15px; margin-bottom:12px;">📱 Active College Exam Link & Poster</h3>
-          <div id="campus-active-card" style="background:#050811; border:1px solid var(--border); border-radius:8px; padding:14px; font-size:13px; line-height:1.6; min-height:180px;">
-            Create or select a college event to view its live student registration link, QR Code and principal scorecard.
-          </div>
-        </div>
-      </div>
-
-      <div style="margin-top:24px;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <h3>🏫 Active College Exam Sessions</h3>
-          <button class="btn btn-outline" onclick="loadCampusEvents()">🔄 Refresh Sessions</button>
-        </div>
-        <table id="table-campus">
-          <thead>
-            <tr>
-              <th>Event Code</th>
-              <th>College Name</th>
-              <th>District</th>
-              <th>Questions</th>
-              <th>Participants</th>
-              <th>Status</th>
-              <th>Action & Principal Report</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
     <div class="panel-card">
       <h2>📊 Excel / Google Sheets Fast Importer (100+ to 150+ Groups & Channels)</h2>
       <p style="color:var(--text-muted); font-size:13px; margin-bottom:14px;">
@@ -881,12 +814,21 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY"></textarea>
       const dist = document.getElementById('campus-district').value.trim();
       const nq = parseInt(document.getElementById('campus-nq').value) || 10;
       const lvl = document.getElementById('campus-level').value;
+
+      const subjs = [];
+      if (document.getElementById('subj-reasoning').checked) subjs.push('reasoning');
+      if (document.getElementById('subj-quant').checked) subjs.push('quant');
+      if (document.getElementById('subj-science').checked) subjs.push('science');
+      if (document.getElementById('subj-english').checked) subjs.push('english');
+      if (document.getElementById('subj-ca').checked) subjs.push('ca');
+      if (document.getElementById('subj-coding').checked) subjs.push('coding');
+
       if (!col || !dist) return alert('Enter College name and District');
 
       const res = await fetch('/api/campus/create', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({college: col, district: dist, n_q: nq, level: lvl})
+        body: JSON.stringify({college: col, district: dist, n_q: nq, level: lvl, subjects: subjs})
       });
       const d = await res.json();
       alert('College Exam Created! Code: ' + d.code);
@@ -1218,7 +1160,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             district = body.get("district", "District").strip()
             nq = int(body.get("n_q", 10))
             lvl = body.get("level", "easy")
-            code = campus.quick_event(college, district, n_q=nq, level=lvl)
+            subjs = body.get("subjects", ["reasoning", "quant", "science", "english", "ca"])
+            code = campus.quick_event(college, district, n_q=nq, level=lvl, subjects=subjs)
 
             bot = getattr(config, "BOT_USERNAME", "") or "StudentUpBot"
             link = f"https://t.me/{bot}?start=c{code.replace('CE-', '')}-1"
