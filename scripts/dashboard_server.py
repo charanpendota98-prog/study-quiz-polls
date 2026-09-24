@@ -2,16 +2,11 @@
 """
 STUDENTUP — FULL CONTROL WEB DASHBOARD & ADVANCED AUTOMATION HUB
 Features:
-  1. Dynamic Channel Manager:
-     - Add any new Telegram Channel / Exam name.
-     - Auto-configures syllabus subjects, exam blueprint, and builds fresh polls automatically.
-  2. WhatsApp 100+ / 150+ Groups Interleaved Anti-Ban Engine:
-     - Smart 2-by-2 interleaved round-robin posting with 20-30s natural thinking gaps.
-     - While students in Group 1 & 2 think/answer, rotates to Group 3 & 4.
-     - Morning / Evening Shift Filters (e.g. Police Morning vs AP Police Evening).
-     - Two-phase delivery: Post question -> wait for thinking -> Post official answer key & explanation.
-     - Non-blocking background worker with live progress bar and stop button.
-  3. Live Metrics, District Wars, Squad Arena & Google Sheet CRM Sync.
+  1. Live Question Bank Inventory & Channel Poll Counts.
+  2. Excel / Google Sheets Importer: Direct Paste or Upload 100+ to 150+ WhatsApp Groups & Telegram Channels.
+  3. Custom Cluster Bundles: Group specific channels and WhatsApp groups into single-click dispatch bundles.
+  4. WhatsApp 100+ Interleaved Anti-Ban Pipeline: 2-by-2 groups with 20-30s natural thinking gaps, two-phase answer key delivery.
+  5. TS & AP Academic (B.Tech, Degree, ITI, Open Universities, Diploma, Inter, 10th) & Competitive Channels.
 """
 import sys
 import os
@@ -28,7 +23,7 @@ sys.path.insert(0, str(ROOT))
 from core import config
 from core.members import Members
 from core.question_bank import Bank
-from core import hooks, districtwar, arena, campus, crm, whatsapp_pipeline, channel_router
+from core import hooks, districtwar, arena, campus, crm, whatsapp_pipeline, channel_router, bundle_manager
 from core.telegram import Telegram
 
 PORT = int(config.env("DASHBOARD_PORT", "5000"))
@@ -38,7 +33,7 @@ HTML_PAGE = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>StudentUp — Ultimate Control & WhatsApp Anti-Ban Hub</title>
+  <title>StudentUp — Ultimate Control, Excel Importer & Bundle Hub</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -52,20 +47,21 @@ HTML_PAGE = """<!DOCTYPE html>
       --danger: #ef4444;
       --warning: #f59e0b;
       --purple: #8b5cf6;
+      --pink: #ec4899;
       --text: #f8fafc;
       --text-muted: #94a3b8;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
     body { background: var(--bg); color: var(--text); padding: 24px; min-height: 100vh; }
-    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 24px; }
+    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 22px; }
     .header h1 { font-size: 24px; font-weight: 800; display: flex; align-items: center; gap: 10px; }
     .badge-live { background: rgba(16, 185, 129, 0.15); color: var(--accent); border: 1px solid var(--accent); padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; }
     .badge-shield { background: rgba(139, 92, 246, 0.15); color: var(--purple); border: 1px solid var(--purple); padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; }
-    .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
-    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
-    .stat-card .label { font-size: 13px; color: var(--text-muted); font-weight: 500; }
-    .stat-card .val { font-size: 30px; font-weight: 800; margin-top: 6px; }
-    .stat-card .desc { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 22px; }
+    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    .stat-card .label { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+    .stat-card .val { font-size: 28px; font-weight: 800; margin-top: 5px; }
+    .stat-card .desc { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
     .tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px; overflow-x: auto; }
     .tab-btn { background: transparent; border: none; color: var(--text-muted); font-size: 14px; font-weight: 600; padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
     .tab-btn.active { background: var(--primary); color: #fff; }
@@ -73,18 +69,19 @@ HTML_PAGE = """<!DOCTYPE html>
     .tab-pane.active { display: block; }
     .panel-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 22px; margin-bottom: 20px; }
     .panel-card h2 { font-size: 18px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
-    .btn { background: var(--primary); color: #fff; border: none; padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+    .btn { background: var(--primary); color: #fff; border: none; padding: 9px 15px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s; display: inline-flex; align-items: center; gap: 6px; }
     .btn:hover { background: var(--primary-hover); }
     .btn-accent { background: var(--accent); }
     .btn-accent:hover { background: var(--accent-hover); }
     .btn-purple { background: var(--purple); }
+    .btn-pink { background: var(--pink); }
     .btn-danger { background: var(--danger); }
     .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
     .btn-outline:hover { background: var(--border); }
-    input, select, textarea { width: 100%; padding: 10px 14px; background: #0f172a; border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; margin-top: 6px; margin-bottom: 14px; }
+    input, select, textarea { width: 100%; padding: 10px 13px; background: #0f172a; border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; margin-top: 6px; margin-bottom: 14px; }
     input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); border-color: transparent; }
     table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
-    th, td { text-align: left; padding: 11px 13px; border-bottom: 1px solid var(--border); }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
     th { color: var(--text-muted); font-weight: 600; background: rgba(15, 23, 42, 0.6); }
     .log-box { background: #050811; border: 1px solid var(--border); border-radius: 8px; padding: 14px; font-family: monospace; font-size: 12px; max-height: 240px; overflow-y: auto; color: #38bdf8; white-space: pre-wrap; margin-top: 12px; }
     .status-pill { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
@@ -99,17 +96,22 @@ HTML_PAGE = """<!DOCTYPE html>
 <body>
   <div class="header">
     <div>
-      <h1>🚀 StudentUp Central Management & Anti-Ban Hub</h1>
-      <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">100+ WhatsApp Groups Interleaved Anti-Ban Pipeline & Dynamic Channels</p>
+      <h1>🚀 StudentUp Central Management & Mega Community Hub</h1>
+      <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">100+ WhatsApp Groups, Excel Sheet Importer, Channel Bundles & Anti-Ban Delivery</p>
     </div>
     <div style="display:flex; gap:10px; align-items:center;">
-      <span class="badge-shield">🛡️ ANTI-BAN INTERLEAVED ACTIVE</span>
+      <span class="badge-shield">🛡️ ANTI-BAN INTERLEAVED</span>
       <span class="badge-live">● ENGINE LIVE</span>
       <button class="btn btn-outline" onclick="location.reload()">🔄 Refresh</button>
     </div>
   </div>
 
   <div class="grid-stats">
+    <div class="stat-card">
+      <div class="label">Total Syllabus Polls Available</div>
+      <div class="val" id="stat-polls-count" style="color:#38bdf8;">...</div>
+      <div class="desc">Active question inventory</div>
+    </div>
     <div class="stat-card">
       <div class="label">WhatsApp Groups Active</div>
       <div class="val" id="stat-wa-count" style="color:#60a5fa;">...</div>
@@ -118,34 +120,36 @@ HTML_PAGE = """<!DOCTYPE html>
     <div class="stat-card">
       <div class="label">Telegram Channels</div>
       <div class="val" id="stat-tg-count" style="color:var(--purple);">...</div>
-      <div class="desc">Live exam channels</div>
+      <div class="desc">TS & AP live channels</div>
     </div>
     <div class="stat-card">
-      <div class="label">Registered Students</div>
-      <div class="val" id="stat-reg" style="color:var(--accent);">...</div>
-      <div class="desc">Verified profiles in CRM</div>
+      <div class="label">Custom Bundles</div>
+      <div class="val" id="stat-bundle-count" style="color:var(--pink);">...</div>
+      <div class="desc">Cluster groups & channels</div>
     </div>
     <div class="stat-card">
       <div class="label">Total Points Earned</div>
       <div class="val" id="stat-points" style="color:var(--warning);">...</div>
-      <div class="desc">Active gamification balance</div>
+      <div class="desc">Active student balance</div>
     </div>
   </div>
 
   <div class="tabs">
     <button class="tab-btn active" onclick="switchTab('tab-wa-dispatch')">🛡️ WhatsApp 100+ Interleaved Dispatcher</button>
-    <button class="tab-btn" onclick="switchTab('tab-dynamic-channels')">📢 Telegram Channels & Dynamic Builder</button>
+    <button class="tab-btn" onclick="switchTab('tab-excel-import')">📊 Excel / Sheet Quick Importer</button>
+    <button class="tab-btn" onclick="switchTab('tab-bundles')">📦 Channel & Group Bundles</button>
+    <button class="tab-btn" onclick="switchTab('tab-dynamic-channels')">📢 Telegram Channels & Poll Counts</button>
     <button class="tab-btn" onclick="switchTab('tab-control')">⚡ Fast Actions & District War</button>
     <button class="tab-btn" onclick="switchTab('tab-squads')">👥 Squad Wars & Arena</button>
     <button class="tab-btn" onclick="switchTab('tab-members')">📋 Registered Members & CRM</button>
   </div>
 
-  <!-- TAB 1: WHATSAPP INTERLEAVED ANTI-BAN DISPATCHER -->
+  <!-- TAB 1: WHATSAPP INTERLEAVED DISPATCHER -->
   <div id="tab-wa-dispatch" class="tab-pane active">
     <div class="panel-card">
-      <h2>🛡️ Smart Interleaved Dispatcher (2-by-2 Groups with 20-30s Gap)</h2>
+      <h2>🛡️ Smart Interleaved Dispatcher (2-by-2 Groups with 20-30s Thinking Gap)</h2>
       <p style="color:var(--text-muted); font-size:13px; margin-bottom:16px;">
-        Aspirants Group 1 & 2 లో ఆలోచించి సమాధానం ఇచ్చేలోపు (40-60s), సిస్టమ్ ఖాళీగా ఉండకుండా 20-30s సహజ గ్యాప్‌తో Group 3 & 4 కి వెళ్లి క్వశ్చన్ పోస్ట్ చేస్తుంది! Question పంపిన కాసేపటికి Answer Key & Explanation రిలీజ్ అవుతుంది.
+        Aspirants Group 1 & 2 లో ఆలోచించి సమాధానం ఇచ్చేలోపు (40-60s), సిస్టమ్ ఖాళీగా ఉండకుండా 20-30s సహజ గ్యాప్‌తో Group 3 & 4 కి వెళ్లి క్వశ్చన్ పోస్ట్ చేస్తుంది! Question పంపిన కాసేపటికి ఆటోమేటిక్‌గా వివరణతో కూడిన Answer Key రిలీజ్ అవుతుంది.
       </p>
 
       <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px;">
@@ -287,12 +291,92 @@ HTML_PAGE = """<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- TAB 2: DYNAMIC CHANNELS & EXAM BUILDER -->
+  <!-- TAB 2: EXCEL / SHEET IMPORTER -->
+  <div id="tab-excel-import" class="tab-pane">
+    <div class="panel-card">
+      <h2>📊 Excel / Google Sheets Fast Importer (100+ to 150+ Groups & Channels)</h2>
+      <p style="color:var(--text-muted); font-size:13px; margin-bottom:14px;">
+        మీరు Excel లేదా Google Sheet నుండి 50, 100 లేదా 150 గ్రూపులు / ఛానెల్ లింకులు నేరుగా కాపీ చేసి క్రింద పేస్ట్ చేయండి! సిస్టమ్ ఆటోమేటిక్‌గా కేటగిరీలను డిటెక్ట్ చేసి సేవ్ చేస్తుంది.
+      </p>
+
+      <div style="background:#0f172a; padding:12px; border-radius:8px; margin-bottom:14px; font-size:12px; color:var(--text-muted);">
+        💡 <b>Excel Columns (Tab / Comma separated):</b><br>
+        <code>Group or Channel Name | Link or JID | Category (Optional) | Shift (Optional: MORNING/EVENING/ALL_DAY)</code>
+      </div>
+
+      <textarea id="excel-paste-text" rows="8" placeholder="Paste your Excel / Google Sheet rows here...
+Example:
+Warangal TS Police SI Batch	120363012345678990@g.us	POLICE	EVENING
+AP B.Tech Guntur Campus	120363012345678991@g.us	AP_BTECH	MORNING
+Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY"></textarea>
+
+      <div style="display:flex; gap:12px; align-items:center;">
+        <button class="btn btn-accent" onclick="importExcelSheet()">📥 Import All Groups & Channels from Excel</button>
+        <button class="btn btn-outline" onclick="document.getElementById('excel-paste-text').value=''">Clear Box</button>
+      </div>
+
+      <div id="excel-import-log" class="log-box" style="margin-top:16px;">Importer ready. Paste rows and click Import.</div>
+    </div>
+  </div>
+
+  <!-- TAB 3: BUNDLES & CLUSTERS -->
+  <div id="tab-bundles" class="tab-pane">
+    <div class="panel-card">
+      <h2>📦 Channel & WhatsApp Group Bundles (Clusters)</h2>
+      <p style="color:var(--text-muted); font-size:13px; margin-bottom:14px;">
+        కొన్ని నిర్దిష్ట ఛానెల్స్ మరియు వాట్సాప్ గ్రూపులను కలిపి ఒకే <b>Bundle (కట్ట)</b> గా సేవ్ చేసుకోవచ్చు. ఒకే క్లిక్‌తో ఆ బండిల్‌లో ఉన్న అన్నింటికీ పోల్స్ లేదా మెసేజ్ పంపవచ్చు!
+      </p>
+
+      <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px;">
+        <div>
+          <h3>Active Bundles</h3>
+          <table id="table-bundles">
+            <thead>
+              <tr>
+                <th>Bundle Name</th>
+                <th>Target Category</th>
+                <th>Linked Groups</th>
+                <th>Linked Channels</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div style="background:#0f172a; padding:16px; border-radius:10px; border:1px solid var(--border);">
+          <h3 style="font-size:15px; margin-bottom:12px;">➕ Create New Bundle</h3>
+          <label>Bundle Name:</label>
+          <input type="text" id="bundle-name" placeholder="e.g. Warangal All Colleges Cluster">
+
+          <label>Target Category:</label>
+          <select id="bundle-category">
+            <option value="POLICE">POLICE</option>
+            <option value="TS_BTECH">TS B.Tech</option>
+            <option value="AP_BTECH">AP B.Tech</option>
+            <option value="TS_DEGREE">TS Degree</option>
+            <option value="AP_DEGREE">AP Degree</option>
+            <option value="TS_INTER">TS Intermediate</option>
+            <option value="AP_INTER">AP Intermediate</option>
+            <option value="TS_10TH">TS 10th Class</option>
+            <option value="AP_10TH">AP 10th Class</option>
+            <option value="ITI_ALL">TS & AP ITI</option>
+            <option value="OPEN_UNIV">Open Universities</option>
+            <option value="SSC">Central / SSC</option>
+          </select>
+
+          <button class="btn btn-pink" onclick="saveNewBundle()">💾 Save New Bundle</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 4: TELEGRAM CHANNELS & POLL COUNTS -->
   <div id="tab-dynamic-channels" class="tab-pane">
     <div class="panel-card">
-      <h2>📢 Telegram Channels & Dynamic Exam Builder</h2>
+      <h2>📢 Telegram Channels & Real-Time Question Counts</h2>
       <p style="color:var(--text-muted); font-size:13px; margin-bottom:16px;">
-        Add any new Telegram Channel or Exam name. The system automatically builds syllabus subjects, question pool, and delivers exam-accurate polls without manual coding.
+        ప్రతి ఛానల్‌లో ఎన్ని ప్రశ్నలు సిద్ధంగా ఉన్నాయో లైవ్‌గా చూడండి. కొత్త ఛానల్ యాడ్ చేసినప్పుడు AI ఆటోమేటిక్‌గా సిలబస్ అర్థం చేసుకుని క్వశ్చన్స్ బిల్డ్ చేస్తుంది.
       </p>
 
       <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
@@ -329,7 +413,7 @@ HTML_PAGE = """<!DOCTYPE html>
           <label>Telegram Chat ID or @username (optional for preview):</label>
           <input type="text" id="new-ch-chatid" placeholder="@MyNewPoliceExamChannel or -100123456789">
 
-          <button class="btn btn-accent" onclick="createNewChannel()">⚡ Register Channel & Auto-Build Polls</button>
+          <button class="btn btn-accent" onclick="createNewChannel()">⚡ Register Channel & Auto-Synthesize Polls</button>
         </div>
 
         <div>
@@ -346,14 +430,14 @@ HTML_PAGE = """<!DOCTYPE html>
       </div>
 
       <div style="margin-top:24px;">
-        <h3>Active Telegram Channels Registry</h3>
+        <h3>Active Channels & Real-Time Question Counts</h3>
         <table id="table-channels">
           <thead>
             <tr>
               <th>Channel Key</th>
               <th>Channel Title</th>
-              <th>Base Exam Syllabus</th>
-              <th>Audience</th>
+              <th>Syllabus Category</th>
+              <th>Available Polls Count</th>
               <th>Chat Target</th>
             </tr>
           </thead>
@@ -363,7 +447,7 @@ HTML_PAGE = """<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- TAB 3: FAST ACTIONS & DISTRICT WAR -->
+  <!-- TAB 5: FAST ACTIONS & DISTRICT WAR -->
   <div id="tab-control" class="tab-pane">
     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
       <div class="panel-card">
@@ -392,7 +476,7 @@ HTML_PAGE = """<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- TAB 4: SQUADS & ARENA -->
+  <!-- TAB 6: SQUADS & ARENA -->
   <div id="tab-squads" class="tab-pane">
     <div class="panel-card">
       <h2>👥 Registered Squads & Battle Rooms</h2>
@@ -415,7 +499,7 @@ HTML_PAGE = """<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- TAB 5: MEMBERS DIRECTORY -->
+  <!-- TAB 7: MEMBERS DIRECTORY -->
   <div id="tab-members" class="tab-pane">
     <div class="panel-card">
       <h2>📋 Registered Student Members</h2>
@@ -445,6 +529,7 @@ HTML_PAGE = """<!DOCTYPE html>
       document.getElementById(id).classList.add('active');
       if (id === 'tab-wa-dispatch') loadWAGroups();
       if (id === 'tab-dynamic-channels') loadChannels();
+      if (id === 'tab-bundles') loadBundles();
       if (id === 'tab-squads') loadSquads();
       if (id === 'tab-members') loadMembers();
     }
@@ -453,9 +538,10 @@ HTML_PAGE = """<!DOCTYPE html>
       try {
         const res = await fetch('/api/stats');
         const data = await res.json();
+        document.getElementById('stat-polls-count').innerText = (data.total_questions || '0') + ' Polls';
         document.getElementById('stat-wa-count').innerText = data.wa_groups_count || '0';
         document.getElementById('stat-tg-count').innerText = data.channels_count || '0';
-        document.getElementById('stat-reg').innerText = data.registered_members;
+        document.getElementById('stat-bundle-count').innerText = data.bundles_count || '0';
         document.getElementById('stat-points').innerText = data.total_points.toLocaleString();
       } catch (e) {
         console.error(e);
@@ -566,6 +652,74 @@ HTML_PAGE = """<!DOCTYPE html>
       await fetch('/api/whatsapp/stop_pipeline', {method: 'POST'});
     }
 
+    async function importExcelSheet() {
+      const raw = document.getElementById('excel-paste-text').value.trim();
+      const log = document.getElementById('excel-import-log');
+      if (!raw) return alert('Paste your Excel or Google Sheet lines first');
+      log.innerText = 'Importing rows into database...';
+      const res = await fetch('/api/excel/import', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({raw_text: raw})
+      });
+      const d = await res.json();
+      log.innerText = '✅ Success! Imported ' + d.imported_groups_count + ' WhatsApp Groups and ' + d.imported_channels_count + ' Telegram Channels.';
+      fetchStats();
+      loadWAGroups();
+    }
+
+    async function loadBundles() {
+      const res = await fetch('/api/bundles');
+      const d = await res.json();
+      const tbody = document.querySelector('#table-bundles tbody');
+      tbody.innerHTML = '';
+      (d.bundles || []).forEach(b => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><b>${b.name}</b></td>
+          <td><span class="category-tag">${b.category}</span></td>
+          <td>${(b.target_groups || []).length} Groups</td>
+          <td>${(b.target_channels || []).length} Channels</td>
+          <td>
+            <button class="btn btn-accent" style="padding:4px 8px; font-size:11px;" onclick="dispatchBundle('${b.id}', true)">🚀 Run Quiz</button>
+            <button class="btn btn-outline" style="padding:4px 8px; font-size:11px; margin-left:4px;" onclick="deleteBundle('${b.id}')">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function saveNewBundle() {
+      const name = document.getElementById('bundle-name').value.trim();
+      const cat = document.getElementById('bundle-category').value;
+      if (!name) return alert('Enter bundle title');
+      await fetch('/api/bundles/create', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name, category: cat})
+      });
+      document.getElementById('bundle-name').value = '';
+      loadBundles();
+      fetchStats();
+    }
+
+    async function deleteBundle(bid) {
+      if (!confirm('Delete this bundle?')) return;
+      await fetch('/api/bundles/delete', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id: bid})
+      });
+      loadBundles();
+      fetchStats();
+    }
+
+    async function dispatchBundle(bid, isQuestion) {
+      alert('Launching round across bundle: ' + bid);
+      switchTab('tab-wa-dispatch');
+      startInterleaved(isQuestion);
+    }
+
     async function loadChannels() {
       const res = await fetch('/api/channels');
       const d = await res.json();
@@ -573,20 +727,23 @@ HTML_PAGE = """<!DOCTYPE html>
       const select = document.getElementById('post-poll-channel');
       tbody.innerHTML = '';
       select.innerHTML = '';
+      const counts = d.question_counts || {};
+
       for (const [key, ch] of Object.entries(d.channels || {})) {
+        const count = counts[ch.base_exam || key] || counts[key] || 0;
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td><b>${key}</b></td>
           <td>${ch.emoji || '🎯'} ${ch.name}</td>
           <td><span class="category-tag">${ch.base_exam || key}</span></td>
-          <td style="color:var(--text-muted);">${ch.audience || '—'}</td>
+          <td style="color:#38bdf8; font-weight:700;">${count} Questions</td>
           <td style="font-family:monospace;">${ch.chat_id || ch.username || '—'}</td>
         `;
         tbody.appendChild(tr);
 
         const opt = document.createElement('option');
         opt.value = key;
-        opt.innerText = (ch.emoji || '🎯') + ' ' + ch.name + ' (' + (ch.base_exam || key) + ')';
+        opt.innerText = (ch.emoji || '🎯') + ' ' + ch.name + ' (' + count + ' polls)';
         select.appendChild(opt);
       }
     }
@@ -603,7 +760,7 @@ HTML_PAGE = """<!DOCTYPE html>
         body: JSON.stringify({name, exam_type: base, chat_id: chatid})
       });
       const d = await res.json();
-      alert('Channel registered: ' + d.channel.name + ' (Syllabus: ' + d.channel.base_exam + ')');
+      alert(d.message || ('Channel registered: ' + d.channel.name));
       document.getElementById('new-ch-name').value = '';
       document.getElementById('new-ch-chatid').value = '';
       loadChannels();
@@ -696,6 +853,7 @@ HTML_PAGE = """<!DOCTYPE html>
     fetchStats();
     loadWAGroups();
     loadChannels();
+    loadBundles();
     setInterval(fetchStats, 10000);
     setInterval(pollPipelineStatus, 1500);
   </script>
@@ -735,13 +893,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
             tot_pts = sum(m.get("points", 0) for m in mb.members.values())
             wa = whatsapp_pipeline.load_wa_registry()
             all_ch = channel_router.get_all_channels()
+            bundles = bundle_manager.load_bundles().get("bundles", [])
+            bank = Bank()
+
             self._send_json({
                 "total_members": len(mb.members),
                 "registered_members": len(reg),
                 "total_points": tot_pts,
                 "war_status": st_war,
                 "wa_groups_count": len(wa.get("groups", [])),
-                "channels_count": len(all_ch)
+                "channels_count": len(all_ch),
+                "bundles_count": len(bundles),
+                "total_questions": len(bank.questions)
             })
             return
 
@@ -754,7 +917,20 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
 
         if p.path == "/api/channels":
-            self._send_json({"channels": channel_router.get_all_channels()})
+            bank = Bank()
+            counts = {}
+            for q in bank.questions:
+                c = q.get("channel", "UNKNOWN")
+                counts[c] = counts.get(c, 0) + 1
+
+            self._send_json({
+                "channels": channel_router.get_all_channels(),
+                "question_counts": counts
+            })
+            return
+
+        if p.path == "/api/bundles":
+            self._send_json(bundle_manager.load_bundles())
             return
 
         if p.path == "/api/squads":
@@ -788,6 +964,27 @@ class DashboardHandler(BaseHTTPRequestHandler):
         p = urllib.parse.urlparse(self.path)
         length = int(self.headers.get("Content-Length", 0))
         body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+
+        if p.path == "/api/excel/import":
+            raw_text = body.get("raw_text", "")
+            res = bundle_manager.import_from_csv_or_excel_text(raw_text)
+            self._send_json(res)
+            return
+
+        if p.path == "/api/bundles/create":
+            name = body.get("name", "Cluster Bundle")
+            cat = body.get("category", "POLICE")
+            gids = body.get("group_ids", [])
+            ch_keys = body.get("channel_keys", [])
+            b = bundle_manager.create_bundle(name, cat, gids, ch_keys)
+            self._send_json({"ok": True, "bundle": b})
+            return
+
+        if p.path == "/api/bundles/delete":
+            bid = body.get("id")
+            ok = bundle_manager.delete_bundle(bid)
+            self._send_json({"ok": ok})
+            return
 
         if p.path == "/api/whatsapp/add_group":
             name = body.get("name", "").strip()
@@ -843,7 +1040,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
             chat_id = body.get("chat_id", "")
             info = channel_router.register_channel(name, chat_id=chat_id, exam_type=exam_t)
 
-            # Auto-synthesize custom questions immediately for this new channel
             try:
                 from core import dynamic_generator
                 dynamic_generator.synthesize_quiz(info["key"], name, count=5)

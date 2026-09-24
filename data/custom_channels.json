@@ -328,6 +328,29 @@
         "health schemes"
       ],
       "ts_ap_weight": 0.3
+    },
+    "TELANGANA_SSC_SCIENCE_CHANNEL": {
+      "key": "TELANGANA_SSC_SCIENCE_CHANNEL",
+      "name": "Telangana SSC Science Channel",
+      "base_exam": "TS_10TH",
+      "emoji": "🗞️",
+      "subject": "Telangana SSC Science Channel Exam Prep (Current Affairs GK)",
+      "public": true,
+      "chat_id": "@ts_science_ssc",
+      "username": "TelanganaSSCScienceChannel",
+      "audience": "Aspirants targeting Telangana SSC Science Channel & TS_10TH",
+      "topics": [
+        "government schemes",
+        "ISRO",
+        "RBI",
+        "constitution",
+        "defence",
+        "central budget",
+        "elections",
+        "railway infrastructure",
+        "health schemes"
+      ],
+      "ts_ap_weight": 0.3
     }
   }
 }

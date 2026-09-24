@@ -203,6 +203,24 @@
       "shift": "ALL_DAY",
       "active": true,
       "created_at": "2026-09-24 18:19"
+    },
+    {
+      "id": "G_24_131",
+      "name": "Khammam TS Police SI Batch",
+      "jid": "120363012345678990@g.us",
+      "category": "POLICE",
+      "shift": "EVENING",
+      "active": true,
+      "created_at": "2026-09-24 18:55"
+    },
+    {
+      "id": "G_25_131",
+      "name": "AP B.Tech Guntur Campus",
+      "jid": "120363012345678991@g.us",
+      "category": "AP_BTECH",
+      "shift": "MORNING",
+      "active": true,
+      "created_at": "2026-09-24 18:55"
     }
   ],
   "gateway_url": "",
