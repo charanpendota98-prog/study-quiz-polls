@@ -11,6 +11,7 @@ import sys
 import re
 import tempfile
 import unittest
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -172,9 +173,9 @@ class TestAuditor(unittest.TestCase):
                 "audit": {"status": "unverified"},
             }]
             self._write()
+            now_str = (datetime.now(timezone.utc) - timedelta(days=2)).strftime("%a, %d %b %Y %H:%M:%S +0000")
             entries = [{"title": "Reasoning Quiz Set", "link": "https://x/q",
-                        "published": ("Sat, 06 Sep 2026 10:00:00 +0000"
-                                      if frisky else "Wed, 01 Jan 2024 10:00:00 +0000")}]
+                        "published": (now_str if frisky else "Wed, 01 Jan 2024 10:00:00 +0000")}]
             audit_all(update_registry=True, registry_path=self.tmp_reg,
                       health_path=self.tmp_health,
                       http_get=lambda url: None, feed_entries=lambda url: entries)

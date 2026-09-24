@@ -193,8 +193,13 @@ def squad_create(members, uid, name: str):
     data["by_uid"][str(uid)] = code
     save_json_atomic(SQUADS_PATH, data)
     disp = squad_code_display(code)
-    return code, (f"👥 Squad '{name}' created! Code: {disp}\n"
-                  f"Friends ని పిలవండి: bot లో /squad join {disp}  (2–{MAX_SQUAD_MEMBERS} members)\n"
+    bot = getattr(config, "BOT_USERNAME", "") or "StudentUpBot"
+    squad_link = f"https://t.me/{bot}?start=sq_{code}"
+    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=600x600&data={squad_link}"
+    return code, (f"👥 Squad '{name}' created! Code: {disp}\n\n"
+                  f"🔗 Invite Link (ఒక్క tap తో join అవ్వొచ్చు):\n{squad_link}\n\n"
+                  f"📱 QR Code (Scan to join):\n{qr_url}\n\n"
+                  f"లేదా Bot లో: /squad join {disp}  (2–{MAX_SQUAD_MEMBERS} members)\n"
                   f"Squad score = అందరి ✅ కలిపి · ప్రతి సోమవారం Squad Top-5 channel లో పేర్లతో 🏆\n"
                   f"⚔️ Squad vs Squad race కోసం: /battle new")
 
@@ -278,6 +283,10 @@ def render_squad(members, uid):
         lines.append(f"  {'👑' if u == s['leader'] else '•'} {mm.get('name', 'Player')[:18]} · {mm.get('district', '')} — {per_uid.get(u, 0)} ✅")
     total = sum(per_uid.get(u, 0) for u in s["members"])
     lines += ["", f"This week: {total} ✅" + (f" · squad rank #{rank}" if rank else " (need 2+ members to rank)")]
+    bot = getattr(config, "BOT_USERNAME", "") or "StudentUpBot"
+    squad_link = f"https://t.me/{bot}?start=sq_{code}"
+    lines.append(f"🔗 Invite Link: {squad_link}")
+    lines.append(f"📱 QR Code: https://api.qrserver.com/v1/create-qr-code/?size=600x600&data={squad_link}")
     if len(s["members"]) < MAX_SQUAD_MEMBERS:
         lines.append(f"ఇంకా {MAX_SQUAD_MEMBERS - len(s['members'])} మందిని పిలవండి: /squad join {squad_code_display(code)}")
     lines.append("⚔️ Squad vs Squad race: /battle new · /battle list")

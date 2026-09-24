@@ -1429,6 +1429,14 @@ class Engine:
         return self._jobs_legacy()
 
     def _jobs_legacy(self):
+        chat = config.channel_chat_id("JOBS")
+        if not chat:
+            print("   [jobs] CHANNEL_JOBS not configured — skipping legacy jobs post")
+            return 0
+        exam_chats = {config.channel_chat_id(k) for k in config.PUBLIC_CHANNELS if config.channel_chat_id(k)}
+        if chat in exam_chats:
+            print(f"   [jobs] SAFETY BLOCK: chat {chat} is configured as an exam quiz channel! Legacy jobs post cancelled.")
+            return 0
         agg = load_json(config.DATA / "aggregated_jobs.json", {"items": []})
         items = [i for i in agg.get("items", []) if i.get("en")]
         cfg = config.CHANNELS["JOBS"]
@@ -1447,7 +1455,7 @@ class Engine:
             lines.append(line)
         lines.append("\n— Source: StudentUp Jobs | TS/AP + Central only ✅")
         try:
-            self.tg.send_message(config.channel_chat_id("JOBS"), "".join(lines))
+            self.tg.send_message(chat, "".join(lines))
             print(f"[jobs] {len(items)} items posted to private channel")
             return len(items)
         except TelegramError as e:

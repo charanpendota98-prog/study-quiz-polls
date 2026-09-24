@@ -1,0 +1,26 @@
+{
+  "groups": [
+    {
+      "id": "G1",
+      "name": "TSPSC Aspirants Hub",
+      "jid": "120363012345678901@g.us",
+      "active": true
+    },
+    {
+      "id": "G2",
+      "name": "APPSC Group 2 & 4 Warriors",
+      "jid": "120363098765432101@g.us",
+      "active": true
+    },
+    {
+      "id": "G3",
+      "name": "SSC CGL / Railway RRB Prep",
+      "jid": "120363011223344551@g.us",
+      "active": true
+    }
+  ],
+  "gateway_url": "",
+  "gateway_token": "",
+  "post_delay_sec": 1,
+  "logs": []
+}

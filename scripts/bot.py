@@ -1213,6 +1213,19 @@ class Bot:
                         "district": e["district"], "exam": "Current Affairs GK"})
                     self.tg.send_message(chat_id, "✍️ Step 1 of 2 — మీ పూర్తి పేరు? / Your full name:")
                 return
+            # deep link for squad: /start sq_CODE or /start squad_CODE
+            if (arg.startswith("sq_") or arg.startswith("squad_") or arg.startswith("sq-")) and uid:
+                sq_code = arg.split("_", 1)[-1] if "_" in arg else arg.split("-", 1)[-1]
+                from core import hooks
+                if not self.members.is_registered(uid):
+                    if not self.members.pending_step(uid):
+                        self.members.start_registration(uid, username=self._name(who))
+                    self.tg.send_message(chat_id, f"👥 Squad join అవ్వడానికి ముందు 1 నిమిషం register అవ్వండి (+25 pts bonus) 👇")
+                    self.tg.send_message(chat_id, FIRST_TIME_ASK)
+                    return
+                _s, msg = hooks.squad_join(self.members, uid, sq_code)
+                self.tg.send_message(chat_id, msg, buttons=hooks.squad_buttons(uid))
+                return
             try:
                 from core import jobradar
                 jid = jobradar.parse_start_arg(arg)
@@ -1513,26 +1526,46 @@ class Bot:
             from core import hq
             txt, _, _ = hq.render(self.members, self.bank)
             self.tg.send_message(chat_id, txt, buttons=hq.buttons())
-        elif low.startswith("/college") and str(uid) in self._staff_ids():
+        elif low.startswith("/college"):
             from core import hq
             rest = text.split(maxsplit=1)[1].strip() if len(text.split()) > 1 else ""
-            if rest.lower() in ("add", "new"):
-                from core import campus
-                campus.wiz_start(uid)
-                self.tg.send_message(chat_id, COLLEGE_WIZ_NAME)
-                return
-            if rest.lower().startswith("lead "):
-                f = [x.strip() for x in rest[5:].split("|")]
-                if len(f) == 2:
-                    hq.set_leader(f[0], f[1], self.members); self.tg.send_message(chat_id, f"👑 {f[0]} leader set")
+            if str(uid) in self._staff_ids():
+                if rest.lower() in ("add", "new"):
+                    from core import campus
+                    campus.wiz_start(uid)
+                    self.tg.send_message(chat_id, COLLEGE_WIZ_NAME)
+                    return
+                if rest.lower().startswith("lead "):
+                    f = [x.strip() for x in rest[5:].split("|")]
+                    if len(f) == 2:
+                        hq.set_leader(f[0], f[1], self.members); self.tg.send_message(chat_id, f"👑 {f[0]} leader set")
+                    else:
+                        self.tg.send_message(chat_id, "Usage: /college lead <College> | <telegram id>")
+                    return
+                if rest:
+                    txt, btns = hq.club_card(self.members, rest)
+                    self.tg.send_message(chat_id, txt, buttons=btns)
                 else:
-                    self.tg.send_message(chat_id, "Usage: /college lead <College> | <telegram id>")
-                return
-            if rest:
-                txt, btns = hq.club_card(self.members, rest)
-                self.tg.send_message(chat_id, txt, buttons=btns)
+                    self.tg.send_message(chat_id, hq.club_list_text(self.members), buttons=hq.club_buttons(self.members))
             else:
-                self.tg.send_message(chat_id, hq.club_list_text(self.members), buttons=hq.club_buttons(self.members))
+                # Student view or set college
+                if rest:
+                    m = self.members.members.get(str(uid), {})
+                    m["college"] = rest[:60]
+                    self.members.kv.save()
+                    txt, btns = hq.club_card(self.members, rest)
+                    if txt == "College not found.":
+                        self.tg.send_message(chat_id, f"🏫 మీ College సెట్ చేయబడింది: {rest} ✅\nమీ college లో battle/exam పెట్టాలంటే: /campuswar {rest} | {m.get('district', 'మీ జిల్లా')}")
+                    else:
+                        self.tg.send_message(chat_id, f"🏫 మీ College: {rest} ✅\n\n" + txt, buttons=btns)
+                else:
+                    m = self.members.members.get(str(uid), {})
+                    col = m.get("college")
+                    if col:
+                        txt, btns = hq.club_card(self.members, col)
+                        self.tg.send_message(chat_id, f"🏫 మీ College: {col} ✅\n\n" + txt, buttons=btns)
+                    else:
+                        self.tg.send_message(chat_id, "🏫 మీ College పేరు సెట్ చేయడానికి:\n/college <College పేరు>\n(ఉదా: /college SR College లేదా /campuswar SR College | Warangal)")
         elif uid and str(uid) in self._staff_ids() and not low.startswith("/") and __import__("core.messenger", fromlist=["x"]).get_draft(uid) is not None:
             from core import messenger as MS
             photo = msg["photo"][-1].get("file_id", "") if msg.get("photo") else ""
@@ -1769,9 +1802,18 @@ class Bot:
         elif low.startswith("/profile"):
             from core import roster
             m = self.members.members.get(str(uid), {}) if uid else {}
+            parts = text.split(maxsplit=1)
+            if len(parts) > 1 and parts[1].strip():
+                # direct set college: /profile Kakatiya Institute of Technology
+                col_val = parts[1].strip()[:60]
+                m["college"] = col_val
+                self.members.kv.save()
+                self.tg.send_message(chat_id, f"🏫 మీ College సెట్ చేయబడింది: {col_val} ✅")
             m.pop("_prof_skipped", None)
             t, b = roster.profile_prompt()
-            self.tg.send_message(chat_id, (f"📚 ఇప్పుడు: {m.get('branch', '—')} {m.get('year', '')}\n" if m.get("branch") else "") + t, buttons=b)
+            cur_col = f"🏫 College: {m.get('college')}\n" if m.get("college") else "🏫 College set చేయాలంటే: /college <College పేరు> (లేదా /profile <College పేరు>)\n"
+            cur_branch = f"📚 Course: {m.get('branch', '—')} {m.get('year', '')}\n" if m.get("branch") else ""
+            self.tg.send_message(chat_id, cur_col + cur_branch + t, buttons=b)
         elif low.startswith("/retest") and uid and str(uid) in self._staff_ids():
             from core import roster, campus
             arg = text[7:].strip()
