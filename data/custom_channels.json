@@ -144,6 +144,52 @@
         "health schemes"
       ],
       "ts_ap_weight": 0.3
+    },
+    "TS___AP_ITI_ELECTRICIAN___FITTER_HUB": {
+      "key": "TS___AP_ITI_ELECTRICIAN___FITTER_HUB",
+      "name": "TS & AP ITI Electrician & Fitter Hub",
+      "base_exam": "ITI_ALL",
+      "emoji": "🗞️",
+      "subject": "TS & AP ITI Electrician & Fitter Hub Exam Prep (Current Affairs GK)",
+      "public": true,
+      "chat_id": "@ts_ap_iti_hub",
+      "username": "TSAPITIHub",
+      "audience": "TS & AP ITI NCVT/SCVT Electrician, Fitter, Workshop Science & Employability skills",
+      "topics": [
+        "government schemes",
+        "ISRO",
+        "RBI",
+        "constitution",
+        "defence",
+        "central budget",
+        "elections",
+        "railway infrastructure",
+        "health schemes"
+      ],
+      "ts_ap_weight": 0.3
+    },
+    "DR__BR_AMBEDKAR_OPEN_UNIVERSITY__BRAOU____DISTANCE_HUB": {
+      "key": "DR__BR_AMBEDKAR_OPEN_UNIVERSITY__BRAOU____DISTANCE_HUB",
+      "name": "Dr. BR Ambedkar Open University (BRAOU) & Distance Hub",
+      "base_exam": "CURRENT",
+      "emoji": "🗞️",
+      "subject": "Dr. BR Ambedkar Open University (BRAOU) & Distance Hub Exam Prep (Current Affairs GK)",
+      "public": true,
+      "chat_id": "@braou_open_university",
+      "username": "BRAOUOpenUniv",
+      "audience": "BRAOU, IGNOU, ANUCDE Open University Distance Education students",
+      "topics": [
+        "government schemes",
+        "ISRO",
+        "RBI",
+        "constitution",
+        "defence",
+        "central budget",
+        "elections",
+        "railway infrastructure",
+        "health schemes"
+      ],
+      "ts_ap_weight": 0.3
     }
   }
 }

@@ -1,4 +1,4 @@
-# TS & AP ACADEMIC & HIGHER EDUCATION QUIZ BANK — 10th, Inter, Diploma, Degree & B.Tech
+# TS & AP ACADEMIC & HIGHER EDUCATION QUIZ BANK — 10th, Inter, Diploma, Degree, B.Tech, ITI & Open University
 
 ## Channel: TS_10TH
 ### Topic: Physical Science — Chemical Reactions
@@ -204,3 +204,85 @@ Q: In Python, what is the output of print(type([]))?
 - D: <class 'array'>
 Explanation: [] denotes an empty list literal in Python, so its type is <class 'list'>.
 Exam: Campus Recruitment Training (TCS, Infosys, Wipro, Cognizant)
+
+## Channel: ITI_ALL
+### Topic: Electrician Trade — AC & DC Circuits
+Q: Which instrument is used to measure electrical resistance in an electrical circuit?
+⤷ ఎలక్ట్రికల్ సర్క్యూట్‌లో విద్యుత్ నిరోధాన్ని (Resistance) కొలవడానికి ఏ పరికరాన్ని ఉపయోగిస్తారు?
+- A: Voltmeter (వోల్ట్‌మీటర్)
+- B: Ammeter (అమ్మీటర్)
+- C: Ohmmeter (ఓమ్‌మీటర్) [correct]
+- D: Wattmeter (వాట్‌మీటర్)
+Explanation: An ohmmeter is an electrical instrument that measures electrical resistance. Voltmeter measures voltage, ammeter measures current.
+Exam: TS & AP ITI Electrician Trade & NCVT / SCVT Board
+
+### Topic: Fitter Trade — Measuring Tools & Gauges
+Q: What is the least count of a standard metric Vernier Caliper?
+⤷ స్టాండర్డ్ మెట్రిక్ వెర్నియర్ కాలిపర్ యొక్క లీస్ట్ కౌంట్ (Least Count) ఎంత?
+- A: 0.1 mm
+- B: 0.02 mm [correct]
+- C: 0.01 mm
+- D: 0.05 mm
+Explanation: The least count of a standard metric vernier caliper is 0.02 mm (1 MSD - 1 VSD).
+Exam: TS & AP ITI Fitter & Machinist Trade
+
+### Topic: Workshop Calculation & Science — Heat and Temperature
+Q: What is the boiling point of pure water at standard atmospheric pressure in Celsius?
+⤷ సాధారణ వాతావరణ పీడనం వద్ద స్వచ్ఛమైన నీటి మరుగు స్థానం (Boiling point) సెల్సియస్‌లో ఎంత?
+- A: 0 °C
+- B: 50 °C
+- C: 100 °C [correct]
+- D: 212 °C
+Explanation: Pure water boils at 100 °C (or 212 °F / 373 K) under standard atmospheric pressure.
+Exam: TS & AP ITI Workshop Calculation and Science (WCS)
+
+### Topic: Employability Skills & Safety — Industrial Safety
+Q: Which class of fire extinguisher is specifically used for electrical fires?
+⤷ విద్యుత్ వల్ల సంభవించే అగ్నిప్రమాదాలను (Electrical fires) ఆర్పడానికి ఏ రకమైన ఫైర్ ఎక్స్‌స్టింగిషర్‌ను ఉపయోగిస్తారు?
+- A: Water Type Extinguisher (నీటి రకం)
+- B: Halon / CO2 Carbon Dioxide Extinguisher (హేలన్ / CO2 రకం) [correct]
+- C: Foam Type Extinguisher (ఫోమ్ రకం)
+- D: Wet Chemical Extinguisher
+Explanation: CO2 and Dry Powder (Halon/Class C) extinguishers are non-conductive and safely extinguish electrical equipment fires.
+Exam: ITI Employability Skills & Industrial Safety
+
+## Channel: OPEN_UNIV
+### Topic: Dr. BR Ambedkar Open University (BRAOU) — Public Administration
+Q: Who is universally regarded as the 'Father of Public Administration'?
+⤷ 'ప్రభుత్వ పాలనా శాస్త్ర పితామహుడు' (Father of Public Administration) గా ఎవరిని పరిగణిస్తారు?
+- A: Max Weber
+- B: Woodrow Wilson [correct]
+- C: Luther Gulick
+- D: Herbert Simon
+Explanation: Woodrow Wilson is regarded as the father of public administration following his seminal 1887 essay 'The Study of Administration'.
+Exam: BRAOU (TS Open University) & Dr. B.R. Ambedkar Open University Exams
+
+### Topic: Open Distance Learning — Environmental Studies
+Q: Which layer of the atmosphere contains the Ozone layer that protects Earth from harmful UV rays?
+⤷ హానికరమైన అతినీలలోహిత (UV) కిరణాల నుండి భూమిని రక్షించే ఓజోన్ పొర వాతావరణంలోని ఏ పొరలో ఉంటుంది?
+- A: Troposphere (ట్రోపోస్పియర్)
+- B: Stratosphere (స్ట్రాటోస్పియర్) [correct]
+- C: Mesosphere (మీసోస్పియర్)
+- D: Thermosphere (థర్మోస్పియర్)
+Explanation: The ozone layer is located in the stratosphere, approximately 15 to 35 km above Earth's surface.
+Exam: BRAOU / Acharya Nagarjuna Open University (ANUCDE)
+
+### Topic: Open Degree Commerce & Business Studies — Principles of Management
+Q: How many administrative principles of management were formulated by Henri Fayol?
+⤷ హెన్రీ ఫయోల్ ఎన్ని నిర్వహణ సూత్రాలను (Principles of Management) ప్రతిపాదించారు?
+- A: 10
+- B: 12
+- C: 14 [correct]
+- D: 16
+Explanation: Henri Fayol proposed 14 principles of management including Division of Work, Authority and Responsibility, Discipline, and Unity of Command.
+Exam: Open University B.Com / MBA Foundation
+
+### Topic: General Studies & Indian Society — Constitutional Rights
+Q: Which Article of the Indian Constitution guarantees the 'Right to Equality before Law'?
+⤷ భారత రాజ్యాంగంలోని ఏ అధికరణం 'చట్టం ముందు అందరూ సమానులే' అనే సమానత్వ హక్కును హామీ ఇస్తుంది?
+- A: Article 14 [correct]
+- B: Article 19
+- C: Article 21
+- D: Article 32
+Explanation: Article 14 provides equality before the law or the equal protection of the laws within the territory of India.
+Exam: TS & AP Open Degree Foundation & Distance Education

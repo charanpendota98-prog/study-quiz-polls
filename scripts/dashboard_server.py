@@ -155,6 +155,8 @@ HTML_PAGE = """<!DOCTYPE html>
               <label>🎯 Exam Category Filter:</label>
               <select id="wa-target-category">
                 <option value="ALL">🌐 ALL Categories & Groups (100+ Mode)</option>
+                <option value="ITI_ALL">🔧 TS & AP ITI (Electrician / Fitter / NCVT / Apprentice)</option>
+                <option value="OPEN_UNIV">🏛️ Open Universities (BRAOU / IGNOU / ANUCDE Distance)</option>
                 <option value="TS_BTECH">💻 TS B.Tech Students (CSE/ECE/EEE/CRT Placements)</option>
                 <option value="TS_DEGREE">🎓 TS Degree Students (B.Com/B.Sc/B.A/ICET)</option>
                 <option value="TS_DIPLOMA">⚙️ TS Diploma & POLYCET / ECET</option>
@@ -242,6 +244,8 @@ HTML_PAGE = """<!DOCTYPE html>
           <input type="text" id="new-wa-jid" placeholder="Group JID or Invite link">
           <select id="new-wa-category" style="width:160px;">
             <option value="AUTO">🤖 Auto Category</option>
+            <option value="ITI_ALL">TS & AP ITI</option>
+            <option value="OPEN_UNIV">Open Universities</option>
             <option value="TS_BTECH">TS B.Tech Placements</option>
             <option value="TS_DEGREE">TS Degree Colleges</option>
             <option value="TS_DIPLOMA">TS Diploma</option>
@@ -283,7 +287,9 @@ HTML_PAGE = """<!DOCTYPE html>
 
           <label>Exam Category (or Auto-Detect):</label>
           <select id="new-ch-base">
-            <option value="AUTO">🤖 Auto-Detect (B.Tech, Degree, 10th, Inter, Police, etc.)</option>
+            <option value="AUTO">🤖 Auto-Detect (ITI, Open Univ, B.Tech, Degree, Police, etc.)</option>
+            <option value="ITI_ALL">TS & AP ITI (Electrician / Fitter / NCVT / Apprentice)</option>
+            <option value="OPEN_UNIV">Open Universities (BRAOU / IGNOU / Distance Education)</option>
             <option value="TS_BTECH">TS B.Tech (Engineering / Coding / CRT Placements)</option>
             <option value="TS_DEGREE">TS Degree (B.Com, B.Sc, B.A, ICET)</option>
             <option value="TS_DIPLOMA">TS Diploma & POLYCET / ECET</option>

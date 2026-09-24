@@ -122,6 +122,42 @@
       "shift": "ALL_DAY",
       "active": true,
       "created_at": "2026-09-24 18:04"
+    },
+    {
+      "id": "G_15_472",
+      "name": "Telangana TS ITI Govt & Private Colleges Forum",
+      "jid": "120363012345678917@g.us",
+      "category": "ITI_ALL",
+      "shift": "MORNING",
+      "active": true,
+      "created_at": "2026-09-24 18:11"
+    },
+    {
+      "id": "G_16_472",
+      "name": "Andhra Pradesh AP ITI Students & Apprentice Hub",
+      "jid": "120363012345678918@g.us",
+      "category": "ITI_ALL",
+      "shift": "ALL_DAY",
+      "active": true,
+      "created_at": "2026-09-24 18:11"
+    },
+    {
+      "id": "G_17_472",
+      "name": "Dr BR Ambedkar Open University (BRAOU) Degree Network",
+      "jid": "120363012345678919@g.us",
+      "category": "OPEN_UNIV",
+      "shift": "ALL_DAY",
+      "active": true,
+      "created_at": "2026-09-24 18:11"
+    },
+    {
+      "id": "G_18_472",
+      "name": "AP Open University (ANUCDE & Distance) Community",
+      "jid": "120363012345678920@g.us",
+      "category": "OPEN_UNIV",
+      "shift": "EVENING",
+      "active": true,
+      "created_at": "2026-09-24 18:11"
     }
   ],
   "gateway_url": "",
