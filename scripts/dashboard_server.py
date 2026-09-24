@@ -479,9 +479,22 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY"></textarea>
   <!-- TAB 6: SQUADS & ARENA -->
   <div id="tab-squads" class="tab-pane">
     <div class="panel-card">
-      <h2>👥 Registered Squads & Battle Rooms</h2>
-      <div style="display:flex; justify-content:space-between; margin-bottom:14px;">
-        <p style="color:var(--text-muted); font-size:13px;">Live list of squads, members, codes, invite links, and active rooms.</p>
+      <h2>👥 Registered Squads & Instant Squad Generator</h2>
+      <p style="color:var(--text-muted); font-size:13px; margin-bottom:14px;">
+        Generate new Squads with dynamic Telegram one-tap Join Links & scannable QR Codes directly from the Dashboard.
+      </p>
+
+      <div style="background:#0f172a; border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:18px;">
+        <h3 style="font-size:14px; margin-bottom:10px; color:#38bdf8;">➕ Quick Create Squad</h3>
+        <div style="display:flex; gap:10px;">
+          <input type="text" id="new-squad-name" placeholder="Squad Name (e.g. Warangal Tigers or JNTUK CSE Warriors)">
+          <input type="text" id="new-squad-leader" placeholder="Leader Name / Telegram ID (e.g. Charan or 999123)">
+          <button class="btn btn-accent" style="white-space:nowrap;" onclick="createDashboardSquad()">🚀 Generate Squad Link & QR</button>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+        <h3 style="font-size:15px;">Active Squads Directory</h3>
         <button class="btn btn-outline" onclick="loadSquads()">🔄 Refresh Squads</button>
       </div>
       <table id="table-squads">
@@ -489,9 +502,9 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY"></textarea>
           <tr>
             <th>Squad Code</th>
             <th>Name</th>
-            <th>Leader ID</th>
+            <th>Leader</th>
             <th>Members Count</th>
-            <th>Invite Link & QR</th>
+            <th>One-Tap Join Link & QR Code</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -820,7 +833,7 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY"></textarea>
           <td><b>SQ-${code}</b></td>
           <td>${s.name}</td>
           <td>${s.leader}</td>
-          <td>${(s.members || []).length} / 5</td>
+          <td>${(s.members || []).length} / 10</td>
           <td>
             <a href="${link}" target="_blank" style="color:var(--primary); text-decoration:none;">🔗 Join Link</a> | 
             <a href="https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${link}" target="_blank" style="color:var(--accent); text-decoration:none;">📱 View QR</a>
@@ -964,6 +977,40 @@ class DashboardHandler(BaseHTTPRequestHandler):
         p = urllib.parse.urlparse(self.path)
         length = int(self.headers.get("Content-Length", 0))
         body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+
+        if p.path == "/api/squads/create":
+            name = body.get("name", "Squad").strip()
+            leader = body.get("leader", "Admin").strip()
+            # Generate 4-letter squad code
+            import random, string
+            letters = string.ascii_uppercase
+            sq_data = hooks._sq()
+            code = "".join(random.choice(letters) for _ in range(4))
+            while code in sq_data.get("squads", {}):
+                code = "".join(random.choice(letters) for _ in range(4))
+
+            sq_data.setdefault("squads", {})[code] = {
+                "code": code,
+                "name": name,
+                "leader": leader,
+                "members": [leader],
+                "created": datetime.now().isoformat()
+            }
+            sq_data.setdefault("by_uid", {})[leader] = code
+            hooks.save_json_atomic(hooks.SQUADS_PATH, sq_data)
+
+            bot = getattr(config, "BOT_USERNAME", "") or "StudentUpBot"
+            link = f"https://t.me/{bot}?start=sq_{code}"
+            qr = f"https://api.qrserver.com/v1/create-qr-code/?size=600x600&data={link}"
+
+            self._send_json({
+                "ok": True,
+                "code": code,
+                "name": name,
+                "link": link,
+                "qr": qr
+            })
+            return
 
         if p.path == "/api/excel/import":
             raw_text = body.get("raw_text", "")

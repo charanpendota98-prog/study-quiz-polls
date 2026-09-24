@@ -1,0 +1,16 @@
+{
+  "squads": {
+    "NJYZ": {
+      "code": "NJYZ",
+      "name": "Warangal Super Squad",
+      "leader": "Charan",
+      "members": [
+        "Charan"
+      ],
+      "created": "2026-09-24T19:17:21.699134"
+    }
+  },
+  "by_uid": {
+    "Charan": "NJYZ"
+  }
+}
