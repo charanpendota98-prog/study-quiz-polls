@@ -136,6 +136,7 @@ HTML_PAGE = """<!DOCTYPE html>
 
   <div class="tabs">
     <button class="tab-btn active" onclick="switchTab('tab-wa-dispatch')">🛡️ WhatsApp 100+ Interleaved Dispatcher</button>
+    <button class="tab-btn" onclick="switchTab('tab-campus')">🏫 College On-Spot Exams & QR</button>
     <button class="tab-btn" onclick="switchTab('tab-excel-import')">📊 Excel / Sheet Quick Importer</button>
     <button class="tab-btn" onclick="switchTab('tab-bundles')">📦 Channel & Group Bundles</button>
     <button class="tab-btn" onclick="switchTab('tab-dynamic-channels')">📢 Telegram Channels & Poll Counts</button>
@@ -291,8 +292,156 @@ HTML_PAGE = """<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- TAB 2: EXCEL / SHEET IMPORTER -->
+  <!-- TAB 2: COLLEGE ON-SPOT EXAMS & QR -->
+  <div id="tab-campus" class="tab-pane">
+    <div class="panel-card">
+      <h2>🏫 College On-Spot Exam Launcher & Dynamic QR Generator</h2>
+      <p style="color:var(--text-muted); font-size:13px; margin-bottom:14px;">
+        ఏ కాలేజీకి వెళ్లినా సరే, అక్కడికక్కడే 1 నిమిషంలో కాలేజ్ పేరుతో ప్రత్యేక ఆన్-స్పాట్ టెస్ట్ లాంచ్ చేయవచ్చు! విద్యార్థులు స్కాన్ చేసి నేరుగా పేరు, మొబైల్ ఇచ్చి టెస్ట్ రాస్తారు. టెస్ట్ ముగియగానే పూర్తి మార్కుల రిపోర్ట్ ప్రిన్సిపాల్ / HOD కోసం రెడీ అవుతుంది.
+      </p>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+        <div style="background:#0f172a; padding:18px; border-radius:10px; border:1px solid var(--border);">
+          <h3 style="font-size:15px; margin-bottom:12px; color:#38bdf8;">➕ Launch New College Exam Event</h3>
+          <label>College Name (e.g. SR Engineering College or Kakatiya Univ):</label>
+          <input type="text" id="campus-college-name" placeholder="Enter College Name">
+
+          <label>District:</label>
+          <input type="text" id="campus-district" placeholder="e.g. Warangal, Visakhapatnam, Hyderabad, Guntur">
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+            <div>
+              <label>Number of Questions:</label>
+              <select id="campus-nq">
+                <option value="10">10 Questions (Quick 10-Min Test)</option>
+                <option value="15">15 Questions (Standard Test)</option>
+                <option value="20">20 Questions (Grand Challenge)</option>
+              </select>
+            </div>
+            <div>
+              <label>Difficulty Level:</label>
+              <select id="campus-level">
+                <option value="easy">Easy (Engaging GK/Tech/Science)</option>
+                <option value="medium">Medium (Competitive Level)</option>
+                <option value="hard">Hard (Advanced / GATE)</option>
+              </select>
+            </div>
+          </div>
+
+          <button class="btn btn-accent" style="margin-top:8px;" onclick="createCampusEvent()">🚀 Generate College Exam Link & QR Code</button>
+        </div>
+
+        <div>
+          <h3 style="font-size:15px; margin-bottom:12px;">📱 Active College Exam Link & Poster</h3>
+          <div id="campus-active-card" style="background:#050811; border:1px solid var(--border); border-radius:8px; padding:14px; font-size:13px; line-height:1.6; min-height:180px;">
+            Create or select a college event to view its live student registration link, QR Code and principal scorecard.
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:24px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h3>🏫 Active College Exam Sessions</h3>
+          <button class="btn btn-outline" onclick="loadCampusEvents()">🔄 Refresh Sessions</button>
+        </div>
+        <table id="table-campus">
+          <thead>
+            <tr>
+              <th>Event Code</th>
+              <th>College Name</th>
+              <th>District</th>
+              <th>Questions</th>
+              <th>Participants</th>
+              <th>Status</th>
+              <th>Action & Principal Report</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: EXCEL / SHEET IMPORTER -->
   <div id="tab-excel-import" class="tab-pane">
+    <div class="panel-card">
+      <h2>📊 Excel / Google Sheets Fast Importer (100+ to 150+ Groups & Channels)</h2>
+      <p style="color:var(--text-muted); font-size:13px; margin-bottom:14px;">
+        మీరు Excel లేదా Google Sheet నుండి 50, 100 లేదా 150 గ్రూపులు / ఛానెల్ లింకులు నేరుగా కాపీ చేసి క్రింద పేస్ట్ చేయండి! సిస్టమ్ ఆటోమేటిక్‌గా కేటగిరీలను డిటెక్ట్ చేసి సేవ్ చేస్తుంది.
+      </p>
+
+      <div style="background:#0f172a; padding:12px; border-radius:8px; margin-bottom:14px; font-size:12px; color:var(--text-muted);">
+        💡 <b>Excel Columns (Tab / Comma separated):</b><br>
+        <code>Group or Channel Name | Link or JID | Category (Optional) | Shift (Optional: MORNING/EVENING/ALL_DAY)</code>
+      </div>
+
+      <textarea id="excel-paste-text" rows="8" placeholder="Paste your Excel / Google Sheet rows here...
+Example:
+Warangal TS Police SI Batch	120363012345678990@g.us	POLICE	EVENING
+AP B.Tech Guntur Campus	120363012345678991@g.us	AP_BTECH	MORNING
+Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY"></textarea>
+
+      <div style="display:flex; gap:12px; align-items:center;">
+        <button class="btn btn-accent" onclick="importExcelSheet()">📥 Import All Groups & Channels from Excel</button>
+        <button class="btn btn-outline" onclick="document.getElementById('excel-paste-text').value=''">Clear Box</button>
+      </div>
+
+      <div id="excel-import-log" class="log-box" style="margin-top:16px;">Importer ready. Paste rows and click Import.</div>
+    </div>
+  </div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+            <div>
+              <label>Number of Questions:</label>
+              <select id="campus-nq">
+                <option value="10">10 Questions (Quick 10-Min Test)</option>
+                <option value="15">15 Questions (Standard Test)</option>
+                <option value="20">20 Questions (Grand Challenge)</option>
+              </select>
+            </div>
+            <div>
+              <label>Difficulty Level:</label>
+              <select id="campus-level">
+                <option value="easy">Easy (Engaging GK/Tech/Science)</option>
+                <option value="medium">Medium (Competitive Level)</option>
+                <option value="hard">Hard (Advanced / GATE)</option>
+              </select>
+            </div>
+          </div>
+
+          <button class="btn btn-accent" style="margin-top:8px;" onclick="createCampusEvent()">🚀 Generate College Exam Link & QR Code</button>
+        </div>
+
+        <div>
+          <h3 style="font-size:15px; margin-bottom:12px;">📱 Active College Exam Link & Poster</h3>
+          <div id="campus-active-card" style="background:#050811; border:1px solid var(--border); border-radius:8px; padding:14px; font-size:13px; line-height:1.6; min-height:180px;">
+            Create or select a college event to view its live student registration link, QR Code and principal scorecard.
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:24px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h3>🏫 Active College Exam Sessions</h3>
+          <button class="btn btn-outline" onclick="loadCampusEvents()">🔄 Refresh Sessions</button>
+        </div>
+        <table id="table-campus">
+          <thead>
+            <tr>
+              <th>Event Code</th>
+              <th>College Name</th>
+              <th>District</th>
+              <th>Questions</th>
+              <th>Participants</th>
+              <th>Status</th>
+              <th>Action & Principal Report</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
     <div class="panel-card">
       <h2>📊 Excel / Google Sheets Fast Importer (100+ to 150+ Groups & Channels)</h2>
       <p style="color:var(--text-muted); font-size:13px; margin-bottom:14px;">
@@ -541,6 +690,7 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY"></textarea>
       event.target.classList.add('active');
       document.getElementById(id).classList.add('active');
       if (id === 'tab-wa-dispatch') loadWAGroups();
+      if (id === 'tab-campus') loadCampusEvents();
       if (id === 'tab-dynamic-channels') loadChannels();
       if (id === 'tab-bundles') loadBundles();
       if (id === 'tab-squads') loadSquads();
@@ -681,6 +831,30 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY"></textarea>
       loadWAGroups();
     }
 
+    async function loadCampusEvents() {
+      const res = await fetch('/api/campus/list');
+      const d = await res.json();
+      const tbody = document.querySelector('#table-campus tbody');
+      tbody.innerHTML = '';
+      (d.events || []).forEach(e => {
+        const tr = document.createElement('tr');
+        const link = 'https://t.me/' + (d.bot || 'StudentUpBot') + '?start=c' + e.code.replace('CE-', '') + '-1';
+        tr.innerHTML = `
+          <td><b>${e.code}</b></td>
+          <td><b>${e.name}</b></td>
+          <td>${e.district}</td>
+          <td>${e.n_q} Qs (${e.level})</td>
+          <td style="color:#38bdf8; font-weight:700;">${e.players_count} Students</td>
+          <td><span class="status-pill ${e.state === 'open' ? 'open' : 'closed'}">${e.state}</span></td>
+          <td>
+            <a href="${link}" target="_blank" class="btn btn-outline" style="padding:3px 7px; font-size:11px; text-decoration:none;">🔗 Link</a>
+            <button class="btn btn-accent" style="padding:3px 7px; font-size:11px; margin-left:4px;" onclick="viewCampusReport('${e.code}')">📋 Report</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
     async function loadBundles() {
       const res = await fetch('/api/bundles');
       const d = await res.json();
@@ -700,6 +874,40 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY"></textarea>
         `;
         tbody.appendChild(tr);
       });
+    }
+
+    async function createCampusEvent() {
+      const col = document.getElementById('campus-college-name').value.trim();
+      const dist = document.getElementById('campus-district').value.trim();
+      const nq = parseInt(document.getElementById('campus-nq').value) || 10;
+      const lvl = document.getElementById('campus-level').value;
+      if (!col || !dist) return alert('Enter College name and District');
+
+      const res = await fetch('/api/campus/create', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({college: col, district: dist, n_q: nq, level: lvl})
+      });
+      const d = await res.json();
+      alert('College Exam Created! Code: ' + d.code);
+      document.getElementById('campus-college-name').value = '';
+      document.getElementById('campus-district').value = '';
+
+      const card = document.getElementById('campus-active-card');
+      card.innerHTML = `
+        <div style="color:#10b981; font-weight:700; margin-bottom:8px;">✅ Exam Live for ${col}!</div>
+        <div><b>One-Tap Student Link:</b> <a href="${d.link}" target="_blank" style="color:#38bdf8;">${d.link}</a></div>
+        <div style="margin-top:8px;"><b>📱 Scannable QR Code:</b></div>
+        <div style="margin-top:6px;"><img src="${d.qr}" style="width:140px; height:140px; border-radius:8px; border:2px solid #38bdf8;"></div>
+        <div style="font-size:11px; color:#94a3b8; margin-top:8px;">Share this QR code on projector screen or print for students to join instantly!</div>
+      `;
+      loadCampusEvents();
+    }
+
+    async function viewCampusReport(code) {
+      const res = await fetch('/api/campus/report?code=' + code);
+      const d = await res.json();
+      alert(d.report || 'No report available');
     }
 
     async function saveNewBundle() {
@@ -942,6 +1150,33 @@ class DashboardHandler(BaseHTTPRequestHandler):
             })
             return
 
+        if p.path == "/api/campus/list":
+            d = campus._load()
+            events = []
+            for c, e in d.get("events", {}).items():
+                events.append({
+                    "code": c,
+                    "name": e.get("name", ""),
+                    "district": e.get("district", ""),
+                    "colleges": e.get("colleges", []),
+                    "n_q": e.get("n_q", 10),
+                    "level": e.get("level", "easy"),
+                    "state": e.get("state", "open"),
+                    "players_count": len(e.get("players", {}))
+                })
+            self._send_json({
+                "bot": config.BOT_USERNAME or "StudentUpBot",
+                "events": events
+            })
+            return
+
+        if p.path == "/api/campus/report":
+            query = urllib.parse.parse_qs(p.query)
+            code = query.get("code", [""])[0]
+            rep = campus.college_report(code)
+            self._send_json({"ok": True, "report": rep})
+            return
+
         if p.path == "/api/bundles":
             self._send_json(bundle_manager.load_bundles())
             return
@@ -977,6 +1212,26 @@ class DashboardHandler(BaseHTTPRequestHandler):
         p = urllib.parse.urlparse(self.path)
         length = int(self.headers.get("Content-Length", 0))
         body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+
+        if p.path == "/api/campus/create":
+            college = body.get("college", "College").strip()
+            district = body.get("district", "District").strip()
+            nq = int(body.get("n_q", 10))
+            lvl = body.get("level", "easy")
+            code = campus.quick_event(college, district, n_q=nq, level=lvl)
+
+            bot = getattr(config, "BOT_USERNAME", "") or "StudentUpBot"
+            link = f"https://t.me/{bot}?start=c{code.replace('CE-', '')}-1"
+            qr = f"https://api.qrserver.com/v1/create-qr-code/?size=600x600&data={link}"
+
+            self._send_json({
+                "ok": True,
+                "code": code,
+                "college": college,
+                "link": link,
+                "qr": qr
+            })
+            return
 
         if p.path == "/api/squads/create":
             name = body.get("name", "Squad").strip()

@@ -670,9 +670,14 @@ def certificate_card(e, rank, p):
 
 def college_report(e):
     """For the Principal / HOD: one-page summary they can keep."""
+    if isinstance(e, str):
+        d = _load()
+        e = d["events"].get(e)
+    if not e:
+        return "No event found."
     rows = ranking(e); n_q = len(e["questions"])
     if not rows:
-        return ""
+        return f"🏛 COLLEGE REPORT — {e['name']}\n📍 {e['district']} · {_now().strftime('%d %b %Y')}\n\n👥 Participants: 0 (Exam Open / Pending Results)"
     cols = college_table(e)
     avg = sum(p["correct"] for _, p in rows) / len(rows)
     dist = {"💯 full": sum(1 for _, p in rows if p["correct"] == n_q), "🔥 80%+": sum(1 for _, p in rows if n_q > p["correct"] >= 0.8 * n_q),
