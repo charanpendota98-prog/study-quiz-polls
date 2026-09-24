@@ -13,6 +13,9 @@ CUSTOM_CHANNELS_FILE = config.DATA / "custom_channels.json"
 
 # Exam taxonomy keywords mapping exam titles to internal knowledge banks
 TAXONOMY = {
+    "TS_10TH": ["10TH", "SSC BOARD", "CLASS 10", "TENTH", "10TH CLASS", "SSC CLASS 10"],
+    "TS_INTER": ["INTER", "INTERMEDIATE", "MPC", "BIPC", "CEC", "HEC", "11TH", "12TH", "IPE", "EAMCET"],
+    "TS_DIPLOMA": ["DIPLOMA", "POLYCET", "POLYTECHNIC", "ECET", "SBTET", "C-20", "C-21"],
     "POLICE": ["POLICE", "SI", "SUB INSPECTOR", "SUB-INSPECTOR", "CONSTABLE", "TS POLICE", "AP POLICE", "TSSP", "APSP", "AR", "SAR", "CIVIL"],
     "BANKING": ["BANK", "BANKING", "IBPS", "SBI", "PO", "CLERK", "RBI", "NABARD", "CANARA", "HDFC", "FINANCE"],
     "SSC": ["SSC", "CGL", "CHSL", "MTS", "CPO", "GD", "STENO", "SELECTION POST", "CENTRAL"],

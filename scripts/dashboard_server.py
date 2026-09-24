@@ -155,6 +155,9 @@ HTML_PAGE = """<!DOCTYPE html>
               <label>🎯 Exam Category Filter:</label>
               <select id="wa-target-category">
                 <option value="ALL">🌐 ALL Categories (100+ Mode)</option>
+                <option value="TS_10TH">🎓 TS 10th Class Board (SSC Science/Maths/Social)</option>
+                <option value="TS_INTER">📘 TS Intermediate (MPC/BiPC/CEC/EAMCET)</option>
+                <option value="TS_DIPLOMA">⚙️ TS Diploma & POLYCET / ECET</option>
                 <option value="POLICE">👮 Police Exam Groups (TS Police SI, AP Police)</option>
                 <option value="SSC">🏛️ Central Jobs & SSC Groups (CGL, CHSL, MTS)</option>
                 <option value="RAILWAY">🚆 Railway RRB Groups (NTPC, Group D)</option>
@@ -237,6 +240,9 @@ HTML_PAGE = """<!DOCTYPE html>
           <input type="text" id="new-wa-jid" placeholder="Group JID or Invite link">
           <select id="new-wa-category" style="width:160px;">
             <option value="AUTO">🤖 Auto Category</option>
+            <option value="TS_10TH">TS 10th Class</option>
+            <option value="TS_INTER">TS Intermediate</option>
+            <option value="TS_DIPLOMA">TS Diploma</option>
             <option value="POLICE">POLICE</option>
             <option value="SSC">SSC / Central</option>
             <option value="RAILWAY">RAILWAY</option>
@@ -273,7 +279,10 @@ HTML_PAGE = """<!DOCTYPE html>
 
           <label>Exam Category (or Auto-Detect):</label>
           <select id="new-ch-base">
-            <option value="AUTO">🤖 Auto-Detect (SI/Constable -> POLICE, CGL -> SSC, etc.)</option>
+            <option value="AUTO">🤖 Auto-Detect (10th, Inter, Diploma, Police, etc.)</option>
+            <option value="TS_10TH">TS 10th Class Board (SSC)</option>
+            <option value="TS_INTER">TS Intermediate (MPC/BiPC/CEC)</option>
+            <option value="TS_DIPLOMA">TS Diploma & POLYCET / ECET</option>
             <option value="POLICE">Police Exams (SI / Constable / APSP / TSSP)</option>
             <option value="SSC">SSC Exams (CGL / CHSL / MTS / GD)</option>
             <option value="RAILWAY">Railway RRB (NTPC / Group D / ALP)</option>

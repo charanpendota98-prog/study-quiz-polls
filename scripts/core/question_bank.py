@@ -152,6 +152,67 @@ def rebuild_json():
     return valid, errors
 
 
+def load_academic_questions():
+    """Load curated syllabus questions for TS 10th Class, Intermediate, and Diploma POLYCET."""
+    acad_file = config.DATA / "academic_bank.md"
+    if not acad_file.exists():
+        return []
+    import re
+    with open(acad_file, "r", encoding="utf-8") as f:
+        text = f.read()
+    blocks = text.split("## Channel:")
+    items = []
+    for blk in blocks[1:]:
+        lines = blk.strip().split("\n")
+        ch = lines[0].strip()
+        sub_blocks = blk.split("### Topic:")
+        for sb in sub_blocks[1:]:
+            s_lines = sb.strip().split("\n")
+            topic = s_lines[0].strip()
+            q_en = ""
+            q_te = ""
+            options_en = []
+            options_te = []
+            ans_idx = 0
+            expl = ""
+            for l in s_lines[1:]:
+                l = l.strip()
+                if l.startswith("Q:"):
+                    q_en = l[2:].strip()
+                elif l.startswith("⤷"):
+                    q_te = l[1:].strip()
+                elif l.startswith("- A:") or l.startswith("- B:") or l.startswith("- C:") or l.startswith("- D:"):
+                    is_correct = "[correct]" in l
+                    clean_opt = l[4:].replace("[correct]", "").strip()
+                    m = re.match(r"(.*?)\s*\((.*?)\)", clean_opt)
+                    if m:
+                        en_o, te_o = m.group(1).strip(), m.group(2).strip()
+                    else:
+                        en_o, te_o = clean_opt, clean_opt
+                    options_en.append(en_o)
+                    options_te.append(te_o)
+                    if is_correct:
+                        ans_idx = len(options_en) - 1
+                elif l.startswith("Explanation:"):
+                    expl = l[12:].strip()
+            if q_en and options_en:
+                items.append({
+                    "id": f"ACAD-{ch}-{len(items)+1}",
+                    "channel": ch,
+                    "topic": topic,
+                    "q_en": q_en,
+                    "q_te": q_te or q_en,
+                    "options_en": options_en,
+                    "options_te": options_te,
+                    "answer_index": ans_idx,
+                    "explanation_en": expl,
+                    "explanation_te": expl,
+                    "source": "curated",
+                    "bank": "academic"
+                })
+    return items
+
+
 def load_bank(force_rebuild=False):
     """Load canonical bank; rebuild from MD if missing or forced."""
     if force_rebuild or not config.BANK_JSON.exists():
@@ -160,6 +221,11 @@ def load_bank(force_rebuild=False):
     qs = data.get("questions", [])
     if not qs and config.BANK_MD.exists():
         qs, _ = rebuild_json()
+    # Merge academic syllabus questions
+    acad = load_academic_questions()
+    if acad:
+        existing_ids = {q.get("id") for q in qs}
+        qs = list(qs) + [q for q in acad if q.get("id") not in existing_ids]
     return qs
 
 

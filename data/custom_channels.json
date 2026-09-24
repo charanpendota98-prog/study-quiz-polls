@@ -23,6 +23,81 @@
         "number series"
       ],
       "ts_ap_weight": 0.35
+    },
+    "TS_10TH_CLASS_BOARD_EXAM_PREP": {
+      "key": "TS_10TH_CLASS_BOARD_EXAM_PREP",
+      "name": "TS 10th Class Board Exam Prep",
+      "base_exam": "TSPSC",
+      "emoji": "📘",
+      "subject": "TS 10th Class Board Exam Prep Exam Prep (TSPSC Reasoning)",
+      "public": true,
+      "chat_id": "@ts_ssc_10th_quiz",
+      "username": "TSSSC10thQuiz",
+      "audience": "Telangana SSC 10th Class Board Exam & Polycet aspirants — Maths, Science, Social",
+      "topics": [
+        "syllogism",
+        "coding",
+        "seating",
+        "number series",
+        "analogy",
+        "direction",
+        "statement-assumption",
+        "figure count",
+        "logical order",
+        "blood relation",
+        "TS GK"
+      ],
+      "ts_ap_weight": 0.45
+    },
+    "TS_INTERMEDIATE__MPC_BIPC_CEC": {
+      "key": "TS_INTERMEDIATE__MPC_BIPC_CEC",
+      "name": "TS Intermediate (MPC/BiPC/CEC)",
+      "base_exam": "TSPSC",
+      "emoji": "📘",
+      "subject": "TS Intermediate (MPC/BiPC/CEC) Exam Prep (TSPSC Reasoning)",
+      "public": true,
+      "chat_id": "@ts_inter_quiz",
+      "username": "TSInterQuiz",
+      "audience": "TS Intermediate 1st & 2nd Year + EAMCET preparation — Maths, Physics, Chemistry, Civics",
+      "topics": [
+        "syllogism",
+        "coding",
+        "seating",
+        "number series",
+        "analogy",
+        "direction",
+        "statement-assumption",
+        "figure count",
+        "logical order",
+        "blood relation",
+        "TS GK"
+      ],
+      "ts_ap_weight": 0.45
+    },
+    "TS_DIPLOMA___POLYCET___ECET": {
+      "key": "TS_DIPLOMA___POLYCET___ECET",
+      "name": "TS Diploma & POLYCET / ECET",
+      "base_exam": "TSPSC",
+      "emoji": "📘",
+      "subject": "TS Diploma & POLYCET / ECET Exam Prep (TSPSC Reasoning)",
+      "public": true,
+      "chat_id": "@ts_diploma_polycet",
+      "username": "TSDiplomaPolycet",
+      "audience": "TS SBTET Diploma, POLYCET & ECET Engineering aspirants — Maths, Physics, Electronics, Mechanics",
+      "topics": [
+        "syllogism",
+        "coding",
+        "seating",
+        "number series",
+        "analogy",
+        "direction",
+        "statement-assumption",
+        "figure count",
+        "logical order",
+        "blood relation",
+        "TS GK"
+      ],
+      "ts_ap_weight": 0.45
     }
   }
 }
