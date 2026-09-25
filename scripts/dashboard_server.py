@@ -521,15 +521,28 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY"></textarea>
       </div>
 
       <div style="margin-top:24px;">
-        <h3>Active Channels & Real-Time Question Counts</h3>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div>
+            <h3 style="margin-bottom:4px;">Active Channels & Real-Time Question Counts</h3>
+            <span style="font-size:12px; color:var(--text-muted);">Select specific channels to dispatch customized quiz rounds instantly</span>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-accent" style="font-size:12px; padding:6px 12px;" onclick="dispatchSelectedChannels()">🚀 Post Quiz to Selected Channels</button>
+            <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="selectAllChannels(true)">Select All</button>
+            <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="selectAllChannels(false)">Clear</button>
+            <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="loadChannels()">🔄 Refresh</button>
+          </div>
+        </div>
         <table id="table-channels">
           <thead>
             <tr>
+              <th style="width:30px;"><input type="checkbox" id="ch-select-all" onchange="selectAllChannels(this.checked)"></th>
               <th>Channel Key</th>
               <th>Channel Title</th>
               <th>Syllabus Category</th>
               <th>Available Polls Count</th>
               <th>Chat Target</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -942,11 +955,15 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY"></textarea>
         const count = counts[ch.base_exam || key] || counts[key] || 0;
         const tr = document.createElement('tr');
         tr.innerHTML = `
+          <td><input type="checkbox" class="tg-ch-select-checkbox" data-chkey="${key}"></td>
           <td><b>${key}</b></td>
           <td>${ch.emoji || '🎯'} ${ch.name}</td>
           <td><span class="category-tag">${ch.base_exam || key}</span></td>
           <td style="color:#38bdf8; font-weight:700;">${count} Questions</td>
           <td style="font-family:monospace;">${ch.chat_id || ch.username || '—'}</td>
+          <td>
+            <button class="btn btn-outline" style="padding:3px 7px; font-size:11px;" onclick="quickPostChannel('${key}')">⚡ Post Quiz</button>
+          </td>
         `;
         tbody.appendChild(tr);
 
@@ -955,6 +972,57 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY"></textarea>
         opt.innerText = (ch.emoji || '🎯') + ' ' + ch.name + ' (' + count + ' polls)';
         select.appendChild(opt);
       }
+    }
+
+    function selectAllChannels(checked) {
+      const cbs = document.querySelectorAll('.tg-ch-select-checkbox');
+      cbs.forEach(cb => cb.checked = checked);
+      const master = document.getElementById('ch-select-all');
+      if (master) master.checked = checked;
+    }
+
+    function getSelectedChannelKeys() {
+      const cbs = document.querySelectorAll('.tg-ch-select-checkbox:checked');
+      return Array.from(cbs).map(cb => cb.getAttribute('data-chkey'));
+    }
+
+    async function quickPostChannel(key) {
+      const log = document.getElementById('tg-poll-log');
+      log.innerText = 'Posting 1 poll to ' + key + '...';
+      const res = await fetch('/api/post_poll', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({channel: key, count: 1})
+      });
+      const d = await res.json();
+      log.innerText = d.message || 'Poll dispatched!';
+      loadChannels();
+      fetchStats();
+    }
+
+    async function dispatchSelectedChannels() {
+      const keys = getSelectedChannelKeys();
+      if (!keys || keys.length === 0) {
+        return alert('Please select at least 1 channel using the checkboxes!');
+      }
+      if (!confirm(`Post exam quiz polls to ${keys.length} selected channel(s)?`)) return;
+
+      const log = document.getElementById('tg-poll-log');
+      log.innerText = `Dispatching polls across ${keys.length} channels...`;
+      let okCount = 0;
+      for (const k of keys) {
+        const res = await fetch('/api/post_poll', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({channel: k, count: 1})
+        });
+        const d = await res.json();
+        if (d.ok) okCount++;
+      }
+      log.innerText = `✅ Successfully posted polls across ${okCount} / ${keys.length} channels!`;
+      alert(`✅ Successfully posted polls across ${okCount} channels!`);
+      loadChannels();
+      fetchStats();
     }
 
     async function createNewChannel() {
