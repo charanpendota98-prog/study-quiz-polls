@@ -221,6 +221,26 @@
       "shift": "MORNING",
       "active": true,
       "created_at": "2026-09-24 18:55"
+    },
+    {
+      "id": "G_26_364",
+      "name": "Warangal SI Batch 2026",
+      "jid": "120363012345678000@g.us",
+      "category": "POLICE",
+      "group_type": "EXAM_SPECIFIC",
+      "shift": "EVENING",
+      "active": true,
+      "created_at": "2026-09-25 16:56"
+    },
+    {
+      "id": "G_27_364",
+      "name": "TS & AP General Studies Club",
+      "jid": "120363012345678001@g.us",
+      "category": "GENERAL",
+      "group_type": "GENERAL",
+      "shift": "ALL_DAY",
+      "active": true,
+      "created_at": "2026-09-25 16:56"
     }
   ],
   "gateway_url": "",

@@ -255,6 +255,7 @@ HTML_PAGE = """<!DOCTYPE html>
               <th>ID</th>
               <th>Group Title</th>
               <th>Category</th>
+              <th>Group Type</th>
               <th>Shift</th>
               <th>JID / Link</th>
               <th>Status</th>
@@ -264,11 +265,12 @@ HTML_PAGE = """<!DOCTYPE html>
           <tbody></tbody>
         </table>
 
-        <div style="display:flex; gap:10px; margin-top:16px; background:#0f172a; padding:12px; border-radius:8px;">
-          <input type="text" id="new-wa-title" placeholder="Group Title (e.g. Warangal TS Police SI Batch)">
-          <input type="text" id="new-wa-jid" placeholder="Group JID or Invite link">
+        <div style="display:flex; gap:10px; margin-top:16px; background:#0f172a; padding:12px; border-radius:8px; flex-wrap:wrap;">
+          <input type="text" id="new-wa-title" placeholder="Group Title (e.g. Warangal TS Police SI Batch)" style="flex:2; min-width:200px;">
+          <input type="text" id="new-wa-jid" placeholder="Group JID or Invite link" style="flex:2; min-width:200px;">
           <select id="new-wa-category" style="width:160px;">
             <option value="AUTO">🤖 Auto Category</option>
+            <option value="GENERAL">🌐 General Group</option>
             <option value="AP_BTECH">AP B.Tech</option>
             <option value="AP_DEGREE">AP Degree</option>
             <option value="AP_DIPLOMA">AP Diploma</option>
@@ -288,6 +290,17 @@ HTML_PAGE = """<!DOCTYPE html>
             <option value="TSPSC">TSPSC / TS Districts</option>
             <option value="APPSC">APPSC / AP Districts</option>
           </select>
+          <select id="new-wa-grouptype" style="width:160px;">
+            <option value="EXAM_SPECIFIC">🎯 Specific Exam Group</option>
+            <option value="GENERAL">🌐 General Group</option>
+          </select>
+          <select id="new-wa-shift" style="width:130px;">
+            <option value="ALL_DAY">All-Day</option>
+            <option value="MORNING">Morning Shift</option>
+            <option value="EVENING">Evening Shift</option>
+          </select>
+          <button class="btn btn-accent" style="white-space:nowrap;" onclick="addNewWAGroup()">➕ Connect Group</button>
+        </div>
           <select id="new-wa-shift" style="width:140px;">
             <option value="ALL_DAY">All-Day</option>
             <option value="MORNING">Morning Shift</option>
@@ -382,27 +395,30 @@ HTML_PAGE = """<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- TAB 3: EXCEL / SHEET IMPORTER -->
+  <!-- TAB 3: EXCEL / SHEET IMPORTER & MANAGER -->
   <div id="tab-excel-import" class="tab-pane">
     <div class="panel-card">
-      <h2>📊 Excel / Google Sheets Fast Importer (100+ to 150+ Groups & Channels)</h2>
+      <h2>📊 Excel / Google Sheets Fast Importer & Editor (100+ to 150+ Groups & Channels)</h2>
       <p style="color:var(--text-muted); font-size:13px; margin-bottom:14px;">
-        మీరు Excel లేదా Google Sheet నుండి 50, 100 లేదా 150 గ్రూపులు / ఛానెల్ లింకులు నేరుగా కాపీ చేసి క్రింద పేస్ట్ చేయండి! సిస్టమ్ ఆటోమేటిక్‌గా కేటగిరీలను డిటెక్ట్ చేసి సేవ్ చేస్తుంది.
+        మీరు Excel లేదా Google Sheet నుండి 50, 100 లేదా 150 గ్రూపుల వివరాలు నేరుగా కాపీ చేసి ఇక్కడ పేస్ట్ చేసి సేవ్ చేయవచ్చు. ప్రతి గ్రూప్ పక్కన ఇది <b>General Group (GK & General Quiz)</b> లేదా <b>Specific Exam Group (SI, Constable, B.Tech, SSC, Banking)</b> అని స్పష్టంగా మెన్షన్ చేయవచ్చు!
       </p>
 
-      <div style="background:#0f172a; padding:12px; border-radius:8px; margin-bottom:14px; font-size:12px; color:var(--text-muted);">
+      <div style="background:#0f172a; padding:12px; border-radius:8px; margin-bottom:14px; font-size:12px; color:var(--text-muted); border-left:4px solid #38bdf8;">
         💡 <b>Excel Columns (Tab / Comma separated):</b><br>
-        <code>Group or Channel Name | Link or JID | Category (Optional) | Shift (Optional: MORNING/EVENING/ALL_DAY)</code>
+        <code>Group or Channel Name | Link or JID | Category (Optional) | Shift (Optional) | Group Type (Optional: GENERAL or EXAM_SPECIFIC)</code><br>
+        <span style="color:#a7f3d0; font-size:11px;">(Note: 5వ కాలమ్‌లో GENERAL అని రాస్తే జనరల్ గ్రూప్ అని, EXAM_SPECIFIC అని రాస్తే ఆ నిర్దిష్ట పరీక్ష సిలబస్ గ్రూప్ అని సిస్టమ్ రికార్డ్ చేస్తుంది).</span>
       </div>
 
       <textarea id="excel-paste-text" rows="8" placeholder="Paste your Excel / Google Sheet rows here...
 Example:
-Warangal TS Police SI Batch	120363012345678990@g.us	POLICE	EVENING
-AP B.Tech Guntur Campus	120363012345678991@g.us	AP_BTECH	MORNING
-Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY"></textarea>
+Warangal TS Police SI Batch	120363012345678990@g.us	POLICE	EVENING	EXAM_SPECIFIC
+Hyderabad Aspirants Daily Club	120363012345678999@g.us	GENERAL	ALL_DAY	GENERAL
+AP B.Tech Guntur Campus	120363012345678991@g.us	AP_BTECH	MORNING	EXAM_SPECIFIC
+Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></textarea>
 
-      <div style="display:flex; gap:12px; align-items:center;">
-        <button class="btn btn-accent" onclick="importExcelSheet()">📥 Import All Groups & Channels from Excel</button>
+      <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+        <button class="btn btn-accent" onclick="importExcelSheet()">📥 Import & Save Rows to Database</button>
+        <button class="btn btn-purple" onclick="exportExcelSheet()">📤 Export Current Groups as Excel / TSV</button>
         <button class="btn btn-outline" onclick="document.getElementById('excel-paste-text').value=''">Clear Box</button>
       </div>
 
@@ -699,11 +715,17 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY"></textarea>
       tbody.innerHTML = '';
       (d.groups || []).forEach(g => {
         const tr = document.createElement('tr');
+        const gType = g.group_type || 'EXAM_SPECIFIC';
+        const typeBadge = gType === 'GENERAL'
+          ? '<span style="background:#0284c7; color:white; padding:2px 7px; border-radius:12px; font-size:10px; font-weight:700;">🌐 GENERAL</span>'
+          : '<span style="background:#059669; color:white; padding:2px 7px; border-radius:12px; font-size:10px; font-weight:700;">🎯 EXAM-SPECIFIC</span>';
+
         tr.innerHTML = `
           <td><input type="checkbox" class="wa-group-select-checkbox" data-gid="${g.id}"></td>
           <td>${g.id}</td>
           <td><b>${g.name}</b></td>
           <td><span class="category-tag">${g.category || 'GENERAL'}</span></td>
+          <td>${typeBadge}</td>
           <td><span class="shift-tag">${g.shift || 'ALL_DAY'}</span></td>
           <td style="font-family:monospace; font-size:12px;">${g.jid}</td>
           <td><span class="status-pill ${g.active ? 'open' : 'closed'}">${g.active ? 'Active' : 'Paused'}</span></td>
@@ -712,6 +734,36 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY"></textarea>
         tbody.appendChild(tr);
       });
       if (d.gateway_url) document.getElementById('wa-gateway-input').value = d.gateway_url;
+    }
+
+    async function exportExcelSheet() {
+      const res = await fetch('/api/whatsapp/groups');
+      const d = await res.json();
+      const groups = d.groups || [];
+      const lines = ['Group Name\tLink or JID\tCategory\tShift\tGroup Type'];
+      groups.forEach(g => {
+        lines.push(`${g.name}\t${g.jid}\t${g.category || 'GENERAL'}\t${g.shift || 'ALL_DAY'}\t${g.group_type || 'EXAM_SPECIFIC'}`);
+      });
+      document.getElementById('excel-paste-text').value = lines.join('\n');
+      document.getElementById('excel-import-log').innerText = `📋 Exported ${groups.length} groups to text box! You can copy/edit them directly and click Save.`;
+    }
+
+    async function addNewWAGroup() {
+      const name = document.getElementById('new-wa-title').value.trim();
+      const jid = document.getElementById('new-wa-jid').value.trim();
+      const category = document.getElementById('new-wa-category').value;
+      const gType = document.getElementById('new-wa-grouptype').value;
+      const shift = document.getElementById('new-wa-shift').value;
+      if (!name || !jid) return alert('Enter group name and JID / Link');
+      await fetch('/api/whatsapp/add_group', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name, jid, category, shift, group_type: gType})
+      });
+      document.getElementById('new-wa-title').value = '';
+      document.getElementById('new-wa-jid').value = '';
+      loadWAGroups();
+      fetchStats();
     }
 
     function selectAllGroups(checked) {
@@ -1350,8 +1402,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
             jid = body.get("jid", "").strip()
             cat = body.get("category", "AUTO")
             shift = body.get("shift", "ALL_DAY")
-            new_g = whatsapp_pipeline.add_group(name, jid, cat, shift)
+            g_type = body.get("group_type", "EXAM_SPECIFIC")
+            new_g = whatsapp_pipeline.add_group(name, jid, cat, shift, group_type=g_type)
             self._send_json({"ok": True, "group": new_g})
+            return
+
+        if p.path == "/api/whatsapp/update_group":
+            gid = body.get("id")
+            updates = body.get("updates", {})
+            updated = whatsapp_pipeline.update_group(gid, updates)
+            self._send_json({"ok": bool(updated), "group": updated})
             return
 
         if p.path == "/api/whatsapp/remove_group":

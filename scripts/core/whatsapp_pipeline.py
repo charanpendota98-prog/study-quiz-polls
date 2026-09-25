@@ -150,7 +150,7 @@ def save_wa_registry(d: dict):
     save_json_atomic(WA_CONFIG_FILE, d)
 
 
-def add_group(name: str, jid: str, category: str = "AUTO", shift: str = "ALL_DAY") -> dict:
+def add_group(name: str, jid: str, category: str = "AUTO", shift: str = "ALL_DAY", group_type: str = "EXAM_SPECIFIC") -> dict:
     d = load_wa_registry()
     if category == "AUTO" or not category:
         category = channel_router.detect_exam_base(name)
@@ -160,6 +160,7 @@ def add_group(name: str, jid: str, category: str = "AUTO", shift: str = "ALL_DAY
         "name": name.strip(),
         "jid": jid.strip(),
         "category": category,
+        "group_type": group_type or "EXAM_SPECIFIC",
         "shift": shift or "ALL_DAY",
         "active": True,
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -167,6 +168,19 @@ def add_group(name: str, jid: str, category: str = "AUTO", shift: str = "ALL_DAY
     d.setdefault("groups", []).append(new_g)
     save_wa_registry(d)
     return new_g
+
+
+def update_group(gid: str, updates: dict) -> dict:
+    d = load_wa_registry()
+    target = None
+    for g in d.get("groups", []):
+        if g.get("id") == gid:
+            g.update(updates)
+            target = g
+            break
+    if target:
+        save_wa_registry(d)
+    return target
 
 
 def remove_group(gid: str) -> bool:

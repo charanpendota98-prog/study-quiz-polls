@@ -130,6 +130,8 @@ def import_from_csv_or_excel_text(raw_text: str) -> dict:
         link_or_jid = parts[1] if len(parts) > 1 else ""
         category = parts[2] if len(parts) > 2 and parts[2] else channel_router.detect_exam_base(name)
         shift = parts[3].upper() if len(parts) > 3 and parts[3] in ("MORNING", "EVENING", "ALL_DAY") else "ALL_DAY"
+        # Optional Column 5: Group Type (GENERAL vs EXAM_SPECIFIC)
+        g_type = parts[4].upper() if len(parts) > 4 and parts[4] else ("GENERAL" if "general" in (category.lower() + " " + name.lower()) else "EXAM_SPECIFIC")
 
         # Check if it is a Telegram channel (@ or t.me/ or channel ID)
         if link_or_jid.startswith("@") or "t.me/" in link_or_jid:
@@ -137,7 +139,7 @@ def import_from_csv_or_excel_text(raw_text: str) -> dict:
             added_channels.append(ch_info)
         else:
             # WhatsApp Group
-            grp = whatsapp_pipeline.add_group(name, link_or_jid, category=category, shift=shift)
+            grp = whatsapp_pipeline.add_group(name, link_or_jid, category=category, shift=shift, group_type=g_type)
             added_groups.append(grp)
 
     return {
