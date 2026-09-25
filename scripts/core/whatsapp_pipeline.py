@@ -262,6 +262,7 @@ def _log(msg: str):
 def start_interleaved_broadcast(
     target_category: str = "ALL",
     shift_filter: str = "ALL",
+    target_group_ids: list = None,
     is_question: bool = True,
     questions_per_group: int = 1,
     custom_message: str = "",
@@ -272,6 +273,7 @@ def start_interleaved_broadcast(
 ) -> dict:
     """
     Launch asynchronous non-blocking broadcast worker with Interleaved Gap Rotation.
+    Supports target_group_ids for custom multi-selection of groups!
     """
     global EXEC_STATE
     if EXEC_STATE["running"]:
@@ -280,16 +282,21 @@ def start_interleaved_broadcast(
     reg = load_wa_registry()
     groups = [g for g in reg.get("groups", []) if g.get("active")]
 
-    # Apply Category filter
-    if target_category != "ALL":
-        groups = [g for g in groups if g.get("category", "").upper() == target_category.upper()]
+    # If specific group IDs are selected, prioritize them directly!
+    if target_group_ids and len(target_group_ids) > 0:
+        target_set = set(target_group_ids)
+        groups = [g for g in groups if g.get("id") in target_set or g.get("jid") in target_set]
+    else:
+        # Apply Category filter
+        if target_category != "ALL":
+            groups = [g for g in groups if g.get("category", "").upper() == target_category.upper()]
 
-    # Apply Shift filter (MORNING, EVENING, ALL_DAY)
-    if shift_filter != "ALL":
-        groups = [g for g in groups if g.get("shift", "ALL_DAY") in (shift_filter, "ALL_DAY")]
+        # Apply Shift filter (MORNING, EVENING, ALL_DAY)
+        if shift_filter != "ALL":
+            groups = [g for g in groups if g.get("shift", "ALL_DAY") in (shift_filter, "ALL_DAY")]
 
     if not groups:
-        return {"ok": False, "message": f"No active groups found for Category: {target_category}, Shift: {shift_filter}"}
+        return {"ok": False, "message": f"No active groups found for the selected filter."}
 
     EXEC_STATE["running"] = True
     EXEC_STATE["task_id"] = f"task_{int(time.time())}"

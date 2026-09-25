@@ -237,12 +237,21 @@ HTML_PAGE = """<!DOCTYPE html>
 
       <div style="margin-top:24px;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
-          <h3>📋 Managed WhatsApp Groups Directory</h3>
-          <button class="btn btn-outline" onclick="loadWAGroups()">🔄 Refresh Groups</button>
+          <div>
+            <h3 style="margin-bottom:4px;">📋 Managed WhatsApp Groups Directory</h3>
+            <span style="font-size:12px; color:var(--text-muted);">Select specific groups to dispatch quizzes instantly to chosen targets</span>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-purple" style="font-size:12px; padding:6px 12px;" onclick="dispatchSelectedGroups()">⚡ Run Quiz on Selected Groups</button>
+            <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="selectAllGroups(true)">Select All</button>
+            <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="selectAllGroups(false)">Clear</button>
+            <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="loadWAGroups()">🔄 Refresh Groups</button>
+          </div>
         </div>
         <table id="table-wa-groups">
           <thead>
             <tr>
+              <th style="width:30px;"><input type="checkbox" id="wa-select-all" onchange="selectAllGroups(this.checked)"></th>
               <th>ID</th>
               <th>Group Title</th>
               <th>Category</th>
@@ -678,6 +687,7 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY"></textarea>
       (d.groups || []).forEach(g => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
+          <td><input type="checkbox" class="wa-group-select-checkbox" data-gid="${g.id}"></td>
           <td>${g.id}</td>
           <td><b>${g.name}</b></td>
           <td><span class="category-tag">${g.category || 'GENERAL'}</span></td>
@@ -689,6 +699,42 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY"></textarea>
         tbody.appendChild(tr);
       });
       if (d.gateway_url) document.getElementById('wa-gateway-input').value = d.gateway_url;
+    }
+
+    function selectAllGroups(checked) {
+      const cbs = document.querySelectorAll('.wa-group-select-checkbox');
+      cbs.forEach(cb => cb.checked = checked);
+      const master = document.getElementById('wa-select-all');
+      if (master) master.checked = checked;
+    }
+
+    function getSelectedGroupIds() {
+      const cbs = document.querySelectorAll('.wa-group-select-checkbox:checked');
+      return Array.from(cbs).map(cb => cb.getAttribute('data-gid'));
+    }
+
+    async function dispatchSelectedGroups() {
+      const gids = getSelectedGroupIds();
+      if (!gids || gids.length === 0) {
+        return alert('Please select at least 1 WhatsApp group using the checkboxes to dispatch!');
+      }
+      if (!confirm(`Run quiz poll broadcast on ${gids.length} selected group(s)?`)) return;
+
+      const gw = document.getElementById('wa-gateway-input').value;
+      const res = await fetch('/api/whatsapp/start_pipeline', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          target_group_ids: gids,
+          is_question: true,
+          gateway: gw,
+          delay_min: 20,
+          delay_max: 30
+        })
+      });
+      const d = await res.json();
+      if (!d.ok) alert(d.message);
+      else alert(`🚀 Broadcast started for ${gids.length} selected groups!`);
     }
 
     async function addNewWAGroup() {
@@ -1249,6 +1295,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if p.path == "/api/whatsapp/start_pipeline":
             cat = body.get("category", "ALL")
             shift = body.get("shift", "ALL")
+            target_gids = body.get("target_group_ids", None)
             is_q = body.get("is_question", True)
             msg = body.get("custom_msg", "")
             att = body.get("attachment", "")
@@ -1264,6 +1311,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             res = whatsapp_pipeline.start_interleaved_broadcast(
                 target_category=cat,
                 shift_filter=shift,
+                target_group_ids=target_gids,
                 is_question=is_q,
                 custom_message=msg,
                 attachment_url=att,
