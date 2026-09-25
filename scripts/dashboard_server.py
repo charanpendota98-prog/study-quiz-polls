@@ -91,6 +91,9 @@ HTML_PAGE = """<!DOCTYPE html>
     .shift-tag { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); padding: 3px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; }
     .progress-bar-container { width: 100%; background: #1e293b; border-radius: 9999px; height: 10px; overflow: hidden; margin-top: 10px; margin-bottom: 10px; }
     .progress-bar { height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); width: 0%; transition: width 0.3s; }
+    .guide-banner { background: linear-gradient(135deg, rgba(37,99,235,0.15) 0%, rgba(16,185,129,0.12) 100%); border: 1px solid rgba(59,130,246,0.3); border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; }
+    .guide-banner h4 { font-size: 14px; color: #38bdf8; display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .guide-banner p { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
   </style>
 </head>
 <body>
@@ -104,6 +107,15 @@ HTML_PAGE = """<!DOCTYPE html>
       <span class="badge-live">● ENGINE LIVE</span>
       <button class="btn btn-outline" onclick="location.reload()">🔄 Refresh</button>
     </div>
+  </div>
+
+  <div class="guide-banner">
+    <h4>⚡ Quick Operational Guide — సులభమైన ఆపరేషన్ గైడ్:</h4>
+    <p>
+      1️⃣ <b>Excel / Sheet Importer:</b> మీ వద్ద ఉన్న 50 నుండి 150 వాట్సాప్ గ్రూపుల లింకులను ఒకేసారి కాపీ చేసి ఇక్కడ పేస్ట్ చేయండి. ఇది <code>GENERAL</code> గ్రూపా లేదా <code>EXAM_SPECIFIC</code> ఆ అని ఆటోమేటిక్‌గా గుర్తిస్తుంది.<br>
+      2️⃣ <b>WhatsApp 100+ Interleaved:</b> కావలసిన గ్రూపులను చెక్‌బాక్స్ ద్వారా టిక్ చేసి <b>"⚡ Run Quiz on Selected Groups"</b> నొక్కండి (20–30s సేఫ్ ఆలోచనా గ్యాప్‌తో ఆటోమేటిక్‌గా రొటేట్ అవుతుంది).<br>
+      3️⃣ <b>College On-Spot Exams:</b> కాలేజీ పేరు, సబ్జెక్ట్స్ (Reasoning, Coding, Maths) ఎంచుకుని <b>QR కోడ్</b> డిస్‌ప్లే చేయండి. ఎగ్జామ్ ముగియగానే <b>Special Top 3 Winners</b> పేర్లు విద్యార్థులందరి ఫోన్‌లలోకి ఆటోమేటిక్‌గా వెళ్తాయి!
+    </p>
   </div>
 
   <div class="grid-stats">
