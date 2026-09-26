@@ -440,9 +440,23 @@ def start_interleaved_broadcast(
                     EXEC_STATE["current_stage"] = "Posting Question"
 
                     if is_question:
-                        qs = bank.pick(cat, 1)
+                        # Smart Subject & PYQ Matching:
+                        # 1. If group has a specific exam category, pick from that exam syllabus / PYQs
+                        # 2. If GENERAL or empty, pick universal Reasoning / Quantitative Aptitude / English / CA
+                        g_type = grp.get("group_type", "EXAM_SPECIFIC")
+                        if g_type == "GENERAL" or cat.upper() in ("GENERAL", "AUTO", ""):
+                            # Pick universal foundational subjects (Reasoning / Quant / English / GK)
+                            gen_pool = ["TSPSC", "SSC", "BANKING", "CURRENT", "POLICE"]
+                            chosen_cat = random.choice(gen_pool)
+                            qs = bank.pick(chosen_cat, 1)
+                            pick_label = f"Universal Aptitude/GK ({chosen_cat})"
+                        else:
+                            # Pick strict syllabus questions & Previous Year Questions for that exam
+                            qs = bank.pick(cat, 1)
+                            pick_label = cat
+
                         if not qs:
-                            qs = bank.pick("CURRENT", 1)
+                            qs = bank.pick("CURRENT", 1) or bank.pick("TSPSC", 1)
                         q = qs[0] if qs else None
                         if q:
                             txt = build_question_only_post(q, grp["name"], cat, 1, 1)
@@ -452,7 +466,7 @@ def start_interleaved_broadcast(
                     else:
                         txt = apply_stealth_jitter(custom_message)
 
-                    _log(f"📤 Group '{grp['name']}' [{cat}] (JID: {grp['jid']}) -> Question Dispatched")
+                    _log(f"📤 Group '{grp['name']}' [{cat} | {g_type}] -> Dispatched: {pick_label}")
                     ok, res = _dispatch_raw(gw, grp["jid"], txt, attachment=attachment_url)
                     _log(f"   -> Result: {res}")
 
