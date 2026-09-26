@@ -29,8 +29,9 @@ TAXONOMY = {
     "BANKING": ["BANK", "BANKING", "IBPS", "SBI", "PO", "CLERK", "RBI", "NABARD", "CANARA", "HDFC", "FINANCE"],
     "SSC": ["SSC", "CGL", "CHSL", "MTS", "CPO", "GD", "STENO", "SELECTION POST", "CENTRAL"],
     "RAILWAY": ["RAILWAY", "RRB", "NTPC", "GROUP D", "ALP", "LOCO PILOT", "JE", "TC", "RPF"],
-    "TSPSC": ["TSPSC", "TELANGANA", "GROUP 1", "GROUP 2", "GROUP 3", "GROUP 4", "VRO", "PANCHAYAT SECRETARY", "TS"],
-    "APPSC": ["APPSC", "ANDHRA", "AP GROUP 1", "AP GROUP 2", "AP GROUP 4", "GRAMA SACHIVALAYAM", "WARD", "AP"],
+    "TSPSC": ["TSPSC", "TELANGANA GROUP", "TS GROUP 1", "TS GROUP 2", "TS GROUP 3", "TS GROUP 4", "VRO", "PANCHAYAT SECRETARY"],
+    "APPSC": ["APPSC", "ANDHRA GROUP", "AP GROUP 1", "AP GROUP 2", "AP GROUP 3", "AP GROUP 4", "GRAMA SACHIVALAYAM", "WARD SECRETARY"],
+    "TET_DSC": ["TET", "TS TET", "APTET", "AP TET", "DSC", "TS DSC", "AP DSC", "TRT", "TEACHER", "SGT", "SCHOOL ASSISTANT", "PEDAGOGY", "CHILD DEVELOPMENT", "BED", "DED", "B.ED", "D.ED"],
     "DEFENCE": ["DEFENCE", "ARMY", "NAVY", "AIR FORCE", "NDA", "CDS", "AFCAT", "AGNIVEER", "CAPF", "CISF", "CRPF", "BSF", "ITBP"],
     "CURRENT": ["CURRENT", "AFFAIRS", "GK", "DAILY NEWS", "GENERAL KNOWLEDGE", "GS", "GENERAL STUDIES"]
 }
@@ -45,13 +46,23 @@ def save_custom_channels(d: dict):
 
 
 def detect_exam_base(title_or_exam: str) -> str:
-    """Detect matching exam category from arbitrary user input / title."""
+    """Detect matching exam category from arbitrary user input / title with longest-match precision."""
     s = title_or_exam.upper().strip()
+    
+    # Check exact word boundary matches sorted by keyword length (descending) for precision
+    candidates = []
     for base_exam, keywords in TAXONOMY.items():
         for kw in keywords:
-            # Word boundary regex or direct token
-            if re.search(r'\b' + re.escape(kw) + r'\b', s) or kw in s:
-                return base_exam
+            # Word boundary search
+            if re.search(r'\b' + re.escape(kw) + r'\b', s):
+                candidates.append((len(kw), base_exam))
+            elif kw in s and len(kw) >= 4:
+                candidates.append((len(kw), base_exam))
+                
+    if candidates:
+        candidates.sort(key=lambda x: -x[0])
+        return candidates[0][1]
+
     return "CURRENT"
 
 

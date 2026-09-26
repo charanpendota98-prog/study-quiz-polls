@@ -491,3 +491,44 @@ Q: Which Article of the Indian Constitution guarantees the 'Right to Equality be
 - D: Article 32
 Explanation: Article 14 provides equality before the law or the equal protection of the laws within the territory of India.
 Exam: TS & AP Open Degree Foundation & Distance Education
+
+## Channel: TET_DSC
+### Topic: TS & AP TET / DSC — Child Development & Pedagogy (సైకాలజీ & బోధనా పద్ధతులు)
+Q: According to Jean Piaget, during which cognitive stage does a child develop 'Object Permanence'?
+⤷ జీన్ పియాజె ప్రకారం, పిల్లలలో 'వస్తు స్థిరత్వ భావన' (Object Permanence) ఏ సంజ్ఞానాత్మక వికాస దశలో ఏర్పడుతుంది?
+- A: Sensorimotor stage (ఇంద్రియ ప్రచాలక దశ) [correct]
+- B: Pre-operational stage (పూర్వ ప్రచాలక దశ)
+- C: Concrete operational stage (మూర్త ప్రచాలక దశ)
+- D: Formal operational stage (అమూర్త ప్రచాలక దశ)
+Explanation: Object permanence develops during the sensorimotor stage (birth to 2 years) where infants understand objects continue to exist even when hidden.
+Exam: TS TET / AP TET Paper 1 & 2
+
+### Topic: TS & AP TET / DSC — Child Development & Learning Theories
+Q: Who formulated the 'Trial and Error' theory of learning in educational psychology?
+⤷ విద్యా మనోవిజ్ఞాన శాస్త్రంలో 'యత్న-దోష అభ్యసన సిద్ధాంతాన్ని' (Trial and Error Theory) ప్రతిపాదించిన మనోవైజ్ఞానికుడు ఎవరు?
+- A: Ivan Pavlov (ఇవాన్ పావ్‌లోవ్)
+- B: B.F. Skinner (స్కిన్నర్)
+- C: Edward Thorndike (ఎడ్వర్డ్ థార్న్‌డైక్) [correct]
+- D: Wolfgang Kohler (కోహ్లర్)
+Explanation: Edward Thorndike formulated the Trial and Error theory using experiments with cats in puzzle boxes, deriving the Law of Effect, Exercise, and Readiness.
+Exam: TS TET / AP TET / DSC SGT & School Assistant
+
+### Topic: TS & AP DSC / TRT — Perspectives in Education (విద్యా దృక్పథాలు)
+Q: In which year was the 'Right of Children to Free and Compulsory Education Act' (RTE Act) enacted in India?
+⤷ భారతదేశంలో 'ఉచిత మరియు నిర్బంధ విద్యా హక్కు చట్టం' (RTE చట్టం) ఏ సంవత్సరంలో ఆమోదించబడింది?
+- A: 2005
+- B: 2009 [correct]
+- C: 2010
+- D: 2012
+Explanation: The RTE Act was enacted by the Parliament of India on 4 August 2009 and came into force on 1 April 2010.
+Exam: TS DSC / AP DSC / TRT Perspectives in Education
+
+### Topic: TS & AP TET — Telugu Language Pedagogy (తెలుగు బోధనా పద్ధతులు)
+Q: What is the primary and fundamental skill among the four language skills (LSRW)?
+⤷ భాషా నైపుణ్యాలైన చతుర్విధ ప్రక్రియలలో (శ్రవణం, భాషణం, పఠనం, లేఖనం) మొట్టమొదటి ప్రాథమిక నైపుణ్యం ఏది?
+- A: Speaking (భాషణం)
+- B: Listening (శ్రవణం) [correct]
+- C: Reading (పఠనం)
+- D: Writing (లేఖనం)
+Explanation: Listening (శ్రవణం) is the fundamental receptive language skill upon which speech, reading, and writing are developed.
+Exam: TS TET / AP TET Telugu Content & Methodology

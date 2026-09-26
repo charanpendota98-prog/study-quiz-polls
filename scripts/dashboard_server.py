@@ -210,6 +210,7 @@ HTML_PAGE = """<!DOCTYPE html>
                   <option value="APPSC">🏛️ APPSC State & AP Districts</option>
                 </optgroup>
                 <optgroup label="🔧 Technical, Open Distance & Govt Exams">
+                  <option value="TET_DSC">👩‍🏫 TS & AP TET / DSC (Teachers, SGT, TRT)</option>
                   <option value="ITI_ALL">🔧 TS & AP ITI (Electrician/Fitter/NCVT)</option>
                   <option value="OPEN_UNIV">🏛️ Open Universities (BRAOU/IGNOU/Distance)</option>
                   <option value="POLICE">👮 Police Exams (SI / Constable)</option>
@@ -312,6 +313,7 @@ HTML_PAGE = """<!DOCTYPE html>
           <select id="new-wa-category" style="width:160px;">
             <option value="AUTO">🤖 Auto Category</option>
             <option value="GENERAL">🌐 General Group</option>
+            <option value="TET_DSC">👩‍🏫 TS & AP TET / DSC</option>
             <option value="AP_BTECH">AP B.Tech</option>
             <option value="AP_DEGREE">AP Degree</option>
             <option value="AP_DIPLOMA">AP Diploma</option>
@@ -336,13 +338,6 @@ HTML_PAGE = """<!DOCTYPE html>
             <option value="GENERAL">🌐 General Group</option>
           </select>
           <select id="new-wa-shift" style="width:130px;">
-            <option value="ALL_DAY">All-Day</option>
-            <option value="MORNING">Morning Shift</option>
-            <option value="EVENING">Evening Shift</option>
-          </select>
-          <button class="btn btn-accent" style="white-space:nowrap;" onclick="addNewWAGroup()">➕ Connect Group</button>
-        </div>
-          <select id="new-wa-shift" style="width:140px;">
             <option value="ALL_DAY">All-Day</option>
             <option value="MORNING">Morning Shift</option>
             <option value="EVENING">Evening Shift</option>
