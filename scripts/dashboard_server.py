@@ -531,6 +531,7 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
           <label>Exam Category (or Auto-Detect):</label>
           <select id="new-ch-base">
             <option value="AUTO">🤖 Auto-Detect (AP B.Tech, AP Degree, TS, ITI, Police, etc.)</option>
+            <option value="TET_DSC">👩‍🏫 TS & AP TET / DSC (Teachers, SGT, School Assistant)</option>
             <option value="AP_BTECH">AP B.Tech (JNTUK, JNTUA, Engineering & Placements)</option>
             <option value="AP_DEGREE">AP Degree (AU, SVU, ANU B.Com, B.Sc, B.A)</option>
             <option value="AP_DIPLOMA">AP Diploma & POLYCET / ECET (SBTET)</option>
