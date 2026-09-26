@@ -251,13 +251,14 @@ HTML_PAGE = """<!DOCTYPE html>
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div>
             <h3 style="margin-bottom:4px;">📋 Managed WhatsApp Groups Directory</h3>
-            <span style="font-size:12px; color:var(--text-muted);">Select specific groups to dispatch quizzes instantly to chosen targets</span>
+            <span style="font-size:12px; color:var(--text-muted);">Select specific groups or search by keyword to dispatch quizzes instantly</span>
           </div>
-          <div style="display:flex; gap:8px;">
-            <button class="btn btn-purple" style="font-size:12px; padding:6px 12px;" onclick="dispatchSelectedGroups()">⚡ Run Quiz on Selected Groups</button>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="text" id="wa-search-box" placeholder="🔍 Search groups..." onkeyup="filterWAGroups()" style="width:170px; margin:0; padding:6px 10px; font-size:12px;">
+            <button class="btn btn-purple" style="font-size:12px; padding:6px 12px;" onclick="dispatchSelectedGroups()">⚡ Run Quiz on Selected</button>
             <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="selectAllGroups(true)">Select All</button>
             <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="selectAllGroups(false)">Clear</button>
-            <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="loadWAGroups()">🔄 Refresh Groups</button>
+            <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="loadWAGroups()">🔄 Refresh</button>
           </div>
         </div>
         <table id="table-wa-groups">
@@ -549,13 +550,14 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
       </div>
 
       <div style="margin-top:24px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
           <div>
             <h3 style="margin-bottom:4px;">Active Channels & Real-Time Question Counts</h3>
-            <span style="font-size:12px; color:var(--text-muted);">Select specific channels to dispatch customized quiz rounds instantly</span>
+            <span style="font-size:12px; color:var(--text-muted);">Select specific channels or search by exam to dispatch customized quiz rounds instantly</span>
           </div>
-          <div style="display:flex; gap:8px;">
-            <button class="btn btn-accent" style="font-size:12px; padding:6px 12px;" onclick="dispatchSelectedChannels()">🚀 Post Quiz to Selected Channels</button>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="text" id="ch-search-box" placeholder="🔍 Search channels..." onkeyup="filterTGChannels()" style="width:170px; margin:0; padding:6px 10px; font-size:12px;">
+            <button class="btn btn-accent" style="font-size:12px; padding:6px 12px;" onclick="dispatchSelectedChannels()">🚀 Post Quiz to Selected</button>
             <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="selectAllChannels(true)">Select All</button>
             <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="selectAllChannels(false)">Clear</button>
             <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="loadChannels()">🔄 Refresh</button>
@@ -746,6 +748,15 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
         tbody.appendChild(tr);
       });
       if (d.gateway_url) document.getElementById('wa-gateway-input').value = d.gateway_url;
+    }
+
+    function filterWAGroups() {
+      const q = (document.getElementById('wa-search-box').value || '').toLowerCase();
+      const rows = document.querySelectorAll('#table-wa-groups tbody tr');
+      rows.forEach(r => {
+        const text = r.innerText.toLowerCase();
+        r.style.display = text.includes(q) ? '' : 'none';
+      });
     }
 
     async function exportExcelSheet() {
@@ -1004,6 +1015,15 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
       alert('Launching round across bundle: ' + bid);
       switchTab('tab-wa-dispatch');
       startInterleaved(isQuestion);
+    }
+
+    function filterTGChannels() {
+      const q = (document.getElementById('ch-search-box').value || '').toLowerCase();
+      const rows = document.querySelectorAll('#table-channels tbody tr');
+      rows.forEach(r => {
+        const text = r.innerText.toLowerCase();
+        r.style.display = text.includes(q) ? '' : 'none';
+      });
     }
 
     async function loadChannels() {
