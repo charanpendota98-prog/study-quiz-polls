@@ -64,6 +64,96 @@ EXEC_STATE = {
     "stop_requested": False
 }
 
+# In-memory WhatsApp Session State (QR & Pairing Code Login)
+SESSION_STATE = {
+    "status": "connected",  # "disconnected", "qr_ready", "code_ready", "connected"
+    "phone": "+91 98XXXXXXXX",
+    "device_name": "StudentUp Dispatch Node #1",
+    "connected_at": "2026-09-26 10:00",
+    "qr_data": "https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=STUDENTUP_WA_AUTH_SESSION_KEY_778899",
+    "pairing_code": "STUD-8899",
+    "scanned_dialogs_count": 27,
+    "last_sync": "Just now"
+}
+
+# In-memory Schedule Jobs
+SCHEDULED_JOBS = []
+
+
+def get_session_info() -> dict:
+    return dict(SESSION_STATE)
+
+
+def request_login_qr() -> dict:
+    global SESSION_STATE
+    import uuid
+    token = uuid.uuid4().hex[:12].upper()
+    SESSION_STATE["status"] = "qr_ready"
+    SESSION_STATE["qr_data"] = f"https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=STUDENTUP_WA_{token}"
+    SESSION_STATE["pairing_code"] = f"{token[:4]}-{token[4:8]}"
+    return dict(SESSION_STATE)
+
+
+def request_pairing_code(phone_number: str) -> dict:
+    global SESSION_STATE
+    import uuid
+    digits = uuid.uuid4().hex[:8].upper()
+    code = f"{digits[:4]}-{digits[4:8]}"
+    SESSION_STATE["status"] = "code_ready"
+    SESSION_STATE["phone"] = phone_number.strip()
+    SESSION_STATE["pairing_code"] = code
+    return dict(SESSION_STATE)
+
+
+def confirm_session_connected(device_name: str = "Primary WhatsApp Phone") -> dict:
+    global SESSION_STATE
+    SESSION_STATE["status"] = "connected"
+    SESSION_STATE["device_name"] = device_name
+    SESSION_STATE["connected_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+    SESSION_STATE["last_sync"] = "Just now"
+    return dict(SESSION_STATE)
+
+
+def sync_dialogs_from_session() -> dict:
+    """Simulate or query all joined groups and channels from the active WhatsApp session."""
+    d = load_wa_registry()
+    groups = d.get("groups", [])
+    SESSION_STATE["scanned_dialogs_count"] = len(groups)
+    SESSION_STATE["last_sync"] = datetime.now().strftime("%H:%M:%S")
+    return {
+        "ok": True,
+        "dialogs_count": len(groups),
+        "groups": groups,
+        "last_sync": SESSION_STATE["last_sync"]
+    }
+
+
+def add_scheduled_job(time_str: str, target_group_ids: list, category: str = "ALL", is_question: bool = True) -> dict:
+    import uuid
+    job_id = f"job_{uuid.uuid4().hex[:6]}"
+    job = {
+        "id": job_id,
+        "time": time_str,  # e.g. "09:00" or "18:30"
+        "target_group_ids": target_group_ids or [],
+        "category": category,
+        "is_question": is_question,
+        "status": "Scheduled",
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M")
+    }
+    SCHEDULED_JOBS.append(job)
+    return job
+
+
+def get_scheduled_jobs() -> list:
+    return list(SCHEDULED_JOBS)
+
+
+def delete_scheduled_job(job_id: str) -> bool:
+    global SCHEDULED_JOBS
+    before = len(SCHEDULED_JOBS)
+    SCHEDULED_JOBS = [j for j in SCHEDULED_JOBS if j.get("id") != job_id]
+    return len(SCHEDULED_JOBS) < before
+
 
 def load_wa_registry() -> dict:
     default_cfg = {

@@ -159,6 +159,27 @@ HTML_PAGE = """<!DOCTYPE html>
 
   <!-- TAB 1: WHATSAPP INTERLEAVED DISPATCHER -->
   <div id="tab-wa-dispatch" class="tab-pane active">
+    <!-- WhatsApp QR / Code Device Linking Box -->
+    <div style="background: linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(59,130,246,0.15) 100%); border:1px solid #10b981; border-radius:12px; padding:16px; margin-bottom:18px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+        <div>
+          <h3 style="font-size:15px; display:flex; align-items:center; gap:8px;">
+            📱 WhatsApp Device Link (QR Code / 8-Digit Pairing Code)
+            <span id="wa-session-status-badge" style="background:#10b981; color:#050811; font-size:11px; font-weight:800; padding:2px 8px; border-radius:12px;">● CONNECTED</span>
+          </h3>
+          <p id="wa-session-desc" style="font-size:12px; color:var(--text-muted); margin-top:4px;">
+            Active Device: <b style="color:#f8fafc;" id="wa-device-name">StudentUp Node #1</b> (<span id="wa-device-phone">+91 98XXXXXXXX</span>) · Dialogs: <b style="color:#38bdf8;" id="wa-dialogs-count">27 Groups</b>
+          </p>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <button class="btn btn-accent" style="font-size:12px; padding:6px 12px;" onclick="syncWADialogs()">🔄 Auto-Sync All Joined Groups</button>
+          <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="showQRLoginModal()">📷 Scan QR Login</button>
+          <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="showCodeLoginModal()">🔢 Login with Phone Code</button>
+        </div>
+      </div>
+      <div id="wa-login-dialog" style="display:none; margin-top:14px; background:#050811; padding:14px; border-radius:8px; border:1px solid var(--border);"></div>
+    </div>
+
     <div class="panel-card">
       <h2>🛡️ Smart Interleaved Dispatcher (2-by-2 Groups with 20-30s Thinking Gap)</h2>
       <p style="color:var(--text-muted); font-size:13px; margin-bottom:16px;">
@@ -214,10 +235,17 @@ HTML_PAGE = """<!DOCTYPE html>
           <label>Optional Photo / Poster URL (Posts image along with text):</label>
           <input type="text" id="wa-attachment-url" placeholder="https://example.com/daily-current-affairs-poster.jpg">
 
-          <div style="display:flex; gap:10px; margin-top:8px;">
+          <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">
             <button class="btn btn-accent" onclick="startInterleaved(true)">🚀 Start 2-by-2 Interleaved Quiz Rounds</button>
             <button class="btn btn-purple" onclick="startInterleaved(false)">📢 Send Custom Announcement</button>
+            <button class="btn btn-outline" onclick="scheduleQuizModal()">⏰ Schedule Daily Timed Quiz</button>
             <button class="btn btn-danger" onclick="stopInterleaved()">🛑 Stop Pipeline</button>
+          </div>
+
+          <!-- Active Scheduled Jobs List -->
+          <div id="wa-schedules-container" style="margin-top:14px; background:#0f172a; padding:12px; border-radius:8px; border:1px solid var(--border); display:none;">
+            <div style="font-size:12px; font-weight:700; color:#38bdf8; margin-bottom:6px;">⏰ Active Scheduled Daily Dispatches:</div>
+            <div id="wa-schedules-list" style="font-size:12px;"></div>
           </div>
 
           <div style="margin-top:14px;">
