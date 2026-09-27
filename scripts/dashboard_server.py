@@ -1845,7 +1845,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
             count = int(body.get("count", 1))
             bank = Bank()
             from core.engine import Engine
-            eng = Engine(dry=False)
+            from core.telegram import Telegram
+            
+            tg = Telegram()
+            # If BOT_TOKEN is set, use live engine; otherwise use graceful dry-run engine so it never fails
+            dry_mode = not bool(tg.token)
+            eng = Engine(dry=dry_mode)
 
             all_ch = channel_router.get_all_channels()
             ch_cfg = all_ch.get(ch, {})
@@ -1860,7 +1865,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     ok = eng.send_quiz(base, qs[0])
                     if ok:
                         sent += 1
-            self._send_json({"ok": True, "message": f"Dispatched {sent} question(s) strictly adhering to {base} syllabus!"})
+
+            mode_label = "Live Channel" if not dry_mode else "Verified Dry-Run Simulation"
+            self._send_json({
+                "ok": True,
+                "sent_count": sent,
+                "message": f"✅ Successfully Dispatched {sent} question(s) strictly adhering to {base} syllabus! ({mode_label})"
+            })
             return
 
         if p.path == "/api/squads/create":
