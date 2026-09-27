@@ -163,18 +163,36 @@ def sync_dialogs_from_session() -> dict:
     }
 
 
-def add_scheduled_job(time_str: str, target_group_ids: list, category: str = "ALL", is_question: bool = True) -> dict:
+def add_scheduled_job(
+    time_str: str,
+    target_group_ids: list = None,
+    category: str = "ALL",
+    is_question: bool = True,
+    label: str = "",
+    questions_count: int = 1,
+    enabled: bool = True
+) -> dict:
     import uuid
     jobs = load_schedules()
     job_id = f"job_{uuid.uuid4().hex[:6]}"
+    clean_time = time_str.strip()
+    if len(clean_time) == 4 and clean_time[1] == ':':
+        clean_time = "0" + clean_time  # format 9:00 -> 09:00
+
+    auto_label = label.strip() if label else f"{clean_time} Daily {category} Drill"
     job = {
         "id": job_id,
-        "time": time_str,
+        "time": clean_time,
+        "label": auto_label,
         "target_group_ids": target_group_ids or [],
-        "category": category,
+        "category": category or "ALL",
         "is_question": is_question,
-        "status": "Scheduled",
-        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M")
+        "questions_count": questions_count or 1,
+        "enabled": enabled,
+        "status": "Active (Always-On)",
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "last_run": None,
+        "total_dispatches": 0
     }
     jobs.append(job)
     save_schedules(jobs)
@@ -183,6 +201,20 @@ def add_scheduled_job(time_str: str, target_group_ids: list, category: str = "AL
 
 def get_scheduled_jobs() -> list:
     return load_schedules()
+
+
+def toggle_scheduled_job(job_id: str) -> dict:
+    jobs = load_schedules()
+    target = None
+    for j in jobs:
+        if j.get("id") == job_id:
+            j["enabled"] = not j.get("enabled", True)
+            j["status"] = "Active (Always-On)" if j["enabled"] else "Paused"
+            target = j
+            break
+    if target:
+        save_schedules(jobs)
+    return target
 
 
 def delete_scheduled_job(job_id: str) -> bool:
@@ -581,15 +613,21 @@ def start_scheduler_daemon():
 
                 jobs = load_schedules()
                 for j in jobs:
+                    if not j.get("enabled", True):
+                        continue
                     job_time = j.get("time", "").strip()
                     jid = j.get("id")
                     if job_time == now_str and _LAST_TRIGGERED_MIN.get(jid) != now_str:
                         _LAST_TRIGGERED_MIN[jid] = now_str
-                        _log(f"⏰ Auto-Scheduler Triggered: Launching daily quiz for job {jid} at {job_time}!")
+                        j["last_run"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        j["total_dispatches"] = j.get("total_dispatches", 0) + 1
+                        save_schedules(jobs)
+                        _log(f"⏰ Auto-Scheduler Triggered: Launching '{j.get('label', jid)}' ({job_time})!")
                         start_interleaved_broadcast(
                             target_category=j.get("category", "ALL"),
                             target_group_ids=j.get("target_group_ids", []),
                             is_question=j.get("is_question", True),
+                            questions_per_group=j.get("questions_count", 1),
                             two_phase_answer=True,
                             delay_min=20,
                             delay_max=30

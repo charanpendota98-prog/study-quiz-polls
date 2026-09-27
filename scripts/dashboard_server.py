@@ -243,10 +243,24 @@ HTML_PAGE = """<!DOCTYPE html>
             <button class="btn btn-danger" onclick="stopInterleaved()">🛑 Stop Pipeline</button>
           </div>
 
-          <!-- Active Scheduled Jobs List -->
-          <div id="wa-schedules-container" style="margin-top:14px; background:#0f172a; padding:12px; border-radius:8px; border:1px solid var(--border); display:none;">
-            <div style="font-size:12px; font-weight:700; color:#38bdf8; margin-bottom:6px;">⏰ Active Scheduled Daily Dispatches:</div>
-            <div id="wa-schedules-list" style="font-size:12px;"></div>
+          <div class="schedule-control-card" style="margin-top:16px; background:#0b1329; border:1px solid #38bdf8; border-radius:10px; padding:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+              <div>
+                <h3 style="font-size:14px; color:#38bdf8; display:flex; align-items:center; gap:6px;">
+                  ⏰ 24x7 Multi-Slot Daily Autonomous Quiz Scheduler
+                  <span style="background:#10b981; color:#050811; font-size:10px; font-weight:800; padding:2px 7px; border-radius:12px;">● ALWAYS-ON DAEMON</span>
+                </h3>
+                <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                  రోజులో మీరు ఎన్ని సార్లైనా (ఉదయం, మధ్యాహ్నం, సాయంత్రం, రాత్రి) టైమ్స్ సెట్ చేయవచ్చు. కంప్యూటర్ లేదా బ్రౌజర్ ఆఫ్ చేసినా సర్వరే ఆటోమేటిక్‌గా రన్ చేస్తుంది!
+                </div>
+              </div>
+              <button class="btn btn-accent" style="font-size:12px; padding:6px 14px;" onclick="scheduleQuizModal()">➕ Add New Daily Quiz Slot</button>
+            </div>
+
+            <!-- Active Scheduled Jobs List -->
+            <div id="wa-schedules-container" style="background:#050811; padding:12px; border-radius:8px; border:1px solid rgba(255,255,255,0.08);">
+              <div id="wa-schedules-list" style="font-size:12px;"></div>
+            </div>
           </div>
 
           <div style="margin-top:14px;">
@@ -1017,8 +1031,9 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
     }
 
     async function scheduleQuizModal() {
-      const timeVal = prompt('Enter Daily Quiz Dispatch Time (HH:MM 24-hr format, e.g. 09:00 or 18:30):', '09:00');
+      const timeVal = prompt('Enter Daily Quiz Dispatch Time (HH:MM 24-hr format, e.g. 08:30, 13:00, 18:30, 21:00):', '10:00');
       if (!timeVal) return;
+      const label = prompt('Slot Label or Title (e.g. Morning General English / Evening Police Practice):', 'Daily Scheduled Drill');
       const cat = document.getElementById('wa-target-category').value;
       const gids = getSelectedGroupIds();
 
@@ -1028,6 +1043,7 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({
             time: timeVal.trim(),
+            label: label || 'Daily Scheduled Drill',
             category: cat,
             target_group_ids: gids,
             is_question: true
@@ -1035,7 +1051,7 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
         });
         const d = await res.json();
         if (d.ok) {
-          alert('⏰ Daily recurring quiz scheduled for ' + timeVal + '!');
+          alert('⏰ Daily recurring slot added for ' + timeVal + ' (' + (label || 'Drill') + ')!');
           loadSchedules();
         }
       } catch (e) {
@@ -1043,27 +1059,61 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
       }
     }
 
+    async function toggleScheduleJob(id) {
+      try {
+        await fetch('/api/whatsapp/toggle_schedule', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({id})
+        });
+        loadSchedules();
+      } catch (e) {
+        alert('Error: ' + e);
+      }
+    }
+
     async function loadSchedules() {
       try {
         const res = await fetch('/api/whatsapp/schedules');
         const d = await res.json();
-        const container = document.getElementById('wa-schedules-container');
         const listEl = document.getElementById('wa-schedules-list');
-        if (!container || !listEl) return;
+        if (!listEl) return;
 
         const jobs = d.jobs || [];
         if (jobs.length === 0) {
-          container.style.display = 'none';
+          listEl.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:10px;">No daily recurring slots configured yet. Click "Add New Daily Quiz Slot" above!</div>';
           return;
         }
 
-        container.style.display = 'block';
-        listEl.innerHTML = jobs.map(j => `
-          <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
-            <div>⏰ <b>${j.time}</b> — Category: <span class="category-tag">${j.category}</span> (${j.target_group_ids && j.target_group_ids.length ? j.target_group_ids.length + ' Groups' : 'All Category Groups'})</div>
-            <button class="btn btn-outline" style="padding:2px 6px; font-size:10px; color:#ef4444;" onclick="deleteScheduleJob('${j.id}')">Delete</button>
-          </div>
-        `).join('');
+        listEl.innerHTML = jobs.map(j => {
+          const isEn = j.enabled !== false;
+          const statusBadge = isEn 
+            ? '<span style="background:#10b981; color:#050811; font-weight:800; font-size:10px; padding:2px 6px; border-radius:10px;">● ACTIVE</span>'
+            : '<span style="background:#64748b; color:white; font-weight:800; font-size:10px; padding:2px 6px; border-radius:10px;">○ PAUSED</span>';
+
+          const targetLabel = (j.target_group_ids && j.target_group_ids.length > 0)
+            ? `${j.target_group_ids.length} Selected Groups`
+            : `All ${j.category || 'General'} Groups`;
+
+          return `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.06); flex-wrap:wrap; gap:8px;">
+              <div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="font-size:15px; font-weight:800; color:#38bdf8; font-family:monospace;">${j.time}</span>
+                  <b>${j.label || 'Daily Exam Drill'}</b>
+                  ${statusBadge}
+                </div>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:3px;">
+                  Category: <span class="category-tag">${j.category || 'ALL'}</span> · Target: <b>${targetLabel}</b> · Dispatches: <b>${j.total_dispatches || 0} times</b>
+                </div>
+              </div>
+              <div style="display:flex; gap:6px;">
+                <button class="btn btn-outline" style="padding:3px 8px; font-size:11px;" onclick="toggleScheduleJob('${j.id}')">${isEn ? '⏸ Pause' : '▶ Enable'}</button>
+                <button class="btn btn-outline" style="padding:3px 8px; font-size:11px; color:#ef4444;" onclick="deleteScheduleJob('${j.id}')">🗑 Delete</button>
+              </div>
+            </div>
+          `;
+        }).join('');
       } catch (e) {
         console.error(e);
       }
@@ -1692,8 +1742,23 @@ class DashboardHandler(BaseHTTPRequestHandler):
             gids = body.get("target_group_ids", [])
             cat = body.get("category", "ALL")
             is_q = body.get("is_question", True)
-            job = whatsapp_pipeline.add_scheduled_job(time_val, gids, category=cat, is_question=is_q)
+            label = body.get("label", "").strip()
+            q_count = int(body.get("questions_count", 1))
+            job = whatsapp_pipeline.add_scheduled_job(
+                time_val,
+                target_group_ids=gids,
+                category=cat,
+                is_question=is_q,
+                label=label,
+                questions_count=q_count
+            )
             self._send_json({"ok": True, "job": job})
+            return
+
+        if p.path == "/api/whatsapp/toggle_schedule":
+            jid = body.get("id")
+            updated = whatsapp_pipeline.toggle_scheduled_job(jid)
+            self._send_json({"ok": bool(updated), "job": updated})
             return
 
         if p.path == "/api/whatsapp/delete_schedule":
