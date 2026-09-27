@@ -8,9 +8,19 @@
         "Charan"
       ],
       "created": "2026-09-24T19:17:21.699134"
+    },
+    "DJLC": {
+      "code": "DJLC",
+      "name": "Warangal SI Super Squad",
+      "leader": "AdminTester",
+      "members": [
+        "AdminTester"
+      ],
+      "created": "2026-09-27T18:26:56.328675"
     }
   },
   "by_uid": {
-    "Charan": "NJYZ"
+    "Charan": "NJYZ",
+    "AdminTester": "DJLC"
   }
 }

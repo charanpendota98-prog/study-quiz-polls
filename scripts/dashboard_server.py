@@ -1016,6 +1016,73 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
       await fetch('/api/whatsapp/stop_pipeline', {method: 'POST'});
     }
 
+    async function scheduleQuizModal() {
+      const timeVal = prompt('Enter Daily Quiz Dispatch Time (HH:MM 24-hr format, e.g. 09:00 or 18:30):', '09:00');
+      if (!timeVal) return;
+      const cat = document.getElementById('wa-target-category').value;
+      const gids = getSelectedGroupIds();
+
+      try {
+        const res = await fetch('/api/whatsapp/schedule_quiz', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            time: timeVal.trim(),
+            category: cat,
+            target_group_ids: gids,
+            is_question: true
+          })
+        });
+        const d = await res.json();
+        if (d.ok) {
+          alert('⏰ Daily recurring quiz scheduled for ' + timeVal + '!');
+          loadSchedules();
+        }
+      } catch (e) {
+        alert('Failed to schedule: ' + e);
+      }
+    }
+
+    async function loadSchedules() {
+      try {
+        const res = await fetch('/api/whatsapp/schedules');
+        const d = await res.json();
+        const container = document.getElementById('wa-schedules-container');
+        const listEl = document.getElementById('wa-schedules-list');
+        if (!container || !listEl) return;
+
+        const jobs = d.jobs || [];
+        if (jobs.length === 0) {
+          container.style.display = 'none';
+          return;
+        }
+
+        container.style.display = 'block';
+        listEl.innerHTML = jobs.map(j => `
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+            <div>⏰ <b>${j.time}</b> — Category: <span class="category-tag">${j.category}</span> (${j.target_group_ids && j.target_group_ids.length ? j.target_group_ids.length + ' Groups' : 'All Category Groups'})</div>
+            <button class="btn btn-outline" style="padding:2px 6px; font-size:10px; color:#ef4444;" onclick="deleteScheduleJob('${j.id}')">Delete</button>
+          </div>
+        `).join('');
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function deleteScheduleJob(id) {
+      if (!confirm('Cancel this scheduled quiz?')) return;
+      try {
+        await fetch('/api/whatsapp/delete_schedule', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({id})
+        });
+        loadSchedules();
+      } catch (e) {
+        alert('Error: ' + e);
+      }
+    }
+
     async function importExcelSheet() {
       const raw = document.getElementById('excel-paste-text').value.trim();
       const log = document.getElementById('excel-import-log');
@@ -1345,9 +1412,34 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
       }
     }
 
+    async function createDashboardSquad() {
+      const name = document.getElementById('new-squad-name').value.trim();
+      const leader = document.getElementById('new-squad-leader').value.trim();
+      if (!name) return alert('Enter Squad Name');
+      try {
+        const res = await fetch('/api/squads/create', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({name, leader: leader || 'Admin'})
+        });
+        const d = await res.json();
+        if (d.ok) {
+          alert('🎉 Squad Created! Code: SQ-' + d.code);
+          document.getElementById('new-squad-name').value = '';
+          document.getElementById('new-squad-leader').value = '';
+          loadSquads();
+        } else {
+          alert('Failed to create squad: ' + (d.message || 'Unknown error'));
+        }
+      } catch (e) {
+        alert('Error: ' + e);
+      }
+    }
+
     fetchStats();
     loadWASession();
     loadWAGroups();
+    loadSchedules();
     loadChannels();
     loadBundles();
     setInterval(fetchStats, 10000);
@@ -1704,6 +1796,29 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     if ok:
                         sent += 1
             self._send_json({"ok": True, "message": f"Dispatched {sent} question(s) strictly adhering to {base} syllabus!"})
+            return
+
+        if p.path == "/api/squads/create":
+            name = body.get("name", "Dashboard Squad").strip()
+            leader = body.get("leader", "Admin").strip()
+            sq_data = hooks._sq()
+            alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+            code = "".join(random.choice(alphabet) for _ in range(4))
+            while code in sq_data.get("squads", {}):
+                code = "".join(random.choice(alphabet) for _ in range(4))
+            
+            sq_data.setdefault("squads", {})[code] = {
+                "code": code,
+                "name": name,
+                "leader": leader,
+                "members": [leader],
+                "created": datetime.now().isoformat()
+            }
+            hooks.save_json_atomic(hooks.SQUADS_PATH, sq_data)
+            bot = getattr(config, "BOT_USERNAME", "") or "StudentUpBot"
+            squad_link = f"https://t.me/{bot}?start=sq_{code}"
+            qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=600x600&data={squad_link}"
+            self._send_json({"ok": True, "code": code, "name": name, "link": squad_link, "qr": qr_url})
             return
 
         if p.path == "/api/war":
