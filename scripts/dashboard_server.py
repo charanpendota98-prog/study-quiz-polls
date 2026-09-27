@@ -350,10 +350,10 @@ HTML_PAGE = """<!DOCTYPE html>
           <tbody></tbody>
         </table>
 
-        <div style="display:flex; gap:10px; margin-top:16px; background:#0f172a; padding:12px; border-radius:8px; flex-wrap:wrap;">
-          <input type="text" id="new-wa-title" placeholder="Group Title (e.g. Warangal TS Police SI Batch)" style="flex:2; min-width:200px;">
-          <input type="text" id="new-wa-jid" placeholder="Group JID or Invite link" style="flex:2; min-width:200px;">
-          <select id="new-wa-category" style="width:160px;">
+        <div style="display:flex; gap:10px; margin-top:16px; background:#0f172a; padding:12px; border-radius:8px; flex-wrap:wrap; align-items:center;">
+          <input type="text" id="new-wa-title" placeholder="Group Title (e.g. Warangal TS Police SI Batch)" style="flex:2; min-width:200px; margin:0;">
+          <input type="text" id="new-wa-jid" placeholder="Group JID or Invite link" style="flex:2; min-width:200px; margin:0;">
+          <select id="new-wa-category" style="width:160px; margin:0;">
             <option value="AUTO">🤖 Auto Category</option>
             <option value="GENERAL">🌐 General Group</option>
             <option value="TET_DSC">👩‍🏫 TS & AP TET / DSC</option>
@@ -376,16 +376,37 @@ HTML_PAGE = """<!DOCTYPE html>
             <option value="TSPSC">TSPSC / TS Districts</option>
             <option value="APPSC">APPSC / AP Districts</option>
           </select>
-          <select id="new-wa-grouptype" style="width:160px;">
+          <select id="new-wa-grouptype" style="width:160px; margin:0;">
             <option value="EXAM_SPECIFIC">🎯 Specific Exam Group</option>
             <option value="GENERAL">🌐 General Group</option>
           </select>
-          <select id="new-wa-shift" style="width:130px;">
+          <select id="new-wa-shift" style="width:130px; margin:0;">
             <option value="ALL_DAY">All-Day</option>
             <option value="MORNING">Morning Shift</option>
             <option value="EVENING">Evening Shift</option>
           </select>
           <button class="btn btn-accent" style="white-space:nowrap;" onclick="addNewWAGroup()">➕ Connect Group</button>
+        </div>
+
+        <!-- In-Tab Direct Excel / CSV File Uploader & Quick Paste Card -->
+        <div style="margin-top:16px; background:#070d1e; border:1px solid #38bdf8; border-radius:10px; padding:16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
+            <div>
+              <h4 style="color:#38bdf8; font-size:14px; display:flex; align-items:center; gap:6px;">
+                📊 Excel & CSV File Direct Uploader / Bulk Paste (50+ to 150+ Groups)
+              </h4>
+              <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                మీ దగ్గర ఉన్న <b>.xlsx, .xls, లేదా .csv</b> ఫైల్‌ను నేరుగా బ్రౌజ్ చేసి అప్‌లోడ్ చేయండి, లేదా క్రింద ఉన్న బాక్స్‌లో నేరుగా కాపీ-పేస్ట్ చేయండి!
+              </p>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input type="file" id="wa-excel-file-input" accept=".csv, .xlsx, .xls, .txt, .tsv" style="display:none;" onchange="handleExcelFileUpload(event)">
+              <button class="btn btn-accent" style="font-size:12px; padding:6px 14px;" onclick="document.getElementById('wa-excel-file-input').click()">📁 Choose Excel / CSV File</button>
+              <button class="btn btn-purple" style="font-size:12px; padding:6px 14px;" onclick="importInTabExcel()">📥 Import Pasted Rows</button>
+            </div>
+          </div>
+          <textarea id="wa-direct-excel-paste" rows="4" placeholder="Or directly paste rows from Excel / Google Sheets here (Columns: Group Name | Link or JID | Category | Shift | Group Type)..." style="margin-bottom:8px; font-size:12px;"></textarea>
+          <div id="wa-excel-status-log" style="font-size:11px; color:#10b981; font-weight:600;"></div>
         </div>
       </div>
 
@@ -486,6 +507,13 @@ HTML_PAGE = """<!DOCTYPE html>
         💡 <b>Excel Columns (Tab / Comma separated):</b><br>
         <code>Group or Channel Name | Link or JID | Category (Optional) | Shift (Optional) | Group Type (Optional: GENERAL or EXAM_SPECIFIC)</code><br>
         <span style="color:#a7f3d0; font-size:11px;">(Note: 5వ కాలమ్‌లో GENERAL అని రాస్తే జనరల్ గ్రూప్ అని, EXAM_SPECIFIC అని రాస్తే ఆ నిర్దిష్ట పరీక్ష సిలబస్ గ్రూప్ అని సిస్టమ్ రికార్డ్ చేస్తుంది).</span>
+      </div>
+
+      <!-- File Browse Upload Button in Tab 3 -->
+      <div style="margin-bottom:12px; display:flex; gap:10px; align-items:center;">
+        <input type="file" id="excel-tab-file-input" accept=".csv, .xlsx, .xls, .txt, .tsv" style="display:none;" onchange="handleMainExcelFileUpload(event)">
+        <button class="btn btn-accent" onclick="document.getElementById('excel-tab-file-input').click()">📁 Browse & Upload Excel / CSV File</button>
+        <span style="font-size:12px; color:var(--text-muted);">(.csv, .tsv, .txt files supported directly)</span>
       </div>
 
       <textarea id="excel-paste-text" rows="8" placeholder="Paste your Excel / Google Sheet rows here...
@@ -1207,6 +1235,55 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
       log.innerText = '✅ Success! Imported ' + d.imported_groups_count + ' WhatsApp Groups and ' + d.imported_channels_count + ' Telegram Channels.';
       fetchStats();
       loadWAGroups();
+    }
+
+    function handleExcelFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+        const text = e.target.result;
+        document.getElementById('wa-direct-excel-paste').value = text;
+        await importInTabExcel();
+      };
+      reader.readAsText(file);
+    }
+
+    function handleMainExcelFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+        const text = e.target.result;
+        document.getElementById('excel-paste-text').value = text;
+        await importExcelSheet();
+      };
+      reader.readAsText(file);
+    }
+
+    async function importInTabExcel() {
+      const raw = document.getElementById('wa-direct-excel-paste').value.trim();
+      const statusEl = document.getElementById('wa-excel-status-log');
+      if (!raw) return alert('Paste your Excel / CSV rows or choose a file first!');
+      statusEl.style.color = '#38bdf8';
+      statusEl.innerText = 'Importing rows into WhatsApp database...';
+
+      try {
+        const res = await fetch('/api/excel/import', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({raw_text: raw})
+        });
+        const d = await res.json();
+        statusEl.style.color = '#10b981';
+        statusEl.innerText = `✅ Successfully imported ${d.imported_groups_count || 0} WhatsApp Groups!`;
+        document.getElementById('wa-direct-excel-paste').value = '';
+        fetchStats();
+        loadWAGroups();
+      } catch (e) {
+        statusEl.style.color = '#ef4444';
+        statusEl.innerText = '❌ Import failed: ' + e;
+      }
     }
 
     async function loadCampusEvents() {
