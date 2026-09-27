@@ -399,7 +399,8 @@ HTML_PAGE = """<!DOCTYPE html>
                 మీ దగ్గర ఉన్న <b>.xlsx, .xls, లేదా .csv</b> ఫైల్‌ను నేరుగా బ్రౌజ్ చేసి అప్‌లోడ్ చేయండి, లేదా క్రింద ఉన్న బాక్స్‌లో నేరుగా కాపీ-పేస్ట్ చేయండి!
               </p>
             </div>
-            <div style="display:flex; gap:8px; align-items:center;">
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <a href="/api/excel/template" download="studentup_sample_whatsapp_groups.csv" class="btn btn-outline" style="font-size:12px; padding:6px 14px; text-decoration:none; color:#38bdf8; border-color:#38bdf8;">📥 Download Sample Excel Template</a>
               <input type="file" id="wa-excel-file-input" accept=".csv, .xlsx, .xls, .txt, .tsv" style="display:none;" onchange="handleExcelFileUpload(event)">
               <button class="btn btn-accent" style="font-size:12px; padding:6px 14px;" onclick="document.getElementById('wa-excel-file-input').click()">📁 Choose Excel / CSV File</button>
               <button class="btn btn-purple" style="font-size:12px; padding:6px 14px;" onclick="importInTabExcel()">📥 Import Pasted Rows</button>
@@ -526,6 +527,7 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
       <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
         <button class="btn btn-accent" onclick="importExcelSheet()">📥 Import & Save Rows to Database</button>
         <button class="btn btn-purple" onclick="exportExcelSheet()">📤 Export Current Groups as Excel / TSV</button>
+        <a href="/api/excel/template" download="studentup_sample_whatsapp_groups.csv" class="btn btn-outline" style="text-decoration:none; color:#38bdf8; border-color:#38bdf8;">📥 Download Sample Excel Template</a>
         <button class="btn btn-outline" onclick="document.getElementById('excel-paste-text').value=''">Clear Box</button>
       </div>
 
@@ -1750,6 +1752,43 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 "bot": config.BOT_USERNAME or "StudentUpBot",
                 "squads": sq_data.get("squads", {})
             })
+            return
+
+        if p.path == "/api/excel/template":
+            tmpl_path = config.DATA / "sample_whatsapp_groups_template.csv"
+            if not tmpl_path.exists():
+                sample_data = (
+                    "Group Name,Link or JID,Category,Shift,Group Type\n"
+                    "Warangal TS Police SI & Constable Batch,https://chat.whatsapp.com/sample_police_warangal,POLICE,MORNING,EXAM_SPECIFIC\n"
+                    "Guntur AP DSC SGT Aspirants 2026,https://chat.whatsapp.com/sample_dsc_guntur,TET_DSC,ALL_DAY,EXAM_SPECIFIC\n"
+                    "Telangana Group 1 2 3 State Service Hub,https://chat.whatsapp.com/sample_tspsc_state,TSPSC,ALL_DAY,EXAM_SPECIFIC\n"
+                    "Andhra Pradesh APPSC Group 2 & 4 Warriors,https://chat.whatsapp.com/sample_appsc_state,APPSC,ALL_DAY,EXAM_SPECIFIC\n"
+                    "TS 10th Class SSC Board 2026 Toppers,https://chat.whatsapp.com/sample_ts_10th,TS_10TH,ALL_DAY,EXAM_SPECIFIC\n"
+                    "AP 10th Class BSEAP Board Exam Prep,https://chat.whatsapp.com/sample_ap_10th,AP_10TH,ALL_DAY,EXAM_SPECIFIC\n"
+                    "TS Intermediate MPC & BiPC Study Circle,https://chat.whatsapp.com/sample_ts_inter,TS_INTER,MORNING,EXAM_SPECIFIC\n"
+                    "AP Intermediate BIEAP & EAPCET Network,https://chat.whatsapp.com/sample_ap_inter,AP_INTER,MORNING,EXAM_SPECIFIC\n"
+                    "TS Diploma SBTET & POLYCET Circle,https://chat.whatsapp.com/sample_ts_diploma,TS_DIPLOMA,ALL_DAY,EXAM_SPECIFIC\n"
+                    "AP Diploma SBTET Polytechnic & ECET Hub,https://chat.whatsapp.com/sample_ap_diploma,AP_DIPLOMA,ALL_DAY,EXAM_SPECIFIC\n"
+                    "TS Degree Colleges (B.Com/B.Sc/B.A) Forum,https://chat.whatsapp.com/sample_ts_degree,TS_DEGREE,EVENING,EXAM_SPECIFIC\n"
+                    "AP Degree Colleges AU & SVU Students Union,https://chat.whatsapp.com/sample_ap_degree,AP_DEGREE,EVENING,EXAM_SPECIFIC\n"
+                    "TS B.Tech Engineering & Placement Hub,https://chat.whatsapp.com/sample_ts_btech,TS_BTECH,EVENING,EXAM_SPECIFIC\n"
+                    "AP B.Tech JNTUK & JNTUA Placements,https://chat.whatsapp.com/sample_ap_btech,AP_BTECH,EVENING,EXAM_SPECIFIC\n"
+                    "TS & AP ITI Electrician & Fitter Forum,https://chat.whatsapp.com/sample_iti_students,ITI_ALL,ALL_DAY,EXAM_SPECIFIC\n"
+                    "Dr BR Ambedkar Open University BRAOU Network,https://chat.whatsapp.com/sample_braou_univ,OPEN_UNIV,ALL_DAY,EXAM_SPECIFIC\n"
+                    "SSC CGL / CHSL / MTS Central Exam Prep,https://chat.whatsapp.com/sample_ssc_central,SSC,MORNING,EXAM_SPECIFIC\n"
+                    "Railway RRB NTPC & Group D Warriors,https://chat.whatsapp.com/sample_rrb_railway,RAILWAY,MORNING,EXAM_SPECIFIC\n"
+                    "State Bank SBI PO & IBPS Clerk Circle,https://chat.whatsapp.com/sample_banking_sbi,BANKING,MORNING,EXAM_SPECIFIC\n"
+                    "Telangana & AP General Study Circle,https://chat.whatsapp.com/sample_general_circle,CURRENT,ALL_DAY,GENERAL\n"
+                )
+                tmpl_path.write_text(sample_data, encoding="utf-8")
+            
+            content = tmpl_path.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/csv; charset=utf-8")
+            self.send_header("Content-Disposition", 'attachment; filename="studentup_sample_whatsapp_groups.csv"')
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
             return
 
         if p.path == "/api/members":
