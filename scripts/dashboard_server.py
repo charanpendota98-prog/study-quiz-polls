@@ -254,10 +254,36 @@ HTML_PAGE = """<!DOCTYPE html>
                   <span style="background:#10b981; color:#050811; font-size:10px; font-weight:800; padding:2px 7px; border-radius:12px;">● ALWAYS-ON DAEMON</span>
                 </h3>
                 <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
-                  రోజులో మీరు ఎన్ని సార్లైనా (ఉదయం, మధ్యాహ్నం, సాయంత్రం, రాత్రి) టైమ్స్ సెట్ చేయవచ్చు. కంప్యూటర్ లేదా బ్రౌజర్ ఆఫ్ చేసినా సర్వరే ఆటోమేటిక్‌గా రన్ చేస్తుంది!
+                  రోజులో మీరు ఎన్ని సార్లైనా (ఉదయం, మధ్యాహ్నం, సాయంత్రం, రాత్రి) క్లాక్‌లో టైమ్ ఎంచుకుని సెట్ చేయవచ్చు. కంప్యూటర్ లేదా బ్రౌజర్ ఆఫ్ చేసినా సర్వరే ఆటోమేటిక్‌గా రన్ చేస్తుంది!
                 </div>
               </div>
-              <button class="btn btn-accent" style="font-size:12px; padding:6px 14px;" onclick="scheduleQuizModal()">➕ Add New Daily Quiz Slot</button>
+            </div>
+
+            <!-- Instant Time Picker Bar (HTML5 Native Clock Picker) -->
+            <div style="display:flex; gap:10px; align-items:center; background:#070d1e; padding:12px; border-radius:8px; border:1px solid rgba(56,189,248,0.3); margin-bottom:12px; flex-wrap:wrap;">
+              <div style="flex:1; min-width:140px;">
+                <label style="font-size:11px; color:#38bdf8; font-weight:700; margin:0 0 4px 0; display:block;">🕒 Select Clock Time:</label>
+                <input type="time" id="clock-slot-time" value="09:00" style="margin:0; padding:7px 10px; font-size:14px; font-weight:800; color:#38bdf8; background:#0b1329; border:1px solid #38bdf8;">
+              </div>
+              <div style="flex:2; min-width:180px;">
+                <label style="font-size:11px; color:var(--text-muted); margin:0 0 4px 0; display:block;">📝 Slot Title / Label:</label>
+                <input type="text" id="clock-slot-label" placeholder="e.g. Morning General Drill or Night Review" style="margin:0; padding:7px 10px; font-size:12px;">
+              </div>
+              <div style="flex:1; min-width:140px;">
+                <label style="font-size:11px; color:var(--text-muted); margin:0 0 4px 0; display:block;">🎯 Target Category:</label>
+                <select id="clock-slot-cat" style="margin:0; padding:7px 10px; font-size:12px;">
+                  <option value="ALL">🌐 ALL Groups</option>
+                  <option value="TET_DSC">👩‍🏫 TET / DSC</option>
+                  <option value="POLICE">👮 Police SI/Constable</option>
+                  <option value="TSPSC">🏛️ TSPSC</option>
+                  <option value="APPSC">🏛️ APPSC</option>
+                  <option value="SSC">🏛️ SSC & Central</option>
+                  <option value="CURRENT">🗞️ Current Affairs</option>
+                </select>
+              </div>
+              <div style="display:flex; align-items:flex-end;">
+                <button class="btn btn-accent" style="padding:8px 16px; font-size:12px; white-space:nowrap; margin-top:16px;" onclick="addClockSlot()">➕ Add Daily Slot</button>
+              </div>
             </div>
 
             <!-- Active Scheduled Jobs List -->
@@ -1031,6 +1057,37 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
 
     async function stopInterleaved() {
       await fetch('/api/whatsapp/stop_pipeline', {method: 'POST'});
+    }
+
+    async function addClockSlot() {
+      const timeVal = (document.getElementById('clock-slot-time').value || '').trim();
+      const label = (document.getElementById('clock-slot-label').value || '').trim();
+      const cat = document.getElementById('clock-slot-cat').value;
+      const gids = getSelectedGroupIds();
+
+      if (!timeVal) return alert('Please select a clock time first!');
+
+      try {
+        const res = await fetch('/api/whatsapp/schedule_quiz', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            time: timeVal,
+            label: label || (timeVal + ' Daily ' + cat + ' Drill'),
+            category: cat,
+            target_group_ids: gids,
+            is_question: true
+          })
+        });
+        const d = await res.json();
+        if (d.ok) {
+          alert('⏰ Daily recurring slot successfully added for ' + timeVal + '!');
+          document.getElementById('clock-slot-label').value = '';
+          loadSchedules();
+        }
+      } catch (e) {
+        alert('Failed to schedule: ' + e);
+      }
     }
 
     async function scheduleQuizModal() {
