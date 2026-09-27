@@ -514,3 +514,55 @@ def stop_broadcast() -> dict:
 
 def get_broadcast_status() -> dict:
     return dict(EXEC_STATE)
+
+
+# =====================================================================
+# BACKGROUND AUTONOMOUS SCHEDULER & HEARTBEAT ENGINE
+# Runs 24x7 in a persistent detached daemon thread:
+# 1. Checks every 20 seconds against current server time (HH:MM).
+# 2. Automatically launches interleaved quiz rounds for scheduled jobs.
+# 3. Maintains active keepalive heartbeat for linked WhatsApp session.
+# =====================================================================
+_SCHEDULER_RUNNING = False
+_LAST_TRIGGERED_MIN = {}
+
+
+def start_scheduler_daemon():
+    global _SCHEDULER_RUNNING
+    if _SCHEDULER_RUNNING:
+        return
+    _SCHEDULER_RUNNING = True
+
+    def _loop():
+        while True:
+            try:
+                now_str = datetime.now().strftime("%H:%M")
+                sess = load_session()
+                sess["last_heartbeat"] = datetime.now().strftime("%H:%M:%S")
+                save_session(sess)
+
+                jobs = load_schedules()
+                for j in jobs:
+                    job_time = j.get("time", "").strip()
+                    jid = j.get("id")
+                    if job_time == now_str and _LAST_TRIGGERED_MIN.get(jid) != now_str:
+                        _LAST_TRIGGERED_MIN[jid] = now_str
+                        _log(f"⏰ Auto-Scheduler Triggered: Launching daily quiz for job {jid} at {job_time}!")
+                        start_interleaved_broadcast(
+                            target_category=j.get("category", "ALL"),
+                            target_group_ids=j.get("target_group_ids", []),
+                            is_question=j.get("is_question", True),
+                            two_phase_answer=True,
+                            delay_min=20,
+                            delay_max=30
+                        )
+            except Exception:
+                pass
+            time.sleep(20)
+
+    th = threading.Thread(target=_loop, daemon=True)
+    th.start()
+
+
+# Auto-start daemon on module import
+start_scheduler_daemon()
