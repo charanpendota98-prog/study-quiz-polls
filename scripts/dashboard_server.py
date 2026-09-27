@@ -746,8 +746,47 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
   <!-- TAB 7: MEMBERS DIRECTORY -->
   <div id="tab-members" class="tab-pane">
     <div class="panel-card">
-      <h2>📋 Registered Student Members</h2>
-      <p style="color:var(--text-muted); font-size:13px; margin-bottom:14px;">All registered aspirants with accurate points, streaks, district and exam target.</p>
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+        <div>
+          <h2>📋 Registered Student Members & Instant Registration</h2>
+          <p style="color:var(--text-muted); font-size:13px; margin-top:2px;">All registered aspirants with accurate points, streaks, district and exam target.</p>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-outline" onclick="loadMembers()">🔄 Refresh Directory</button>
+        </div>
+      </div>
+
+      <!-- Quick Add / Register Student Form -->
+      <div style="background:#0f172a; border:1px solid var(--border); border-radius:10px; padding:14px; margin-bottom:16px;">
+        <h3 style="font-size:14px; margin-bottom:10px; color:#38bdf8;">➕ Quick Register New Student & Award Initial Points</h3>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <input type="text" id="reg-student-uid" placeholder="Telegram ID / Mobile (e.g. 9848012345)" style="flex:1; min-width:160px; margin:0;">
+          <input type="text" id="reg-student-name" placeholder="Student Full Name (e.g. Charan Reddy)" style="flex:1.5; min-width:180px; margin:0;">
+          <select id="reg-student-dist" style="flex:1; min-width:140px; margin:0;">
+            <option value="Warangal">Warangal</option>
+            <option value="Hyderabad">Hyderabad</option>
+            <option value="Karimnagar">Karimnagar</option>
+            <option value="Guntur">Guntur</option>
+            <option value="Visakhapatnam">Visakhapatnam</option>
+            <option value="Vijayawada">Vijayawada</option>
+            <option value="Khammam">Khammam</option>
+            <option value="Nalgonda">Nalgonda</option>
+            <option value="Tirupati">Tirupati</option>
+          </select>
+          <select id="reg-student-exam" style="flex:1; min-width:130px; margin:0;">
+            <option value="POLICE">POLICE SI/PC</option>
+            <option value="TET_DSC">TET / DSC</option>
+            <option value="TSPSC">TSPSC Group 1-4</option>
+            <option value="APPSC">APPSC Group 1-4</option>
+            <option value="SSC">SSC / Railway</option>
+            <option value="TS_BTECH">B.Tech / Engineering</option>
+          </select>
+          <input type="number" id="reg-student-pts" placeholder="Bonus Points (e.g. 50)" value="50" style="width:100px; margin:0;">
+          <button class="btn btn-accent" style="white-space:nowrap;" onclick="quickRegisterStudent()">✅ Register Student</button>
+        </div>
+        <div id="reg-student-log" style="font-size:12px; margin-top:8px; font-weight:600;"></div>
+      </div>
+
       <table id="table-members">
         <thead>
           <tr>
@@ -758,6 +797,7 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
             <th>Points</th>
             <th>Streak</th>
             <th>College</th>
+            <th>Action</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -1586,18 +1626,74 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
       const d = await res.json();
       const tbody = document.querySelector('#table-members tbody');
       tbody.innerHTML = '';
-      for (const m of d.members.slice(0, 50)) {
+      if (!d.members || d.members.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:16px;">No registered members yet. Use the Quick Register box above!</td></tr>';
+        return;
+      }
+      for (const m of d.members.slice(0, 100)) {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td>${m.uid}</td>
+          <td style="font-family:monospace;">${m.uid}</td>
           <td><b>${m.name}</b></td>
           <td>${m.district || '—'}</td>
-          <td>${m.exam || '—'}</td>
-          <td style="color:var(--warning); font-weight:700;">${m.points}</td>
-          <td>🔥 ${m.streak}d</td>
+          <td><span class="category-tag">${m.exam || '—'}</span></td>
+          <td style="color:var(--warning); font-weight:800; font-size:14px;">🏆 ${m.points}</td>
+          <td>🔥 ${m.streak || 1}d</td>
           <td>${m.college || '—'}</td>
+          <td>
+            <button class="btn btn-outline" style="padding:2px 7px; font-size:11px;" onclick="addStudentPoints('${m.uid}', 10)">+10 Pts</button>
+            <button class="btn btn-outline" style="padding:2px 7px; font-size:11px;" onclick="addStudentPoints('${m.uid}', 50)">+50 Pts</button>
+          </td>
         `;
         tbody.appendChild(tr);
+      }
+    }
+
+    async function quickRegisterStudent() {
+      const uid = document.getElementById('reg-student-uid').value.trim();
+      const name = document.getElementById('reg-student-name').value.trim();
+      const dist = document.getElementById('reg-student-dist').value;
+      const exam = document.getElementById('reg-student-exam').value;
+      const pts = parseInt(document.getElementById('reg-student-pts').value) || 50;
+      const log = document.getElementById('reg-student-log');
+
+      if (!uid || !name) return alert('Enter Telegram ID / Mobile and Student Name');
+
+      try {
+        const res = await fetch('/api/members/register', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({uid, name, district: dist, exam, points: pts})
+        });
+        const d = await res.json();
+        if (d.ok) {
+          log.style.color = '#10b981';
+          log.innerText = `✅ Registered ${name}! Awarded ${pts} initial points.`;
+          document.getElementById('reg-student-uid').value = '';
+          document.getElementById('reg-student-name').value = '';
+          loadMembers();
+          fetchStats();
+        }
+      } catch (e) {
+        log.style.color = '#ef4444';
+        log.innerText = '❌ Failed: ' + e;
+      }
+    }
+
+    async function addStudentPoints(uid, pts) {
+      try {
+        const res = await fetch('/api/members/add_points', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({uid, points: pts})
+        });
+        const d = await res.json();
+        if (d.ok) {
+          loadMembers();
+          fetchStats();
+        }
+      } catch (e) {
+        alert('Error: ' + e);
       }
     }
 
@@ -1814,6 +1910,32 @@ class DashboardHandler(BaseHTTPRequestHandler):
         p = urllib.parse.urlparse(self.path)
         length = int(self.headers.get("Content-Length", 0))
         body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+
+        if p.path == "/api/members/register":
+            uid = str(body.get("uid", "")).strip()
+            name = body.get("name", "").strip()
+            district = body.get("district", "Warangal").strip()
+            exam = body.get("exam", "POLICE").strip()
+            pts = int(body.get("points", 50))
+            
+            mb = Members()
+            m = mb.register(uid, name=name, exam=exam, district=district)
+            m["points"] = m.get("points", 0) + pts
+            mb.kv.save()
+            self._send_json({"ok": True, "uid": uid, "points": m["points"]})
+            return
+
+        if p.path == "/api/members/add_points":
+            uid = str(body.get("uid", "")).strip()
+            pts = int(body.get("points", 10))
+            mb = Members()
+            if uid in mb.members:
+                mb.members[uid]["points"] = mb.members[uid].get("points", 0) + pts
+                mb.kv.save()
+                self._send_json({"ok": True, "uid": uid, "points": mb.members[uid]["points"]})
+            else:
+                self._send_json({"ok": False, "message": "User not found"})
+            return
 
         if p.path == "/api/campus/create":
             college = body.get("college", "College").strip()
