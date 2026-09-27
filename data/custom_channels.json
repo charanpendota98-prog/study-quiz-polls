@@ -351,6 +351,31 @@
         "health schemes"
       ],
       "ts_ap_weight": 0.3
+    },
+    "TS_POLICE_OFFICIAL": {
+      "key": "TS_POLICE_OFFICIAL",
+      "name": "@ts_police_official",
+      "base_exam": "POLICE",
+      "exam_type": "POLICE",
+      "emoji": "👮",
+      "subject": "@ts_police_official Exam Prep (Police Exams)",
+      "public": true,
+      "chat_id": "https://t.me/ts_police_official",
+      "username": "@ts_police_official",
+      "audience": "Aspirants targeting @ts_police_official & POLICE",
+      "topics": [
+        "opposite words",
+        "coding-decoding",
+        "blood relation",
+        "direction-distance",
+        "figure count",
+        "statement-conclusion",
+        "missing letter series",
+        "syllogism",
+        "analogy",
+        "number series"
+      ],
+      "ts_ap_weight": 0.35
     }
   }
 }

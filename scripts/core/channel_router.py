@@ -84,6 +84,7 @@ def register_channel(name: str, chat_id: str = "", exam_type: str = "", username
         "key": key,
         "name": name,
         "base_exam": base_exam,
+        "exam_type": base_exam,
         "emoji": template.get("emoji", "🎯"),
         "subject": f"{name} Exam Prep ({template.get('subject', 'General Studies')})",
         "public": True,

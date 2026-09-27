@@ -241,6 +241,66 @@
       "shift": "ALL_DAY",
       "active": true,
       "created_at": "2026-09-25 16:56"
+    },
+    {
+      "id": "G_28_754",
+      "name": "Khammam TS Police SI Group",
+      "jid": "https://chat.whatsapp.com/ExAmPlE1",
+      "category": "POLICE",
+      "group_type": "EXAM_SPECIFIC",
+      "shift": "MORNING",
+      "active": true,
+      "created_at": "2026-09-27 18:12"
+    },
+    {
+      "id": "G_29_754",
+      "name": "Guntur AP DSC SGT Aspirants",
+      "jid": "https://chat.whatsapp.com/ExAmPlE2",
+      "category": "TET_DSC",
+      "group_type": "EXAM_SPECIFIC",
+      "shift": "ALL_DAY",
+      "active": true,
+      "created_at": "2026-09-27 18:12"
+    },
+    {
+      "id": "G_30_754",
+      "name": "Telangana General Quiz Room",
+      "jid": "https://chat.whatsapp.com/ExAmPlE3",
+      "category": "CURRENT",
+      "group_type": "GENERAL",
+      "shift": "ALL_DAY",
+      "active": true,
+      "created_at": "2026-09-27 18:12"
+    },
+    {
+      "id": "G_31_762",
+      "name": "Khammam TS Police SI Group",
+      "jid": "https://chat.whatsapp.com/ExAmPlE1",
+      "category": "POLICE",
+      "group_type": "EXAM_SPECIFIC",
+      "shift": "MORNING",
+      "active": true,
+      "created_at": "2026-09-27 18:12"
+    },
+    {
+      "id": "G_32_762",
+      "name": "Guntur AP DSC SGT Aspirants",
+      "jid": "https://chat.whatsapp.com/ExAmPlE2",
+      "category": "TET_DSC",
+      "group_type": "EXAM_SPECIFIC",
+      "shift": "ALL_DAY",
+      "active": true,
+      "created_at": "2026-09-27 18:12"
+    },
+    {
+      "id": "G_33_762",
+      "name": "Telangana General Quiz Room",
+      "jid": "https://chat.whatsapp.com/ExAmPlE3",
+      "category": "CURRENT",
+      "group_type": "GENERAL",
+      "shift": "ALL_DAY",
+      "active": true,
+      "created_at": "2026-09-27 18:12"
     }
   ],
   "gateway_url": "",
