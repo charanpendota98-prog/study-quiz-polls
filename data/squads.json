@@ -17,10 +17,21 @@
         "AdminTester"
       ],
       "created": "2026-09-27T18:26:56.328675"
+    },
+    "VDDP": {
+      "code": "VDDP",
+      "name": "Warangal Hawks",
+      "leader": "Charan",
+      "members": [
+        "Charan",
+        "9848099887"
+      ],
+      "created": "2026-09-27T19:58:29.426521"
     }
   },
   "by_uid": {
-    "Charan": "NJYZ",
-    "AdminTester": "DJLC"
+    "Charan": "VDDP",
+    "AdminTester": "DJLC",
+    "9848099887": "VDDP"
   }
 }

@@ -710,36 +710,55 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
   <!-- TAB 6: SQUADS & ARENA -->
   <div id="tab-squads" class="tab-pane">
     <div class="panel-card">
-      <h2>👥 Registered Squads & Instant Squad Generator</h2>
-      <p style="color:var(--text-muted); font-size:13px; margin-bottom:14px;">
-        Generate new Squads with dynamic Telegram one-tap Join Links & scannable QR Codes directly from the Dashboard.
-      </p>
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+        <div>
+          <h2>👥 Registered Squads, War Battle Room & Instant Join QR</h2>
+          <p style="color:var(--text-muted); font-size:13px; margin-top:2px;">
+            Generate new Squads with dynamic Telegram one-tap Join Links & scannable QR Codes directly from the Dashboard.
+          </p>
+        </div>
+        <button class="btn btn-outline" onclick="loadSquads()">🔄 Refresh Squads</button>
+      </div>
 
-      <div style="background:#0f172a; border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:18px;">
-        <h3 style="font-size:14px; margin-bottom:10px; color:#38bdf8;">➕ Quick Create Squad</h3>
-        <div style="display:flex; gap:10px;">
-          <input type="text" id="new-squad-name" placeholder="Squad Name (e.g. Warangal Tigers or JNTUK CSE Warriors)">
-          <input type="text" id="new-squad-leader" placeholder="Leader Name / Telegram ID (e.g. Charan or 999123)">
-          <button class="btn btn-accent" style="white-space:nowrap;" onclick="createDashboardSquad()">🚀 Generate Squad Link & QR</button>
+      <!-- Quick Create & Quick Join Bar -->
+      <div style="display:grid; grid-template-columns: 1.5fr 1fr; gap:16px; margin-bottom:18px;">
+        <div style="background:#0f172a; border:1px solid var(--border); border-radius:10px; padding:16px;">
+          <h3 style="font-size:14px; margin-bottom:10px; color:#38bdf8;">➕ Quick Create New Squad</h3>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <input type="text" id="new-squad-name" placeholder="Squad Name (e.g. Warangal Tigers or JNTUK CSE Warriors)" style="flex:2; min-width:180px; margin:0;">
+            <input type="text" id="new-squad-leader" placeholder="Leader Name / Telegram ID (e.g. Charan or 999123)" style="flex:1.2; min-width:150px; margin:0;">
+            <button class="btn btn-accent" style="white-space:nowrap;" onclick="createDashboardSquad()">🚀 Create Squad & Generate QR</button>
+          </div>
+        </div>
+
+        <div style="background:#0f172a; border:1px solid var(--border); border-radius:10px; padding:16px;">
+          <h3 style="font-size:14px; margin-bottom:10px; color:#10b981;">🤝 Quick Add Student to Squad</h3>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="join-squad-code" placeholder="Squad Code (e.g. DJLC)" style="width:120px; margin:0; text-transform:uppercase;">
+            <input type="text" id="join-squad-uid" placeholder="Student Mobile / TG ID" style="flex:1; margin:0;">
+            <button class="btn btn-accent" style="white-space:nowrap;" onclick="addStudentToSquad()">➕ Join Member</button>
+          </div>
+          <div id="join-squad-log" style="font-size:11px; margin-top:6px; font-weight:600;"></div>
         </div>
       </div>
 
-      <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
-        <h3 style="font-size:15px;">Active Squads Directory</h3>
-        <button class="btn btn-outline" onclick="loadSquads()">🔄 Refresh Squads</button>
-      </div>
+      <!-- Active Squads Table with Interactive Modal / QR Popup -->
       <table id="table-squads">
         <thead>
           <tr>
             <th>Squad Code</th>
-            <th>Name</th>
+            <th>Squad Name</th>
             <th>Leader</th>
             <th>Members Count</th>
-            <th>One-Tap Join Link & QR Code</th>
+            <th>Active Members</th>
+            <th>One-Tap Join Link & Interactive Scannable QR</th>
           </tr>
         </thead>
         <tbody></tbody>
       </table>
+
+      <!-- Dynamic Squad Modal Card -->
+      <div id="squad-active-modal" style="display:none; margin-top:16px; background:#070d1e; border:1px solid #38bdf8; border-radius:10px; padding:18px;"></div>
     </div>
   </div>
 
@@ -1601,23 +1620,80 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
       const tbody = document.querySelector('#table-squads tbody');
       tbody.innerHTML = '';
       if (!d.squads || Object.keys(d.squads).length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No squads created yet</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:16px;">No squads created yet. Click "Create Squad" above!</td></tr>';
         return;
       }
       for (const [code, s] of Object.entries(d.squads)) {
         const tr = document.createElement('tr');
         const link = 'https://t.me/' + (d.bot || 'StudentUpBot') + '?start=sq_' + code;
+        const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=' + encodeURIComponent(link);
+        const memCount = (s.members || []).length;
+        const membersList = (s.members || []).join(', ') || s.leader;
+
         tr.innerHTML = `
-          <td><b>SQ-${code}</b></td>
-          <td>${s.name}</td>
+          <td><b style="color:#38bdf8; font-size:14px;">SQ-${code}</b></td>
+          <td><b>${s.name}</b></td>
           <td>${s.leader}</td>
-          <td>${(s.members || []).length} / 10</td>
+          <td><span style="font-weight:700; color:${memCount >= 5 ? '#10b981' : '#f59e0b'};">${memCount} / 10 Members</span></td>
+          <td style="font-size:11px; color:var(--text-muted); max-width:200px; overflow:hidden; text-overflow:ellipsis;">${membersList}</td>
           <td>
-            <a href="${link}" target="_blank" style="color:var(--primary); text-decoration:none;">🔗 Join Link</a> | 
-            <a href="https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${link}" target="_blank" style="color:var(--accent); text-decoration:none;">📱 View QR</a>
+            <a href="${link}" target="_blank" class="btn btn-outline" style="padding:3px 8px; font-size:11px; text-decoration:none;">🔗 Join Link</a>
+            <button class="btn btn-accent" style="padding:3px 8px; font-size:11px; margin-left:4px;" onclick="viewSquadModal('${code}', '${s.name.replace(/'/g, "\\'")}', '${link}', '${qrUrl}', '${s.leader}')">📱 View Scannable QR</button>
           </td>
         `;
         tbody.appendChild(tr);
+      }
+    }
+
+    function viewSquadModal(code, name, link, qr, leader) {
+      const modal = document.getElementById('squad-active-modal');
+      modal.style.display = 'block';
+      modal.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+          <div>
+            <h3 style="color:#38bdf8; font-size:16px;">👥 Squad: ${name} (Code: SQ-${code})</h3>
+            <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">Leader: <b>${leader}</b> · Live One-Tap Telegram Join Link & Projector QR Code</div>
+          </div>
+          <button class="btn btn-outline" style="padding:4px 10px; font-size:11px;" onclick="document.getElementById('squad-active-modal').style.display='none'">✕ Close</button>
+        </div>
+        <div style="display:flex; gap:20px; align-items:center; flex-wrap:wrap; background:#050811; padding:16px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
+          <img src="${qr}" style="width:160px; height:160px; border-radius:8px; border:2px solid #38bdf8; background:white; padding:4px;">
+          <div>
+            <div style="font-size:13px; margin-bottom:8px;"><b>One-Tap Student Link:</b> <a href="${link}" target="_blank" style="color:#10b981;">${link}</a></div>
+            <div style="font-size:12px; color:var(--text-muted); line-height:1.6; max-width:400px;">
+              ఈ QR కోడ్ లేదా లింక్‌ను వాట్సాప్ గ్రూపులలో లేదా కాలేజీ ప్రొజెక్టర్‌పై షేర్ చేయండి. విద్యార్థులు ఒక్క ట్యాప్‌తో మీ స్క్వాడ్‌లో చేరవచ్చు!
+            </div>
+          </div>
+        </div>
+      `;
+      modal.scrollIntoView({behavior: 'smooth'});
+    }
+
+    async function addStudentToSquad() {
+      const code = (document.getElementById('join-squad-code').value || '').trim().toUpperCase();
+      const uid = (document.getElementById('join-squad-uid').value || '').trim();
+      const log = document.getElementById('join-squad-log');
+      if (!code || !uid) return alert('Enter Squad Code and Student Mobile / Telegram ID');
+
+      try {
+        const res = await fetch('/api/squads/join', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({code, uid})
+        });
+        const d = await res.json();
+        if (d.ok) {
+          log.style.color = '#10b981';
+          log.innerText = `✅ Added ${uid} to Squad SQ-${code}!`;
+          document.getElementById('join-squad-uid').value = '';
+          loadSquads();
+        } else {
+          log.style.color = '#ef4444';
+          log.innerText = '❌ Failed: ' + (d.message || 'Error');
+        }
+      } catch (e) {
+        log.style.color = '#ef4444';
+        log.innerText = '❌ Error: ' + e;
       }
     }
 
@@ -1989,6 +2065,31 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 "name": name,
                 "link": link,
                 "qr": qr
+            })
+            return
+
+        if p.path == "/api/squads/join":
+            code = body.get("code", "").strip().upper()
+            uid = str(body.get("uid", "")).strip()
+            sq_data = hooks._sq()
+            
+            clean_code = code.replace("SQ-", "").strip()
+            if clean_code not in sq_data.get("squads", {}):
+                self._send_json({"ok": False, "message": f"Squad SQ-{clean_code} not found"})
+                return
+
+            sq = sq_data["squads"][clean_code]
+            if uid not in sq.get("members", []):
+                sq.setdefault("members", []).append(uid)
+                sq_data.setdefault("by_uid", {})[uid] = clean_code
+                hooks.save_json_atomic(hooks.SQUADS_PATH, sq_data)
+
+            self._send_json({
+                "ok": True,
+                "code": clean_code,
+                "name": sq["name"],
+                "members_count": len(sq["members"]),
+                "members": sq["members"]
             })
             return
 
