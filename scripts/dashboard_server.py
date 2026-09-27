@@ -738,11 +738,138 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
           statText.innerText = 'Status: Idle';
         }
         if (d.logs && d.logs.length > 0) {
-          logBox.innerText = d.logs.join('\\n');
+          logBox.innerText = d.logs.join('\n');
           logBox.scrollTop = logBox.scrollHeight;
         }
       } catch (e) {
         console.error(e);
+      }
+    }
+
+    async function loadWASession() {
+      try {
+        const res = await fetch('/api/whatsapp/session');
+        const s = await res.json();
+        const badge = document.getElementById('wa-session-status-badge');
+        const desc = document.getElementById('wa-session-desc');
+        const nameEl = document.getElementById('wa-device-name');
+        const phoneEl = document.getElementById('wa-device-phone');
+        const countEl = document.getElementById('wa-dialogs-count');
+
+        if (nameEl) nameEl.innerText = s.device_name || 'Dispatch Node #1';
+        if (phoneEl) phoneEl.innerText = s.phone || '+91 98XXXXXXXX';
+        if (countEl) countEl.innerText = (s.scanned_dialogs_count || 0) + ' Groups';
+
+        if (badge) {
+          if (s.status === 'connected') {
+            badge.style.background = '#10b981';
+            badge.style.color = '#050811';
+            badge.innerText = '● ALWAYS-ON CONNECTED';
+          } else if (s.status === 'qr_ready') {
+            badge.style.background = '#f59e0b';
+            badge.style.color = '#050811';
+            badge.innerText = '📷 QR CODE READY';
+          } else if (s.status === 'code_ready') {
+            badge.style.background = '#38bdf8';
+            badge.style.color = '#050811';
+            badge.innerText = '🔢 PAIRING CODE: ' + s.pairing_code;
+          } else {
+            badge.style.background = '#ef4444';
+            badge.style.color = '#fff';
+            badge.innerText = '○ DISCONNECTED';
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function syncWADialogs() {
+      const box = document.getElementById('wa-login-dialog');
+      box.style.display = 'block';
+      box.innerHTML = '<div style="color:#38bdf8;">🔄 Scanning active WhatsApp account for all joined groups & channels...</div>';
+      try {
+        const res = await fetch('/api/whatsapp/sync_dialogs', {method: 'POST'});
+        const d = await res.json();
+        box.innerHTML = `<div style="color:#10b981; font-weight:700;">✅ Synced ${d.dialogs_count || 0} active dialogs from WhatsApp!</div>`;
+        loadWASession();
+        loadWAGroups();
+        fetchStats();
+        setTimeout(() => { box.style.display = 'none'; }, 4000);
+      } catch (e) {
+        box.innerHTML = '<div style="color:#ef4444;">❌ Failed to sync: ' + e + '</div>';
+      }
+    }
+
+    async function showQRLoginModal() {
+      const box = document.getElementById('wa-login-dialog');
+      box.style.display = 'block';
+      box.innerHTML = '<div style="color:#38bdf8;">Generating Ultra-Secure WhatsApp Web QR Code...</div>';
+      try {
+        const res = await fetch('/api/whatsapp/request_qr', {method: 'POST'});
+        const d = await res.json();
+        const s = d.session || {};
+        box.innerHTML = `
+          <div style="display:flex; gap:20px; align-items:center; flex-wrap:wrap;">
+            <img src="${s.qr_data}" style="width:160px; height:160px; border-radius:8px; border:2px solid #10b981; background:white; padding:4px;">
+            <div>
+              <h4 style="color:#10b981; margin-bottom:6px;">📱 Scan with WhatsApp on your phone</h4>
+              <p style="font-size:12px; color:#cbd5e1; margin-bottom:8px;">1. Open WhatsApp on your phone<br>2. Tap Menu / Settings > Linked Devices<br>3. Tap <b>Link a Device</b> and point camera here.</p>
+              <button class="btn btn-accent" style="font-size:11px; padding:5px 10px;" onclick="confirmWALogin('Primary Mobile')">✅ I Have Scanned (Confirm Link)</button>
+              <button class="btn btn-outline" style="font-size:11px; padding:5px 10px; margin-left:6px;" onclick="document.getElementById('wa-login-dialog').style.display='none'">Close</button>
+            </div>
+          </div>
+        `;
+        loadWASession();
+      } catch (e) {
+        box.innerHTML = '<div style="color:#ef4444;">❌ QR Request failed: ' + e + '</div>';
+      }
+    }
+
+    async function showCodeLoginModal() {
+      const phone = prompt('Enter WhatsApp Phone Number with Country Code (e.g. +91 9876543210):');
+      if (!phone) return;
+      const box = document.getElementById('wa-login-dialog');
+      box.style.display = 'block';
+      box.innerHTML = '<div style="color:#38bdf8;">Requesting 8-digit Pairing Code from WhatsApp...</div>';
+      try {
+        const res = await fetch('/api/whatsapp/request_code', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({phone})
+        });
+        const d = await res.json();
+        const s = d.session || {};
+        box.innerHTML = `
+          <div style="background:#0b1329; border:1px solid #38bdf8; padding:16px; border-radius:8px;">
+            <h4 style="color:#38bdf8; margin-bottom:6px;">🔢 WhatsApp 8-Digit Pairing Code</h4>
+            <div style="font-size:24px; font-weight:800; letter-spacing:4px; color:#facc15; margin:10px 0;">${s.pairing_code}</div>
+            <p style="font-size:12px; color:#cbd5e1; margin-bottom:10px;">Enter this code on your phone notification to link your WhatsApp account permanently.</p>
+            <button class="btn btn-accent" style="font-size:11px; padding:5px 10px;" onclick="confirmWALogin('Phone Code Linked Device')">✅ Confirm Pairing Complete</button>
+            <button class="btn btn-outline" style="font-size:11px; padding:5px 10px; margin-left:6px;" onclick="document.getElementById('wa-login-dialog').style.display='none'">Close</button>
+          </div>
+        `;
+        loadWASession();
+      } catch (e) {
+        box.innerHTML = '<div style="color:#ef4444;">❌ Pairing code request failed: ' + e + '</div>';
+      }
+    }
+
+    async function confirmWALogin(devName) {
+      try {
+        await fetch('/api/whatsapp/confirm_login', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({device_name: devName || 'Primary WhatsApp Phone'})
+        });
+        const box = document.getElementById('wa-login-dialog');
+        box.innerHTML = '<div style="color:#10b981; font-weight:700;">🎉 WhatsApp Connected Successfully & Saved to Disk!</div>';
+        loadWASession();
+        loadWAGroups();
+        fetchStats();
+        setTimeout(() => { box.style.display = 'none'; }, 2500);
+      } catch (e) {
+        alert('Failed: ' + e);
       }
     }
 
@@ -847,23 +974,6 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
       const d = await res.json();
       if (!d.ok) alert(d.message);
       else alert(`🚀 Broadcast started for ${gids.length} selected groups!`);
-    }
-
-    async function addNewWAGroup() {
-      const name = document.getElementById('new-wa-title').value.trim();
-      const jid = document.getElementById('new-wa-jid').value.trim();
-      const category = document.getElementById('new-wa-category').value;
-      const shift = document.getElementById('new-wa-shift').value;
-      if (!name || !jid) return alert('Enter group name and JID / Link');
-      await fetch('/api/whatsapp/add_group', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({name, jid, category, shift})
-      });
-      document.getElementById('new-wa-title').value = '';
-      document.getElementById('new-wa-jid').value = '';
-      loadWAGroups();
-      fetchStats();
     }
 
     async function deleteWAGroup(id) {
@@ -1236,11 +1346,13 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
     }
 
     fetchStats();
+    loadWASession();
     loadWAGroups();
     loadChannels();
     loadBundles();
     setInterval(fetchStats, 10000);
     setInterval(pollPipelineStatus, 1500);
+    setInterval(loadWASession, 10000);
   </script>
 </body>
 </html>
@@ -1295,6 +1407,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         if p.path == "/api/whatsapp/groups":
             self._send_json(whatsapp_pipeline.load_wa_registry())
+            return
+
+        if p.path == "/api/whatsapp/session":
+            self._send_json(whatsapp_pipeline.get_session_info())
+            return
+
+        if p.path == "/api/whatsapp/schedules":
+            self._send_json({"jobs": whatsapp_pipeline.get_scheduled_jobs()})
             return
 
         if p.path == "/api/whatsapp/pipeline_status":
@@ -1450,6 +1570,43 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if p.path == "/api/bundles/delete":
             bid = body.get("id")
             ok = bundle_manager.delete_bundle(bid)
+            self._send_json({"ok": ok})
+            return
+
+        if p.path == "/api/whatsapp/request_qr":
+            info = whatsapp_pipeline.request_login_qr()
+            self._send_json({"ok": True, "session": info})
+            return
+
+        if p.path == "/api/whatsapp/request_code":
+            phone = body.get("phone", "")
+            info = whatsapp_pipeline.request_pairing_code(phone)
+            self._send_json({"ok": True, "session": info})
+            return
+
+        if p.path == "/api/whatsapp/confirm_login":
+            dev = body.get("device_name", "Primary WhatsApp Phone")
+            info = whatsapp_pipeline.confirm_session_connected(dev)
+            self._send_json({"ok": True, "session": info})
+            return
+
+        if p.path == "/api/whatsapp/sync_dialogs":
+            res = whatsapp_pipeline.sync_dialogs_from_session()
+            self._send_json(res)
+            return
+
+        if p.path == "/api/whatsapp/schedule_quiz":
+            time_val = body.get("time", "09:00")
+            gids = body.get("target_group_ids", [])
+            cat = body.get("category", "ALL")
+            is_q = body.get("is_question", True)
+            job = whatsapp_pipeline.add_scheduled_job(time_val, gids, category=cat, is_question=is_q)
+            self._send_json({"ok": True, "job": job})
+            return
+
+        if p.path == "/api/whatsapp/delete_schedule":
+            jid = body.get("id")
+            ok = whatsapp_pipeline.delete_scheduled_job(jid)
             self._send_json({"ok": ok})
             return
 
