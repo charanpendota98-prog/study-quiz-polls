@@ -1,0 +1,260 @@
+{
+  "tournaments": {
+    "CLASH_3791_851": {
+      "id": "CLASH_3791_851",
+      "type": "DISTRICT_CLASH",
+      "title": "Warangal vs Karimnagar SI Derby",
+      "exam_target": "POLICE",
+      "num_questions": 5,
+      "status": "LIVE_LOBBY",
+      "created_at": "2026-09-28 13:56",
+      "team_a": {
+        "name": "Warangal",
+        "players": {
+          "user_a_0": {
+            "name": "Player A0",
+            "correct": 4,
+            "time_sec": 25.0
+          },
+          "user_a_1": {
+            "name": "Player A1",
+            "correct": 4,
+            "time_sec": 25.0
+          },
+          "user_a_2": {
+            "name": "Player A2",
+            "correct": 4,
+            "time_sec": 25.0
+          },
+          "user_a_3": {
+            "name": "Player A3",
+            "correct": 4,
+            "time_sec": 25.0
+          },
+          "user_a_4": {
+            "name": "Player A4",
+            "correct": 4,
+            "time_sec": 25.0
+          },
+          "user_a_5": {
+            "name": "Player A5",
+            "correct": 4,
+            "time_sec": 25.0
+          },
+          "user_a_6": {
+            "name": "Player A6",
+            "correct": 4,
+            "time_sec": 25.0
+          },
+          "user_a_7": {
+            "name": "Player A7",
+            "correct": 4,
+            "time_sec": 25.0
+          },
+          "user_a_8": {
+            "name": "Player A8",
+            "correct": 4,
+            "time_sec": 25.0
+          },
+          "user_a_9": {
+            "name": "Player A9",
+            "correct": 4,
+            "time_sec": 25.0
+          }
+        },
+        "score": 105.8
+      },
+      "team_b": {
+        "name": "Karimnagar",
+        "players": {
+          "user_b_0": {
+            "name": "Player B0",
+            "correct": 4,
+            "time_sec": 20.0
+          },
+          "user_b_1": {
+            "name": "Player B1",
+            "correct": 4,
+            "time_sec": 20.0
+          },
+          "user_b_2": {
+            "name": "Player B2",
+            "correct": 4,
+            "time_sec": 20.0
+          },
+          "user_b_3": {
+            "name": "Player B3",
+            "correct": 4,
+            "time_sec": 20.0
+          },
+          "user_b_4": {
+            "name": "Player B4",
+            "correct": 4,
+            "time_sec": 20.0
+          }
+        },
+        "score": 100.5
+      },
+      "winner": "Warangal",
+      "shared_link": "https://t.me/StudentUpBot?start=war_CLASH_3791_851",
+      "team_a_link": "https://t.me/StudentUpBot?start=war_CLASH_3791_851_A",
+      "team_b_link": "https://t.me/StudentUpBot?start=war_CLASH_3791_851_B",
+      "qr_url": "https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=https://t.me/StudentUpBot?start=war_CLASH_3791_851"
+    },
+    "WCUP_3791": {
+      "id": "WCUP_3791",
+      "type": "WORLD_CUP_BRACKET",
+      "title": "Telangana & AP District World Cup",
+      "exam_target": "ALL",
+      "status": "ROUND_1_ACTIVE",
+      "current_round": "Quarter-Finals",
+      "total_teams": 8,
+      "bracket_matches": [
+        {
+          "match_no": 1,
+          "team_1": "Warangal",
+          "team_2": "Tirupati",
+          "team_1_score": 0.0,
+          "team_2_score": 0.0,
+          "winner": null,
+          "status": "Ready"
+        },
+        {
+          "match_no": 2,
+          "team_1": "Visakhapatnam",
+          "team_2": "Nalgonda",
+          "team_1_score": 0.0,
+          "team_2_score": 0.0,
+          "winner": null,
+          "status": "Ready"
+        },
+        {
+          "match_no": 3,
+          "team_1": "Hyderabad",
+          "team_2": "Khammam",
+          "team_1_score": 0.0,
+          "team_2_score": 0.0,
+          "winner": null,
+          "status": "Ready"
+        },
+        {
+          "match_no": 4,
+          "team_1": "Karimnagar",
+          "team_2": "Guntur",
+          "team_1_score": 0.0,
+          "team_2_score": 0.0,
+          "winner": null,
+          "status": "Ready"
+        }
+      ],
+      "semi_finals": [],
+      "finals": {},
+      "champion": null,
+      "shared_link": "https://t.me/StudentUpBot?start=tourney_WCUP_3791",
+      "qr_url": "https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=https://t.me/StudentUpBot?start=tourney_WCUP_3791",
+      "created_at": "2026-09-28 13:56"
+    },
+    "CLASH_3956_390": {
+      "id": "CLASH_3956_390",
+      "type": "DISTRICT_CLASH",
+      "title": "Warangal vs Karimnagar Super Derby",
+      "exam_target": "POLICE",
+      "num_questions": 5,
+      "status": "LIVE_LOBBY",
+      "created_at": "2026-09-28 13:59",
+      "team_a": {
+        "name": "Warangal",
+        "players": {
+          "wgl_std_0": {
+            "name": "Warangal Aspirant 0",
+            "correct": 4,
+            "time_sec": 20.0
+          },
+          "wgl_std_1": {
+            "name": "Warangal Aspirant 1",
+            "correct": 4,
+            "time_sec": 20.0
+          },
+          "wgl_std_2": {
+            "name": "Warangal Aspirant 2",
+            "correct": 4,
+            "time_sec": 20.0
+          },
+          "wgl_std_3": {
+            "name": "Warangal Aspirant 3",
+            "correct": 4,
+            "time_sec": 20.0
+          },
+          "wgl_std_4": {
+            "name": "Warangal Aspirant 4",
+            "correct": 4,
+            "time_sec": 20.0
+          },
+          "wgl_std_5": {
+            "name": "Warangal Aspirant 5",
+            "correct": 4,
+            "time_sec": 20.0
+          },
+          "wgl_std_6": {
+            "name": "Warangal Aspirant 6",
+            "correct": 4,
+            "time_sec": 20.0
+          },
+          "wgl_std_7": {
+            "name": "Warangal Aspirant 7",
+            "correct": 4,
+            "time_sec": 20.0
+          },
+          "wgl_std_8": {
+            "name": "Warangal Aspirant 8",
+            "correct": 4,
+            "time_sec": 20.0
+          },
+          "wgl_std_9": {
+            "name": "Warangal Aspirant 9",
+            "correct": 4,
+            "time_sec": 20.0
+          }
+        },
+        "score": 105.8
+      },
+      "team_b": {
+        "name": "Karimnagar",
+        "players": {
+          "knr_std_0": {
+            "name": "Karimnagar Aspirant 0",
+            "correct": 4,
+            "time_sec": 20.0
+          },
+          "knr_std_1": {
+            "name": "Karimnagar Aspirant 1",
+            "correct": 4,
+            "time_sec": 20.0
+          },
+          "knr_std_2": {
+            "name": "Karimnagar Aspirant 2",
+            "correct": 4,
+            "time_sec": 20.0
+          },
+          "knr_std_3": {
+            "name": "Karimnagar Aspirant 3",
+            "correct": 4,
+            "time_sec": 20.0
+          },
+          "knr_std_4": {
+            "name": "Karimnagar Aspirant 4",
+            "correct": 4,
+            "time_sec": 20.0
+          }
+        },
+        "score": 100.5
+      },
+      "winner": "Warangal",
+      "shared_link": "https://t.me/StudentUpBot?start=war_CLASH_3956_390",
+      "team_a_link": "https://t.me/StudentUpBot?start=war_CLASH_3956_390_A",
+      "team_b_link": "https://t.me/StudentUpBot?start=war_CLASH_3956_390_B",
+      "qr_url": "https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=https://t.me/StudentUpBot?start=war_CLASH_3956_390"
+    }
+  },
+  "active_matches": []
+}
