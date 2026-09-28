@@ -860,6 +860,19 @@ class Bot:
                     except TelegramError:
                         pass
                     return
+            if act == "quickmy":
+                m = self.members.members.get(str(uid), {}) if uid else {}
+                cname = m.get("college") or "My College"
+                dname = code or m.get("district") or "General"
+                ev_code = campus.quick_event(cname, dname, campus.DEFAULT_Q, "easy", created_by=uid, mode="college")
+                self.tg.send_message(chat_id, f"✅ *Exam Code {ev_code} Ready!*\nStudents కి లింక్/పోస్టర్ పంపండి:", parse_mode="Markdown")
+                self.tg.send_message(chat_id, campus.poster_text(ev_code), buttons=campus.poster_buttons(ev_code))
+                self.tg.send_message(chat_id, campus.panel_text(self.members, ev_code), buttons=campus.panel_buttons(ev_code))
+                try:
+                    self.tg.answer_callback(cq.get("id", ""), "Exam Ready!")
+                except TelegramError:
+                    pass
+                return
             if act == "new":
                 campus.wiz_start(uid)
                 self.tg.send_message(chat_id, COLLEGE_WIZ_NAME)
@@ -879,7 +892,7 @@ class Bot:
                 self.tg.send_message(chat_id, campus.panel_text(self.members, code) if new else "❌ only before start",
                                      buttons=campus.panel_buttons(code) if new else None)
             elif act == "poster" and code:
-                self.tg.send_message(chat_id, campus.poster_text(code))
+                self.tg.send_message(chat_id, campus.poster_text(code), buttons=campus.poster_buttons(code))
             elif act == "csv" and code:
                 fname, excel_bytes = campus.export_excel_bytes(code, members=self.members)
                 try:
@@ -1648,16 +1661,38 @@ class Bot:
                 except TelegramError:
                     pass
             self.tg.send_message(chat_id, f"📢 sent to {n} members of {college}")
-        elif low.startswith("/go ") and str(uid) in self._staff_ids():
+        elif (low.startswith("/go ") or low == "/go" or low.startswith("/host") or low.startswith("/examcreate")):
             from core import campus
-            f = [x.strip() for x in text[4:].split("|")]
-            if len(f) < 2:
-                self.tg.send_message(chat_id, "Usage: /go <College name> | <district> [| questions] [| easy/medium/hard]"); return
+            args_str = text[4:].strip() if low.startswith("/go ") else text.partition(" ")[2].strip()
+            if not args_str:
+                m = self.members.members.get(str(uid), {}) if uid else {}
+                def_col = m.get("college") or "My College"
+                def_dist = m.get("district") or "Warangal"
+                campus.wiz_start(uid)
+                self.tg.send_message(
+                    chat_id,
+                    "🚀 *Smart Live Exam Creator*\n\n"
+                    "మీ కాలేజీ లేదా ఫ్రెండ్స్ కోసం లైవ్ ఎగ్జామ్ వెంటనే ప్రారంభించండి!\n\n"
+                    "⚡ *ఉదాహరణకు:*\n"
+                    f"`/go {def_col} | {def_dist}`\n\n"
+                    "లేదా కింద బటన్ నొక్కండి:",
+                    parse_mode="Markdown",
+                    buttons=[
+                        [("⚡ Quick Launch My College Exam", f"cp:quickmy:{def_dist}")],
+                        [("➕ Add Colleges (Wizard)", "cwmore:again")]
+                    ]
+                )
+                return
+            f = [x.strip() for x in args_str.split("|")]
+            col_name = f[0]
+            m = self.members.members.get(str(uid), {}) if uid else {}
+            dist_name = f[1] if len(f) > 1 and f[1] else (m.get("district") or "General")
+            q_cnt = int(f[2]) if len(f) > 2 and f[2].isdigit() else campus.DEFAULT_Q
             lvl = f[3].lower() if len(f) > 3 else "easy"
-            code = campus.quick_event(f[0], f[1], int(f[2]) if len(f) > 2 and f[2].isdigit() else campus.DEFAULT_Q,
+            code = campus.quick_event(col_name, dist_name, q_cnt,
                                       "medium" if lvl == "exam" else lvl, created_by=uid, mode="exam" if lvl == "exam" else "college")
-            self.tg.send_message(chat_id, f"✅ {code} ready. Students కి ఇది పంపండి / projector లో చూపండి:")
-            self.tg.send_message(chat_id, campus.poster_text(code))
+            self.tg.send_message(chat_id, f"✅ *Exam Code {code} Created!*\nStudents కి లింక్/పోస్టర్ పంపండి లేదా Projector లో చూపించండి:", parse_mode="Markdown")
+            self.tg.send_message(chat_id, campus.poster_text(code), buttons=campus.poster_buttons(code))
             self.tg.send_message(chat_id, campus.panel_text(self.members, code), buttons=campus.panel_buttons(code))
         elif low.startswith("/join") or low.startswith("/channels"):
             from core import joingate
@@ -1768,51 +1803,11 @@ class Bot:
             elif sub == "links":
                 self.tg.send_message(chat_id, campus.links_text(rest.strip()))
             elif sub == "poster":
-                self.tg.send_message(chat_id, campus.poster_text(rest.strip()))
+                code_p = rest.strip()
+                self.tg.send_message(chat_id, campus.poster_text(code_p), buttons=campus.poster_buttons(code_p))
             elif sub == "status":
-                code_arg = rest.strip()
-                self.tg.send_message(chat_id, campus.status_text(self.members, code_arg), buttons=campus.status_buttons(code_arg) if code_arg else None)
-            elif sub == "ping":
-                codes = C.cup_ping_targets(rest.strip().upper())
-                if not codes:
-                    self.tg.send_message(chat_id, "⏳ ఈ cup లో ఇప్పుడు open matches లేవు (అన్నీ అయిపోయాయి లేదా నడుస్తున్నాయి).")
-                else:
-                    from core import campus
-                    n = 0
-                    for ec in codes:
-                        try:
-                            n += campus.waiting_room_ping(self.tg, self.members, ec)
-                        except Exception:
-                            pass
-                    self.tg.send_message(chat_id, f"🔔 pinged {n} students across {len(codes)} open cup matches.")
-            elif sub.upper().startswith("CUP-"):
-                self.tg.send_message(chat_id, C.render_cup(sub.upper()), buttons=C.cup_buttons(sub.upper()))
-            else:
-                self.tg.send_message(chat_id, C.list_cups())
-        elif low.startswith("/campus"):
-            from core import campus
-            parts = text.split(maxsplit=2)
-            sub = parts[1].lower() if len(parts) > 1 else ""
-            rest = parts[2] if len(parts) > 2 else ""
-            if str(uid) not in self._staff_ids():
-                self.tg.send_message(chat_id, "🎓 మీ college లో StudentUp exam + college-vs-college war కావాలా?\n"
-                                              "📲 మీరే పెట్టుకోండి: /campuswar <College> | <District> (staff ఒకే అంటే చాలు)\n"
-                                              "లేదా College పేరు · జిల్లా · students సంఖ్య · మీ phone → /partner apply లో పంపండి, team వస్తుంది!\n"
-                                              "(Top 10 కి gifts · అందరికీ points · results channel లో పేర్లతో)")
-                return
-            if sub == "new":
-                f = [x.strip() for x in rest.split("|")]
-                if len(f) < 3:
-                    self.tg.send_message(chat_id, "Usage: /campus new <event name> | <district> | <College A> ; <College B> ; … [| questions] [| easy/medium/hard]"); return
-                code = campus.new_event(f[0], f[1], f[2].split(";"), int(f[3]) if len(f) > 3 and f[3].isdigit() else campus.DEFAULT_Q,
-                                        f[4].lower() if len(f) > 4 else "medium", created_by=uid)
-                self.tg.send_message(chat_id, f"✅ Event {code}\n\n" + campus.links_text(code))
-            elif sub == "links":
-                self.tg.send_message(chat_id, campus.links_text(rest.strip()))
-            elif sub == "poster":
-                self.tg.send_message(chat_id, campus.poster_text(rest.strip()))
-            elif sub == "status":
-                self.tg.send_message(chat_id, campus.status_text(self.members, rest.strip()))
+                code_s = rest.strip()
+                self.tg.send_message(chat_id, campus.status_text(self.members, code_s), buttons=campus.status_buttons(code_s) if code_s else None)
             elif sub == "ping":
                 self.tg.send_message(chat_id, f"pinged {campus.waiting_room_ping(self.tg, self.members, rest.strip())}")
             elif sub == "start":

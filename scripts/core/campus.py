@@ -164,6 +164,32 @@ def poster_text(code):
     ])
 
 
+def poster_buttons(code):
+    """Smart buttons attached to poster for instant WhatsApp share & direct exam control."""
+    d = _load()
+    e = d["events"].get(code)
+    if not e:
+        return None
+    import urllib.parse
+    bot = config.BOT_USERNAME or "StudentUpBot"
+    link = f"https://t.me/{bot}?start=c{code[3:]}-1"
+    wa_msg = (
+        f"🎓 *{e['name'].upper()}* 🎓\n"
+        f"📍 {e['district']} · {e['n_q']} Questions · Live Mobile Campus Exam!\n\n"
+        f"👉 Join & Test Now: {link}\n\n"
+        "1. లింక్ ఓపెన్ చేయండి (లేదా QR స్కాన్ చేయండి)\n"
+        "2. పేరు & మొబైల్ ఇచ్చి వెంటనే రెడీగా ఉండండి\n"
+        "3. Start అనగానే ప్రశ్నలు వస్తాయి!\n"
+        "🏆 Top Toppers కి బహుమతులు & సర్టిఫికెట్స్!"
+    )
+    wa_share = f"https://api.whatsapp.com/send?text={urllib.parse.quote(wa_msg)}"
+    btns = [
+        [("📲 Share to WhatsApp Group", None, wa_share)],
+        [("🚀 START Exam Now", f"cp:start:{code}"), ("🔄 Refresh Live Hall", f"cp:status:{code}")]
+    ]
+    return btns
+
+
 def links_text(code):
     d = _load()
     e = d["events"].get(code)
@@ -179,14 +205,21 @@ def links_text(code):
 
 
 def parse_start_arg(arg):
-    """'cK7P2-2' → ('CE-K7P2', 2) or None."""
-    if not arg or not arg.startswith("c") or "-" not in arg:
+    """'cK7P2-2' or 'cK7P2' or 'CE-K7P2' → ('CE-K7P2', idx) or None."""
+    if not arg:
+        return None
+    arg = arg.strip()
+    if arg.upper().startswith("CE-"):
+        code_part = arg.upper()
+        return code_part, 1
+    if not arg.startswith("c"):
         return None
     body = arg[1:]
-    code, _, idx = body.rpartition("-")
-    if not code or not idx.isdigit():
-        return None
-    return "CE-" + code.upper(), int(idx)
+    if "-" in body:
+        code, _, idx = body.rpartition("-")
+        if code and idx.isdigit():
+            return "CE-" + code.upper(), int(idx)
+    return "CE-" + body.upper(), 1
 
 
 def join(members, uid, code, college_idx, name_hint=""):
