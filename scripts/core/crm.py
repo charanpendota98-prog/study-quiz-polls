@@ -39,6 +39,7 @@ COLUMNS = ["tg_id", "name", "username", "mobile", "state", "district", "qualific
 
 QUEUE = config.DATA / "sheet_queue.json"      # offline queue: failed pushes are retried, never lost
 QUEUE_CAP = 2000
+MEMBERS_CSV = config.DATA / "members.csv"     # Local auto-sync CSV mirror for instant Excel & offline access
 
 
 def member_row(uid, m: dict) -> dict:
@@ -72,14 +73,39 @@ def sheet_enabled() -> bool:
     return bool(SHEET_URL and SHEET_URL.startswith("http"))
 
 
-def push_member(uid, m: dict, post=None) -> bool:
-    """Upsert one member row into the Google Sheet (row keyed by tg_id)."""
+def sync_local_csv(members: dict) -> int:
+    """Automatically write/update all registered members to data/members.csv with UTF-8 BOM."""
+    try:
+        csv_bytes = export_csv(members, only_registered=True)
+        MEMBERS_CSV.write_bytes(csv_bytes)
+        return sum(1 for m in members.values() if m.get("registered"))
+    except Exception as e:
+        print(f"   [crm] sync_local_csv note: {e}")
+        return 0
+
+
+def push_member(uid, m: dict, post=None, members_dict=None) -> bool:
+    """Upsert one member row into Google Sheet and sync local CSV mirror."""
+    if members_dict is not None:
+        sync_local_csv(members_dict)
+    elif m.get("registered"):
+        try:
+            # Quick append/update to local CSV
+            from .store import load_json
+            data = load_json(config.DATA / "members.json", {})
+            mems = data.get("members", {})
+            if mems:
+                sync_local_csv(mems)
+        except Exception:
+            pass
+
     if not sheet_enabled():
         return False
     return _post({"action": "upsert", "row": member_row(uid, m)}, post)
 
 
 def push_all(members: dict, post=None) -> int:
+    sync_local_csv(members)
     if not sheet_enabled():
         return 0
     rows = [member_row(uid, m) for uid, m in members.items() if m.get("registered")]

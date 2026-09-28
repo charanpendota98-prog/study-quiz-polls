@@ -172,7 +172,7 @@ class Members:
         self.kv.save()
         try:                       # mirror to Google Sheet CRM (no-op if not configured)
             from . import crm
-            crm.push_member(uid, m)
+            crm.push_member(uid, m, members_dict=self.members)
         except Exception as e:
             print(f"   [members] crm note: {e}")
         return m
