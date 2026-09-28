@@ -462,7 +462,7 @@ def college_table(e):
 
 def ranking(e):
     rows = [(u, p) for u, p in e["players"].items() if p["answered"]]
-    rows.sort(key=lambda kv: (-kv[1]["pts"], -kv[1]["correct"], kv[1]["last"] or "z"))
+    rows.sort(key=lambda kv: (-kv[1].get("pts", 0), -kv[1].get("correct", 0), kv[1].get("last") or "z"))
     return rows
 
 
@@ -748,31 +748,59 @@ def csv_text(code, members=None):
     e = d["events"].get(code)
     if not e:
         return None
-    out = ["Rank,Student Name,College,Phone,District,Qualification,Score Correct,Total Questions,Points,Accuracy %"]
+    out = ["rank,name,college,phone,uid,correct,total_q,points,answered"]
     rows = ranking(e) if e["state"] == "done" else sorted(e["players"].items())
-    total_q = len(e.get("questions", [])) or e.get("n_q", 10)
     for i, (u, p) in enumerate(rows, 1):
-        phone = p.get("phone", "")
-        dist = e.get("district", "")
-        qual = ""
-        if members:
-            m = members.members.get(str(u), {})
-            phone = phone or m.get("mobile", "")
-            dist = m.get("district") or dist
-            qual = m.get("qualification", "")
-        acc = round((p['correct'] / total_q) * 100, 1) if total_q else 0.0
-        out.append(f"{p.get('rank', i)},\"{p['name']}\",\"{p['college']}\",{phone},{dist},{qual},{p['correct']},{total_q},{p['pts']},{acc}%")
+        out.append(f"{p.get('rank', i)},{p['name']},{p['college']},{p.get('phone', '')},{u},{p['correct']},{len(e['questions']) or e['n_q']},{p['pts']},{p['answered']}")
     return "\n".join(out)
 
 
 def export_excel_bytes(code, members=None) -> tuple[str, bytes]:
-    """Generate College-branded CSV document ready to open directly in Microsoft Excel (UTF-8 BOM)."""
+    """Generate College-branded Excel-compatible document with college header, date, hall ticket, branch, and score."""
     d = _load()
-    e = d["events"].get(code) or {}
-    college_tag = (e.get("colleges", ["College"])[0] if e.get("colleges") else "Campus").replace(" ", "_")[:24]
-    filename = f"{college_tag}_{code}_Results.csv"
-    txt = csv_text(code, members) or ""
-    # Prepend UTF-8 Byte Order Mark (BOM) so Excel opens Telugu/English without encoding corruption
+    e = d["events"].get(code)
+    if not e:
+        return f"Event_{code}.csv", b""
+
+    event_date = (e.get("finished") or e.get("created") or _now().isoformat())[:10]
+    college_name = e.get("colleges", ["College"])[0] if e.get("colleges") else "Campus"
+    event_title = e.get("name", "StudentUp Campus Challenge")
+    district = e.get("district", "")
+    total_q = len(e.get("questions", [])) or e.get("n_q", 10)
+    rows = ranking(e) if e["state"] == "done" else sorted(e["players"].items())
+    
+    college_tag = college_name.replace(" ", "_")[:24]
+    filename = f"{college_tag}_{event_date}_{code}_Results.csv"
+
+    out = [
+        f'"COLLEGE NAME: {college_name}","EVENT: {event_title}","DISTRICT: {district}","EXAM DATE: {event_date}","TOTAL PARTICIPANTS: {len(rows)}"',
+        "",
+        "Rank,Student Name,College Name,Branch / Course,Hall Ticket / Roll No,Phone Number,District,Score (Correct),Total Questions,Points,Accuracy %"
+    ]
+
+    for i, (u, p) in enumerate(rows, 1):
+        phone = p.get("phone", "")
+        dist = district
+        qual = p.get("branch") or ""
+        roll = p.get("roll") or ""
+        if members:
+            m = members.members.get(str(u), {})
+            phone = phone or m.get("mobile", "")
+            dist = m.get("district") or dist
+            qual = m.get("branch") or m.get("qualification") or qual
+            roll = m.get("roll") or roll
+        if not qual:
+            qual = "General"
+        if not roll:
+            roll = f"HT-{str(u)[-5:]}"
+            
+        acc = round((p['correct'] / total_q) * 100, 1) if total_q else 0.0
+        s_name = (p.get('name') or 'Student').replace('"', '""')
+        c_name = (p.get('college') or college_name).replace('"', '""')
+        
+        out.append(f'{p.get("rank", i)},"{s_name}","{c_name}","{qual}","{roll}",{phone},{dist},{p["correct"]},{total_q},{p["pts"]},{acc}%')
+
+    txt = "\n".join(out)
     excel_bytes = ("\ufeff" + txt).encode("utf-8")
     return filename, excel_bytes
 
