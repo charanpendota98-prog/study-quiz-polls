@@ -1188,9 +1188,43 @@ class Bot:
             return
 
         # 🏫 College-add wizard (staff, phone-friendly: name → ➕ more colleges → state → district buttons)
-        if uid and str(uid) in self._staff_ids() and not low.startswith("/"):
+        if uid and not low.startswith("/"):
             from core import campus
             wz = campus.wiz_get(uid)
+            if wz and wz.get("step") == "college_name":
+                cname = text.strip()[:40]
+                if len(cname) < 2:
+                    self.tg.send_message(chat_id, "⚠️ కాలేజీ పేరు కనీసం 2 అక్షరాలు ఉండాలి. మళ్ళీ పంపండి:")
+                    return
+                campus.wiz_set(uid, name=cname, colleges=[cname], step="district_name")
+                self.tg.send_message(
+                    chat_id,
+                    f"🏫 కాలేజీ పేరు: *{cname}* ✅\n\n"
+                    "ఇప్పుడు మీ *జిల్లా (District)* పేరు పంపండి (e.g. Warangal, Hyderabad, Guntur, Vijayawada...):",
+                    parse_mode="Markdown"
+                )
+                return
+            if wz and wz.get("step") == "district_name":
+                dname = text.strip()[:30]
+                from core import districts as D
+                _st, canon = D.match_any_district(dname)
+                final_dist = canon or dname.title()
+                cname = wz.get("name") or "My College"
+                campus.wiz_clear(uid)
+                code = campus.quick_event(cname, final_dist, campus.DEFAULT_Q, "easy", created_by=uid, mode="college")
+                self.tg.send_message(
+                    chat_id,
+                    f"🎉 *ఎగ్జామ్ విజయవంతంగా క్రియేట్ చేయబడింది!*\n\n"
+                    f"🏛 కాలేజీ: *{cname}*\n"
+                    f"📍 జిల్లా: *{final_dist}*\n"
+                    f"🎫 ఈవెంట్ కోడ్: `{code}`\n\n"
+                    "క్రింది పోస్టర్ & లింక్‌ను మీ కాలేజీ WhatsApp గ్రూపుల్లో ఫార్వర్డ్ చేయండి. "
+                    "విద్యార్థులు లింక్ లేదా QR తో జాయిన్ అవ్వగానే 'START Exam' నొక్కండి 🚀",
+                    parse_mode="Markdown"
+                )
+                self.tg.send_message(chat_id, campus.poster_text(code), buttons=campus.poster_buttons(code))
+                self.tg.send_message(chat_id, campus.panel_text(self.members, code), buttons=campus.panel_buttons(code))
+                return
             if wz and wz.get("step") in ("name", "name2"):
                 name = text.strip()[:40]
                 if len(name) < 2:
@@ -1665,22 +1699,17 @@ class Bot:
             from core import campus
             args_str = text[4:].strip() if low.startswith("/go ") else text.partition(" ")[2].strip()
             if not args_str:
-                m = self.members.members.get(str(uid), {}) if uid else {}
-                def_col = m.get("college") or "My College"
-                def_dist = m.get("district") or "Warangal"
                 campus.wiz_start(uid)
+                campus.wiz_set(uid, step="college_name")
                 self.tg.send_message(
                     chat_id,
-                    "🚀 *Smart Live Exam Creator*\n\n"
-                    "మీ కాలేజీ లేదా ఫ్రెండ్స్ కోసం లైవ్ ఎగ్జామ్ వెంటనే ప్రారంభించండి!\n\n"
-                    "⚡ *ఉదాహరణకు:*\n"
-                    f"`/go {def_col} | {def_dist}`\n\n"
-                    "లేదా కింద బటన్ నొక్కండి:",
-                    parse_mode="Markdown",
-                    buttons=[
-                        [("⚡ Quick Launch My College Exam", f"cp:quickmy:{def_dist}")],
-                        [("➕ Add Colleges (Wizard)", "cwmore:again")]
-                    ]
+                    "🎓 *Live Campus Exam Wizard*\n\n"
+                    "Step 1️⃣: మీ *College పేరు* టైప్ చేసి పంపండి:\n"
+                    "(e.g. SR University, Chaitanya Degree College, Kakatiya Govt College...)\n\n"
+                    "💡 *డైరెక్ట్ గా ఒకే మెసేజ్ లో పెట్టాలంటే:*\n"
+                    "`/go <College పేరు> | <District>`\n"
+                    "e.g. `/go SR College | Warangal`",
+                    parse_mode="Markdown"
                 )
                 return
             f = [x.strip() for x in args_str.split("|")]
@@ -1691,7 +1720,14 @@ class Bot:
             lvl = f[3].lower() if len(f) > 3 else "easy"
             code = campus.quick_event(col_name, dist_name, q_cnt,
                                       "medium" if lvl == "exam" else lvl, created_by=uid, mode="exam" if lvl == "exam" else "college")
-            self.tg.send_message(chat_id, f"✅ *Exam Code {code} Created!*\nStudents కి లింక్/పోస్టర్ పంపండి లేదా Projector లో చూపించండి:", parse_mode="Markdown")
+            self.tg.send_message(
+                chat_id,
+                f"🎉 *{col_name} Live Exam Created!* (Code: `{code}`)\n\n"
+                "👉 క్రింది పోస్టర్ & లింక్‌ను విద్యార్థుల WhatsApp గ్రూప్‌లో ఫార్వర్డ్ చేయండి. "
+                "వారు లింక్ ఓపెన్ చేసి లేదా QR స్కాన్ చేసి హాల్ లో జాయిన్ అవ్వగానే "
+                "కింద ఉన్న '🚀 START Exam Now' బటన్ నొక్కండి!",
+                parse_mode="Markdown"
+            )
             self.tg.send_message(chat_id, campus.poster_text(code), buttons=campus.poster_buttons(code))
             self.tg.send_message(chat_id, campus.panel_text(self.members, code), buttons=campus.panel_buttons(code))
         elif low.startswith("/join") or low.startswith("/channels"):
