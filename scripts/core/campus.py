@@ -533,15 +533,24 @@ def _finish(tg, members, d, e, now):
         except Exception:
             pass
     # organiser: summary + CSV
-    summary = text + "\n\n📎 Full data: /campus csv " + e["code"]
+    summary = text + "\n\n📎 Full data: /campus excel " + e["code"]
     fname, excel_data = export_excel_bytes(e["code"], members=members)
-    for aid in ([e.get("by")] if e.get("by") else []) + list(getattr(config, "STAFF_IDS", [])):
-        if not aid:
-            continue
+    
+    # Send confidential Excel sheet ONLY to the organiser / admin / staff (never to public or regular students)
+    targets = []
+    if e.get("by"):
+        targets.append(str(e.get("by")))
+    for sid in getattr(config, "STAFF_IDS", []):
+        if sid and str(sid) not in targets:
+            targets.append(str(sid))
+    if getattr(config, "ADMIN_ID", None) and str(config.ADMIN_ID) not in targets:
+        targets.append(str(config.ADMIN_ID))
+
+    for aid in targets:
         try:
             tg.send_message(aid, summary)
             if hasattr(tg, "send_document"):
-                tg.send_document(aid, fname, excel_data, caption=f"📊 {e['name']} — Complete Student Results & Topper Sheet")
+                tg.send_document(aid, fname, excel_data, caption=f"🔒 CONFIDENTIAL (Staff/Organiser Only):\n📊 {e['name']} — Complete Results Sheet")
         except Exception as err:
             print(f"   [campus] send report to {aid} note: {err}")
     e["_post"] = text
