@@ -1768,15 +1768,16 @@ class Bot:
             elif sub == "start":
                 ok, info = campus.start(self.bank, self.members, self.tg, rest.strip())
                 self.tg.send_message(chat_id, f"🚀 Started: {info}" if ok else f"❌ {info}")
-            elif sub == "csv":
-                csv = campus.csv_text(rest.strip())
-                if not csv:
+            elif sub in ("csv", "excel", "sheet"):
+                fname, excel_bytes = campus.export_excel_bytes(rest.strip(), members=self.members)
+                if not excel_bytes or len(excel_bytes) < 10:
                     self.tg.send_message(chat_id, "Event not found."); return
                 try:
-                    self.tg.send_document(chat_id, f"{rest.strip()}.csv", csv.encode("utf-8"), caption="Full student data")
+                    self.tg.send_document(chat_id, fname, excel_bytes, caption=f"📊 {fname} — Complete Student Results & Topper Sheet (Excel Ready)")
                 except Exception:
-                    for i in range(0, len(csv), 3500):
-                        self.tg.send_message(chat_id, csv[i:i + 3500])
+                    csv_str = excel_bytes.decode("utf-8", "replace")
+                    for i in range(0, len(csv_str), 3500):
+                        self.tg.send_message(chat_id, csv_str[i:i + 3500])
             elif sub == "post":
                 txt = campus.channel_post(rest.strip())
                 if not txt:

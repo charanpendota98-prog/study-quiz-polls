@@ -131,21 +131,36 @@ def poster_text(code):
     e = d["events"].get(code)
     if not e:
         return "Event not found."
+    import urllib.parse
     bot = config.BOT_USERNAME or "StudentUpBot"
     link = f"https://t.me/{bot}?start=c{code[3:]}-1"
+    wa_msg = (
+        f"🎓 *{e['name'].upper()}* 🎓\n"
+        f"📍 {e['district']} · {e['n_q']} Questions · Live Mobile Campus Exam!\n\n"
+        f"👉 Join & Test Now: {link}\n\n"
+        f"1. లింక్ ఓపెన్ చేయండి (లేదా QR స్కాన్ చేయండి)\n"
+        f"2. పేరు & మొబైల్ ఇచ్చి వెంటనే రెడీగా ఉండండి\n"
+        f"3. Start అనగానే ప్రశ్నలు వస్తాయి!\n"
+        f"🏆 Top Toppers కి బహుమతులు & సర్టిఫికెట్స్!"
+    )
+    wa_share = f"https://api.whatsapp.com/send?text={urllib.parse.quote(wa_msg)}"
+    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=600x600&data={link}"
+
     return "\n".join([
         f"🎓 {e['name']}",
         f"📍 {e['district']} · {e['n_q']} questions · phone లోనే exam",
-             ("😎 Simple & fun — GK, science, tech, movies, logic. Anyone can play!" if e.get("mode", "college") == "college" else "📚 Exam-level questions"),
+        ("😎 Simple & fun — GK, science, tech, movies, logic. Anyone can play!" if e.get("mode", "college") == "college" else "📚 Exam-level questions"),
         "",
-        "1️⃣ ఈ link open చేయండి (లేదా QR scan):",
-        f"   {link}",
+        "1️⃣ ఈ లింక్ ఓపెన్ చేయండి (లేదా QR scan):",
+        f"   🔗 Telegram: {link}",
+        f"   📲 WhatsApp Share: {wa_share}",
+        "",
         "2️⃣ పేరు + phone (30 seconds)",
         "3️⃣ 'Start' అనగానే Q1 వస్తుంది — ప్రతి Q కి timer ⏱",
         "",
-        "🏆 Top 10 కి prizes · అందరికీ points (shops/coaching offers) · results పేర్లతో channel లో",
+        "🏆 Top 10 కి prizes & సర్టిఫికెట్స్ · అందరికీ points · results పేర్లతో channel లో",
         "",
-        f"QR: https://api.qrserver.com/v1/create-qr-code/?size=600x600&data={link}",
+        f"📱 Projector HD QR Code (600x600):\n{qr_url}",
     ])
 
 
@@ -519,13 +534,16 @@ def _finish(tg, members, d, e, now):
             pass
     # organiser: summary + CSV
     summary = text + "\n\n📎 Full data: /campus csv " + e["code"]
+    fname, excel_data = export_excel_bytes(e["code"], members=members)
     for aid in ([e.get("by")] if e.get("by") else []) + list(getattr(config, "STAFF_IDS", [])):
         if not aid:
             continue
         try:
             tg.send_message(aid, summary)
-        except Exception:
-            pass
+            if hasattr(tg, "send_document"):
+                tg.send_document(aid, fname, excel_data, caption=f"📊 {e['name']} — Complete Student Results & Topper Sheet")
+        except Exception as err:
+            print(f"   [campus] send report to {aid} note: {err}")
     e["_post"] = text
     e["drip_day"] = 0
     _save(d)
@@ -725,16 +743,38 @@ def college_report(e):
     return "\n".join(lines)
 
 
-def csv_text(code):
+def csv_text(code, members=None):
     d = _load()
     e = d["events"].get(code)
     if not e:
         return None
-    out = ["rank,name,college,phone,uid,correct,total_q,points,answered"]
+    out = ["Rank,Student Name,College,Phone,District,Qualification,Score Correct,Total Questions,Points,Accuracy %"]
     rows = ranking(e) if e["state"] == "done" else sorted(e["players"].items())
+    total_q = len(e.get("questions", [])) or e.get("n_q", 10)
     for i, (u, p) in enumerate(rows, 1):
-        out.append(f"{p.get('rank', i)},{p['name']},{p['college']},{p.get('phone', '')},{u},{p['correct']},{len(e['questions']) or e['n_q']},{p['pts']},{p['answered']}")
+        phone = p.get("phone", "")
+        dist = e.get("district", "")
+        qual = ""
+        if members:
+            m = members.members.get(str(u), {})
+            phone = phone or m.get("mobile", "")
+            dist = m.get("district") or dist
+            qual = m.get("qualification", "")
+        acc = round((p['correct'] / total_q) * 100, 1) if total_q else 0.0
+        out.append(f"{p.get('rank', i)},\"{p['name']}\",\"{p['college']}\",{phone},{dist},{qual},{p['correct']},{total_q},{p['pts']},{acc}%")
     return "\n".join(out)
+
+
+def export_excel_bytes(code, members=None) -> tuple[str, bytes]:
+    """Generate College-branded CSV document ready to open directly in Microsoft Excel (UTF-8 BOM)."""
+    d = _load()
+    e = d["events"].get(code) or {}
+    college_tag = (e.get("colleges", ["College"])[0] if e.get("colleges") else "Campus").replace(" ", "_")[:24]
+    filename = f"{college_tag}_{code}_Results.csv"
+    txt = csv_text(code, members) or ""
+    # Prepend UTF-8 Byte Order Mark (BOM) so Excel opens Telugu/English without encoding corruption
+    excel_bytes = ("\ufeff" + txt).encode("utf-8")
+    return filename, excel_bytes
 
 
 def status_text(members, code):
@@ -751,7 +791,8 @@ def status_text(members, code):
              f"👥 joined {len(e['players'])} · registered {reg}" + (f" · Q{e['qi'] + 1}/{len(e['questions'])}" if e["state"] in ("question", "gap") else "")]
     lines += [f"  🏫 {c}: {n}" for c, n in sorted(per.items(), key=lambda x: -x[1])]
     if e["state"] == "open":
-        lines.append(f"\nStart: /campus start {code}")
+        lines.append(f"\n🚀 Hall Ready? Start now: /campus start {code}")
+        lines.append(f"📢 Poster & WhatsApp Invite: /campus poster {code}")
     return "\n".join(lines)
 
 
