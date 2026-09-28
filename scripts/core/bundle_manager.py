@@ -329,7 +329,7 @@ def dispatch_bulk_broadcast(
                 continue
             jid = grp.get("jid") or grp.get("link")
             try:
-                att = attachment_url or (f"data:{attachment_filename}" if attachment_filename else "")
+                att = attachment_url or (f"data:application/octet-stream;base64,{attachment_data_b64}" if attachment_data_b64 else "")
                 ok, status = whatsapp_pipeline._dispatch_raw(gw, jid, message, attachment=att)
                 if ok:
                     results["whatsapp_dispatched"] += 1
