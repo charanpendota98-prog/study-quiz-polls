@@ -816,12 +816,39 @@ def status_text(members, code):
         per[p["college"]] = per.get(p["college"], 0) + 1
     lines = [f"🎓 {e['code']} {e['name']} · {e['district']} · state: {e['state']}",
              f"📝 {e['n_q']} Q · {mode_label(e)}",
-             f"👥 joined {len(e['players'])} · registered {reg}" + (f" · Q{e['qi'] + 1}/{len(e['questions'])}" if e["state"] in ("question", "gap") else "")]
+             f"👥 joined {len(e['players'])} · registered {reg}"]
+    if e["state"] in ("question", "gap"):
+        lines[2] += f" · Q{e['qi'] + 1}/{len(e['questions'])}"
     lines += [f"  🏫 {c}: {n}" for c, n in sorted(per.items(), key=lambda x: -x[1])]
     if e["state"] == "open":
-        lines.append(f"\n🚀 Hall Ready? Start now: /campus start {code}")
-        lines.append(f"📢 Poster & WhatsApp Invite: /campus poster {code}")
+        lines.append(f"\n🚀 Hall Ready అయిందా? కింద 'START Exam' బటన్ నొక్కండి లేదా: /campus start {code}")
+        lines.append(f"📢 WhatsApp Poster & QR కోసం: /campus poster {code}")
+    elif e["state"] == "done":
+        lines.append(f"\n📊 పూర్తి ఎక్సెల్ ఫైల్ కోసం: /campus excel {code}")
     return "\n".join(lines)
+
+
+def status_buttons(code):
+    """Quick action buttons under status display for one-tap control."""
+    d = _load()
+    e = d["events"].get(code)
+    if not e:
+        return None
+    if e["state"] == "open":
+        return [
+            [("🚀 START Exam Now", f"cp:start:{code}"), ("🔄 Refresh Status", f"cp:status:{code}")],
+            [("📢 WhatsApp Poster & QR", f"cp:poster:{code}"), ("🔔 Ping Students", f"cp:ping:{code}")],
+            [("📊 Excel Sheet Preview", f"cp:csv:{code}")]
+        ]
+    elif e["state"] in ("question", "gap"):
+        return [
+            [("🔄 Live Status", f"cp:status:{code}")]
+        ]
+    else:
+        return [
+            [("📊 Download Excel Sheet", f"cp:csv:{code}"), ("🏛 College Report", f"cp:report:{code}")],
+            [("📢 Channel Post", f"cp:post:{code}"), ("🏅 Certificates", f"cp:certs:{code}")]
+        ]
 
 
 def list_text():
@@ -1033,7 +1060,7 @@ def panel_buttons(code=None):
         elif e["state"] in ("question", "gap"):
             rows += [[("🔄 Live status", f"cp:status:{code}")]]
         else:
-            rows += [[("📎 CSV", f"cp:csv:{code}"), ("🏛 College report", f"cp:report:{code}")],
+            rows += [[("📊 Download Excel Sheet", f"cp:csv:{code}"), ("🏛 College report", f"cp:report:{code}")],
                      [("📢 Re-post to channel", f"cp:post:{code}"), ("🏅 Certificates again", f"cp:certs:{code}")]]
         rows.append([("⬅️ All events", "cp:home:-")])
         return rows
