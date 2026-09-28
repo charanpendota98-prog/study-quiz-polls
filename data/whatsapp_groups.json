@@ -301,6 +301,46 @@
       "shift": "ALL_DAY",
       "active": true,
       "created_at": "2026-09-27 18:12"
+    },
+    {
+      "id": "G_34_620",
+      "name": "Warangal Police SI Batch",
+      "jid": "https://chat.whatsapp.com/warangal_si",
+      "category": "POLICE",
+      "group_type": "EXAM_SPECIFIC",
+      "shift": "MORNING",
+      "active": true,
+      "created_at": "2026-09-28 17:47"
+    },
+    {
+      "id": "G_35_620",
+      "name": "Khammam Police Constable Study",
+      "jid": "https://chat.whatsapp.com/khammam_pc",
+      "category": "POLICE",
+      "group_type": "EXAM_SPECIFIC",
+      "shift": "MORNING",
+      "active": true,
+      "created_at": "2026-09-28 17:47"
+    },
+    {
+      "id": "G_36_620",
+      "name": "Guntur AP DSC SGT Aspirants",
+      "jid": "https://chat.whatsapp.com/guntur_dsc",
+      "category": "TET_DSC",
+      "group_type": "EXAM_SPECIFIC",
+      "shift": "ALL_DAY",
+      "active": true,
+      "created_at": "2026-09-28 17:47"
+    },
+    {
+      "id": "G_37_620",
+      "name": "TS TET Paper 1 & 2 Pedagogy",
+      "jid": "https://chat.whatsapp.com/ts_tet",
+      "category": "TET_DSC",
+      "group_type": "EXAM_SPECIFIC",
+      "shift": "ALL_DAY",
+      "active": true,
+      "created_at": "2026-09-28 17:47"
     }
   ],
   "gateway_url": "",

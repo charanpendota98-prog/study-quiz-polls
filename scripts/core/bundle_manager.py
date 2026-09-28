@@ -1,17 +1,10 @@
-#!/usr/bin/env python3
-"""
-STUDENTUP — EXCEL / CSV IMPORTER & BUNDLE MANAGER
-Allows uploading/pasting Excel, CSV or Google Sheet rows containing 100+ to 150+ WhatsApp groups/channel links:
-  - Format: Name, Link/JID, Category, Shift
-  - Automatic category detection and auto-assignment.
-  - Channel & WhatsApp Group Bundling: Group multiple channels into custom bundles
-    (e.g. 'All Police Groups & Channels', 'TS Intermediate College Cluster', 'AP Engineering Placements').
-  - One-click broadcast dispatch to an entire Bundle.
-"""
 import csv
 import io
 import json
 import time
+import zipfile
+import base64
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from core import config
 from core.store import load_json, save_json_atomic
@@ -28,38 +21,36 @@ def load_bundles() -> dict:
                 "name": "👮 Police Exam Mega Bundle (TS & AP)",
                 "category": "POLICE",
                 "target_groups": ["G_POLICE_TS_1", "G_POLICE_AP_1"],
-                "target_channels": ["POLICE", "TS_POLICE_SI_2026_BATCH"]
+                "target_channels": ["CURRENT"],
+                "created_at": "2026-09-28T00:00:00"
             },
             {
-                "id": "BUNDLE_CENTRAL",
-                "name": "🏛️ Central Jobs & Railway Mega Bundle",
-                "category": "SSC",
-                "target_groups": ["G_CENTRAL_SSC_1", "G_RAILWAY_RRB_1"],
-                "target_channels": ["SSC", "RAILWAY"]
+                "id": "BUNDLE_ACADEMIC",
+                "name": "🎓 Academic & Campus Cluster (B.Tech, Degree & Diploma)",
+                "category": "DEGREE",
+                "target_groups": ["G_BTECH_ALL_1", "G_DEGREE_ALL_1"],
+                "target_channels": ["CAMPUS"],
+                "created_at": "2026-09-28T00:00:00"
             },
             {
-                "id": "BUNDLE_TS_ACADEMIC",
-                "name": "🎓 Telangana Academic Cluster (10th, Inter, Degree, B.Tech)",
-                "category": "TS_BTECH",
-                "target_groups": ["G_TSPSC_GRP2_1"],
-                "target_channels": ["TS_10TH_CLASS_BOARD_EXAM_PREP", "TS_INTERMEDIATE__MPC_BIPC_CEC", "TS_DIPLOMA___POLYCET___ECET"]
-            },
-            {
-                "id": "BUNDLE_AP_ACADEMIC",
-                "name": "🌊 Andhra Pradesh Academic Cluster (B.Tech, Degree, Inter, 10th)",
-                "category": "AP_BTECH",
+                "id": "BUNDLE_ALL_TELANGANA",
+                "name": "🟪 All Telangana Competitive Groups (33 Districts)",
+                "category": "TSPSC",
                 "target_groups": [],
-                "target_channels": []
+                "target_channels": [],
+                "created_at": "2026-09-28T00:00:00"
+            },
+            {
+                "id": "BUNDLE_ALL_ANDHRA",
+                "name": "🟦 All Andhra Pradesh Competitive Groups (26 Districts)",
+                "category": "APPSC",
+                "target_groups": [],
+                "target_channels": [],
+                "created_at": "2026-09-28T00:00:00"
             }
         ]
     }
-    if BUNDLES_FILE.exists():
-        try:
-            return load_json(BUNDLES_FILE, default)
-        except Exception:
-            pass
-    save_json_atomic(BUNDLES_FILE, default)
-    return default
+    return load_json(BUNDLES_FILE, default)
 
 
 def save_bundles(d: dict):
@@ -67,78 +58,148 @@ def save_bundles(d: dict):
 
 
 def create_bundle(name: str, category: str, group_ids: list, channel_keys: list) -> dict:
-    data = load_bundles()
-    bid = f"BUNDLE_{int(time.time()) % 10000}_{len(data.get('bundles', [])) + 1}"
-    bundle = {
-        "id": bid,
+    d = load_bundles()
+    bundle_id = "BUNDLE_" + str(int(time.time()))
+    new_b = {
+        "id": bundle_id,
         "name": name,
         "category": category,
-        "target_groups": group_ids,
-        "target_channels": channel_keys,
-        "created_at": time.strftime("%Y-%m-%d %H:%M")
+        "target_groups": group_ids or [],
+        "target_channels": channel_keys or [],
+        "created_at": time.strftime("%Y-%m-%dT%H:%M:%S")
     }
-    data.setdefault("bundles", []).append(bundle)
-    save_bundles(data)
-    return bundle
+    d.setdefault("bundles", []).append(new_b)
+    save_bundles(d)
+    return new_b
 
 
 def delete_bundle(bundle_id: str) -> bool:
-    data = load_bundles()
-    before = len(data.get("bundles", []))
-    data["bundles"] = [b for b in data.get("bundles", []) if b.get("id") != bundle_id]
-    save_bundles(data)
-    return len(data["bundles"]) < before
+    d = load_bundles()
+    orig_len = len(d.get("bundles", []))
+    d["bundles"] = [b for b in d.get("bundles", []) if b.get("id") != bundle_id]
+    if len(d["bundles"]) != orig_len:
+        save_bundles(d)
+        return True
+    return False
 
 
-def import_from_csv_or_excel_text(raw_text: str) -> dict:
-    """
-    Parses comma-separated, tab-separated (direct Excel/Google Sheet paste) or pipe-separated lines.
-    Expected Columns (Flexible order):
-      Column 1: Name / Title
-      Column 2: Link / JID / ChatID
-      Column 3: Category (optional, auto-detected if blank)
-      Column 4: Shift (optional: MORNING, EVENING, ALL_DAY)
-    """
-    lines = [l.strip() for l in raw_text.splitlines() if l.strip()]
+def inspect_xlsx_sheets_bytes(xlsx_bytes: bytes) -> list:
+    """Inspect an .xlsx workbook and return list of sheet names and row counts."""
+    zf = zipfile.ZipFile(io.BytesIO(xlsx_bytes))
+    wb_tree = ET.fromstring(zf.read('xl/workbook.xml'))
+    wb_ns = {'ns': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main',
+             'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'}
+    sheets = []
+    for s in wb_tree.findall('.//ns:sheet', wb_ns):
+        sname = s.attrib.get('name')
+        rid = s.attrib.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id') or s.attrib.get('r:id')
+        sheets.append({'name': sname, 'id': rid})
+
+    rels_tree = ET.fromstring(zf.read('xl/_rels/workbook.xml.rels'))
+    rel_ns = {'r': 'http://schemas.openxmlformats.org/package/2006/relationships'}
+    rid_to_target = {}
+    for rel in rels_tree.findall('.//r:Relationship', rel_ns):
+        rid_to_target[rel.attrib.get('Id')] = rel.attrib.get('Target')
+
+    s_ns = {'ns': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
+    info = []
+    for s in sheets:
+        target = rid_to_target.get(s['id'])
+        if not target:
+            continue
+        sheet_path = target.lstrip('/')
+        if not sheet_path.startswith('xl/'):
+            sheet_path = 'xl/' + sheet_path
+        if sheet_path not in zf.namelist():
+            continue
+        stree = ET.fromstring(zf.read(sheet_path))
+        rows = stree.findall('.//ns:row', s_ns)
+        info.append({'name': s['name'], 'rows_count': len(rows)})
+    return info
+
+
+def parse_xlsx_sheets_data(xlsx_bytes: bytes, selected_sheets: list = None) -> dict:
+    """Parse specified or all sheets from an .xlsx file into rows of cell values."""
+    zf = zipfile.ZipFile(io.BytesIO(xlsx_bytes))
+    shared_strings = []
+    if 'xl/sharedStrings.xml' in zf.namelist():
+        stree = ET.fromstring(zf.read('xl/sharedStrings.xml'))
+        sns = {'ns': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
+        for si in stree.findall('.//ns:si', sns):
+            txt = ''.join(t.text for t in si.findall('.//ns:t', sns) if t.text)
+            shared_strings.append(txt)
+
+    wb_tree = ET.fromstring(zf.read('xl/workbook.xml'))
+    wb_ns = {'ns': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main',
+             'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'}
+    sheets = []
+    for s in wb_tree.findall('.//ns:sheet', wb_ns):
+        sname = s.attrib.get('name')
+        rid = s.attrib.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id') or s.attrib.get('r:id')
+        if selected_sheets is None or sname in selected_sheets:
+            sheets.append((sname, rid))
+
+    rels_tree = ET.fromstring(zf.read('xl/_rels/workbook.xml.rels'))
+    rel_ns = {'r': 'http://schemas.openxmlformats.org/package/2006/relationships'}
+    rid_to_target = {}
+    for rel in rels_tree.findall('.//r:Relationship', rel_ns):
+        rid_to_target[rel.attrib.get('Id')] = rel.attrib.get('Target')
+
+    s_ns = {'ns': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
+    result = {}
+    for sname, rid in sheets:
+        target = rid_to_target.get(rid)
+        if not target:
+            continue
+        sheet_path = target.lstrip('/')
+        if not sheet_path.startswith('xl/'):
+            sheet_path = 'xl/' + sheet_path
+        if sheet_path not in zf.namelist():
+            continue
+
+        sheet_tree = ET.fromstring(zf.read(sheet_path))
+        rows = []
+        for row in sheet_tree.findall('.//ns:row', s_ns):
+            row_vals = []
+            for c in row.findall('.//ns:c', s_ns):
+                ctype = c.attrib.get('t')
+                inline_t = c.find('.//ns:is/ns:t', s_ns)
+                if inline_t is not None and inline_t.text:
+                    val = inline_t.text
+                else:
+                    val_elem = c.find('.//ns:v', s_ns)
+                    val = val_elem.text if val_elem is not None and val_elem.text else ''
+                    if ctype == 's' and val.isdigit():
+                        idx = int(val)
+                        val = shared_strings[idx] if idx < len(shared_strings) else val
+                row_vals.append(val.strip())
+            if any(row_vals):
+                rows.append(row_vals)
+        result[sname] = rows
+    return result
+
+
+def import_rows_list(rows: list, default_category: str = "") -> dict:
+    """Takes a list of row lists [Name, Link/JID, Category, Shift, Group_Type] and saves to DB."""
     added_groups = []
     added_channels = []
 
-    for line in lines:
-        # Determine separator: tab (Excel paste) or comma or pipe
-        if "\t" in line:
-            parts = [p.strip() for p in line.split("\t")]
-        elif "," in line:
-            # Handle potential quoted commas via standard csv reader
-            try:
-                reader = csv.reader(io.StringIO(line))
-                parts = [p.strip() for p in next(reader)]
-            except Exception:
-                parts = [p.strip() for p in line.split(",")]
-        elif "|" in line:
-            parts = [p.strip() for p in line.split("|")]
-        else:
-            parts = [line]
-
+    for parts in rows:
         if not parts or not parts[0]:
             continue
-
-        name = parts[0]
-        # Ignore header row if present
-        if name.lower() in ("name", "title", "group name", "channel name", "group"):
+        name = str(parts[0]).strip()
+        if name.lower() in ("name", "title", "group name", "channel name", "group", "group/channel name"):
             continue
 
-        link_or_jid = parts[1] if len(parts) > 1 else ""
-        category = parts[2] if len(parts) > 2 and parts[2] else channel_router.detect_exam_base(name)
-        shift = parts[3].upper() if len(parts) > 3 and parts[3] in ("MORNING", "EVENING", "ALL_DAY") else "ALL_DAY"
-        # Optional Column 5: Group Type (GENERAL vs EXAM_SPECIFIC)
-        g_type = parts[4].upper() if len(parts) > 4 and parts[4] else ("GENERAL" if "general" in (category.lower() + " " + name.lower()) else "EXAM_SPECIFIC")
+        link_or_jid = str(parts[1]).strip() if len(parts) > 1 else ""
+        category = str(parts[2]).strip() if len(parts) > 2 and parts[2] else (default_category or channel_router.detect_exam_base(name))
+        shift = str(parts[3]).strip().upper() if len(parts) > 3 and str(parts[3]).strip().upper() in ("MORNING", "EVENING", "ALL_DAY") else "ALL_DAY"
+        g_type = str(parts[4]).strip().upper() if len(parts) > 4 and parts[4] else ("GENERAL" if "general" in (category.lower() + " " + name.lower()) else "EXAM_SPECIFIC")
 
-        # Check if it is a Telegram channel (@ or t.me/ or channel ID)
         if link_or_jid.startswith("@") or "t.me/" in link_or_jid:
             ch_info = channel_router.register_channel(name, chat_id=link_or_jid, exam_type=category)
             added_channels.append(ch_info)
         else:
-            # WhatsApp Group
             grp = whatsapp_pipeline.add_group(name, link_or_jid, category=category, shift=shift, group_type=g_type)
             added_groups.append(grp)
 
@@ -149,3 +210,132 @@ def import_from_csv_or_excel_text(raw_text: str) -> dict:
         "groups": added_groups,
         "channels": added_channels
     }
+
+
+def import_from_csv_or_excel_text(raw_text: str) -> dict:
+    """Parses comma-separated, tab-separated or pipe-separated lines."""
+    lines = [l.strip() for l in raw_text.splitlines() if l.strip()]
+    rows = []
+    for line in lines:
+        if "\t" in line:
+            parts = [p.strip() for p in line.split("\t")]
+        elif "," in line:
+            try:
+                reader = csv.reader(io.StringIO(line))
+                parts = [p.strip() for p in next(reader)]
+            except Exception:
+                parts = [p.strip() for p in line.split(",")]
+        elif "|" in line:
+            parts = [p.strip() for p in line.split("|")]
+        else:
+            parts = [line]
+        rows.append(parts)
+    return import_rows_list(rows)
+
+
+def import_from_multisheet_excel(xlsx_bytes: bytes, selected_sheet_names: list = None) -> dict:
+    """Reads multiple sheets from an .xlsx file and imports all rows into the database."""
+    sheet_data = parse_xlsx_sheets_data(xlsx_bytes, selected_sheet_names)
+    total_groups = 0
+    total_channels = 0
+    all_groups = []
+    all_channels = []
+    per_sheet = {}
+
+    for sname, rows in sheet_data.items():
+        res = import_rows_list(rows, default_category=channel_router.detect_exam_base(sname))
+        total_groups += res["imported_groups_count"]
+        total_channels += res["imported_channels_count"]
+        all_groups.extend(res["groups"])
+        all_channels.extend(res["channels"])
+        per_sheet[sname] = {
+            "groups": res["imported_groups_count"],
+            "channels": res["imported_channels_count"]
+        }
+
+    return {
+        "ok": True,
+        "sheets_processed": list(sheet_data.keys()),
+        "imported_groups_count": total_groups,
+        "imported_channels_count": total_channels,
+        "per_sheet": per_sheet,
+        "groups": all_groups,
+        "channels": all_channels
+    }
+
+
+def dispatch_bulk_broadcast(
+    message: str,
+    attachment_url: str = "",
+    attachment_data_b64: str = "",
+    attachment_filename: str = "",
+    target_group_ids: list = None,
+    target_channel_keys: list = None,
+    gateway_url: str = ""
+) -> dict:
+    """
+    Sends bulk messages and attachments across selected WhatsApp Groups and Telegram Channels.
+    """
+    from core.telegram import Telegram
+    tg = Telegram()
+    results = {
+        "ok": True,
+        "whatsapp_dispatched": 0,
+        "telegram_dispatched": 0,
+        "errors": []
+    }
+
+    # 1. Telegram Channels Dispatch
+    if target_channel_keys:
+        ch_reg = channel_router.load_channels()
+        custom_chs = channel_router.load_custom_channels().get("channels", {})
+        all_chs = dict(ch_reg)
+        all_chs.update(custom_chs)
+
+        att_bytes = base64.b64decode(attachment_data_b64) if attachment_data_b64 else None
+
+        for ch_key in target_channel_keys:
+            ch = all_chs.get(ch_key)
+            if not ch:
+                continue
+            chat_id = ch.get("chat_id")
+            if not chat_id:
+                continue
+            try:
+                if att_bytes:
+                    fname = attachment_filename or "document.pdf"
+                    if fname.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
+                        tg.send_photo(chat_id, att_bytes, caption=message[:1000], filename=fname)
+                    else:
+                        tg.send_document(chat_id, fname, att_bytes, caption=message[:1000])
+                elif attachment_url:
+                    full_text = f"{message}\n\n📎 Attachment: {attachment_url}" if message else f"📎 Attachment: {attachment_url}"
+                    tg.send_message(chat_id, full_text, disable_preview=False)
+                else:
+                    tg.send_message(chat_id, message, disable_preview=True)
+                results["telegram_dispatched"] += 1
+            except Exception as e:
+                results["errors"].append(f"Telegram {ch_key} ({chat_id}): {e}")
+
+    # 2. WhatsApp Groups Dispatch
+    if target_group_ids:
+        reg = whatsapp_pipeline.load_wa_registry()
+        groups = reg.get("groups", [])
+        gw = gateway_url or whatsapp_pipeline.EXEC_STATE.get("gateway") or ""
+
+        for gid in target_group_ids:
+            grp = next((g for g in groups if g.get("id") == gid), None)
+            if not grp:
+                continue
+            jid = grp.get("jid") or grp.get("link")
+            try:
+                att = attachment_url or (f"data:{attachment_filename}" if attachment_filename else "")
+                ok, status = whatsapp_pipeline._dispatch_raw(gw, jid, message, attachment=att)
+                if ok:
+                    results["whatsapp_dispatched"] += 1
+                else:
+                    results["errors"].append(f"WhatsApp {grp.get('name')}: {status}")
+            except Exception as e:
+                results["errors"].append(f"WhatsApp {grp.get('name')}: {e}")
+
+    return results

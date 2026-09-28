@@ -152,7 +152,8 @@ HTML_PAGE = """<!DOCTYPE html>
   <div class="tabs">
     <button class="tab-btn active" onclick="switchTab('tab-wa-dispatch')">🛡️ WhatsApp 100+ Interleaved Dispatcher</button>
     <button class="tab-btn" onclick="switchTab('tab-campus')">🏫 College On-Spot Exams & QR</button>
-    <button class="tab-btn" onclick="switchTab('tab-excel-import')">📊 Excel / Sheet Quick Importer</button>
+    <button class="tab-btn" onclick="switchTab('tab-excel-import')">📊 Multi-Sheet Excel Importer</button>
+    <button class="tab-btn" onclick="switchTab('tab-bulk-broadcast')">🚀 Bulk Message & Attachment Dispatcher</button>
     <button class="tab-btn" onclick="switchTab('tab-bundles')">📦 Channel & Group Bundles</button>
     <button class="tab-btn" onclick="switchTab('tab-dynamic-channels')">📢 Telegram Channels & Poll Counts</button>
     <button class="tab-btn" onclick="switchTab('tab-control')">⚡ Fast Actions & District War</button>
@@ -499,43 +500,129 @@ HTML_PAGE = """<!DOCTYPE html>
   <!-- TAB 3: EXCEL / SHEET IMPORTER & MANAGER -->
   <div id="tab-excel-import" class="tab-pane">
     <div class="panel-card">
-      <h2>📊 Excel / Google Sheets Fast Importer & Editor (100+ to 150+ Groups & Channels)</h2>
+      <h2>📊 Advanced Multi-Sheet Excel & Google Sheets Importer (100+ to 250+ Groups & Channels)</h2>
       <p style="color:var(--text-muted); font-size:13px; margin-bottom:14px;">
-        మీరు Excel లేదా Google Sheet నుండి 50, 100 లేదా 150 గ్రూపుల వివరాలు నేరుగా కాపీ చేసి ఇక్కడ పేస్ట్ చేసి సేవ్ చేయవచ్చు. ప్రతి గ్రూప్ పక్కన ఇది <b>General Group (GK & General Quiz)</b> లేదా <b>Specific Exam Group (SI, Constable, B.Tech, SSC, Banking)</b> అని స్పష్టంగా మెన్షన్ చేయవచ్చు!
+        ఒకే Excel వర్క్‌బుక్ లోని వేర్వేరు షీట్లను (Multi-Sheet: ఉదా: <i>Police_SI, TET_DSC, TSPSC_APPSC, BTech_Campus, General_Aptitude</i>) అప్‌లోడ్ చేసి, ఏ షీట్ కావాలో టిక్ చేసుకుని (Selective Multiple Sheets) ఒక్క క్లిక్‌తో డేటాబేస్‌లోకి ఇంపోర్ట్ చేసుకోవచ్చు!
       </p>
 
       <div style="background:#0f172a; padding:12px; border-radius:8px; margin-bottom:14px; font-size:12px; color:var(--text-muted); border-left:4px solid #38bdf8;">
-        💡 <b>Excel Columns (Tab / Comma separated):</b><br>
+        💡 <b>Excel Columns (Tab / Comma separated / .xlsx):</b><br>
         <code>Group or Channel Name | Link or JID | Category (Optional) | Shift (Optional) | Group Type (Optional: GENERAL or EXAM_SPECIFIC)</code><br>
         <span style="color:#a7f3d0; font-size:11px;">(Note: 5వ కాలమ్‌లో GENERAL అని రాస్తే జనరల్ గ్రూప్ అని, EXAM_SPECIFIC అని రాస్తే ఆ నిర్దిష్ట పరీక్ష సిలబస్ గ్రూప్ అని సిస్టమ్ రికార్డ్ చేస్తుంది).</span>
       </div>
 
-      <!-- File Browse Upload Button in Tab 3 -->
-      <div style="margin-bottom:12px; display:flex; gap:10px; align-items:center;">
-        <input type="file" id="excel-tab-file-input" accept=".csv, .xlsx, .xls, .txt, .tsv" style="display:none;" onchange="handleMainExcelFileUpload(event)">
-        <button class="btn btn-accent" onclick="document.getElementById('excel-tab-file-input').click()">📁 Browse & Upload Excel / CSV File</button>
-        <span style="font-size:12px; color:var(--text-muted);">(.csv, .tsv, .txt files supported directly)</span>
+      <!-- File Browse Upload with Multi-Sheet Inspector -->
+      <div style="background:rgba(30,41,59,0.7); border:1px solid #334155; border-radius:10px; padding:16px; margin-bottom:16px;">
+        <h4 style="margin-bottom:8px; font-size:14px; color:#38bdf8;">📁 Step 1: Upload Excel File (.xlsx, .xls, .csv, .tsv)</h4>
+        <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+          <input type="file" id="excel-tab-file-input" accept=".csv, .xlsx, .xls, .txt, .tsv" style="display:none;" onchange="handleMainExcelFileUpload(event)">
+          <button class="btn btn-accent" onclick="document.getElementById('excel-tab-file-input').click()">📂 Choose Excel / CSV File</button>
+          <span id="selected-file-label" style="font-size:13px; color:var(--text-muted);">No file selected yet</span>
+          <a href="/api/excel/template" download="studentup_sample_whatsapp_groups.csv" class="btn btn-outline" style="text-decoration:none; color:#38bdf8; border-color:#38bdf8; margin-left:auto;">📥 Download Sample Template</a>
+        </div>
+
+        <!-- Multi-Sheet Selection Checkbox Panel (Appears when .xlsx uploaded) -->
+        <div id="multisheet-panel" style="display:none; margin-top:16px; padding:14px; background:#0b1120; border:1px solid #3b82f6; border-radius:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <b style="color:#60a5fa; font-size:13px;">📑 Detected Multiple Sheets in Workbook (Select sheets to import):</b>
+            <div>
+              <button class="btn btn-outline" style="padding:3px 8px; font-size:11px;" onclick="selectAllSheets(true)">Select All</button>
+              <button class="btn btn-outline" style="padding:3px 8px; font-size:11px;" onclick="selectAllSheets(false)">Deselect All</button>
+            </div>
+          </div>
+          <div id="multisheet-checkboxes" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:10px;"></div>
+          <div style="margin-top:12px;">
+            <button class="btn btn-accent" onclick="importSelectedExcelSheets()">📥 Import Selected Sheets Only</button>
+          </div>
+        </div>
       </div>
 
-      <textarea id="excel-paste-text" rows="8" placeholder="Paste your Excel / Google Sheet rows here...
+      <h4 style="margin-bottom:6px; font-size:13px; color:var(--text-muted);">లేదా డైరెక్ట్‌గా Google Sheets / Excel Rows ఇక్కడ పేస్ట్ చేయండి:</h4>
+      <textarea id="excel-paste-text" rows="7" placeholder="Paste your Excel / Google Sheet rows here...
 Example:
 Warangal TS Police SI Batch	120363012345678990@g.us	POLICE	EVENING	EXAM_SPECIFIC
 Hyderabad Aspirants Daily Club	120363012345678999@g.us	GENERAL	ALL_DAY	GENERAL
 AP B.Tech Guntur Campus	120363012345678991@g.us	AP_BTECH	MORNING	EXAM_SPECIFIC
 Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></textarea>
 
-      <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-        <button class="btn btn-accent" onclick="importExcelSheet()">📥 Import & Save Rows to Database</button>
+      <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-top:10px;">
+        <button class="btn btn-accent" onclick="importExcelSheet()">📥 Import Pasted Rows</button>
         <button class="btn btn-purple" onclick="exportExcelSheet()">📤 Export Current Groups as Excel / TSV</button>
-        <a href="/api/excel/template" download="studentup_sample_whatsapp_groups.csv" class="btn btn-outline" style="text-decoration:none; color:#38bdf8; border-color:#38bdf8;">📥 Download Sample Excel Template</a>
         <button class="btn btn-outline" onclick="document.getElementById('excel-paste-text').value=''">Clear Box</button>
       </div>
 
-      <div id="excel-import-log" class="log-box" style="margin-top:16px;">Importer ready. Paste rows and click Import.</div>
+      <div id="excel-import-log" class="log-box" style="margin-top:16px;">Importer ready. Upload .xlsx file or paste rows.</div>
     </div>
   </div>
 
-  <!-- TAB 3: BUNDLES & CLUSTERS -->
+  <!-- TAB: BULK BROADCAST & ATTACHMENTS (GROUPS & CHANNELS) -->
+  <div id="tab-bulk-broadcast" class="tab-pane">
+    <div class="panel-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+        <h2>🚀 Bulk Message & Attachment Dispatcher (WhatsApp Groups + Telegram Channels)</h2>
+        <span style="background:rgba(59,130,246,0.2); color:#60a5fa; border:1px solid #3b82f6; border-radius:20px; padding:3px 12px; font-size:12px; font-weight:700;">Simultaneous Multi-Target Gateway</span>
+      </div>
+      <p style="color:var(--text-muted); font-size:13px; margin-bottom:16px;">
+        ఒకేసారి అన్ని WhatsApp గ్రూపులకు మరియు Telegram ఛానెళ్లకు అధికారిక నోటిఫికేషన్లు, మెటీరియల్స్, స్టడీ PDFలు, పోస్టర్లు లేదా ప్రైవేట్ లింక్‌లను బల్క్‌గా డిస్పాచ్ చేయండి!
+      </p>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:18px; margin-bottom:18px;">
+        <!-- Left Column: Message & Attachment Composer -->
+        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:10px; padding:16px;">
+          <h3 style="font-size:14px; color:#38bdf8; margin-bottom:10px;">✍️ 1. Message & Media Composer</h3>
+          
+          <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:4px;">Broadcasting Message / Caption:</label>
+          <textarea id="bulk-broadcast-msg" rows="6" placeholder="Type your broadcast message or alert here...
+e.g.
+📢 Mega Grand Mock Test Live Now!
+హాల్ టికెట్ & పూర్తి సిలబస్ కోసం క్రింది లింక్ ఓపెన్ చేయండి.
+All candidates must join today before 9:00 PM!"></textarea>
+
+          <label style="font-size:12px; color:var(--text-muted); display:block; margin-top:10px; margin-bottom:4px;">📎 File Attachment (PDF, Images, Posters):</label>
+          <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+            <input type="file" id="bulk-attachment-file" style="display:none;" onchange="handleBulkAttachmentSelect(event)">
+            <button class="btn btn-outline" style="padding:6px 12px; font-size:12px;" onclick="document.getElementById('bulk-attachment-file').click()">📁 Choose File</button>
+            <span id="bulk-file-name" style="font-size:12px; color:#a7f3d0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px;">No file selected</span>
+            <button id="bulk-clear-file-btn" class="btn btn-outline" style="display:none; padding:3px 6px; font-size:10px; color:#ef4444;" onclick="clearBulkAttachment()">✕</button>
+          </div>
+
+          <label style="font-size:12px; color:var(--text-muted); display:block; margin-top:8px; margin-bottom:4px;">లేదా Direct Attachment / Image / Video URL:</label>
+          <input type="text" id="bulk-attachment-url" placeholder="https://example.com/materials/test_schedule.pdf">
+
+          <div style="margin-top:16px;">
+            <button class="btn btn-accent" style="width:100%; padding:12px; font-size:14px; font-weight:800;" onclick="sendBulkBroadcast()">🚀 Send Bulk Message to Selected Targets</button>
+          </div>
+        </div>
+
+        <!-- Right Column: Select Targets (Channels + Groups) -->
+        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:10px; padding:16px; max-height:480px; display:flex; flex-direction:column;">
+          <h3 style="font-size:14px; color:#a7f3d0; margin-bottom:10px;">🎯 2. Select Delivery Targets</h3>
+          
+          <div style="display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
+            <button class="btn btn-outline" style="padding:4px 8px; font-size:11px;" onclick="toggleAllBulkTargets(true)">Select All</button>
+            <button class="btn btn-outline" style="padding:4px 8px; font-size:11px;" onclick="toggleAllBulkTargets(false)">Clear All</button>
+            <button class="btn btn-outline" style="padding:4px 8px; font-size:11px;" onclick="selectBulkChannelsOnly()">Channels Only</button>
+            <button class="btn btn-outline" style="padding:4px 8px; font-size:11px;" onclick="selectBulkWAGroupsOnly()">WhatsApp Only</button>
+          </div>
+
+          <div style="overflow-y:auto; flex:1; padding-right:6px;">
+            <div style="font-size:12px; font-weight:700; color:#38bdf8; margin-bottom:6px; border-bottom:1px solid #1e293b; padding-bottom:4px;">
+              📢 Telegram Channels (<span id="bulk-channels-count">0</span>):
+            </div>
+            <div id="bulk-channels-list" style="margin-bottom:14px; display:flex; flex-direction:column; gap:4px;"></div>
+
+            <div style="font-size:12px; font-weight:700; color:#10b981; margin-bottom:6px; border-bottom:1px solid #1e293b; padding-bottom:4px;">
+              💬 WhatsApp Groups (<span id="bulk-groups-count">0</span>):
+            </div>
+            <div id="bulk-groups-list" style="display:flex; flex-direction:column; gap:4px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="bulk-broadcast-log" class="log-box">Ready. Compose your message, choose targets, and hit Send!</div>
+    </div>
+  </div>
+
   <div id="tab-bundles" class="tab-pane">
     <div class="panel-card">
       <h2>📦 Channel & WhatsApp Group Bundles (Clusters)</h2>
@@ -834,6 +921,7 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
       if (id === 'tab-campus') loadCampusEvents();
       if (id === 'tab-dynamic-channels') loadChannels();
       if (id === 'tab-bundles') loadBundles();
+      if (id === 'tab-bulk-broadcast') loadBulkTargets();
       if (id === 'tab-squads') loadSquads();
       if (id === 'tab-members') loadMembers();
     }
@@ -1279,6 +1367,236 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
         loadSchedules();
       } catch (e) {
         alert('Error: ' + e);
+      }
+    }
+
+    let uploadedExcelBase64 = '';
+    let uploadedExcelSheets = [];
+    let bulkAttachmentBase64 = '';
+    let bulkAttachmentFileName = '';
+
+    function handleMainExcelFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      document.getElementById('selected-file-label').innerText = file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
+      
+      const isXlsx = file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls');
+      if (isXlsx) {
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+          const arrayBuffer = e.target.result;
+          const bytes = new Uint8Array(arrayBuffer);
+          let binary = '';
+          for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+          }
+          uploadedExcelBase64 = btoa(binary);
+          await inspectUploadedExcel(uploadedExcelBase64, file.name);
+        };
+        reader.readAsArrayBuffer(file);
+      } else {
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+          const text = e.target.result;
+          document.getElementById('excel-paste-text').value = text;
+          await importExcelSheet();
+        };
+        reader.readAsText(file);
+      }
+    }
+
+    async function inspectUploadedExcel(b64, fname) {
+      const log = document.getElementById('excel-import-log');
+      log.innerText = 'Inspecting workbook sheets in ' + fname + '...';
+      try {
+        const res = await fetch('/api/excel/inspect', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({file_b64: b64, filename: fname})
+        });
+        const d = await res.json();
+        if (!d.ok) {
+          log.innerText = '❌ Failed to inspect excel: ' + (d.error || 'Unknown error');
+          return;
+        }
+        uploadedExcelSheets = d.sheets || [];
+        const panel = document.getElementById('multisheet-panel');
+        const container = document.getElementById('multisheet-checkboxes');
+        container.innerHTML = '';
+        
+        uploadedExcelSheets.forEach(s => {
+          const div = document.createElement('div');
+          div.style = 'display:flex; align-items:center; gap:8px; background:#1e293b; padding:8px 12px; border-radius:6px;';
+          div.innerHTML = `
+            <input type="checkbox" class="excel-sheet-check" id="sheet-chk-${s.name}" value="${s.name}" checked>
+            <label for="sheet-chk-${s.name}" style="font-size:12px; font-weight:600; cursor:pointer;">
+              📄 ${s.name} <span style="color:#a7f3d0; font-size:11px;">(${s.rows_count} rows)</span>
+            </label>
+          `;
+          container.appendChild(div);
+        });
+        panel.style.display = 'block';
+        log.innerText = `✅ Found ${uploadedExcelSheets.length} sheet(s) in workbook! Select the sheets you want to import below.`;
+      } catch (e) {
+        log.innerText = '❌ Error reading sheets: ' + e;
+      }
+    }
+
+    function selectAllSheets(val) {
+      document.querySelectorAll('.excel-sheet-check').forEach(c => c.checked = val);
+    }
+
+    async function importSelectedExcelSheets() {
+      const selected = Array.from(document.querySelectorAll('.excel-sheet-check:checked')).map(c => c.value);
+      if (selected.length === 0) return alert('Please select at least one sheet to import!');
+      const log = document.getElementById('excel-import-log');
+      log.innerText = `Importing ${selected.length} sheet(s) into database...`;
+
+      try {
+        const res = await fetch('/api/excel/import_selected', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({file_b64: uploadedExcelBase64, sheets: selected})
+        });
+        const d = await res.json();
+        if (d.ok) {
+          log.innerHTML = `<span style="color:#10b981; font-weight:700;">✅ Success! Imported ${d.imported_groups_count} WhatsApp Groups and ${d.imported_channels_count} Telegram Channels across ${d.sheets_processed.length} sheets!</span>`;
+          fetchStats();
+          loadWAGroups();
+          loadChannels();
+        } else {
+          log.innerText = '❌ Import failed: ' + (d.error || 'Unknown error');
+        }
+      } catch (e) {
+        log.innerText = '❌ Request failed: ' + e;
+      }
+    }
+
+    function handleBulkAttachmentSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      bulkAttachmentFileName = file.name;
+      document.getElementById('bulk-file-name').innerText = file.name;
+      document.getElementById('bulk-clear-file-btn').style.display = 'inline-block';
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const arrayBuffer = e.target.result;
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        bulkAttachmentBase64 = btoa(binary);
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function clearBulkAttachment() {
+      bulkAttachmentBase64 = '';
+      bulkAttachmentFileName = '';
+      document.getElementById('bulk-attachment-file').value = '';
+      document.getElementById('bulk-file-name').innerText = 'No file selected';
+      document.getElementById('bulk-clear-file-btn').style.display = 'none';
+    }
+
+    async function loadBulkTargets() {
+      try {
+        const [chRes, waRes] = await Promise.all([fetch('/api/channels'), fetch('/api/whatsapp/groups')]);
+        const chData = await chRes.json();
+        const waData = await waRes.json();
+
+        const chList = document.getElementById('bulk-channels-list');
+        const waList = document.getElementById('bulk-groups-list');
+        if (!chList || !waList) return;
+
+        chList.innerHTML = '';
+        waList.innerHTML = '';
+
+        const channels = Object.entries(chData.channels || {});
+        document.getElementById('bulk-channels-count').innerText = channels.length;
+        channels.forEach(([key, ch]) => {
+          const div = document.createElement('div');
+          div.style = 'display:flex; align-items:center; gap:8px; font-size:12px;';
+          div.innerHTML = `
+            <input type="checkbox" class="bulk-target-ch" value="${key}" checked>
+            <span>📢 <b>${ch.name}</b> <span style="color:#64748b;">(${ch.chat_id || key})</span></span>
+          `;
+          chList.appendChild(div);
+        });
+
+        const groups = waData.groups || [];
+        document.getElementById('bulk-groups-count').innerText = groups.length;
+        groups.forEach(g => {
+          const div = document.createElement('div');
+          div.style = 'display:flex; align-items:center; gap:8px; font-size:12px;';
+          div.innerHTML = `
+            <input type="checkbox" class="bulk-target-wa" value="${g.id}" checked>
+            <span>💬 <b>${g.name}</b> <span style="color:#10b981; font-size:10px;">[${g.category}]</span></span>
+          `;
+          waList.appendChild(div);
+        });
+      } catch (e) {
+        console.error('Error loading bulk targets:', e);
+      }
+    }
+
+    function toggleAllBulkTargets(val) {
+      document.querySelectorAll('.bulk-target-ch, .bulk-target-wa').forEach(c => c.checked = val);
+    }
+
+    function selectBulkChannelsOnly() {
+      document.querySelectorAll('.bulk-target-ch').forEach(c => c.checked = true);
+      document.querySelectorAll('.bulk-target-wa').forEach(c => c.checked = false);
+    }
+
+    function selectBulkWAGroupsOnly() {
+      document.querySelectorAll('.bulk-target-ch').forEach(c => c.checked = false);
+      document.querySelectorAll('.bulk-target-wa').forEach(c => c.checked = true);
+    }
+
+    async function sendBulkBroadcast() {
+      const msg = document.getElementById('bulk-broadcast-msg').value.trim();
+      const attUrl = document.getElementById('bulk-attachment-url').value.trim();
+      const log = document.getElementById('bulk-broadcast-log');
+
+      if (!msg && !attUrl && !bulkAttachmentBase64) {
+        return alert('Please write a message or attach a file/URL to broadcast!');
+      }
+
+      const chKeys = Array.from(document.querySelectorAll('.bulk-target-ch:checked')).map(c => c.value);
+      const waGids = Array.from(document.querySelectorAll('.bulk-target-wa:checked')).map(c => c.value);
+
+      if (chKeys.length === 0 && waGids.length === 0) {
+        return alert('Please select at least one Channel or WhatsApp Group target!');
+      }
+
+      if (!confirm(`Confirm dispatch to ${chKeys.length} Telegram Channels and ${waGids.length} WhatsApp Groups?`)) return;
+
+      log.innerText = `Dispatching across ${chKeys.length} channels and ${waGids.length} groups...`;
+
+      try {
+        const res = await fetch('/api/broadcast/dispatch', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            message: msg,
+            attachment_url: attUrl,
+            attachment_data_b64: bulkAttachmentBase64,
+            attachment_filename: bulkAttachmentFileName,
+            target_channel_keys: chKeys,
+            target_group_ids: waGids
+          })
+        });
+        const d = await res.json();
+        let logTxt = `✅ Completed Broadcast!\n• Telegram Channels Dispatched: ${d.telegram_dispatched}\n• WhatsApp Groups Dispatched: ${d.whatsapp_dispatched}`;
+        if (d.errors && d.errors.length > 0) {
+          logTxt += `\n⚠️ Notes/Errors (${d.errors.length}):\n` + d.errors.slice(0, 5).join('\n');
+        }
+        log.innerText = logTxt;
+        alert(`Dispatched successfully to ${d.telegram_dispatched} Channels and ${d.whatsapp_dispatched} WhatsApp Groups!`);
+      } catch (e) {
+        log.innerText = '❌ Broadcast failed: ' + e;
       }
     }
 
@@ -2091,6 +2409,55 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 "members_count": len(sq["members"]),
                 "members": sq["members"]
             })
+            return
+
+        if p.path == "/api/excel/inspect":
+            b64 = body.get("file_b64", "")
+            fname = body.get("filename", "workbook.xlsx")
+            if not b64:
+                self._send_json({"ok": False, "error": "No file data received"})
+                return
+            try:
+                raw_bytes = base64.b64decode(b64)
+                sheets_info = bundle_manager.inspect_xlsx_sheets_bytes(raw_bytes)
+                self._send_json({"ok": True, "filename": fname, "sheets": sheets_info})
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)})
+            return
+
+        if p.path == "/api/excel/import_selected":
+            b64 = body.get("file_b64", "")
+            sel_sheets = body.get("sheets", [])
+            if not b64 or not sel_sheets:
+                self._send_json({"ok": False, "error": "Missing file or selected sheets"})
+                return
+            try:
+                raw_bytes = base64.b64decode(b64)
+                res = bundle_manager.import_from_multisheet_excel(raw_bytes, sel_sheets)
+                self._send_json(res)
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)})
+            return
+
+        if p.path == "/api/broadcast/dispatch":
+            msg = body.get("message", "")
+            att_url = body.get("attachment_url", "")
+            att_b64 = body.get("attachment_data_b64", "")
+            att_fname = body.get("attachment_filename", "")
+            ch_keys = body.get("target_channel_keys", [])
+            g_ids = body.get("target_group_ids", [])
+            gw = body.get("gateway_url", "")
+
+            res = bundle_manager.dispatch_bulk_broadcast(
+                message=msg,
+                attachment_url=att_url,
+                attachment_data_b64=att_b64,
+                attachment_filename=att_fname,
+                target_group_ids=g_ids,
+                target_channel_keys=ch_keys,
+                gateway_url=gw
+            )
+            self._send_json(res)
             return
 
         if p.path == "/api/excel/import":
