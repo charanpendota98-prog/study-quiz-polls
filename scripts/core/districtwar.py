@@ -484,6 +484,13 @@ def _finish(tg, members, d, now):
     d["live"] = live
     d["polls"] = {}
     _save(d)
+    try:
+        from . import tournament
+        for i, r in enumerate(rows):
+            is_winner = (i == 0)
+            tournament.record_district_war_stats(r["district"], r.get("score", 0.0), win=is_winner, now=now)
+    except Exception as e:
+        print(f"   [districtwar] stats record note: {e}")
     try:  # 📊 record the war in the Google Sheet ('rounds' tab, channel=WAR)
         from . import crm
         if crm.sheet_enabled():
@@ -761,8 +768,10 @@ def lobby_status():
 
 
 def lobby_buttons(minutes):
-    return [[("⚔️ I want to play — నేను ఆడతాను", "war:join")],
-            [("👥 Squad మొత్తం join", "war:squad")]]
+    return [
+        [("⚔️ I want to play — నేను ఆడతాను", "war:join")],
+        [("👥 Squad మొత్తం join", "war:squad"), ("📊 Top Districts (వారపు/నెల)", "war:ranks")]
+    ]
 
 
 def alert_text(minutes: int) -> str:
@@ -781,14 +790,25 @@ def season_table(now=None):
     now = now or _now()
     d = _load()
     s = d["season"].get(now.strftime("%Y%m"))
-    if not s or not s.get("points"):
-        return ""
-    rows = sorted(s["points"].items(), key=lambda kv: -kv[1])[:10]
-    lines = [f"⚔️ DISTRICT WAR — {now.strftime('%B')} season table", ""]
-    for i, (dn, p) in enumerate(rows, 1):
-        lines.append(f"{i}. {dn} ({D.telugu_name(dn)}) — {p} pts · {s['wins'].get(dn, 0)} wins")
-    lines += ["", f"{len(s['wars'])} wars fought · నెల చివర 🏆 District Champion"]
-    return "\n".join(lines)
+    sections = []
+    if s and s.get("points"):
+        rows = sorted(s["points"].items(), key=lambda kv: -kv[1])[:10]
+        lines = [f"⚔️ DISTRICT WAR — {now.strftime('%B')} season table", ""]
+        for i, (dn, p) in enumerate(rows, 1):
+            lines.append(f"{i}. {dn} ({D.telugu_name(dn)}) — {p} pts · {s['wins'].get(dn, 0)} wins")
+        lines += ["", f"{len(s['wars'])} wars fought · నెల చివర 🏆 District Champion"]
+        sections.append("\n".join(lines))
+    
+    # Also attach Weekly & Monthly Leaderboards from tournament engine
+    try:
+        from . import tournament
+        t_board = tournament.render_district_war_leaderboards(period="both", now=now)
+        if t_board.strip():
+            sections.append(t_board.strip())
+    except Exception:
+        pass
+
+    return "\n\n".join(sections) if sections else "⚔️ District War సీజన్ ప్రారంభమైంది! రోజూ 9 PM కి పాల్గొనండి." 
 
 
 def war_rank_text(uid):

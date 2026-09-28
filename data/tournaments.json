@@ -254,7 +254,70 @@
       "team_a_link": "https://t.me/StudentUpBot?start=war_CLASH_3956_390_A",
       "team_b_link": "https://t.me/StudentUpBot?start=war_CLASH_3956_390_B",
       "qr_url": "https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=https://t.me/StudentUpBot?start=war_CLASH_3956_390"
+    },
+    "CLASH_4876_209": {
+      "id": "CLASH_4876_209",
+      "type": "DISTRICT_CLASH",
+      "title": "Warangal vs Karimnagar Super Derby",
+      "exam_target": "POLICE",
+      "num_questions": 5,
+      "status": "LIVE_LOBBY",
+      "created_at": "2026-09-28 14:14",
+      "team_a": {
+        "name": "Warangal",
+        "players": {},
+        "score": 0.0
+      },
+      "team_b": {
+        "name": "Karimnagar",
+        "players": {},
+        "score": 0.0
+      },
+      "winner": null,
+      "shared_link": "https://t.me/StudentUpBot?start=war_CLASH_4876_209",
+      "team_a_link": "https://t.me/StudentUpBot?start=war_CLASH_4876_209_A",
+      "team_b_link": "https://t.me/StudentUpBot?start=war_CLASH_4876_209_B",
+      "qr_url": "https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=https://t.me/StudentUpBot?start=war_CLASH_4876_209",
+      "whatsapp_share_url": "https://api.whatsapp.com/send?text=%E2%9A%94%EF%B8%8F%20%2AWARANGAL%20VS%20KARIMNAGAR%20SUPER%20DERBY%2A%20%E2%9A%94%EF%B8%8F%0A%0A%E0%B0%AE%E0%B0%A8%20%E0%B0%8A%E0%B0%B0%E0%B1%81%20%E0%B0%9C%E0%B0%BF%E0%B0%B2%E0%B1%8D%E0%B0%B2%E0%B0%BE%20%E0%B0%95%E0%B1%8B%E0%B0%B8%E0%B0%82%20%E0%B0%AC%E0%B0%B0%E0%B0%BF%E0%B0%B2%E0%B1%8B%E0%B0%95%E0%B0%BF%20%E0%B0%A6%E0%B0%BF%E0%B0%97%E0%B1%81%E0%B0%A6%E0%B0%BE%E0%B0%82%21%20Telugu%20District%20War%20Derby%21%0A%F0%9F%94%A5%20Warangal%20vs%20Karimnagar%20%F0%9F%94%A5%0A%0A%F0%9F%8F%86%20Warangal%20%E0%B0%9F%E0%B1%80%E0%B0%AE%E0%B1%8D%20%E0%B0%B2%E0%B1%8B%20%E0%B0%9A%E0%B1%87%E0%B0%B0%E0%B0%82%E0%B0%A1%E0%B0%BF%3A%20https%3A//t.me/StudentUpBot%3Fstart%3Dwar_CLASH_4876_209_A%0A%F0%9F%8F%86%20Karimnagar%20%E0%B0%9F%E0%B1%80%E0%B0%AE%E0%B1%8D%20%E0%B0%B2%E0%B1%8B%20%E0%B0%9A%E0%B1%87%E0%B0%B0%E0%B0%82%E0%B0%A1%E0%B0%BF%3A%20https%3A//t.me/StudentUpBot%3Fstart%3Dwar_CLASH_4876_209_B%0A%0A%E0%B0%B2%E0%B1%87%E0%B0%A6%E0%B0%BE%20%E0%B0%87%E0%B0%95%E0%B1%8D%E0%B0%95%E0%B0%A1%20%E0%B0%95%E0%B1%8D%E0%B0%B2%E0%B0%BF%E0%B0%95%E0%B1%8D%20%E0%B0%9A%E0%B1%87%E0%B0%B8%E0%B0%BF%20%E0%B0%A8%E0%B1%87%E0%B0%B0%E0%B1%81%E0%B0%97%E0%B0%BE%20%E0%B0%86%E0%B0%A1%E0%B0%82%E0%B0%A1%E0%B0%BF%3A%20https%3A//t.me/StudentUpBot%3Fstart%3Dwar_CLASH_4876_209%0A%E0%B0%AE%E0%B1%80%20%E0%B0%9C%E0%B0%BF%E0%B0%B2%E0%B1%8D%E0%B0%B2%E0%B0%BE%20%E0%B0%AA%E0%B0%B0%E0%B1%81%E0%B0%B5%E0%B1%81%20%E0%B0%95%E0%B0%BE%E0%B0%AA%E0%B0%BE%E0%B0%A1%E0%B0%82%E0%B0%A1%E0%B0%BF%21%20Share%20to%20your%20college%20%26%20friends%20groups%21"
     }
   },
-  "active_matches": []
+  "active_matches": [],
+  "district_wars_weekly": {
+    "2026-W39": {
+      "Warangal": {
+        "pts": 1932.5,
+        "wars": 4,
+        "wins": 4
+      },
+      "Guntur": {
+        "pts": 633.0,
+        "wars": 4,
+        "wins": 1
+      },
+      "Karimnagar": {
+        "pts": 98.2,
+        "wars": 1,
+        "wins": 0
+      }
+    }
+  },
+  "district_wars_monthly": {
+    "2026-09": {
+      "Warangal": {
+        "pts": 1932.5,
+        "wars": 4,
+        "wins": 4
+      },
+      "Guntur": {
+        "pts": 633.0,
+        "wars": 4,
+        "wins": 1
+      },
+      "Karimnagar": {
+        "pts": 98.2,
+        "wars": 1,
+        "wins": 0
+      }
+    }
+  }
 }

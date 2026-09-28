@@ -10,16 +10,21 @@ Supports:
        score is calculated as:
          Accuracy % * Avg Time Bonus + Scaled Activity Factor
        Ensures fair competition whether a district has 5 or 50 players!
-  2. College vs College Campus Derby:
-     - JNTUH vs OU, SR Engineering vs Kakatiya, AU vs SVU, etc.
-  3. Squad Mega Battle Royale (5, 10, or 15 Teams):
-     - Squad points aggregated with live podium standings.
-  4. One-Tap WhatsApp & Telegram Shareable War Links & 600x600 Projector QR.
+  2. Weekly & Monthly District Wars Standings:
+     - Top District of the Week (Week 1..52)
+     - Top District of the Month (Jan..Dec)
+     - Addictive prestige & pride for native districts
+  3. One-Tap WhatsApp & Telegram Shareable War & Squad Links:
+     - Native whatsapp:// and https://api.whatsapp.com/send?text= deep links
+     - 600x600 Projector QR codes
+  4. Instant Squad Auto-Matchmaking:
+     - Match against another online squad automatically without room code searching!
 """
 
 import time
 import math
 import random
+import urllib.parse
 from datetime import datetime
 from pathlib import Path
 from core import config
@@ -29,7 +34,9 @@ TOURNAMENT_FILE = config.DATA / "tournaments.json"
 
 DEFAULT_DATA = {
     "tournaments": {},
-    "active_matches": []
+    "active_matches": [],
+    "district_wars_weekly": {},
+    "district_wars_monthly": {}
 }
 
 
@@ -54,7 +61,7 @@ def calculate_fair_score(correct: int, total_questions: int, players_count: int,
     - If a district has only 5 players vs 10 players, standard sum is unfair.
     - We compute:
         Average Accuracy per participant (0 - 100)
-        + Participation Weight log2(players + 1) * 5 (rewards turnout without drowning small districts)
+        + Participation Weight log2(players + 1) * 6 (rewards turnout without drowning small districts)
         + Speed Bonus (faster answers earn bonus)
     """
     if players_count <= 0 or total_questions <= 0:
@@ -80,7 +87,7 @@ def create_district_clash(
     exam_target: str = "POLICE",
     num_questions: int = 5
 ) -> dict:
-    """Create a 1-on-1 Head-to-Head District Clash."""
+    """Create a 1-on-1 Head-to-Head District Clash with WhatsApp & Telegram share links."""
     data = load_tournaments()
     clash_id = f"CLASH_{int(time.time()) % 10000}_{random.randint(100, 999)}"
     match_title = title.strip() or f"{district_a} vs {district_b} Super Derby"
@@ -90,6 +97,17 @@ def create_district_clash(
     link_b = f"https://t.me/{bot}?start=war_{clash_id}_B"
     shared_link = f"https://t.me/{bot}?start=war_{clash_id}"
     qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=600x600&data={shared_link}"
+
+    wa_text = (
+        f"⚔️ *{match_title.upper()}* ⚔️\n\n"
+        f"మన ఊరు జిల్లా కోసం బరిలోకి దిగుదాం! Telugu District War Derby!\n"
+        f"🔥 {district_a} vs {district_b} 🔥\n\n"
+        f"🏆 {district_a} టీమ్ లో చేరండి: {link_a}\n"
+        f"🏆 {district_b} టీమ్ లో చేరండి: {link_b}\n\n"
+        f"లేదా ఇక్కడ క్లిక్ చేసి నేరుగా ఆడండి: {shared_link}\n"
+        f"మీ జిల్లా పరువు కాపాడండి! Share to your college & friends groups!"
+    )
+    whatsapp_share_url = f"https://api.whatsapp.com/send?text={urllib.parse.quote(wa_text)}"
 
     match = {
         "id": clash_id,
@@ -113,7 +131,8 @@ def create_district_clash(
         "shared_link": shared_link,
         "team_a_link": link_a,
         "team_b_link": link_b,
-        "qr_url": qr_url
+        "qr_url": qr_url,
+        "whatsapp_share_url": whatsapp_share_url
     }
 
     data.setdefault("tournaments", {})[clash_id] = match
@@ -155,6 +174,15 @@ def create_world_cup_tournament(
     shared_link = f"https://t.me/{bot}?start=tourney_{tourney_id}"
     qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=600x600&data={shared_link}"
 
+    wa_text = (
+        f"🏆 *{title.upper()}* 🏆\n\n"
+        f"తెలంగాణ & ఆంధ్రప్రదేశ్ జిల్లాల మహా సంగ్రామం ప్రారంభమైంది! World Cup Knockout Trophy!\n"
+        f"మొత్తం {total_teams} జిల్లాలు పోటీపడుతున్నాయి. మీ జిల్లా ఛాంపియన్ అవ్వాలి అంటే ఇప్పుడే ఆడండి:\n"
+        f"👉 {shared_link}\n\n"
+        f"మీ ఫ్రెండ్స్ అందరికీ WhatsApp గ్రూపుల్లో షేర్ చేయండి!"
+    )
+    whatsapp_share_url = f"https://api.whatsapp.com/send?text={urllib.parse.quote(wa_text)}"
+
     tourney = {
         "id": tourney_id,
         "type": "WORLD_CUP_BRACKET",
@@ -169,6 +197,7 @@ def create_world_cup_tournament(
         "champion": None,
         "shared_link": shared_link,
         "qr_url": qr_url,
+        "whatsapp_share_url": whatsapp_share_url,
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M")
     }
 
@@ -221,3 +250,77 @@ def submit_clash_score(clash_id: str, team_key: str, uid: str, name: str, correc
         "team_b_score": match["team_b"]["score"],
         "leading": match["winner"]
     }
+
+
+def record_district_war_stats(district: str, score: float, win: bool = False, now=None):
+    """Update weekly & monthly district war leaderboards with fair points."""
+    if not district:
+        return
+    now = now or datetime.now()
+    w_key = now.strftime("%Y-W%W")
+    m_key = now.strftime("%Y-%m")
+    data = load_tournaments()
+
+    # Weekly
+    weekly = data.setdefault("district_wars_weekly", {}).setdefault(w_key, {})
+    d_w = weekly.setdefault(district, {"pts": 0.0, "wars": 0, "wins": 0})
+    d_w["pts"] = round(d_w["pts"] + float(score), 1)
+    d_w["wars"] += 1
+    if win:
+        d_w["wins"] += 1
+
+    # Monthly
+    monthly = data.setdefault("district_wars_monthly", {}).setdefault(m_key, {})
+    d_m = monthly.setdefault(district, {"pts": 0.0, "wars": 0, "wins": 0})
+    d_m["pts"] = round(d_m["pts"] + float(score), 1)
+    d_m["wars"] += 1
+    if win:
+        d_m["wins"] += 1
+
+    save_tournaments(data)
+
+
+def render_district_war_leaderboards(period: str = "both", now=None) -> str:
+    """Render Top District of the Week and Top District of the Month standings with Telugu pride."""
+    now = now or datetime.now()
+    w_key = now.strftime("%Y-W%W")
+    m_key = now.strftime("%Y-%m")
+    data = load_tournaments()
+
+    sections = []
+
+    # Weekly Standings
+    if period in ("both", "week", "weekly"):
+        weekly = data.get("district_wars_weekly", {}).get(w_key, {})
+        rows = sorted(weekly.items(), key=lambda kv: (-kv[1]["pts"], -kv[1]["wins"]))
+        lines = [f"🔥 TOP DISTRICT OF THE WEEK (Week {now.strftime('%W')}) 🔥", ""]
+        if not rows:
+            lines.append("ఈ వారం District War పోరు ఇంకా మొదలవలేదు — మీ ఊరు కోసం మొదటి విజయాన్ని సాధించండి! ⚔️")
+        else:
+            medals = ["🥇", "🥈", "🥉"]
+            for i, (dist, st) in enumerate(rows[:7], 1):
+                icon = medals[i - 1] if i <= 3 else f"{i}."
+                lines.append(f"{icon} {dist} — {st['pts']:g} Pts ({st['wins']} Wins · {st['wars']} Wars)")
+            top_dist = rows[0][0]
+            lines += ["", f"👑 ప్రస్తుత వీక్ లీడర్: *{top_dist}*!"]
+        sections.append("\n".join(lines))
+
+    # Monthly Standings
+    if period in ("both", "month", "monthly"):
+        monthly = data.get("district_wars_monthly", {}).get(m_key, {})
+        rows = sorted(monthly.items(), key=lambda kv: (-kv[1]["pts"], -kv[1]["wins"]))
+        m_name = now.strftime("%B %Y")
+        lines = [f"🏆 TOP DISTRICT OF THE MONTH ({m_name}) 🏆", ""]
+        if not rows:
+            lines.append("ఈ నెల District War సీజన్ ప్రారంభమైంది! మీ జిల్లా గెలిస్తే నెలాఖరున ఛాంపియన్ ట్రోఫీ 🌟")
+        else:
+            medals = ["🥇", "🥈", "🥉"]
+            for i, (dist, st) in enumerate(rows[:10], 1):
+                icon = medals[i - 1] if i <= 3 else f"{i}."
+                lines.append(f"{icon} {dist} — {st['pts']:g} Pts ({st['wins']} Wins · {st['wars']} Wars)")
+            top_dist = rows[0][0]
+            lines += ["", f"🌟 *{top_dist}* నంబర్ #1 గా నిలిచింది! జిల్లా గౌరవాన్ని కాపాడండి!"]
+        sections.append("\n".join(lines))
+
+    sections.append("💬 WhatsApp & Telegram లో మీ ఫ్రెండ్స్‌తో షేర్ చేసి మీ జిల్లా సైన్యాన్ని రంగంలోకి దించండి! /invite")
+    return "\n\n" + ("\n" + "=" * 35 + "\n").join(sections)

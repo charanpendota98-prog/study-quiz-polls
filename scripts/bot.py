@@ -359,6 +359,10 @@ class Bot:
                 self.members.start_registration(uid, username="")
                 self.tg.send_message(chat_id, FIRST_TIME_ASK)
                 return
+            if value in ("ranks", "top", "leaderboard"):
+                from core import tournament
+                self.tg.send_message(chat_id, tournament.render_district_war_leaderboards())
+                return
             ok, txt = districtwar.lobby_join(self.members, uid, via_squad=(value == "squad"))
             self.tg.send_message(chat_id, txt)
             if ok:
@@ -593,7 +597,17 @@ class Bot:
                 self.members.start_registration(uid, username="")
                 self.tg.send_message(chat_id, FIRST_TIME_ASK)
                 return
-            if act == "new":
+            if act in ("quick", "match", "auto"):
+                r, msg = arena.room_quickmatch(self.members, uid)
+                self.tg.send_message(chat_id, msg)
+                if r:
+                    for u in r["players"]:
+                        if u != str(uid):
+                            try:
+                                self.tg.send_message(u, f"⚡ Quick Match: మీ squad room {r['code']} లో చేరింది! Ready ఉండండి!")
+                            except TelegramError:
+                                pass
+            elif act == "new":
                 n = int(arg) if arg.isdigit() else arena.DEFAULT_Q
                 r, msg = arena.room_new(self.members, uid, n)
                 self.tg.send_message(chat_id, msg)
@@ -1240,16 +1254,41 @@ class Bot:
                 self.tg.send_message(chat_id, "🔔 Job track + reminders కోసం 1 నిమిషం register (+25 pts) 👇 తర్వాత /jobs")
                 self.tg.send_message(chat_id, FIRST_TIME_ASK)
                 return
-            if arg == "war" and uid:
-                from core import districtwar
-                if self.members.is_registered(uid):
-                    ok, txt = districtwar.lobby_join(self.members, uid)
-                    self.tg.send_message(chat_id, txt, buttons=None if ok else None)
+            if (arg == "war" or arg.startswith("war_")) and uid:
+                from core import districtwar, tournament
+                if not self.members.is_registered(uid):
+                    if not self.members.pending_step(uid):
+                        self.members.start_registration(uid, username=self._name(who))
+                    self.tg.send_message(chat_id, "⚔️ District War / Derby ఆడాలంటే 1 నిమిషం register (జిల్లా కావాలి, +25 pts) 👇")
+                    self.tg.send_message(chat_id, FIRST_TIME_ASK)
                     return
-                if not self.members.pending_step(uid):
-                    self.members.start_registration(uid, username=self._name(who))
-                self.tg.send_message(chat_id, "⚔️ War ఆడాలంటే 1 నిమిషం register (జిల్లా కావాలి, +25 pts) 👇 తర్వాత /war join")
-                self.tg.send_message(chat_id, FIRST_TIME_ASK)
+                if arg.startswith("war_"):
+                    # District Clash deep-link e.g. war_CLASH_123_A
+                    parts = arg.split("_")
+                    cid = parts[1] if len(parts) > 1 else ""
+                    team_side = parts[2] if len(parts) > 2 else ""
+                    t_data = tournament.load_tournaments().get("tournaments", {}).get(f"CLASH_{cid}")
+                    if t_data:
+                        team_name = t_data["team_a"]["name"] if team_side == "A" else (t_data["team_b"]["name"] if team_side == "B" else "District Team")
+                        self.tg.send_message(chat_id, f"⚔️ {t_data['title']} — {team_name} తరఫున మీరు బరిలో ఉన్నారు!\nమీ స్కోర్ వెంటనే లెక్కింపబడుతుంది. రోజూ పోరాడండి!")
+                    else:
+                        ok, txt = districtwar.lobby_join(self.members, uid)
+                        self.tg.send_message(chat_id, txt)
+                    return
+                ok, txt = districtwar.lobby_join(self.members, uid)
+                self.tg.send_message(chat_id, txt)
+                return
+            if arg.startswith("battle_") and uid:
+                code = arg.split("_", 1)[-1]
+                from core import arena
+                if not self.members.is_registered(uid):
+                    if not self.members.pending_step(uid):
+                        self.members.start_registration(uid, username=self._name(who))
+                    self.tg.send_message(chat_id, "🎮 Squad Battle లో చేరడానికి 1 నిమిషం register అవ్వండి (+25 pts) 👇")
+                    self.tg.send_message(chat_id, FIRST_TIME_ASK)
+                    return
+                r, msg = arena.room_join(self.members, uid, code)
+                self.tg.send_message(chat_id, msg)
                 return
             if arg in ("quiz", "register", "reg") and uid and not self.members.is_registered(uid):
                 if not self.members.pending_step(uid):
@@ -1351,13 +1390,18 @@ class Bot:
             elif len(parts) > 1 and parts[1] in ("join", "play", "in"):
                 ok, txt = districtwar.lobby_join(self.members, uid, via_squad=(len(parts) > 2 and parts[2] == "squad"))
                 self.tg.send_message(chat_id, txt)
+            elif len(parts) > 1 and parts[1] in ("ranks", "top", "leaderboard", "weekly", "monthly", "table"):
+                from core import tournament
+                period = "weekly" if parts[1] in ("weekly", "week") else ("monthly" if parts[1] in ("monthly", "month") else "both")
+                board_txt = tournament.render_district_war_leaderboards(period=period)
+                self.tg.send_message(chat_id, board_txt)
             else:
                 st = districtwar.lobby_status()
                 extra = ""
                 if st["open"]:
                     extra = f"\n\n🟢 Lobby OPEN — {st['n']} fighters in. Join: button లేదా /war join (squad మొత్తం: /war join squad)"
                 self.tg.send_message(chat_id, districtwar.my_war(self.members, uid) + extra,
-                                     buttons=districtwar.lobby_buttons(5) if st["open"] else None)
+                                     buttons=districtwar.lobby_buttons(5) if st["open"] else [[("📊 Top Districts (వారపు/నెల)", "war:ranks"), ("👥 Squad Battle", "arena:quick")]])
         elif low.startswith("/battle") or low.startswith("/room") or low.startswith("/arena"):
             from core import arena
             parts = text.split()
@@ -1367,7 +1411,17 @@ class Bot:
                 self.members.start_registration(uid, username=self._name(who))
                 self.tg.send_message(chat_id, FIRST_TIME_ASK)
                 return
-            if sub == "new":
+            if sub in ("quick", "match", "auto"):
+                r, msg = arena.room_quickmatch(self.members, uid)
+                self.tg.send_message(chat_id, msg)
+                if r:
+                    for u in r["players"]:
+                        if u != str(uid):
+                            try:
+                                self.tg.send_message(u, f"⚡ Quick Match: మీ squad room {r['code']} లో చేరింది! Ready ఉండండి!")
+                            except TelegramError:
+                                pass
+            elif sub == "new":
                 n = int(arg) if arg.isdigit() else arena.DEFAULT_Q
                 r, msg = arena.room_new(self.members, uid, n)
                 self.tg.send_message(chat_id, msg)
