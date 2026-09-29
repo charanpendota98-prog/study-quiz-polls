@@ -39,8 +39,6 @@ COLUMNS = ["tg_id", "name", "username", "mobile", "state", "district", "qualific
 
 QUEUE = config.DATA / "sheet_queue.json"      # offline queue: failed pushes are retried, never lost
 QUEUE_CAP = 2000
-<<<<<<< HEAD
-=======
 MEMBERS_XLSX = config.DATA / "members.xlsx"
 
 def export_xlsx_bytes(members: dict, only_registered=True) -> bytes:
@@ -115,7 +113,6 @@ def export_xlsx_bytes(members: dict, only_registered=True) -> bytes:
         zf.writestr('xl/worksheets/sheet1.xml', worksheet_xml)
     return out_buf.getvalue()
 
->>>>>>> ac51acb (feat: complete seamless district and squad wars registration with dual CSV and XLSX mirror sync and bonus points)
 MEMBERS_CSV = config.DATA / "members.csv"     # Local auto-sync CSV mirror for instant Excel & offline access
 
 
@@ -151,19 +148,12 @@ def sheet_enabled() -> bool:
 
 
 def sync_local_csv(members: dict) -> int:
-<<<<<<< HEAD
-    """Automatically write/update all registered members to data/members.csv with UTF-8 BOM."""
-    try:
-        csv_bytes = export_csv(members, only_registered=True)
-        MEMBERS_CSV.write_bytes(csv_bytes)
-=======
     """Automatically write/update all registered members to both members.csv and members.xlsx Excel sheet."""
     try:
         csv_bytes = export_csv(members, only_registered=True)
         MEMBERS_CSV.write_bytes(csv_bytes)
         xlsx_bytes = export_xlsx_bytes(members, only_registered=True)
         MEMBERS_XLSX.write_bytes(xlsx_bytes)
->>>>>>> ac51acb (feat: complete seamless district and squad wars registration with dual CSV and XLSX mirror sync and bonus points)
         return sum(1 for m in members.values() if m.get("registered"))
     except Exception as e:
         print(f"   [crm] sync_local_csv note: {e}")
