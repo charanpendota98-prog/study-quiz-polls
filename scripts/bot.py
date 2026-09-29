@@ -1436,13 +1436,27 @@ class Bot:
             from core import districtwar
             parts = low.split()
             if len(parts) > 1 and parts[1] == "now" and str(uid) in self._staff_ids():
-                mins = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 2
-                ok, txt = districtwar.manual_launch(self.members, self.tg, bank=self.bank, minutes=max(1, min(mins, 30)), force=True)
-                self.tg.send_message(chat_id, f"⚡ Admin Instant War Triggered!\n{txt}",
-                                     buttons=[[("⚔️ Join War Lobby Now", "war:join"), ("🔄 Lobby Status", "cmd:war status")]])
+                mins = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 10
+                ok, txt = districtwar.manual_launch(self.members, self.tg, bank=self.bank, minutes=max(1, min(mins, 180)), force=True)
+                self.tg.send_message(chat_id, f"⚡ Admin War Scheduled!\n{txt}",
+                                     buttons=[
+                                         [("⚔️ Join War Lobby Now", "war:join")],
+                                         [("🔄 Lobby Status", "cmd:war status"), ("📊 Top Districts", "war:ranks")]
+                                     ])
+            elif len(parts) > 1 and parts[1] in ("schedule", "set") and str(uid) in self._staff_ids():
+                mins = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 10
+                ok, txt = districtwar.manual_launch(self.members, self.tg, bank=self.bank, minutes=max(1, min(mins, 180)), force=True)
+                self.tg.send_message(chat_id, f"⚡ District War Scheduled ({mins} నిమిషాల్లో ఆటోమేటిక్‌గా మొదలవుతుంది)!\n{txt}",
+                                     buttons=[
+                                         [("⚔️ Join War Lobby Now", "war:join")],
+                                         [("🔄 Lobby Status", "cmd:war status"), ("📊 Top Districts", "war:ranks")]
+                                     ])
             elif len(parts) > 1 and parts[1] == "status" and str(uid) in self._staff_ids():
                 self.tg.send_message(chat_id, districtwar.owner_status(self.members),
-                                     buttons=[[("⚔️ Launch war now (5 min)", "cmd:war now"), ("🔄 Status", "cmd:war status")]])
+                                     buttons=[
+                                         [("⚔️ Launch in 10 min", "cmd:war now 10"), ("⚡ Launch in 5 min", "cmd:war now 5")],
+                                         [("🔄 Status", "cmd:war status"), ("📊 Leaderboard", "war:ranks")]
+                                     ])
             elif len(parts) > 1 and parts[1] in ("join", "play", "in"):
                 ok, txt = districtwar.lobby_join(self.members, uid, via_squad=(len(parts) > 2 and parts[2] == "squad"))
                 self.tg.send_message(chat_id, txt)

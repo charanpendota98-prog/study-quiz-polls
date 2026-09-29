@@ -31,6 +31,7 @@ Advanced by bot loop tick() like the arena (no sleeps); engine only schedules.
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+import urllib.parse
 
 from . import config
 from .store import load_json, save_json_atomic
@@ -769,8 +770,18 @@ def lobby_status():
 
 
 def lobby_buttons(minutes):
+    bot = getattr(config, "BOT_USERNAME", "") or "StudentUpBot"
+    join_link = f"https://t.me/{bot}?start=war"
+    wa_msg = (
+        f"⚔️ *TELANGANA & AP DISTRICT WAR CALL!* ⚔️\n"
+        f"మన జిల్లా పరువు కోసం యుద్ధం మొదలవుతోంది! ({minutes} నిమిషాల్లో start)\n"
+        f"👉 Join War Now: {join_link}\n"
+        f"మీ జిల్లాని టాప్ లో నిలబెట్టండి! 🔥"
+    )
+    wa_url = f"https://api.whatsapp.com/send?text={urllib.parse.quote(wa_msg)}"
     return [
         [("⚔️ I want to play — నేను ఆడతాను", "war:join")],
+        [("📲 WhatsApp లో ఫ్రెండ్స్‌ని పిలవండి", f"url:{wa_url}")],
         [("👥 Squad మొత్తం join", "war:squad"), ("📊 Top Districts (వారపు/నెల)", "war:ranks")]
     ]
 
