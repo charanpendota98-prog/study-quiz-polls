@@ -507,6 +507,20 @@ def _finish(tg, members, d, now):
     except Exception as e:
         print(f"   [war] sheet note: {e}")
     text = render_result(live, rows, members, mvp, season, now)
+    bot = getattr(config, "BOT_USERNAME", "") or "StudentUpBot"
+    winner_d = rows[0]["district"] if rows else "Champions"
+    wa_res_msg = (
+        f"🏆 *DISTRICT WAR RESULT — {now.strftime('%d %b')}* 🏆\n"
+        f"🥇 1st Place: {winner_d.upper()}!\n"
+        f"తర్వాతి యుద్ధంలో మీ జిల్లాను గెలిపించండి:\n"
+        f"👉 Join Bot: https://t.me/{bot}?start=war\n"
+        f"Daily 9 PM District Wars & Squad Battles!"
+    )
+    res_share_url = f"https://api.whatsapp.com/send?text={urllib.parse.quote(wa_res_msg)}"
+    res_buttons = [
+        [("📲 WhatsApp Status లో షేర్ చేయండి", f"url:{res_share_url}")],
+        [("📊 Top Districts (వారపు/నెల)", "war:ranks"), ("👥 Squad Battle", "arena:quick")]
+    ]
     # DM everyone who fought + personal line
     for uid, f in live["fighters"].items():
         if f["answered"] == 0 or f.get("blocked"):
@@ -519,7 +533,7 @@ def _finish(tg, members, d, now):
               f"\n🎖 Rank: {f.get('tier', '')} · war points {wpts}" + (f" · next {nxt[1]} at {nxt[0]}" if nxt else " · MAX")
               + (f"\n🔥 Best streak {f.get('best_streak', 0)} " + " ".join(f.get("streak_bonus", [])) if f.get("best_streak", 0) >= 3 else ""))
         try:
-            tg.send_message(uid, text + me)
+            tg.send_message(uid, text + me, buttons=res_buttons)
         except Exception:
             pass
     d["_channel_post"] = text
