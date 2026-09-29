@@ -319,8 +319,20 @@ def squad_buttons(uid=None):
             [("⚔️ Squad Battles (/battle)", "arena:list")]
         ]
     s = data["squads"].get(code, {})
+    squad_name = s.get("name", "Squad")
     disp = squad_code_display(code)
+    bot = getattr(config, "BOT_USERNAME", "") or "StudentUpBot"
+    tg_invite = f"https://t.me/{bot}?start=sq_{code}"
+    wa_msg = (
+        f"🔥 *JOIN MY SQUAD '{squad_name.upper()}'!* 🔥\n"
+        f"మనం కలిసి పోటీ పడదాం! Squad Quiz Battles లో మా టీమ్ లో చేరండి:\n"
+        f"👉 Join Link: {tg_invite}\n"
+        f"లేదా Bot లో: /squad join {disp}\n"
+        f"Squad Matches & District Wars కలిసి గెలుద్దాం!"
+    )
+    wa_share = f"https://api.whatsapp.com/send?text={urllib.parse.quote(wa_msg)}"
     rows = [
+        [("📲 WhatsApp లో Share", f"url:{wa_share}"), ("🔗 Direct Invite Link", f"url:{tg_invite}")],
         [("⚡ Quick Match (ఆటో పోరు)", "arena:quick"), ("⚔️ Battle (10 Q)", "arena:new:10")],
         [("📋 Open Rooms", "arena:list"), ("🏆 Squad Rankings", "arena:top")],
         [("🚪 Leave Squad", "sq:leave")]
