@@ -39,6 +39,83 @@ COLUMNS = ["tg_id", "name", "username", "mobile", "state", "district", "qualific
 
 QUEUE = config.DATA / "sheet_queue.json"      # offline queue: failed pushes are retried, never lost
 QUEUE_CAP = 2000
+<<<<<<< HEAD
+=======
+MEMBERS_XLSX = config.DATA / "members.xlsx"
+
+def export_xlsx_bytes(members: dict, only_registered=True) -> bytes:
+    """Generates clean native Excel (.xlsx) file bytes from members dictionary using zipfile & OpenXML."""
+    import zipfile, xml.etree.ElementTree as ET, io
+    rows_data = []
+    for uid, m in sorted(members.items(), key=lambda kv: -(kv[1].get("points", 0) or 0)):
+        if only_registered and not m.get("registered"):
+            continue
+        row_dict = member_row(uid, m)
+        rows_data.append([str(row_dict.get(col, "")) for col in COLUMNS])
+    
+    # Simple sheetData XML
+    sheet_rows_xml = []
+    # Header row (1)
+    header_cells = ''.join(f'<c t="inlineStr"><is><t>{c}</t></is></c>' for c in COLUMNS)
+    sheet_rows_xml.append(f'<row r="1">{header_cells}</row>')
+    
+    for r_idx, r in enumerate(rows_data, 2):
+        cells_xml = []
+        for val in r:
+            clean_val = str(val).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            cells_xml.append(f'<c t="inlineStr"><is><t>{clean_val}</t></is></c>')
+        joined_cells = "".join(cells_xml)
+        sheet_rows_xml.append(f'<row r="{r_idx}">{joined_cells}</row>')
+        
+    sheet_data = ''.join(sheet_rows_xml)
+    worksheet_xml = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        f'<sheetData>{sheet_data}</sheetData>'
+        '</worksheet>'
+    )
+    
+    content_types_xml = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+        '<Default Extension="xml" ContentType="application/xml"/>'
+        '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+        '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+        '</Types>'
+    )
+    
+    rels_xml = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+        '</Relationships>'
+    )
+    
+    workbook_xml = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        '<sheets><sheet name="Registered_Students" sheetId="1" r:id="rId1"/></sheets>'
+        '</workbook>'
+    )
+    
+    wb_rels_xml = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+        '</Relationships>'
+    )
+    
+    out_buf = io.BytesIO()
+    with zipfile.ZipFile(out_buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr('[Content_Types].xml', content_types_xml)
+        zf.writestr('_rels/.rels', rels_xml)
+        zf.writestr('xl/workbook.xml', workbook_xml)
+        zf.writestr('xl/_rels/workbook.xml.rels', wb_rels_xml)
+        zf.writestr('xl/worksheets/sheet1.xml', worksheet_xml)
+    return out_buf.getvalue()
+
+>>>>>>> ac51acb (feat: complete seamless district and squad wars registration with dual CSV and XLSX mirror sync and bonus points)
 MEMBERS_CSV = config.DATA / "members.csv"     # Local auto-sync CSV mirror for instant Excel & offline access
 
 
@@ -74,10 +151,19 @@ def sheet_enabled() -> bool:
 
 
 def sync_local_csv(members: dict) -> int:
+<<<<<<< HEAD
     """Automatically write/update all registered members to data/members.csv with UTF-8 BOM."""
     try:
         csv_bytes = export_csv(members, only_registered=True)
         MEMBERS_CSV.write_bytes(csv_bytes)
+=======
+    """Automatically write/update all registered members to both members.csv and members.xlsx Excel sheet."""
+    try:
+        csv_bytes = export_csv(members, only_registered=True)
+        MEMBERS_CSV.write_bytes(csv_bytes)
+        xlsx_bytes = export_xlsx_bytes(members, only_registered=True)
+        MEMBERS_XLSX.write_bytes(xlsx_bytes)
+>>>>>>> ac51acb (feat: complete seamless district and squad wars registration with dual CSV and XLSX mirror sync and bonus points)
         return sum(1 for m in members.values() if m.get("registered"))
     except Exception as e:
         print(f"   [crm] sync_local_csv note: {e}")
