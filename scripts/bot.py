@@ -71,7 +71,7 @@ from core.content import build_question_text, build_options, build_explanation
 from core.members import Members, EXAM_TARGETS, LANGUAGES, level_for
 
 WELCOME = (
-    "👋 *StudentUp* — TS & AP aspirants కోసం India's most advanced quiz arena\n"
+    "👋 *StudentUp* — TS & AP aspirants కోసం India's most advanced quiz platform\n"
     "(TSPSC · APPSC · SSC · Banking · Railway · Police · Defence · Current Affairs)\n\n"
     "🎯 *రోజూ*\n"
     "• 7:30 AM & 7:30 PM — exam-hall paced rounds in the channel → Top-10 పేరు+జిల్లా\n"
@@ -2357,7 +2357,7 @@ class Bot:
             if plain in ("hi", "hello", "hey", "namaste", "start", "menu", "options", "help", "bot", "quiz"):
                 self.tg.send_message(
                     chat_id,
-                    "👋 నమస్తే! **StudentUp Smart Student Arena** కి స్వాగతం! 🎯\n\n"
+                    "👋 నమస్తే! **StudentUp** కి స్వాగతం! 🎯\n\n"
                     "మీరు ఇక్కడ ఏం చేయాలనుకుంటున్నారు? కింద ఉన్న బటన్లలో ఒక్క ట్యాప్‌తో నేరుగా వెళ్ళవచ్చు 👇",
                     buttons=menu_buttons,
                     parse_mode="Markdown"
@@ -2381,7 +2381,7 @@ class Bot:
             if "squad" in plain or "టీమ్" in plain or "team" in plain or "battle" in plain:
                 self.tg.send_message(
                     chat_id,
-                    "👥 **Squad Battles Arena** 🎮\n\n"
+                    "👥 **Squad Battles** 🎮\n\n"
                     "మీ ఫ్రెండ్స్‌తో 2-5 మందితో స్క్వాడ్ క్రియేట్ చేయండి లేదా ఆటో పోరు ఆడండి!\n"
                     "• /squad new <పేరు> — కొత్త స్క్వాడ్\n"
                     "• /battle quick — ఆటోమేటిక్ గా వేరే టీమ్ తో పోరు\n"
