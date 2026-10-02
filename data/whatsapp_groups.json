@@ -1,0 +1,359 @@
+{
+  "groups": [
+    {
+      "id": "G1",
+      "name": "TSPSC Aspirants Hub",
+      "jid": "120363012345678901@g.us",
+      "active": true,
+      "category": "TSPSC",
+      "shift": "ALL_DAY"
+    },
+    {
+      "id": "G2",
+      "name": "APPSC Group 2 & 4 Warriors",
+      "jid": "120363098765432101@g.us",
+      "active": true,
+      "category": "POLICE",
+      "shift": "ALL_DAY"
+    },
+    {
+      "id": "G3",
+      "name": "SSC CGL / Railway RRB Prep",
+      "jid": "120363011223344551@g.us",
+      "active": true,
+      "category": "SSC",
+      "shift": "ALL_DAY"
+    },
+    {
+      "id": "G_4_163",
+      "name": "Telangana TS Police Constable & SI Official",
+      "jid": "120363099999999999@g.us",
+      "category": "POLICE",
+      "active": true,
+      "created_at": "2026-09-24 17:32",
+      "shift": "ALL_DAY"
+    },
+    {
+      "id": "G_5_163",
+      "name": "AP Police SI & Civil Prep",
+      "jid": "120363088888888888@g.us",
+      "category": "POLICE",
+      "active": true,
+      "created_at": "2026-09-24 17:32",
+      "shift": "ALL_DAY"
+    },
+    {
+      "id": "G_6_163",
+      "name": "Railway RRB NTPC Central Group",
+      "jid": "120363077777777777@g.us",
+      "category": "SSC",
+      "active": true,
+      "created_at": "2026-09-24 17:32",
+      "shift": "ALL_DAY"
+    },
+    {
+      "id": "G_7_163",
+      "name": "State Bank SBI PO / Clerk Aspirants",
+      "jid": "120363066666666666@g.us",
+      "category": "BANKING",
+      "active": true,
+      "created_at": "2026-09-24 17:32",
+      "shift": "ALL_DAY"
+    },
+    {
+      "id": "G_8_572",
+      "name": "TS 10th Class Board Exam 2026 Toppers Hub",
+      "jid": "120363012345678910@g.us",
+      "category": "TS_10TH",
+      "shift": "EVENING",
+      "active": true,
+      "created_at": "2026-09-24 17:56"
+    },
+    {
+      "id": "G_9_572",
+      "name": "TS Intermediate MPC & BiPC Study Circle",
+      "jid": "120363012345678911@g.us",
+      "category": "TS_INTER",
+      "shift": "EVENING",
+      "active": true,
+      "created_at": "2026-09-24 17:56"
+    },
+    {
+      "id": "G_10_572",
+      "name": "TS Diploma SBTET & POLYCET Warriors",
+      "jid": "120363012345678912@g.us",
+      "category": "TS_DIPLOMA",
+      "shift": "ALL_DAY",
+      "active": true,
+      "created_at": "2026-09-24 17:56"
+    },
+    {
+      "id": "G_11_92",
+      "name": "Telangana Degree Colleges All Universities Hub",
+      "jid": "120363012345678913@g.us",
+      "category": "TS_DEGREE",
+      "shift": "MORNING",
+      "active": true,
+      "created_at": "2026-09-24 18:04"
+    },
+    {
+      "id": "G_12_92",
+      "name": "TS B.Tech Engineering Placements & CRT Circle",
+      "jid": "120363012345678914@g.us",
+      "category": "TS_BTECH",
+      "shift": "ALL_DAY",
+      "active": true,
+      "created_at": "2026-09-24 18:04"
+    },
+    {
+      "id": "G_13_92",
+      "name": "Warangal District Students & Aspirants Forum",
+      "jid": "120363012345678915@g.us",
+      "category": "TSPSC",
+      "shift": "EVENING",
+      "active": true,
+      "created_at": "2026-09-24 18:04"
+    },
+    {
+      "id": "G_14_92",
+      "name": "Visakhapatnam AP Students Community",
+      "jid": "120363012345678916@g.us",
+      "category": "APPSC",
+      "shift": "ALL_DAY",
+      "active": true,
+      "created_at": "2026-09-24 18:04"
+    },
+    {
+      "id": "G_15_472",
+      "name": "Telangana TS ITI Govt & Private Colleges Forum",
+      "jid": "120363012345678917@g.us",
+      "category": "ITI_ALL",
+      "shift": "MORNING",
+      "active": true,
+      "created_at": "2026-09-24 18:11"
+    },
+    {
+      "id": "G_16_472",
+      "name": "Andhra Pradesh AP ITI Students & Apprentice Hub",
+      "jid": "120363012345678918@g.us",
+      "category": "ITI_ALL",
+      "shift": "ALL_DAY",
+      "active": true,
+      "created_at": "2026-09-24 18:11"
+    },
+    {
+      "id": "G_17_472",
+      "name": "Dr BR Ambedkar Open University (BRAOU) Degree Network",
+      "jid": "120363012345678919@g.us",
+      "category": "OPEN_UNIV",
+      "shift": "ALL_DAY",
+      "active": true,
+      "created_at": "2026-09-24 18:11"
+    },
+    {
+      "id": "G_18_472",
+      "name": "AP Open University (ANUCDE & Distance) Community",
+      "jid": "120363012345678920@g.us",
+      "category": "OPEN_UNIV",
+      "shift": "EVENING",
+      "active": true,
+      "created_at": "2026-09-24 18:11"
+    },
+    {
+      "id": "G_19_974",
+      "name": "AP 10th Class Board Exam 2026 Toppers Hub",
+      "jid": "120363012345678921@g.us",
+      "category": "AP_10TH",
+      "shift": "EVENING",
+      "active": true,
+      "created_at": "2026-09-24 18:19"
+    },
+    {
+      "id": "G_20_974",
+      "name": "AP Intermediate BIEAP & EAPCET Study Circle",
+      "jid": "120363012345678922@g.us",
+      "category": "AP_INTER",
+      "shift": "EVENING",
+      "active": true,
+      "created_at": "2026-09-24 18:19"
+    },
+    {
+      "id": "G_21_974",
+      "name": "AP Diploma SBTET Polytechnic & ECET Forum",
+      "jid": "120363012345678923@g.us",
+      "category": "AP_DIPLOMA",
+      "shift": "ALL_DAY",
+      "active": true,
+      "created_at": "2026-09-24 18:19"
+    },
+    {
+      "id": "G_22_974",
+      "name": "AP Degree Colleges AU & SVU Students Union",
+      "jid": "120363012345678924@g.us",
+      "category": "AP_DEGREE",
+      "shift": "MORNING",
+      "active": true,
+      "created_at": "2026-09-24 18:19"
+    },
+    {
+      "id": "G_23_974",
+      "name": "AP B.Tech Engineering Placements JNTUK & JNTUA",
+      "jid": "120363012345678925@g.us",
+      "category": "AP_BTECH",
+      "shift": "ALL_DAY",
+      "active": true,
+      "created_at": "2026-09-24 18:19"
+    },
+    {
+      "id": "G_24_131",
+      "name": "Khammam TS Police SI Batch",
+      "jid": "120363012345678990@g.us",
+      "category": "POLICE",
+      "shift": "EVENING",
+      "active": true,
+      "created_at": "2026-09-24 18:55"
+    },
+    {
+      "id": "G_25_131",
+      "name": "AP B.Tech Guntur Campus",
+      "jid": "120363012345678991@g.us",
+      "category": "AP_BTECH",
+      "shift": "MORNING",
+      "active": true,
+      "created_at": "2026-09-24 18:55"
+    },
+    {
+      "id": "G_26_364",
+      "name": "Warangal SI Batch 2026",
+      "jid": "120363012345678000@g.us",
+      "category": "POLICE",
+      "group_type": "EXAM_SPECIFIC",
+      "shift": "EVENING",
+      "active": true,
+      "created_at": "2026-09-25 16:56"
+    },
+    {
+      "id": "G_27_364",
+      "name": "TS & AP General Studies Club",
+      "jid": "120363012345678001@g.us",
+      "category": "GENERAL",
+      "group_type": "GENERAL",
+      "shift": "ALL_DAY",
+      "active": true,
+      "created_at": "2026-09-25 16:56"
+    },
+    {
+      "id": "G_28_754",
+      "name": "Khammam TS Police SI Group",
+      "jid": "https://chat.whatsapp.com/ExAmPlE1",
+      "category": "POLICE",
+      "group_type": "EXAM_SPECIFIC",
+      "shift": "MORNING",
+      "active": true,
+      "created_at": "2026-09-27 18:12"
+    },
+    {
+      "id": "G_29_754",
+      "name": "Guntur AP DSC SGT Aspirants",
+      "jid": "https://chat.whatsapp.com/ExAmPlE2",
+      "category": "TET_DSC",
+      "group_type": "EXAM_SPECIFIC",
+      "shift": "ALL_DAY",
+      "active": true,
+      "created_at": "2026-09-27 18:12"
+    },
+    {
+      "id": "G_30_754",
+      "name": "Telangana General Quiz Room",
+      "jid": "https://chat.whatsapp.com/ExAmPlE3",
+      "category": "CURRENT",
+      "group_type": "GENERAL",
+      "shift": "ALL_DAY",
+      "active": true,
+      "created_at": "2026-09-27 18:12"
+    },
+    {
+      "id": "G_31_762",
+      "name": "Khammam TS Police SI Group",
+      "jid": "https://chat.whatsapp.com/ExAmPlE1",
+      "category": "POLICE",
+      "group_type": "EXAM_SPECIFIC",
+      "shift": "MORNING",
+      "active": true,
+      "created_at": "2026-09-27 18:12"
+    },
+    {
+      "id": "G_32_762",
+      "name": "Guntur AP DSC SGT Aspirants",
+      "jid": "https://chat.whatsapp.com/ExAmPlE2",
+      "category": "TET_DSC",
+      "group_type": "EXAM_SPECIFIC",
+      "shift": "ALL_DAY",
+      "active": true,
+      "created_at": "2026-09-27 18:12"
+    },
+    {
+      "id": "G_33_762",
+      "name": "Telangana General Quiz Room",
+      "jid": "https://chat.whatsapp.com/ExAmPlE3",
+      "category": "CURRENT",
+      "group_type": "GENERAL",
+      "shift": "ALL_DAY",
+      "active": true,
+      "created_at": "2026-09-27 18:12"
+    },
+    {
+      "id": "G_34_620",
+      "name": "Warangal Police SI Batch",
+      "jid": "https://chat.whatsapp.com/warangal_si",
+      "category": "POLICE",
+      "group_type": "EXAM_SPECIFIC",
+      "shift": "MORNING",
+      "active": true,
+      "created_at": "2026-09-28 17:47"
+    },
+    {
+      "id": "G_35_620",
+      "name": "Khammam Police Constable Study",
+      "jid": "https://chat.whatsapp.com/khammam_pc",
+      "category": "POLICE",
+      "group_type": "EXAM_SPECIFIC",
+      "shift": "MORNING",
+      "active": true,
+      "created_at": "2026-09-28 17:47"
+    },
+    {
+      "id": "G_36_620",
+      "name": "Guntur AP DSC SGT Aspirants",
+      "jid": "https://chat.whatsapp.com/guntur_dsc",
+      "category": "TET_DSC",
+      "group_type": "EXAM_SPECIFIC",
+      "shift": "ALL_DAY",
+      "active": true,
+      "created_at": "2026-09-28 17:47"
+    },
+    {
+      "id": "G_37_620",
+      "name": "TS TET Paper 1 & 2 Pedagogy",
+      "jid": "https://chat.whatsapp.com/ts_tet",
+      "category": "TET_DSC",
+      "group_type": "EXAM_SPECIFIC",
+      "shift": "ALL_DAY",
+      "active": true,
+      "created_at": "2026-09-28 17:47"
+    }
+  ],
+  "gateway_url": "",
+  "gateway_token": "",
+  "post_delay_sec": 1,
+  "logs": [],
+  "anti_ban": {
+    "enabled": true,
+    "min_gap_sec": 20,
+    "max_gap_sec": 30,
+    "batch_pair_size": 2,
+    "pair_pause_sec": 35,
+    "answer_delay_sec": 45,
+    "invisible_hash_jitter": true
+  }
+}

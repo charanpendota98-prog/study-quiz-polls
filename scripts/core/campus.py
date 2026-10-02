@@ -72,25 +72,27 @@ def _code(existing):
 
 
 # ================================================================== events
-def new_event(name, district, colleges, n_q=DEFAULT_Q, level="medium", created_by="", mode="college"):
+def new_event(name, district, colleges, n_q=DEFAULT_Q, level="medium", created_by="", mode="college", subjects=None):
     d = _load()
     code = _code(d["events"])
     cols = [c.strip()[:40] for c in colleges if c.strip()][:12]
     if not cols:
         cols = ["General"]
+    subjs = [s.strip() for s in (subjects or []) if s.strip()] or ["reasoning", "quant", "gs", "english", "ca"]
     d["events"][code] = {"code": code, "name": name.strip()[:60], "district": district.strip(), "colleges": cols,
                          "n_q": max(5, min(int(n_q), 30)), "level": level if level in LEVELS else "medium",
                          "mode": "exam" if str(mode).lower().startswith("ex") else "college",
+                         "subjects": subjs,
                          "state": "open", "created": _now().isoformat(), "by": str(created_by),
                          "players": {}, "questions": [], "qi": 0, "answers": {}, "q_open": None, "q_close": None}
     _save(d)
     return code
 
 
-def quick_event(college, district, n_q=DEFAULT_Q, level="easy", created_by="", mode="college"):
+def quick_event(college, district, n_q=DEFAULT_Q, level="easy", created_by="", mode="college", subjects=None):
     """One college, one command: /go <College> | <district>  → code + link + poster (simple college mode)."""
     name = f"{college.strip()[:30]} × StudentUp Challenge"
-    return new_event(name, district, [college], n_q, level, created_by, mode)
+    return new_event(name, district, [college], n_q, level, created_by, mode, subjects=subjects)
 
 
 def set_mode(code, mode):
@@ -129,22 +131,67 @@ def poster_text(code):
     e = d["events"].get(code)
     if not e:
         return "Event not found."
+    import urllib.parse
     bot = config.BOT_USERNAME or "StudentUpBot"
     link = f"https://t.me/{bot}?start=c{code[3:]}-1"
+    wa_msg = (
+        f"🎓 *{e['name'].upper()}* 🎓\n"
+        f"📍 {e['district']} · {e['n_q']} Questions · Live Mobile Campus Exam!\n\n"
+        f"👉 Join & Test Now: {link}\n\n"
+        f"1. లింక్ ఓపెన్ చేయండి (లేదా QR స్కాన్ చేయండి)\n"
+        f"2. పేరు & మొబైల్ ఇచ్చి వెంటనే రెడీగా ఉండండి\n"
+        f"3. Start అనగానే ప్రశ్నలు వస్తాయి!\n"
+        f"🏆 Top Toppers కి బహుమతులు & సర్టిఫికెట్స్!"
+    )
+    wa_share = f"https://api.whatsapp.com/send?text={urllib.parse.quote(wa_msg)}"
+    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=600x600&data={link}"
+
     return "\n".join([
-        f"🎓 {e['name']}",
-        f"📍 {e['district']} · {e['n_q']} questions · phone లోనే exam",
-             ("😎 Simple & fun — GK, science, tech, movies, logic. Anyone can play!" if e.get("mode", "college") == "college" else "📚 Exam-level questions"),
+        f"🎓 *{e['name']}* ({e['district']})",
+        f"📍 {e['colleges'][0] if e.get('colleges') else e['name']} | Live Mobile Campus Exam",
+        f"📝 {e['n_q']} Questions · phone లోనే exam",
+        ("😎 Simple & fun — GK, science, tech, movies, logic. Anyone can play!" if e.get("mode", "college") == "college" else "📚 Exam-level questions"),
         "",
-        "1️⃣ ఈ link open చేయండి (లేదా QR scan):",
-        f"   {link}",
-        "2️⃣ పేరు + phone (30 seconds)",
-        "3️⃣ 'Start' అనగానే Q1 వస్తుంది — ప్రతి Q కి timer ⏱",
+        "👉 *Join & Ready అవ్వడానికి డైరెక్ట్ లింక్:*",
+        f"🔗 {link}",
         "",
-        "🏆 Top 10 కి prizes · అందరికీ points (shops/coaching offers) · results పేర్లతో channel లో",
+        "📲 *WhatsApp Group లో Share చేయడానికి:*",
+        f"👉 {wa_share}",
         "",
-        f"QR: https://api.qrserver.com/v1/create-qr-code/?size=600x600&data={link}",
+        "1️⃣ పై లింక్ ఓపెన్ చేయండి (లేదా క్రింది QR స్కాన్ చేయండి)",
+        "2️⃣ పేరు + phone ఇచ్చి హాల్ లో రెడీగా ఉండండి",
+        "3️⃣ నిర్వాహకుడు 'Start' అనగానే క్వశ్చన్స్ వస్తాయి ⏱",
+        "",
+        "🏆 Top Toppers కి బహుమతులు & సర్టిఫికెట్స్!",
+        "",
+        f"📱 Projector HD QR Code (600x600):\n{qr_url}",
     ])
+
+
+def poster_buttons(code):
+    """Smart buttons attached to poster for instant WhatsApp share & direct exam control."""
+    d = _load()
+    e = d["events"].get(code)
+    if not e:
+        return None
+    import urllib.parse
+    bot = config.BOT_USERNAME or "StudentUpBot"
+    link = f"https://t.me/{bot}?start=c{code[3:]}-1"
+    wa_msg = (
+        f"🎓 *{e['name'].upper()}* 🎓\n"
+        f"📍 {e['district']} · {e['n_q']} Questions · Live Mobile Campus Exam!\n\n"
+        f"👉 Join & Test Now: {link}\n\n"
+        "1. లింక్ ఓపెన్ చేయండి (లేదా QR స్కాన్ చేయండి)\n"
+        "2. పేరు & మొబైల్ ఇచ్చి వెంటనే రెడీగా ఉండండి\n"
+        "3. Start అనగానే ప్రశ్నలు వస్తాయి!\n"
+        "🏆 Top Toppers కి బహుమతులు & సర్టిఫికెట్స్!"
+    )
+    wa_share = f"https://api.whatsapp.com/send?text={urllib.parse.quote(wa_msg)}"
+    btns = [
+        [("📲 Share to WhatsApp Group", None, wa_share)],
+        [("🚀 START Exam Now", f"cp:start:{code}"), ("🔄 Refresh Live Hall", f"cp:status:{code}")]
+    ]
+    return btns
 
 
 def links_text(code):
@@ -162,14 +209,21 @@ def links_text(code):
 
 
 def parse_start_arg(arg):
-    """'cK7P2-2' → ('CE-K7P2', 2) or None."""
-    if not arg or not arg.startswith("c") or "-" not in arg:
+    """'cK7P2-2' or 'cK7P2' or 'CE-K7P2' → ('CE-K7P2', idx) or None."""
+    if not arg:
+        return None
+    arg = arg.strip()
+    if arg.upper().startswith("CE-"):
+        code_part = arg.upper()
+        return code_part, 1
+    if not arg.startswith("c"):
         return None
     body = arg[1:]
-    code, _, idx = body.rpartition("-")
-    if not code or not idx.isdigit():
-        return None
-    return "CE-" + code.upper(), int(idx)
+    if "-" in body:
+        code, _, idx = body.rpartition("-")
+        if code and idx.isdigit():
+            return "CE-" + code.upper(), int(idx)
+    return "CE-" + body.upper(), 1
 
 
 def join(members, uid, code, college_idx, name_hint=""):
@@ -445,7 +499,7 @@ def college_table(e):
 
 def ranking(e):
     rows = [(u, p) for u, p in e["players"].items() if p["answered"]]
-    rows.sort(key=lambda kv: (-kv[1]["pts"], -kv[1]["correct"], kv[1]["last"] or "z"))
+    rows.sort(key=lambda kv: (-kv[1].get("pts", 0), -kv[1].get("correct", 0), kv[1].get("last") or "z"))
     return rows
 
 
@@ -516,14 +570,26 @@ def _finish(tg, members, d, e, now):
         except Exception:
             pass
     # organiser: summary + CSV
-    summary = text + "\n\n📎 Full data: /campus csv " + e["code"]
-    for aid in ([e.get("by")] if e.get("by") else []) + list(getattr(config, "STAFF_IDS", [])):
-        if not aid:
-            continue
+    summary = text + "\n\n📎 Full data: /campus excel " + e["code"]
+    fname, excel_data = export_excel_bytes(e["code"], members=members)
+    
+    # Send confidential Excel sheet ONLY to the organiser / admin / staff (never to public or regular students)
+    targets = []
+    if e.get("by"):
+        targets.append(str(e.get("by")))
+    for sid in getattr(config, "STAFF_IDS", []):
+        if sid and str(sid) not in targets:
+            targets.append(str(sid))
+    if getattr(config, "ADMIN_ID", None) and str(config.ADMIN_ID) not in targets:
+        targets.append(str(config.ADMIN_ID))
+
+    for aid in targets:
         try:
             tg.send_message(aid, summary)
-        except Exception:
-            pass
+            if hasattr(tg, "send_document"):
+                tg.send_document(aid, fname, excel_data, caption=f"🔒 CONFIDENTIAL (Staff/Organiser Only):\n📊 {e['name']} — Complete Results Sheet")
+        except Exception as err:
+            print(f"   [campus] send report to {aid} note: {err}")
     e["_post"] = text
     e["drip_day"] = 0
     _save(d)
@@ -554,7 +620,19 @@ def render_result(e, rows, cols, limit=10):
             bar = "█" * max(1, int(8 * c["score"] / max(lead, 1)))
             lines.append(f"{medals[i]} {c['college']} {bar} {c['score']:g} · {c['n']}👥 · 🎯{c['acc']}% · ⭐{c['top'][0][:12]}")
         lines += [f"🏆 WINNER: {cols[0]['college']} 🎉 (+{COLLEGE_WIN_PTS} pts each)", ""]
-    lines.append("🏆 TOP 10")
+
+    # 🌟 SPECIAL TOP 3 CHAMPIONS SPOTLIGHT FOR ALL STUDENTS
+    if rows:
+        lines.append("🌟 ══════════════════════════════ 🌟")
+        lines.append("🥇🥈🥉 SPECIAL TOP 3 WINNERS (టాప్ 3 విజేతలు):")
+        lines.append("🌟 ══════════════════════════════ 🌟")
+        top3_medals = ["🥇 1st Place Champion", "🥈 2nd Place Runner-Up", "🥉 3rd Place Third"]
+        for i, (u, p) in enumerate(rows[:3]):
+            b = f" 🎁+{PODIUM[i]} pts bonus" if i in PODIUM else ""
+            lines.append(f"{top3_medals[i]}: {p['name']} ({p['college']})\n   -> మార్కులు: {p['correct']}/{n_q} ✅ · {p['pts']} pts{b}")
+        lines.append("🌟 ══════════════════════════════ 🌟\n")
+
+    lines.append("🏆 TOP 10 RANKERS:")
     for i, (u, p) in enumerate(rows[:limit]):
         b = f" 🎁+{PODIUM[i]}" if i in PODIUM else ""
         lines.append(f"{medals[i]} {p['name'][:20]} · {p['college'][:14]} — {p['pts']} pts ({p['correct']}/{n_q}){b}")
@@ -670,9 +748,14 @@ def certificate_card(e, rank, p):
 
 def college_report(e):
     """For the Principal / HOD: one-page summary they can keep."""
+    if isinstance(e, str):
+        d = _load()
+        e = d["events"].get(e)
+    if not e:
+        return "No event found."
     rows = ranking(e); n_q = len(e["questions"])
     if not rows:
-        return ""
+        return f"🏛 COLLEGE REPORT — {e['name']}\n📍 {e['district']} · {_now().strftime('%d %b %Y')}\n\n👥 Participants: 0 (Exam Open / Pending Results)"
     cols = college_table(e)
     avg = sum(p["correct"] for _, p in rows) / len(rows)
     dist = {"💯 full": sum(1 for _, p in rows if p["correct"] == n_q), "🔥 80%+": sum(1 for _, p in rows if n_q > p["correct"] >= 0.8 * n_q),
@@ -683,7 +766,21 @@ def college_report(e):
              "📊 " + " · ".join(f"{k} {v}" for k, v in dist.items()), ""]
     if len(cols) > 1:
         lines.append("🏫 Colleges: " + " · ".join(f"{c['college']} {c['acc']}% ({c['n']})" for c in cols))
-    lines += ["🏆 Toppers:"] + [f"  {i}. {p['name']} · {p['college']} — {p['correct']}/{n_q}" for i, (u, p) in enumerate(rows[:5], 1)]
+    
+    # 🌟 SPECIAL TOP 3 CHAMPIONS SECTION
+    lines.append("")
+    lines.append("🌟 ══════════════════════════════ 🌟")
+    lines.append("🥇🥈🥉 SPECIAL TOP 3 CHAMPIONS (విజేతలు):")
+    lines.append("🌟 ══════════════════════════════ 🌟")
+    medals = ["🥇 1st Prize Winner", "🥈 2nd Prize Winner", "🥉 3rd Prize Winner"]
+    for i, (u, p) in enumerate(rows[:3]):
+        pts_str = f"{p['pts']} pts"
+        score_str = f"{p['correct']}/{n_q} ✅"
+        lines.append(f"{medals[i]}: {p['name']} ({p['college']}) — {score_str} · {pts_str}")
+    lines.append("🌟 ══════════════════════════════ 🌟")
+    lines.append("")
+
+    lines += ["🏆 Top 10 Toppers List:"] + [f"  {i}. {p['name']} · {p['college']} — {p['correct']}/{n_q} ({p['pts']} pts)" for i, (u, p) in enumerate(rows[:10], 1)]
     lines += ["", "About StudentUp: TS & AP aspirants కోసం free daily exam-prep platform — 8 exam channels "
               "(TSPSC · APPSC · Banking · Railway · Police · Defence · SSC · Current Affairs), రోజూ timed quiz rounds, "
               "District Wars, previous-paper questions Telugu + English, points → study material & local discounts.",
@@ -692,7 +789,7 @@ def college_report(e):
     return "\n".join(lines)
 
 
-def csv_text(code):
+def csv_text(code, members=None):
     d = _load()
     e = d["events"].get(code)
     if not e:
@@ -702,6 +799,56 @@ def csv_text(code):
     for i, (u, p) in enumerate(rows, 1):
         out.append(f"{p.get('rank', i)},{p['name']},{p['college']},{p.get('phone', '')},{u},{p['correct']},{len(e['questions']) or e['n_q']},{p['pts']},{p['answered']}")
     return "\n".join(out)
+
+
+def export_excel_bytes(code, members=None) -> tuple[str, bytes]:
+    """Generate College-branded Excel-compatible document with college header, date, hall ticket, branch, and score."""
+    d = _load()
+    e = d["events"].get(code)
+    if not e:
+        return f"Event_{code}.csv", b""
+
+    event_date = (e.get("finished") or e.get("created") or _now().isoformat())[:10]
+    college_name = e.get("colleges", ["College"])[0] if e.get("colleges") else "Campus"
+    event_title = e.get("name", "StudentUp Campus Challenge")
+    district = e.get("district", "")
+    total_q = len(e.get("questions", [])) or e.get("n_q", 10)
+    rows = ranking(e) if e["state"] == "done" else sorted(e["players"].items())
+    
+    college_tag = college_name.replace(" ", "_")[:24]
+    filename = f"{college_tag}_{event_date}_{code}_Results.csv"
+
+    out = [
+        f'"COLLEGE NAME: {college_name}","EVENT: {event_title}","DISTRICT: {district}","EXAM DATE: {event_date}","TOTAL PARTICIPANTS: {len(rows)}"',
+        "",
+        "Rank,Student Name,College Name,Branch / Course,Hall Ticket / Roll No,Phone Number,District,Score (Correct),Total Questions,Points,Accuracy %"
+    ]
+
+    for i, (u, p) in enumerate(rows, 1):
+        phone = p.get("phone", "")
+        dist = district
+        qual = p.get("branch") or ""
+        roll = p.get("roll") or ""
+        if members:
+            m = members.members.get(str(u), {})
+            phone = phone or m.get("mobile", "")
+            dist = m.get("district") or dist
+            qual = m.get("branch") or m.get("qualification") or qual
+            roll = m.get("roll") or roll
+        if not qual:
+            qual = "General"
+        if not roll:
+            roll = f"HT-{str(u)[-5:]}"
+            
+        acc = round((p['correct'] / total_q) * 100, 1) if total_q else 0.0
+        s_name = (p.get('name') or 'Student').replace('"', '""')
+        c_name = (p.get('college') or college_name).replace('"', '""')
+        
+        out.append(f'{p.get("rank", i)},"{s_name}","{c_name}","{qual}","{roll}",{phone},{dist},{p["correct"]},{total_q},{p["pts"]},{acc}%')
+
+    txt = "\n".join(out)
+    excel_bytes = ("\ufeff" + txt).encode("utf-8")
+    return filename, excel_bytes
 
 
 def status_text(members, code):
@@ -715,11 +862,39 @@ def status_text(members, code):
         per[p["college"]] = per.get(p["college"], 0) + 1
     lines = [f"🎓 {e['code']} {e['name']} · {e['district']} · state: {e['state']}",
              f"📝 {e['n_q']} Q · {mode_label(e)}",
-             f"👥 joined {len(e['players'])} · registered {reg}" + (f" · Q{e['qi'] + 1}/{len(e['questions'])}" if e["state"] in ("question", "gap") else "")]
+             f"👥 joined {len(e['players'])} · registered {reg}"]
+    if e["state"] in ("question", "gap"):
+        lines[2] += f" · Q{e['qi'] + 1}/{len(e['questions'])}"
     lines += [f"  🏫 {c}: {n}" for c, n in sorted(per.items(), key=lambda x: -x[1])]
     if e["state"] == "open":
-        lines.append(f"\nStart: /campus start {code}")
+        lines.append(f"\n🚀 Hall Ready అయిందా? కింద 'START Exam' బటన్ నొక్కండి లేదా: /campus start {code}")
+        lines.append(f"📢 WhatsApp Poster & QR కోసం: /campus poster {code}")
+    elif e["state"] == "done":
+        lines.append(f"\n📊 పూర్తి ఎక్సెల్ ఫైల్ కోసం: /campus excel {code}")
     return "\n".join(lines)
+
+
+def status_buttons(code):
+    """Quick action buttons under status display for one-tap control."""
+    d = _load()
+    e = d["events"].get(code)
+    if not e:
+        return None
+    if e["state"] == "open":
+        return [
+            [("🚀 START Exam Now", f"cp:start:{code}"), ("🔄 Refresh Status", f"cp:status:{code}")],
+            [("📢 WhatsApp Poster & QR", f"cp:poster:{code}"), ("🔔 Ping Students", f"cp:ping:{code}")],
+            [("📊 Excel Sheet Preview", f"cp:csv:{code}")]
+        ]
+    elif e["state"] in ("question", "gap"):
+        return [
+            [("🔄 Live Status", f"cp:status:{code}")]
+        ]
+    else:
+        return [
+            [("📊 Download Excel Sheet", f"cp:csv:{code}"), ("🏛 College Report", f"cp:report:{code}")],
+            [("📢 Channel Post", f"cp:post:{code}"), ("🏅 Certificates", f"cp:certs:{code}")]
+        ]
 
 
 def list_text():
@@ -931,7 +1106,7 @@ def panel_buttons(code=None):
         elif e["state"] in ("question", "gap"):
             rows += [[("🔄 Live status", f"cp:status:{code}")]]
         else:
-            rows += [[("📎 CSV", f"cp:csv:{code}"), ("🏛 College report", f"cp:report:{code}")],
+            rows += [[("📊 Download Excel Sheet", f"cp:csv:{code}"), ("🏛 College report", f"cp:report:{code}")],
                      [("📢 Re-post to channel", f"cp:post:{code}"), ("🏅 Certificates again", f"cp:certs:{code}")]]
         rows.append([("⬅️ All events", "cp:home:-")])
         return rows

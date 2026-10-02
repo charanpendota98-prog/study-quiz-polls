@@ -33,6 +33,38 @@ class TelegramError(RuntimeError):
     pass
 
 
+
+
+def is_exam_quiz_target(chat_id: str) -> bool:
+    """Returns True if the target chat is any public exam quiz channel (SSC, TSPSC, APPSC, etc.)."""
+    if not chat_id:
+        return False
+    chat_clean = str(chat_id).strip().lower().lstrip("@")
+    for k in getattr(config, "PUBLIC_CHANNELS", []):
+        try:
+            target = str(config.channel_chat_id(k)).strip().lower().lstrip("@")
+            if target and target == chat_clean:
+                return True
+        except Exception:
+            pass
+    return False
+
+
+def is_job_desk_content(text: str) -> bool:
+    """Detects job desk notification cards, recruitment announcements and closing-soon alerts."""
+    if not text:
+        return False
+    t_lower = text.lower()
+    if "studentup jobs desk" in t_lower or "studentup jobs |" in t_lower:
+        return True
+    if "closing soon — చివరి తేదీ దగ్గరలో!" in t_lower:
+        return True
+    if ("notification pdf:" in t_lower or "apply:" in t_lower or "last date / చివరి తేదీ:" in t_lower) and (
+        "freejobalert" in t_lower or "eenadu pratibha" in t_lower or "sakshi" in t_lower or "recruitment" in t_lower
+    ):
+        return True
+    return False
+
 class Telegram:
     def __init__(self, token: str = "", dry: Optional[bool] = None):
         self.token = token or config.BOT_TOKEN
@@ -196,6 +228,10 @@ class Telegram:
     def send_message(self, chat_id: str, text: str, disable_preview: bool = True,
                      parse_mode: str = "", buttons=None) -> dict:
         """buttons: list of rows, each row a list of (label, callback_data)."""
+        # Strict Isolation Guard: Job notifications must NEVER appear in SSC or any exam quiz channels
+        if is_exam_quiz_target(chat_id) and is_job_desk_content(text):
+            print(f"   [jobs-block] BLOCKED job notification to exam quiz channel {chat_id}")
+            return {"ok": True, "description": "blocked_by_exam_channel_guard"}
         payload = {"chat_id": chat_id, "text": text[:config.TG_MSG_MAX],
                    "disable_web_page_preview": disable_preview}
         if parse_mode:
@@ -203,6 +239,7 @@ class Telegram:
         if buttons:
             payload["reply_markup"] = {"inline_keyboard": [
                 [({"text": lab, "url": str(cb)[4:]} if str(cb).startswith("url:") else
+                  {"text": lab, "switch_inline_query": str(cb)[7:]} if str(cb).startswith("switch:") else
                   {"text": lab, "callback_data": str(cb)[:64]}) for lab, cb in row] for row in buttons]}
         return self._call("sendMessage", payload)
 

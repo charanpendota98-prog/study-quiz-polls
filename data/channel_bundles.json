@@ -1,0 +1,50 @@
+{
+  "bundles": [
+    {
+      "id": "BUNDLE_POLICE",
+      "name": "👮 Police Exam Mega Bundle (TS & AP)",
+      "category": "POLICE",
+      "target_groups": [
+        "G_POLICE_TS_1",
+        "G_POLICE_AP_1"
+      ],
+      "target_channels": [
+        "POLICE",
+        "TS_POLICE_SI_2026_BATCH"
+      ]
+    },
+    {
+      "id": "BUNDLE_CENTRAL",
+      "name": "🏛️ Central Jobs & Railway Mega Bundle",
+      "category": "SSC",
+      "target_groups": [
+        "G_CENTRAL_SSC_1",
+        "G_RAILWAY_RRB_1"
+      ],
+      "target_channels": [
+        "SSC",
+        "RAILWAY"
+      ]
+    },
+    {
+      "id": "BUNDLE_TS_ACADEMIC",
+      "name": "🎓 Telangana Academic Cluster (10th, Inter, Degree, B.Tech)",
+      "category": "TS_BTECH",
+      "target_groups": [
+        "G_TSPSC_GRP2_1"
+      ],
+      "target_channels": [
+        "TS_10TH_CLASS_BOARD_EXAM_PREP",
+        "TS_INTERMEDIATE__MPC_BIPC_CEC",
+        "TS_DIPLOMA___POLYCET___ECET"
+      ]
+    },
+    {
+      "id": "BUNDLE_AP_ACADEMIC",
+      "name": "🌊 Andhra Pradesh Academic Cluster (B.Tech, Degree, Inter, 10th)",
+      "category": "AP_BTECH",
+      "target_groups": [],
+      "target_channels": []
+    }
+  ]
+}

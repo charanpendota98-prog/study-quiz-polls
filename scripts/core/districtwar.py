@@ -31,6 +31,7 @@ Advanced by bot loop tick() like the arena (no sleeps); engine only schedules.
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+import urllib.parse
 
 from . import config
 from .store import load_json, save_json_atomic
@@ -218,8 +219,7 @@ def start_war(bank, members, tg, now=None):
     day = now.strftime("%Y-%m-%d")
     if d.get("live") and d["live"].get("state") not in ("done",):
         return False, "war already live"
-    if day in d["season"].get(now.strftime("%Y%m"), {}).get("wars", {}):
-        return False, "war already fought today"
+    # Allow admin on-demand and recurring wars seamlessly
     qs = compose(bank)
     if len(qs) < 8:
         return False, f"not enough questions ({len(qs)})"
@@ -479,11 +479,19 @@ def _finish(tg, members, d, now):
             if f.get("squad") and f["squad"]["code"] == sq_rows[0]["code"] and f["answered"]:
                 m = members._get(uid); m["points"] = m.get("points", 0) + SQUAD_WIN_BONUS
         members.kv.save()
-    season["wars"][live["day"]] = {"rows": rows[:15], "mvp": mvp, "fighters": sum(1 for f in live["fighters"].values() if f["answered"]),
+    war_key = live["day"] if live["day"] not in season["wars"] else f"{live['day']}#{len(season['wars']) + 1}"
+    season["wars"][war_key] = {"rows": rows[:15], "mvp": mvp, "fighters": sum(1 for f in live["fighters"].values() if f["answered"]),
                                    "squads": sq_rows[:5]}
     d["live"] = live
     d["polls"] = {}
     _save(d)
+    try:
+        from . import tournament
+        for i, r in enumerate(rows):
+            is_winner = (i == 0)
+            tournament.record_district_war_stats(r["district"], r.get("score", 0.0), win=is_winner, now=now)
+    except Exception as e:
+        print(f"   [districtwar] stats record note: {e}")
     try:  # 📊 record the war in the Google Sheet ('rounds' tab, channel=WAR)
         from . import crm
         if crm.sheet_enabled():
@@ -499,6 +507,20 @@ def _finish(tg, members, d, now):
     except Exception as e:
         print(f"   [war] sheet note: {e}")
     text = render_result(live, rows, members, mvp, season, now)
+    bot = getattr(config, "BOT_USERNAME", "") or "StudentUpBot"
+    winner_d = rows[0]["district"] if rows else "Champions"
+    wa_res_msg = (
+        f"🏆 *DISTRICT WAR RESULT — {now.strftime('%d %b')}* 🏆\n"
+        f"🥇 1st Place: {winner_d.upper()}!\n"
+        f"తర్వాతి యుద్ధంలో మీ జిల్లాను గెలిపించండి:\n"
+        f"👉 Join Bot: https://t.me/{bot}?start=war\n"
+        f"Daily 9 PM District Wars & Squad Battles!"
+    )
+    res_share_url = f"https://api.whatsapp.com/send?text={urllib.parse.quote(wa_res_msg)}"
+    res_buttons = [
+        [("📲 WhatsApp Status లో షేర్ చేయండి", f"url:{res_share_url}")],
+        [("📊 Top Districts (వారపు/నెల)", "war:ranks"), ("👥 Squad Battle", "arena:quick")]
+    ]
     # DM everyone who fought + personal line
     for uid, f in live["fighters"].items():
         if f["answered"] == 0 or f.get("blocked"):
@@ -511,7 +533,7 @@ def _finish(tg, members, d, now):
               f"\n🎖 Rank: {f.get('tier', '')} · war points {wpts}" + (f" · next {nxt[1]} at {nxt[0]}" if nxt else " · MAX")
               + (f"\n🔥 Best streak {f.get('best_streak', 0)} " + " ".join(f.get("streak_bonus", [])) if f.get("best_streak", 0) >= 3 else ""))
         try:
-            tg.send_message(uid, text + me)
+            tg.send_message(uid, text + me, buttons=res_buttons)
         except Exception:
             pass
     d["_channel_post"] = text
@@ -645,7 +667,7 @@ def lobby_join(members, uid, via_squad=False):
     return True, (f"✅ మీరు ఈరోజు War లో ఉన్నారు — {m['district']} fighter #{mine}\n"
                   f"👥 Lobby: {n} fighters · " + " · ".join(f"{k} {v}" for k, v in top) + "\n"
                   + (f"👥 Squad తో {len(added)} మంది join అయ్యారు\n" if via_squad and len(added) > 1 else "")
-                  + "9:00 కి ప్రశ్నలు ఇక్కడే. Start అయ్యాక entry లేదు 🔒")
+                  + (f"ప్రశ్నలు {lb.get('start_at', '')[11:16]} కి ఇక్కడే వస్తాయి! Start అయ్యాక entry లేదు 🔒" if lb.get('start_at') else "9:00 PM కి ప్రశ్నలు ఇక్కడే. Start అయ్యాక entry లేదు 🔒"))
 
 
 def channel_buttons():
@@ -662,16 +684,17 @@ def channel_alert_text(minutes: int) -> str:
     return alert_text(minutes) + "\n\n📣 Button నొక్కి bot లో join అవ్వండి (register ఒక్కసారి). ప్రశ్నలు bot DM లో వస్తాయి, result ఇక్కడ 🏆"
 
 
-def manual_launch(members, tg, bank=None, minutes=5, now=None):
-    """Owner: /war now → lobby opens NOW, alerts everywhere, war auto-starts in `minutes`
-    (bot loop tick() fires start_war when lobby.start_at passes). Returns (ok, text)."""
+def manual_launch(members, tg, bank=None, minutes=5, now=None, force=False):
+    """Owner: /war now [minutes] [force] → lobby opens NOW, alerts everywhere, war auto-starts in `minutes`
+    (bot loop tick() fires start_war when lobby.start_at passes). Supports any time / random hours!"""
     now = now or _now()
     d = _load()
     day = now.strftime("%Y-%m-%d")
     if d.get("live") and d["live"].get("state") != "done":
         return False, "⚔️ War already LIVE."
-    if day in d["season"].get(now.strftime("%Y%m"), {}).get("wars", {}):
-        return False, "⚔️ ఈరోజు war already జరిగింది (రోజుకి ఒకటి)."
+    if not force and day in d["season"].get(now.strftime("%Y%m"), {}).get("wars", {}):
+        # Admin can launch any time on-demand, or re-launch anytime with force!
+        pass
     if bank is not None and len(compose(bank)) < 8:
         return False, "❌ war ki questions చాలవు (bank check /pyq)."
     open_lobby(now)
@@ -761,8 +784,20 @@ def lobby_status():
 
 
 def lobby_buttons(minutes):
-    return [[("⚔️ I want to play — నేను ఆడతాను", "war:join")],
-            [("👥 Squad మొత్తం join", "war:squad")]]
+    bot = getattr(config, "BOT_USERNAME", "") or "StudentUpBot"
+    join_link = f"https://t.me/{bot}?start=war"
+    wa_msg = (
+        f"⚔️ *TELANGANA & AP DISTRICT WAR CALL!* ⚔️\n"
+        f"మన జిల్లా పరువు కోసం యుద్ధం మొదలవుతోంది! ({minutes} నిమిషాల్లో start)\n"
+        f"👉 Join War Now: {join_link}\n"
+        f"మీ జిల్లాని టాప్ లో నిలబెట్టండి! 🔥"
+    )
+    wa_url = f"https://api.whatsapp.com/send?text={urllib.parse.quote(wa_msg)}"
+    return [
+        [("⚔️ I want to play — నేను ఆడతాను", "war:join")],
+        [("📲 WhatsApp లో ఫ్రెండ్స్‌ని పిలవండి", f"url:{wa_url}")],
+        [("👥 Squad మొత్తం join", "war:squad"), ("📊 Top Districts (వారపు/నెల)", "war:ranks")]
+    ]
 
 
 def alert_text(minutes: int) -> str:
@@ -781,14 +816,25 @@ def season_table(now=None):
     now = now or _now()
     d = _load()
     s = d["season"].get(now.strftime("%Y%m"))
-    if not s or not s.get("points"):
-        return ""
-    rows = sorted(s["points"].items(), key=lambda kv: -kv[1])[:10]
-    lines = [f"⚔️ DISTRICT WAR — {now.strftime('%B')} season table", ""]
-    for i, (dn, p) in enumerate(rows, 1):
-        lines.append(f"{i}. {dn} ({D.telugu_name(dn)}) — {p} pts · {s['wins'].get(dn, 0)} wins")
-    lines += ["", f"{len(s['wars'])} wars fought · నెల చివర 🏆 District Champion"]
-    return "\n".join(lines)
+    sections = []
+    if s and s.get("points"):
+        rows = sorted(s["points"].items(), key=lambda kv: -kv[1])[:10]
+        lines = [f"⚔️ DISTRICT WAR — {now.strftime('%B')} season table", ""]
+        for i, (dn, p) in enumerate(rows, 1):
+            lines.append(f"{i}. {dn} ({D.telugu_name(dn)}) — {p} pts · {s['wins'].get(dn, 0)} wins")
+        lines += ["", f"{len(s['wars'])} wars fought · నెల చివర 🏆 District Champion"]
+        sections.append("\n".join(lines))
+    
+    # Also attach Weekly & Monthly Leaderboards from tournament engine
+    try:
+        from . import tournament
+        t_board = tournament.render_district_war_leaderboards(period="both", now=now)
+        if t_board.strip():
+            sections.append(t_board.strip())
+    except Exception:
+        pass
+
+    return "\n\n".join(sections) if sections else "⚔️ District War సీజన్ ప్రారంభమైంది! రోజూ 9 PM కి పాల్గొనండి." 
 
 
 def war_rank_text(uid):
