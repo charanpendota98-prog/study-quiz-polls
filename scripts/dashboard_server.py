@@ -1940,6 +1940,23 @@ All candidates must join today before 9:00 PM!"></textarea>
         return alert('Please select at least one Telegram Channel or WhatsApp Group target!');
       }
 
+      // Check collision before quiz dispatch
+      try {
+        const cRes = await fetch('/api/whatsapp/check_conflicts', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({target_group_ids: waGids, target_channel_keys: chKeys})
+        });
+        const cData = await cRes.json();
+        if (cData.has_conflicts) {
+          const warn = cData.conflicts.map(c => c.message).join('\n');
+          const cont = confirm(`⚠️ Targets Conflict Notice:\n${warn}\n\nDo you want to proceed anyway?`);
+          if (!cont) return;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+
       if (!confirm(`🚀 Launch 5-poll anti-ban quiz dispatch to ${chKeys.length} Telegram Channels and ${waGids.length} WhatsApp Groups?`)) return;
 
       const log = document.getElementById('bulk-broadcast-log');
