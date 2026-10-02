@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import hashlib
 import random
+import urllib.parse
 import re
 from datetime import datetime, timedelta
 
@@ -193,10 +194,39 @@ def squad_create(members, uid, name: str):
     data["by_uid"][str(uid)] = code
     save_json_atomic(SQUADS_PATH, data)
     disp = squad_code_display(code)
-    return code, (f"👥 Squad '{name}' created! Code: {disp}\n"
-                  f"Friends ని పిలవండి: bot లో /squad join {disp}  (2–{MAX_SQUAD_MEMBERS} members)\n"
-                  f"Squad score = అందరి ✅ కలిపి · ప్రతి సోమవారం Squad Top-5 channel లో పేర్లతో 🏆\n"
-                  f"⚔️ Squad vs Squad race కోసం: /battle new")
+    bot = getattr(config, "BOT_USERNAME", "") or "StudentUpBot"
+    squad_link = f"https://t.me/{bot}?start=sq_{code}"
+    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=600x600&data={squad_link}"
+    wa_msg = (
+        f"🔥 *JOIN MY SQUAD '{name.upper()}'!* 🔥\n"
+        f"మనం కలిసి పోటీ పడదాం! Squad Quiz Battles లో మా టీమ్ లో చేరండి:\n"
+        f"👉 Join Link: {squad_link}\n"
+        f"లేదా Bot లో: /squad join {disp}\n"
+        f"Squad Matches & District Wars కలిసి గెలుద్దాం!"
+    )
+    wa_link = f"https://api.whatsapp.com/send?text={urllib.parse.quote(wa_msg)}"
+
+    # Auto-find other active squads ready for battle
+    from core import arena
+    opponents = arena.get_waiting_opponents(exclude_squad_code=code)
+    opp_text = ""
+    if opponents:
+        opp_lines = []
+        for opp in opponents[:3]:
+            room_info = f" (Room {opp['room_code']})" if opp.get('room_code') else ""
+            opp_lines.append(f"  ⚔️ *{opp['squad_name']}*{room_info} — {opp['status']}")
+        opp_text = "\n\n🎯 *రంగంలో ఉన్న ఇతర Squads (Ready to Clash):*\n" + "\n".join(opp_lines)
+        opp_text += "\n👉 తలపడేందుకు: `/battle quick` లేదా `/battle new`"
+    else:
+        opp_text = "\n\n⚡ వేరే టీమ్ తో తలపడటానికి: `/battle quick` లేదా `/battle new`"
+
+    return code, (f"👥 Squad '{name}' created! Code: {disp}\n\n"
+                  f"🔗 Telegram Invite: {squad_link}\n"
+                  f"📲 WhatsApp Share Link: {wa_link}\n"
+                  f"📱 QR Code (Scan to join):\n{qr_url}\n\n"
+                  f"లేదా Bot లో: /squad join {disp}  (2–{MAX_SQUAD_MEMBERS} members)\n"
+                  f"Squad score = అందరి ✅ కలిపి · ప్రతి సోమవారం Squad Top-5 channel లో పేర్లతో 🏆"
+                  f"{opp_text}")
 
 
 def squad_join(members, uid, code: str):
@@ -278,9 +308,20 @@ def render_squad(members, uid):
         lines.append(f"  {'👑' if u == s['leader'] else '•'} {mm.get('name', 'Player')[:18]} · {mm.get('district', '')} — {per_uid.get(u, 0)} ✅")
     total = sum(per_uid.get(u, 0) for u in s["members"])
     lines += ["", f"This week: {total} ✅" + (f" · squad rank #{rank}" if rank else " (need 2+ members to rank)")]
+    bot = getattr(config, "BOT_USERNAME", "") or "StudentUpBot"
+    squad_link = f"https://t.me/{bot}?start=sq_{code}"
+    wa_msg = (
+        f"🔥 *JOIN MY SQUAD '{s['name'].upper()}'!* 🔥\n"
+        f"మా Squad లో చేరండి, కలిసి ఆడుదాం:\n"
+        f"👉 {squad_link}"
+    )
+    wa_link = f"https://api.whatsapp.com/send?text={urllib.parse.quote(wa_msg)}"
+    lines.append(f"🔗 Invite Link: {squad_link}")
+    lines.append(f"📲 WhatsApp Share: {wa_link}")
+    lines.append(f"📱 QR Code: https://api.qrserver.com/v1/create-qr-code/?size=600x600&data={squad_link}")
     if len(s["members"]) < MAX_SQUAD_MEMBERS:
         lines.append(f"ఇంకా {MAX_SQUAD_MEMBERS - len(s['members'])} మందిని పిలవండి: /squad join {squad_code_display(code)}")
-    lines.append("⚔️ Squad vs Squad race: /battle new · /battle list")
+    lines.append("⚡ వేరే Squad తో పోరు: /battle quick  లేదా  /battle list")
     return "\n".join(lines)
 
 
@@ -293,10 +334,23 @@ def squad_buttons(uid=None):
             [("⚔️ Squad Battles (/battle)", "arena:list")]
         ]
     s = data["squads"].get(code, {})
+    squad_name = s.get("name", "Squad")
     disp = squad_code_display(code)
+    bot = getattr(config, "BOT_USERNAME", "") or "StudentUpBot"
+    tg_invite = f"https://t.me/{bot}?start=sq_{code}"
+    wa_msg = (
+        f"🔥 *JOIN MY SQUAD '{squad_name.upper()}'!* 🔥\n"
+        f"మనం కలిసి పోటీ పడదాం! Squad Quiz Battles లో మా టీమ్ లో చేరండి:\n"
+        f"👉 Join Link: {tg_invite}\n"
+        f"లేదా Bot లో: /squad join {disp}\n"
+        f"Squad Matches & District Wars కలిసి గెలుద్దాం!"
+    )
+    wa_share = f"https://api.whatsapp.com/send?text={urllib.parse.quote(wa_msg)}"
     rows = [
-        [("⚔️ Battle Now (10 Q)", "arena:new:10"), ("📋 Open Rooms", "arena:list")],
-        [("🏆 Squad Rankings", "arena:top"), ("🚪 Leave Squad", "sq:leave")]
+        [("📲 WhatsApp లో Share", f"url:{wa_share}"), ("🔗 Direct Invite Link", f"url:{tg_invite}")],
+        [("⚡ Quick Match (ఆటో పోరు)", "arena:quick"), ("⚔️ Battle (10 Q)", "arena:new:10")],
+        [("📋 Open Rooms", "arena:list"), ("🏆 Squad Rankings", "arena:top")],
+        [("🚪 Leave Squad", "sq:leave")]
     ]
     return rows
 

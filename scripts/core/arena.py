@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import hashlib
 import random
+import urllib.parse
 from datetime import datetime, timedelta
 
 from . import config
@@ -140,10 +141,23 @@ def room_new(members, uid, n_q: int = DEFAULT_Q, channel: str = ""):
          "second_joined": None, "log": []}
     d["rooms"][code] = r
     _save(d)
+
+    bot = getattr(config, "BOT_USERNAME", "") or "StudentUpBot"
+    tg_link = f"https://t.me/{bot}?start=battle_{code}"
+    wa_msg = (
+        f"🎮 *SQUAD BATTLE CHALLENGE: ROOM {code}* 🎮\n"
+        f"మా Squad '{s['name']}' మీతో తలపడేందుకు సిద్ధంగా ఉంది!\n"
+        f"⚔️ Match లో పాల్గొనండి: {tg_link}\n"
+        f"లేదా Bot లో: /battle join {code}"
+    )
+    wa_link = f"https://api.whatsapp.com/send?text={urllib.parse.quote(wa_msg)}"
+
     return r, (f"🎮 ROOM {code} open! Mode: {config.CHANNELS.get(channel, {}).get('subject', channel)} · {n_q} Q\n"
-               f"మీ squad '{s['name']}' ({len(s['members'])}) ready.\n"
-               f"Opponent squads leaders కి పంపండి: /battle join {code}\n"
-               f"Public lobby లో కూడా కనిపిస్తుంది (/battle list). 2 squads రాగానే 3 నిమిషాల్లో auto-start, "
+               f"మీ squad '{s['name']}' ({len(s['members'])}) ready.\n\n"
+               f"📢 Opponent squads leaders కి పంపండి: /battle join {code}\n"
+               f"🔗 Telegram Link: {tg_link}\n"
+               f"📲 WhatsApp Share: {wa_link}\n\n"
+               f"⚡ Public lobby లో కూడా కనిపిస్తుంది (/battle list). 2 squads రాగానే 3 నిమిషాల్లో auto-start, "
                f"లేదా host /battle start.")
 
 
@@ -176,6 +190,31 @@ def room_join(members, uid, code: str):
     return r, f"⚔️ Joined {r['code']}: {names}\nStart: host /battle start లేదా auto in 3 min."
 
 
+def room_quickmatch(members, uid, n_q: int = DEFAULT_Q):
+    """Instant Smart Matchmaking: Find waiting opponent squad lobby or create a new public one automatically."""
+    s = _squad_of(uid)
+    if not s:
+        return None, "ముందు squad కావాలి — /squad new <పేరు> (2–5 friends)."
+    if s["leader"] != str(uid):
+        return None, "Squad leader మాత్రమే battle మ్యాచ్ చేయగలరు."
+    if len(s["members"]) < 2:
+        return None, "Room కి squad లో కనీసం 2 members ఉండాలి — /squad join friends కి పంపండి."
+    d = _load()
+    cur = _room_of(d, uid)
+    if cur:
+        return cur, f"మీరు already Room {cur['code']} లో ఉన్నారు ({cur['state']})."
+    
+    # Check open lobbies looking for opponents
+    for code, r in d["rooms"].items():
+        if r.get("state") == "lobby" and len(r.get("squads", {})) < ROOM_MAX_SQUADS and s["code"] not in r.get("squads", {}):
+            busy = any(_room_of(d, u) for u in s["members"])
+            if not busy:
+                return room_join(members, uid, code)
+                
+    # No waiting opponent found, open a fresh room as host
+    return room_new(members, uid, n_q)
+
+
 def room_leave(uid):
     d = _load()
     r = _room_of(d, uid)
@@ -203,6 +242,44 @@ def room_watch(uid, code):
     if str(uid) not in r["watchers"]:
         r["watchers"].append(str(uid)); _save(d)
     return f"👀 Watching {r['code']} — ప్రతి ప్రశ్న తర్వాత live scoreboard వస్తుంది."
+
+
+def get_waiting_opponents(exclude_squad_code: str = "") -> list:
+    """Find other active squads available for instant battle matchmaking."""
+    from . import hooks
+    d = _load()
+    sq_data = hooks._sq()
+    all_squads = sq_data.get("squads", {})
+    available = []
+
+    # 1. Squads in open battle lobby rooms waiting for challengers
+    for code, r in d.get("rooms", {}).items():
+        if r.get("state") == "lobby" and len(r.get("squads", {})) < ROOM_MAX_SQUADS:
+            for scode, sinfo in r.get("squads", {}).items():
+                if scode != exclude_squad_code:
+                    available.append({
+                        "squad_code": scode,
+                        "squad_name": sinfo.get("name", scode),
+                        "room_code": r.get("code"),
+                        "members_count": len(sinfo.get("members", [])),
+                        "status": "In Battle Lobby (Ready to Clash)"
+                    })
+
+    # 2. Other registered squads in the system
+    for scode, sinfo in all_squads.items():
+        if scode == exclude_squad_code:
+            continue
+        if any(a["squad_code"] == scode for a in available):
+            continue
+        available.append({
+            "squad_code": scode,
+            "squad_name": sinfo.get("name", scode),
+            "room_code": None,
+            "members_count": len(sinfo.get("members", [])),
+            "status": "Active Squad (Available to Battle)"
+        })
+
+    return available
 
 
 def list_rooms():
@@ -567,8 +644,9 @@ def render_top(members, limit=10):
 
 def arena_buttons(uid=None):
     rows = [
-        [("⚔️ Create Battle (10 Q)", "arena:new:10"), ("📋 Open Rooms", "arena:list")],
-        [("🏆 Squad Top Rankings", "arena:top"), ("🚪 Leave Room", "arena:leave")]
+        [("⚡ Quick Match (ఆటో పోరు)", "arena:quick"), ("⚔️ Create Battle", "arena:new:10")],
+        [("📋 Open Rooms", "arena:list"), ("🏆 Squad Top Rankings", "arena:top")],
+        [("🚪 Leave Room", "arena:leave")]
     ]
     return rows
 

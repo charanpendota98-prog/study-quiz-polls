@@ -1,0 +1,37 @@
+{
+  "squads": {
+    "NJYZ": {
+      "code": "NJYZ",
+      "name": "Warangal Super Squad",
+      "leader": "Charan",
+      "members": [
+        "Charan"
+      ],
+      "created": "2026-09-24T19:17:21.699134"
+    },
+    "DJLC": {
+      "code": "DJLC",
+      "name": "Warangal SI Super Squad",
+      "leader": "AdminTester",
+      "members": [
+        "AdminTester"
+      ],
+      "created": "2026-09-27T18:26:56.328675"
+    },
+    "VDDP": {
+      "code": "VDDP",
+      "name": "Warangal Hawks",
+      "leader": "Charan",
+      "members": [
+        "Charan",
+        "9848099887"
+      ],
+      "created": "2026-09-27T19:58:29.426521"
+    }
+  },
+  "by_uid": {
+    "Charan": "VDDP",
+    "AdminTester": "DJLC",
+    "9848099887": "VDDP"
+  }
+}
