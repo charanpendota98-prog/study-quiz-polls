@@ -1087,6 +1087,24 @@ def get_broadcast_status() -> dict:
 _SCHEDULER_RUNNING = False
 _LAST_TRIGGERED_MIN = {}
 _LAST_BACKUP_DAY = [""]  # 🗄️ daily auto-backup gate
+_LAST_GUARDIAN_CHECK = [0.0]  # 🐶 connection guardian gate (every 2 min)
+
+
+def _connection_guardian():
+    """🐶 Dashboard-side guardian: if the bridge has a saved WhatsApp session
+    but is sitting disconnected, kick it back alive automatically.
+    Combined with the bridge's own watchdog + backoff reconnect, one scan = forever connected."""
+    import time as _t
+    if _t.time() - _LAST_GUARDIAN_CHECK[0] < 120:
+        return
+    _LAST_GUARDIAN_CHECK[0] = _t.time()
+    st = _bridge_call("/status", timeout=6)
+    if not st:
+        return  # bridge process down — systemd/start_all.sh will restart it
+    if st.get("has_saved_session") and not st.get("connected") and \
+            st.get("status") not in ("connecting", "qr_ready", "code_ready"):
+        _log("🐶 Guardian: WhatsApp session saved but disconnected — auto-reviving...")
+        _bridge_call("/reconnect", payload={}, timeout=10)
 
 
 def start_scheduler_daemon():
@@ -1102,6 +1120,12 @@ def start_scheduler_daemon():
                 sess = load_session()
                 sess["last_heartbeat"] = datetime.now().strftime("%H:%M:%S")
                 save_session(sess)
+
+                # 🐶 keep WhatsApp link alive forever (checks every 2 min)
+                try:
+                    _connection_guardian()
+                except Exception:
+                    pass
 
                 today_str = datetime.now().strftime("%Y-%m-%d")
 

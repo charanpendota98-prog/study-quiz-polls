@@ -441,8 +441,52 @@ HTML_PAGE = """<!DOCTYPE html>
           <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">
             <button class="btn btn-accent" onclick="startInterleaved(true)">🚀 Start 5-Poll Anti-Ban Quiz Rounds</button>
             <button class="btn btn-purple" onclick="startInterleaved(false)">📢 Send Custom Announcement</button>
-            <button class="btn btn-outline" onclick="scheduleQuizModal()">⏰ Schedule Daily Timed Quiz</button>
+            <button class="btn btn-outline" onclick="toggleScheduleBuilder()">⏰ Schedule Daily Timed Quiz</button>
             <button class="btn btn-danger" onclick="stopInterleaved()">🛑 Stop Pipeline</button>
+          </div>
+
+          <!-- ⏰ ADVANCED VISUAL SCHEDULE BUILDER — any duration: 2d, 15d, 1 month, 2 months, life-long -->
+          <div id="schedule-builder" style="display:none; margin-top:14px; background:linear-gradient(135deg,#0d1b36,#101d33); border:1px solid #fbbf24; border-radius:12px; padding:16px;">
+            <h3 style="font-size:14px; color:#fbbf24; margin-bottom:10px;">🛠️ Advanced Schedule Builder</h3>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px;">
+              <div>
+                <label>⏰ Daily Time</label>
+                <input type="time" id="sb-time" value="10:00">
+              </div>
+              <div>
+                <label>📊 Questions / slot</label>
+                <input type="number" id="sb-count" min="1" max="20" value="5">
+              </div>
+              <div>
+                <label>🏷️ Slot పేరు (optional)</label>
+                <input type="text" id="sb-label" placeholder="Morning Police Drill">
+              </div>
+            </div>
+            <label style="margin-top:10px; display:block;">📅 ఎన్ని రోజులు నడవాలి? (tap చేయండి — ఏదైనా పెట్టుకోవచ్చు)</label>
+            <div id="sb-dur-chips" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:4px;">
+              <button class="btn btn-outline sb-chip" data-days="0" onclick="selectDurChip(0,this)" style="padding:5px 10px; font-size:12px;">♾️ Life-Long</button>
+              <button class="btn btn-outline sb-chip" data-days="2" onclick="selectDurChip(2,this)" style="padding:5px 10px; font-size:12px;">2 Days</button>
+              <button class="btn btn-outline sb-chip" data-days="7" onclick="selectDurChip(7,this)" style="padding:5px 10px; font-size:12px;">1 Week</button>
+              <button class="btn btn-outline sb-chip" data-days="15" onclick="selectDurChip(15,this)" style="padding:5px 10px; font-size:12px;">15 Days</button>
+              <button class="btn btn-outline sb-chip" data-days="30" onclick="selectDurChip(30,this)" style="padding:5px 10px; font-size:12px;">1 Month</button>
+              <button class="btn btn-outline sb-chip" data-days="60" onclick="selectDurChip(60,this)" style="padding:5px 10px; font-size:12px;">2 Months</button>
+              <button class="btn btn-outline sb-chip" data-days="90" onclick="selectDurChip(90,this)" style="padding:5px 10px; font-size:12px;">3 Months</button>
+              <input type="number" id="sb-custom-days" min="1" max="3650" placeholder="Custom days" style="width:110px; padding:5px 8px; font-size:12px;" oninput="customDurTyped()">
+            </div>
+            <div id="sb-dur-note" style="font-size:11px; color:#fbbf24; margin-top:5px;">♾️ Life-Long selected — ఎప్పటికీ ఆగదు</div>
+            <label style="margin-top:10px; display:block;">📚 Subjects (ఏదీ select చేయకపోతే = ALL subjects mix)</label>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:4px; font-size:12px;">
+              <label style="display:flex; align-items:center; gap:4px;"><input type="checkbox" class="sb-subj" value="MATHS">🔢 Maths</label>
+              <label style="display:flex; align-items:center; gap:4px;"><input type="checkbox" class="sb-subj" value="REASONING">🧠 Reasoning</label>
+              <label style="display:flex; align-items:center; gap:4px;"><input type="checkbox" class="sb-subj" value="GK">🌍 GK</label>
+              <label style="display:flex; align-items:center; gap:4px;"><input type="checkbox" class="sb-subj" value="CURRENT">📰 Current Affairs</label>
+              <label style="display:flex; align-items:center; gap:4px;"><input type="checkbox" class="sb-subj" value="ENGLISH">🔤 English</label>
+              <label style="display:flex; align-items:center; gap:4px;"><input type="checkbox" class="sb-subj" value="SCIENCE">🔬 Science</label>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
+              <button class="btn btn-accent" onclick="createScheduleFromBuilder()">✅ Create Schedule (Target: selected groups/category above)</button>
+              <button class="btn btn-outline" onclick="toggleScheduleBuilder()">✖ Close</button>
+            </div>
           </div>
 
           <div class="schedule-control-card" style="margin-top:16px; background:#0b1329; border:1px solid #38bdf8; border-radius:10px; padding:16px;">
@@ -2381,19 +2425,44 @@ All candidates must join today before 9:00 PM!"></textarea>
       }
     }
 
-    async function scheduleQuizModal() {
-      const timeVal = prompt('⏰ Daily Quiz Time (HH:MM 24-hr, e.g. 08:30, 13:00, 20:30):', '10:00');
-      if (!timeVal) return;
-      const label = prompt('🏷️ Slot పేరు (e.g. Morning Police Practice):', 'Daily Scheduled Drill');
-      const qCount = prompt('📊 ఒక్కో group కి ఎన్ని questions? (1-20):', '5');
-      if (qCount === null) return;
-      const daysVal = prompt('📅 ఎన్ని రోజులు నడవాలి?\\n  0 = ♾️ LIFE-LONG (ఎప్పటికీ ఆగదు)\\n  7 = 1 వారం\\n  30 = 1 నెల\\n  60 = 2 నెలలు\\n  90 = 3 నెలలు', '0');
-      if (daysVal === null) return;
-      const subjVal = prompt('📚 Subjects (+ తో): MATHS+REASONING+GK+CURRENT+ENGLISH+SCIENCE\\nఖాళీ = ALL subjects:', '');
-      if (subjVal === null) return;
+    // 🛠️ ADVANCED VISUAL SCHEDULE BUILDER
+    let sbSelectedDays = 0;
+    function toggleScheduleBuilder() {
+      const el = document.getElementById('schedule-builder');
+      el.style.display = el.style.display === 'none' ? 'block' : 'none';
+      if (el.style.display === 'block') el.scrollIntoView({behavior: 'smooth', block: 'center'});
+    }
+    function durLabel(d) {
+      if (d === 0) return '♾️ Life-Long — ఎప్పటికీ ఆగదు';
+      if (d === 30) return '1 నెల (30 రోజులు) తర్వాత auto-stop';
+      if (d === 60) return '2 నెలలు (60 రోజులు) తర్వాత auto-stop';
+      if (d === 90) return '3 నెలలు (90 రోజులు) తర్వాత auto-stop';
+      return d + ' రోజుల తర్వాత auto-stop';
+    }
+    function selectDurChip(days, btn) {
+      sbSelectedDays = days;
+      document.getElementById('sb-custom-days').value = '';
+      document.querySelectorAll('.sb-chip').forEach(b => { b.style.background = ''; b.style.color = ''; b.style.borderColor = ''; });
+      if (btn) { btn.style.background = '#fbbf24'; btn.style.color = '#050811'; btn.style.borderColor = '#fbbf24'; }
+      document.getElementById('sb-dur-note').textContent = '✅ ' + durLabel(days) + ' selected';
+    }
+    function customDurTyped() {
+      const v = parseInt(document.getElementById('sb-custom-days').value);
+      if (!isNaN(v) && v > 0) {
+        sbSelectedDays = v;
+        document.querySelectorAll('.sb-chip').forEach(b => { b.style.background = ''; b.style.color = ''; b.style.borderColor = ''; });
+        document.getElementById('sb-dur-note').textContent = '✅ Custom: ' + durLabel(v) + ' selected';
+      }
+    }
+    async function createScheduleFromBuilder() {
+      const timeVal = document.getElementById('sb-time').value;
+      if (!timeVal) return alert('⏰ Time select చేయండి');
+      const qCount = parseInt(document.getElementById('sb-count').value) || 5;
+      const label = document.getElementById('sb-label').value.trim();
+      const subjects = Array.from(document.querySelectorAll('.sb-subj:checked')).map(c => c.value);
       const cat = document.getElementById('wa-target-category').value;
       const gids = getSelectedGroupIds();
-      const days = parseInt(daysVal) || 0;
+      const days = sbSelectedDays;
 
       try {
         const res = await fetch('/api/whatsapp/schedule_quiz', {
@@ -2405,15 +2474,16 @@ All candidates must join today before 9:00 PM!"></textarea>
             category: cat,
             target_group_ids: gids,
             is_question: true,
-            questions_count: parseInt(qCount) || 5,
+            questions_count: qCount,
             days_duration: days,
             auto_mode: days === 0,
-            subjects: subjVal.trim() ? subjVal.trim().toUpperCase().split(/[^A-Z]+/).filter(Boolean) : []
+            subjects: subjects
           })
         });
         const d = await res.json();
         if (d.ok) {
-          alert('⏰ Daily recurring slot added for ' + timeVal + ' (' + (label || 'Drill') + ')!');
+          alert('✅ Schedule created! ⏰ ' + timeVal + ' daily · ' + qCount + ' questions · ' + durLabel(days));
+          toggleScheduleBuilder();
           loadSchedules();
         }
       } catch (e) {
@@ -2443,7 +2513,7 @@ All candidates must join today before 9:00 PM!"></textarea>
         if (!j) return alert('Job దొరకలేదు');
         const time = prompt('⏰ Time (HH:MM, 24hr):', j.time); if (time === null) return;
         const count = prompt('📊 ఒక్కో slot కి ఎన్ని questions? (1-20):', j.questions_count || 5); if (count === null) return;
-        const days = prompt('📅 ఎన్ని రోజులు నడవాలి?\\n  0 = ♾️ LIFE-LONG (ఎప్పటికీ)\\n  7 = 1 వారం\\n  30 = 1 నెల\\n  60 = 2 నెలలు\\n  90 = 3 నెలలు\\n  (ఏ సంఖ్య అయినా పెట్టొచ్చు)', j.days_duration || 0); if (days === null) return;
+        const days = prompt('📅 ఎన్ని రోజులు నడవాలి?\\n  0 = ♾️ LIFE-LONG (ఎప్పటికీ)\\n  2 = 2 రోజులు\\n  7 = 1 వారం\\n  15 = 15 రోజులు\\n  30 = 1 నెల\\n  60 = 2 నెలలు\\n  90 = 3 నెలలు\\n  (ఏ సంఖ్య అయినా పెట్టొచ్చు — 1 నుంచి 3650 వరకు)', j.days_duration || 0); if (days === null) return;
         const subj = prompt('📚 Subjects (+ తో కలపండి): MATHS+REASONING+GK+CURRENT+ENGLISH+SCIENCE\\nఖాళీగా వదిలేస్తే = ALL subjects:', (j.subjects || []).join('+')); if (subj === null) return;
         const updates = {
           id: id,

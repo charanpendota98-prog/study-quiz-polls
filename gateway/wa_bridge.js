@@ -53,10 +53,33 @@ const state = {
   starting: false,
   groupsCache: [],
   groupsCacheAt: 0,
+  // 🛡️ never-disconnect engine
+  reconnectAttempts: 0,
+  lastHeartbeat: 0,
+  heartbeatTimer: null,
 };
 
 function log(msg) {
   console.log(`[${new Date().toISOString().slice(11, 19)}] ${msg}`);
+}
+
+// 🛡️ smart backoff: 4s → 8s → 16s → ... capped 60s (+ jitter), INFINITE retries
+function nextReconnectDelay() {
+  state.reconnectAttempts += 1;
+  const base = Math.min(4000 * Math.pow(2, Math.min(state.reconnectAttempts - 1, 4)), 60000);
+  return base + Math.floor(Math.random() * 2000);
+}
+
+// 💓 heartbeat every 30s keeps the socket warm & proves liveness
+function startHeartbeat() {
+  if (state.heartbeatTimer) clearInterval(state.heartbeatTimer);
+  state.heartbeatTimer = setInterval(async () => {
+    if (state.status !== 'connected' || !state.sock) return;
+    try {
+      await state.sock.sendPresenceUpdate('available');
+      state.lastHeartbeat = Date.now();
+    } catch (_) { /* watchdog will judge staleness */ }
+  }, 30000);
 }
 
 // ---------------------------------------------------------------- socket
@@ -135,6 +158,9 @@ async function startSock({ wantPairingCode = null } = {}) {
         const id = jidNormalizedUser(sock.user?.id || '');
         state.me = { id, name: sock.user?.name || 'WhatsApp Account', phone: '+' + id.split('@')[0].split(':')[0] };
         log(`✅ CONNECTED as ${state.me.phone} (${state.me.name})`);
+        state.reconnectAttempts = 0;
+        state.lastHeartbeat = Date.now();
+        startHeartbeat();
         refreshGroups().catch(() => {});
       }
 
@@ -151,8 +177,9 @@ async function startSock({ wantPairingCode = null } = {}) {
           setTimeout(() => startSock().catch(() => {}), 1200);
         } else if (state.status === 'connected' || hasSavedCreds()) {
           state.status = 'connecting';
-          log(`Connection closed (code ${code}) — auto-reconnecting in 4s...`);
-          setTimeout(() => startSock().catch(() => {}), 4000);
+          const delay = nextReconnectDelay();
+          log(`Connection closed (code ${code}) — auto-reconnect #${state.reconnectAttempts} in ${Math.round(delay / 1000)}s (never gives up)...`);
+          setTimeout(() => startSock().catch(() => {}), delay);
         } else {
           // QR expired / never scanned
           if (state.status !== 'code_ready') state.status = 'offline';
@@ -268,8 +295,30 @@ function statusPayload() {
     groups_count: state.groupsCache.length,
     has_saved_session: hasSavedCreds(),
     last_error: state.lastError,
+    guardian: true,
+    reconnect_attempts: state.reconnectAttempts,
+    heartbeat_age_sec: state.lastHeartbeat ? Math.round((Date.now() - state.lastHeartbeat) / 1000) : null,
   };
 }
+
+// 🐶 WATCHDOG — every 60s: session ఉండి disconnect అయితే వెంటనే లేపుతుంది;
+// connected అని చెప్తూ 3 నిమిషాలు heartbeat లేకపోతే zombie socket ని restart చేస్తుంది.
+setInterval(() => {
+  try {
+    if (state.starting) return;
+    if (hasSavedCreds() && state.status === 'offline') {
+      log('🐶 Watchdog: saved session but offline — reviving connection...');
+      startSock().catch(() => {});
+      return;
+    }
+    if (state.status === 'connected' && state.lastHeartbeat &&
+        Date.now() - state.lastHeartbeat > 180000) {
+      log('🐶 Watchdog: zombie socket detected (no heartbeat 3 min) — force reconnect...');
+      state.status = 'connecting';
+      startSock().catch(() => {});
+    }
+  } catch (_) {}
+}, 60000);
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
@@ -306,6 +355,14 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ---- logout
+    if (url.pathname === '/reconnect' && req.method === 'POST') {
+      if (!hasSavedCreds()) return json(res, 400, { ok: false, error: 'no saved session — scan QR first' });
+      log('🔄 Manual/guardian reconnect requested...');
+      state.status = 'connecting';
+      startSock().catch(() => {});
+      return json(res, 200, { ok: true, message: 'reconnecting with saved session' });
+    }
+
     if (url.pathname === '/logout' && req.method === 'POST') {
       try { if (state.sock) await state.sock.logout(); } catch (_) {}
       try { fs.rmSync(AUTH_DIR, { recursive: true, force: true }); } catch (_) {}
