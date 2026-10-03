@@ -2539,6 +2539,71 @@ All candidates must join today before 9:00 PM!"></textarea>
       }
     }
 
+    async function createCampusEvent() {
+      const college = document.getElementById('campus-college-name').value.trim();
+      const district = document.getElementById('campus-district').value.trim();
+      if (!college) return alert('College name ఎంటర్ చేయండి!');
+      if (!district) return alert('District ఎంటర్ చేయండి!');
+      const nq = parseInt(document.getElementById('campus-nq').value || '10', 10);
+      const level = document.getElementById('campus-level').value || 'easy';
+      const subjects = [];
+      if (document.getElementById('subj-reasoning')?.checked) subjects.push('reasoning');
+      if (document.getElementById('subj-quant')?.checked) subjects.push('quant');
+      if (document.getElementById('subj-science')?.checked) subjects.push('science');
+      if (document.getElementById('subj-english')?.checked) subjects.push('english');
+      if (document.getElementById('subj-ca')?.checked) subjects.push('ca');
+      if (document.getElementById('subj-coding')?.checked) subjects.push('coding');
+      if (subjects.length === 0) return alert('కనీసం ఒక subject select చేయండి!');
+
+      const card = document.getElementById('campus-active-card');
+      card.innerHTML = '<div style="color:#38bdf8;">⏳ Generating exam, link & QR...</div>';
+      try {
+        const res = await fetch('/api/campus/create', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({college, district, n_q: nq, level, subjects})
+        });
+        const d = await res.json();
+        if (!d.ok) { card.innerHTML = '<div style="color:#ef4444;">❌ ' + (d.error || 'Failed') + '</div>'; return; }
+        card.innerHTML = `
+          <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
+            <img src="${d.qr}" style="width:150px; height:150px; border-radius:8px; background:white; padding:5px; border:2px solid #10b981;">
+            <div style="flex:1; min-width:200px;">
+              <div style="font-size:14px; font-weight:800; color:#10b981;">✅ ${d.college} — Exam Ready!</div>
+              <div style="margin:6px 0; font-size:12px;">Code: <b style="color:#facc15;">${d.code}</b></div>
+              <div style="font-size:11px; word-break:break-all; color:#38bdf8;">${d.link}</div>
+              <div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">
+                <button class="btn btn-accent" style="padding:4px 10px; font-size:11px;" onclick="navigator.clipboard.writeText('${d.link}').then(()=>alert('✅ Link copied!'))">📋 Copy Link</button>
+                <a href="${d.qr}" target="_blank" class="btn btn-outline" style="padding:4px 10px; font-size:11px; text-decoration:none;">🖼️ Full-Size QR</a>
+                <a href="https://wa.me/?text=${encodeURIComponent('🏫 ' + d.college + ' Exam! Join: ' + d.link)}" target="_blank" class="btn btn-purple" style="padding:4px 10px; font-size:11px; text-decoration:none;">📲 Share on WhatsApp</a>
+              </div>
+            </div>
+          </div>`;
+        loadCampusEvents();
+      } catch (e) {
+        card.innerHTML = '<div style="color:#ef4444;">❌ ' + e + '</div>';
+      }
+    }
+
+    async function viewCampusReport(code) {
+      const card = document.getElementById('campus-active-card');
+      card.innerHTML = '<div style="color:#38bdf8;">⏳ Loading report for ' + code + '...</div>';
+      try {
+        const res = await fetch('/api/campus/report?code=' + encodeURIComponent(code));
+        const d = await res.json();
+        const rep = d.report;
+        if (!rep) { card.innerHTML = '<div style="color:#ef4444;">❌ Report not found for ' + code + '</div>'; return; }
+        const players = rep.players || rep.top_players || [];
+        let rows = players.slice(0, 15).map((pl, i) =>
+          `<tr><td style="padding:3px 8px;">${i + 1}</td><td style="padding:3px 8px;"><b>${pl.name || pl.user || '—'}</b></td><td style="padding:3px 8px; color:#38bdf8;">${pl.score ?? pl.points ?? 0}</td></tr>`).join('');
+        card.innerHTML = `
+          <div style="font-size:14px; font-weight:800; color:#38bdf8;">📋 ${rep.name || code} — Principal Report</div>
+          <div style="font-size:12px; color:var(--text-muted); margin:6px 0;">District: ${rep.district || '—'} · Students: <b style="color:#10b981;">${rep.players_count ?? players.length}</b> · Status: ${rep.state || '—'}</div>
+          ${rows ? `<table style="width:100%; font-size:12px; border-collapse:collapse; margin-top:6px;"><thead><tr style="color:#64748b;"><th style="text-align:left; padding:3px 8px;">#</th><th style="text-align:left; padding:3px 8px;">Student</th><th style="text-align:left; padding:3px 8px;">Score</th></tr></thead><tbody>${rows}</tbody></table>` : '<div style="font-size:12px; color:#64748b; margin-top:8px;">ఇంకా students join అవ్వలేదు — QR scan చేయగానే ఇక్కడ కనిపిస్తారు.</div>'}`;
+      } catch (e) {
+        card.innerHTML = '<div style="color:#ef4444;">❌ ' + e + '</div>';
+      }
+    }
+
     async function loadCampusEvents() {
       const res = await fetch('/api/campus/list');
       const d = await res.json();
