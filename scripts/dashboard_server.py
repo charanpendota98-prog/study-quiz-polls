@@ -217,8 +217,32 @@ HTML_PAGE = """<!DOCTYPE html>
       <span class="badge-live">● ENGINE LIVE</span>
       <button class="btn btn-outline" onclick="location.reload()">🔄 Refresh</button>
       <button class="btn btn-outline" style="border-color:#f59e0b; color:#f59e0b;" onclick="changeDashPassword()" title="Change admin password">🔑 Password</button>
+      <button class="btn btn-outline" style="border-color:#34d399; color:#34d399;" onclick="toggleIpLockPanel()" title="Allow only specific IP addresses">🛡️ IP Lock</button>
       <button class="btn btn-outline" style="border-color:#ef4444; color:#ef4444;" onclick="dashLogout()" title="Lock the dashboard">🔒 Lock / Logout</button>
     </div>
+  </div>
+
+  <!-- 🛡️ IP ALLOWLIST PANEL (2nd security layer on top of password) -->
+  <div id="ip-lock-panel" style="display:none; background:#0f172a; border:1px solid #34d399; border-radius:12px; padding:18px; margin-bottom:18px;">
+    <h3 style="font-size:15px; margin-bottom:6px;">🛡️ IP Allowlist — కొన్ని IP ల నుంచే dashboard open అవ్వాలి</h3>
+    <p style="color:var(--text-muted); font-size:12px; margin-bottom:10px;">
+      Password తో పాటు రెండో security layer. Lock ON అయితే, list లో ఉన్న IP ల నుంచి మాత్రమే login page కూడా కనిపిస్తుంది — మిగతా వాళ్ళకి 403 Access Denied.
+    </p>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
+      <span id="ip-lock-status" style="font-weight:800; font-size:13px;">...</span>
+      <span style="font-size:12px; color:#94a3b8;">Your current IP: <b id="ip-lock-myip" style="color:#fbbf24;">...</b></span>
+      <button class="btn btn-outline" style="font-size:11px; padding:4px 10px;" onclick="addMyIpToList()">➕ Add My Current IP</button>
+    </div>
+    <label>Allowed IPs (one per line — formats: <code>49.37.12.34</code> exact · <code>49.37.</code> prefix/range · <code>49.37.0.0/16</code> CIDR):</label>
+    <textarea id="ip-allow-list" rows="4" style="width:100%; font-family:monospace; font-size:13px;" placeholder="49.37.12.34"></textarea>
+    <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;">
+      <button class="btn btn-accent" onclick="saveIpLock(true)">🛡️ Save & Turn ON</button>
+      <button class="btn btn-outline" style="border-color:#ef4444; color:#ef4444;" onclick="saveIpLock(false)">🔓 Turn OFF (password only)</button>
+    </div>
+    <div id="ip-lock-result" style="font-size:12px; margin-top:8px;"></div>
+    <p style="color:#64748b; font-size:11px; margin-top:8px;">
+      💡 Mobile data IP మారుతూ ఉంటుంది — exact IP బదులు prefix (ఉదా: <code>49.37.</code>) వాడితే safe. 🚨 Lockout అయితే: server ని <code>DISABLE_IP_LOCK=1</code> env తో restart చేయండి (sandbox/local నుంచి ఎప్పుడూ access ఉంటుంది).
+    </p>
   </div>
 
   <div class="grid-stats">
@@ -1543,6 +1567,61 @@ All candidates must join today before 9:00 PM!"></textarea>
       if (!confirm('Lock the dashboard? మళ్ళీ open చేయాలంటే password అడుగుతుంది.')) return;
       try { await fetch('/api/auth/logout', {method:'POST'}); } catch (e) {}
       location.href = '/';
+    }
+
+    function toggleIpLockPanel() {
+      const p = document.getElementById('ip-lock-panel');
+      const show = p.style.display === 'none';
+      p.style.display = show ? 'block' : 'none';
+      if (show) loadIpLock();
+    }
+
+    async function loadIpLock() {
+      try {
+        const r = await fetch('/api/security');
+        const d = await r.json();
+        document.getElementById('ip-lock-myip').innerText = d.your_ip || '?';
+        document.getElementById('ip-allow-list').value = (d.allowed_ips || []).join('\\n');
+        const st = document.getElementById('ip-lock-status');
+        if (d.ip_lock_enabled) {
+          st.innerText = '🛡️ IP LOCK: ON';
+          st.style.color = '#34d399';
+        } else {
+          st.innerText = '🔓 IP LOCK: OFF';
+          st.style.color = '#f59e0b';
+        }
+      } catch (e) {
+        document.getElementById('ip-lock-result').innerHTML = '<span style="color:#f87171;">❌ ' + e + '</span>';
+      }
+    }
+
+    function addMyIpToList() {
+      const my = document.getElementById('ip-lock-myip').innerText;
+      if (!my || my === '?' || my === '...') return alert('Current IP ఇంకా load అవ్వలేదు');
+      const ta = document.getElementById('ip-allow-list');
+      const lines = ta.value.split('\\n').map(s => s.trim()).filter(Boolean);
+      if (lines.indexOf(my) === -1) lines.push(my);
+      ta.value = lines.join('\\n');
+    }
+
+    async function saveIpLock(enable) {
+      const box = document.getElementById('ip-lock-result');
+      const lines = document.getElementById('ip-allow-list').value.split('\\n').map(s => s.trim()).filter(Boolean);
+      if (enable && lines.length === 0) return alert('కనీసం ఒక IP ఇవ్వండి — లేదా "Add My Current IP" నొక్కండి');
+      if (enable && !confirm('🛡️ IP Lock ON చేయాలా? List లో లేని IP ల నుంచి dashboard open అవ్వదు (మీ current IP safety కోసం auto-add అవుతుంది).')) return;
+      box.innerHTML = '<span style="color:#fbbf24;">Saving...</span>';
+      try {
+        const r = await fetch('/api/security/update', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ip_lock_enabled: enable, allowed_ips: lines})
+        });
+        const d = await r.json();
+        if (!d.ok) { box.innerHTML = '<span style="color:#f87171;">❌ ' + (d.error || 'Failed') + '</span>'; return; }
+        box.innerHTML = '<span style="color:#34d399;">✅ ' + (d.message || 'Saved') + (d.note ? ' · ⚠️ ' + d.note : '') + '</span>';
+        loadIpLock();
+      } catch (e) {
+        box.innerHTML = '<span style="color:#f87171;">❌ ' + e + '</span>';
+      }
     }
 
     async function changeDashPassword() {
@@ -3266,6 +3345,69 @@ class DashboardHandler(BaseHTTPRequestHandler):
         tok = self._cookie_token()
         return bool(tok) and tok in _load_auth().get("tokens", [])
 
+    # ---------------- 🛡️ IP ALLOWLIST (2nd security layer) ----------------
+    def _client_ip(self) -> str:
+        """Real visitor IP. Behind the preview proxy the trusted proxy APPENDS
+        the real client IP to X-Forwarded-For — so take the LAST entry
+        (first entries can be spoofed by the client)."""
+        xff = (self.headers.get("X-Forwarded-For", "") or "").strip()
+        if xff:
+            return xff.split(",")[-1].strip()
+        return self.client_address[0]
+
+    def _ip_allowed(self) -> bool:
+        if os.environ.get("DISABLE_IP_LOCK") == "1":
+            return True  # emergency override: restart server with DISABLE_IP_LOCK=1
+        sec = _load_auth()
+        if not sec.get("ip_lock_enabled"):
+            return True
+        allowed = [str(a).strip() for a in (sec.get("allowed_ips") or []) if str(a).strip()]
+        if not allowed:
+            return True
+        # sandbox-local failsafe: direct loopback requests (no proxy header) always pass
+        xff = (self.headers.get("X-Forwarded-For", "") or "").strip()
+        if not xff and self.client_address[0] in ("127.0.0.1", "::1", "localhost"):
+            return True
+        ip = self._client_ip()
+        import ipaddress
+        try:
+            ipobj = ipaddress.ip_address(ip)
+        except ValueError:
+            ipobj = None
+        for e in allowed:
+            if e == ip:
+                return True
+            if (e.endswith(".") or e.endswith(":")) and ip.startswith(e):
+                return True  # prefix rule e.g. "49.37." matches whole mobile range
+            if "/" in e and ipobj is not None:
+                try:
+                    if ipobj in ipaddress.ip_network(e, strict=False):
+                        return True
+                except ValueError:
+                    pass
+        return False
+
+    def _deny_ip(self, is_api: bool):
+        ip = self._client_ip()
+        if is_api:
+            self._send_json({"ok": False, "error": f"access denied — your IP {ip} is not in the allowlist"}, code=403)
+            return
+        body = ("<!DOCTYPE html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>"
+                "<title>403 — Access Denied</title></head>"
+                "<body style='background:#0b1220; color:#e2e8f0; font-family:sans-serif; display:flex; align-items:center; justify-content:center; height:100vh; margin:0;'>"
+                "<div style='text-align:center; max-width:420px; padding:24px;'>"
+                "<div style='font-size:52px;'>🛡️</div>"
+                "<h2 style='color:#f87171;'>Access Denied</h2>"
+                f"<p style='color:#94a3b8;'>Your IP <b style='color:#fbbf24;'>{ip}</b> is not in the admin allowlist.</p>"
+                "<p style='color:#64748b; font-size:13px;'>ఈ dashboard కొన్ని IP addresses కి మాత్రమే open అవుతుంది. Admin ని సంప్రదించండి.</p>"
+                "</div></body></html>").encode("utf-8")
+        self.send_response(403)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
     def _deny(self, is_api: bool):
         if is_api:
             self._send_json({"ok": False, "error": "unauthorized — login required"}, code=401)
@@ -3311,6 +3453,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         p = urllib.parse.urlparse(self.path)
 
+        # 🛡️ IP allowlist — checked BEFORE everything (even the login page)
+        if not self._ip_allowed():
+            self._deny_ip(is_api=p.path.startswith("/api/"))
+            return
+
         # 🔒 Access lock: everything requires login except the login page itself
         if p.path == "/login":
             self._deny(is_api=False)
@@ -3321,6 +3468,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         if p.path in ("/", "/index.html", "/dashboard"):
             self._send_html(HTML_PAGE)
+            return
+
+        if p.path == "/api/security":
+            sec = _load_auth()
+            self._send_json({
+                "ok": True,
+                "ip_lock_enabled": bool(sec.get("ip_lock_enabled")),
+                "allowed_ips": sec.get("allowed_ips", []),
+                "your_ip": self._client_ip(),
+            })
             return
 
         if p.path == "/api/stats":
@@ -3471,6 +3628,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         p = urllib.parse.urlparse(self.path)
+
+        # 🛡️ IP allowlist — checked BEFORE everything (even login attempts)
+        if not self._ip_allowed():
+            self._deny_ip(is_api=True)
+            return
+
         length = int(self.headers.get("Content-Length", 0))
         body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
 
@@ -3509,6 +3672,72 @@ class DashboardHandler(BaseHTTPRequestHandler):
             auth["tokens"] = [self._cookie_token()]  # kick every other session
             _save_auth(auth)
             self._send_json({"ok": True, "message": "password changed — other sessions logged out"})
+            return
+
+        if p.path == "/api/security/update":
+            enabled = bool(body.get("ip_lock_enabled"))
+            raw_ips = body.get("allowed_ips", [])
+            if isinstance(raw_ips, str):
+                raw_ips = raw_ips.replace(",", " ").split()
+            ips, bad = [], []
+            import ipaddress
+            for e in raw_ips:
+                e = str(e).strip()
+                if not e:
+                    continue
+                valid = False
+                try:
+                    ipaddress.ip_address(e)
+                    valid = True
+                except ValueError:
+                    if "/" in e:
+                        try:
+                            ipaddress.ip_network(e, strict=False)
+                            valid = True
+                        except ValueError:
+                            pass
+                    elif e.endswith(".") or e.endswith(":"):
+                        valid = True  # prefix rule like "49.37."
+                if valid:
+                    if e not in ips:
+                        ips.append(e)
+                else:
+                    bad.append(e)
+            if bad:
+                self._send_json({"ok": False, "error": "Invalid entries: " + ", ".join(bad) + " — valid formats: 49.37.12.34 | 49.37. | 49.37.0.0/16"})
+                return
+
+            note = ""
+            my_ip = self._client_ip()
+            if enabled and ips:
+                # 🚨 LOCKOUT GUARD: never let the admin lock THEMSELVES out.
+                xff = (self.headers.get("X-Forwarded-For", "") or "").strip()
+                is_local = (not xff) and self.client_address[0] in ("127.0.0.1", "::1")
+                if not is_local:
+                    try:
+                        ipobj = ipaddress.ip_address(my_ip)
+                    except ValueError:
+                        ipobj = None
+                    matched = any(
+                        e == my_ip
+                        or ((e.endswith(".") or e.endswith(":")) and my_ip.startswith(e))
+                        or ("/" in e and ipobj is not None and ipobj in ipaddress.ip_network(e, strict=False))
+                        for e in ips
+                    )
+                    if not matched:
+                        ips.append(my_ip)
+                        note = f"మీ current IP {my_ip} list లో లేదు — lockout కాకుండా auto-add చేశాం."
+            if enabled and not ips:
+                enabled = False
+                note = "Allowlist ఖాళీగా ఉంది — lock OFF చేశాం (ఖాళీ list తో అందరూ block అవుతారు)."
+
+            auth = _load_auth()
+            auth["ip_lock_enabled"] = enabled
+            auth["allowed_ips"] = ips
+            _save_auth(auth)
+            self._send_json({"ok": True, "ip_lock_enabled": enabled, "allowed_ips": ips,
+                             "your_ip": my_ip, "note": note,
+                             "message": ("🛡️ IP Lock ON — only " + str(len(ips)) + " allowed IP rule(s)") if enabled else "🔓 IP Lock OFF — password-only protection"})
             return
 
         if p.path == "/api/members/register":
