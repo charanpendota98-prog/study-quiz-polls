@@ -953,8 +953,22 @@ All candidates must join today before 9:00 PM!"></textarea>
 
       <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
         <div style="background:#0f172a; padding:18px; border-radius:10px; border:1px solid var(--border);">
-          <h3 style="font-size:15px; margin-bottom:12px;">➕ Register New Exam Channel</h3>
-          <label>Channel / Exam Name:</label>
+          <h3 style="font-size:15px; margin-bottom:12px;">➕ Register Telegram Channel <u>or Group</u></h3>
+
+          <!-- 🔍 one-click: bot ని add చేసిన groups/channels auto-register -->
+          <div style="background:#0b1329; border:1px solid #10b981; border-radius:8px; padding:10px; margin-bottom:12px;">
+            <div style="font-size:12px; color:#a7f3d0; margin-bottom:6px;">💡 <b>Easy way:</b> మీ Telegram <b>group</b> లో bot ని add చేయండి (member/admin గా) → ఈ button నొక్కండి — అన్నీ ఆటోమేటిక్‌గా register అవుతాయి!</div>
+            <button class="btn btn-accent" style="font-size:12px; padding:6px 14px;" onclick="detectNewTelegramChats()">🔍 Auto-Detect Bot Groups & Channels</button>
+            <div id="tg-detect-result" style="font-size:12px; margin-top:6px;"></div>
+          </div>
+
+          <label>Type:</label>
+          <select id="new-ch-type">
+            <option value="channel">📢 Channel (broadcast)</option>
+            <option value="group">💬 Group / Supergroup (bot must be member)</option>
+          </select>
+
+          <label>Channel / Group / Exam Name:</label>
           <input type="text" id="new-ch-name" placeholder="e.g. TS Police Sub Inspector 2026">
 
           <label>Exam Category (or Auto-Detect):</label>
@@ -983,10 +997,10 @@ All candidates must join today before 9:00 PM!"></textarea>
             <option value="CURRENT">Current Affairs & Daily GK</option>
           </select>
 
-          <label>Telegram Chat ID or @username (optional for preview):</label>
-          <input type="text" id="new-ch-chatid" placeholder="@MyNewPoliceExamChannel or -100123456789">
+          <label>Telegram Chat ID or @username (groups కి usually -100... id):</label>
+          <input type="text" id="new-ch-chatid" placeholder="@MyChannel or -100123456789 (group id)">
 
-          <button class="btn btn-accent" onclick="createNewChannel()">⚡ Register Channel & Auto-Synthesize Polls</button>
+          <button class="btn btn-accent" onclick="createNewChannel()">⚡ Register & Auto-Synthesize Polls</button>
         </div>
 
         <div>
@@ -2274,7 +2288,7 @@ All candidates must join today before 9:00 PM!"></textarea>
         div.style = `display:flex; align-items:center; gap:8px; font-size:12px; padding:5px 8px; border-radius:6px; cursor:pointer; border:1px solid ${sel ? 'rgba(56,189,248,0.4)' : 'transparent'}; background:${sel ? 'rgba(56,189,248,0.08)' : 'transparent'};`;
         div.innerHTML = `
           <input type="checkbox" class="bulk-target-ch" value="${key}" ${sel ? 'checked' : ''} style="pointer-events:none;">
-          <span style="flex:1;">📢 <b>${ch.name}</b> <span style="color:#64748b;">(${ch.chat_id || key})</span></span>
+          <span style="flex:1;">${ch.chat_type === 'group' ? '💬' : '📢'} <b>${ch.name}</b> ${ch.chat_type === 'group' ? '<span style="color:#6ee7b7; font-size:9px; font-weight:800;">TG GROUP</span>' : ''} <span style="color:#64748b;">(${ch.chat_id || key})</span></span>
         `;
         div.onclick = () => {
           const cb = div.querySelector('input');
@@ -2880,10 +2894,13 @@ All candidates must join today before 9:00 PM!"></textarea>
       for (const [key, ch] of Object.entries(d.channels || {})) {
         const count = counts[ch.base_exam || key] || counts[key] || 0;
         const tr = document.createElement('tr');
+        const typeBadge = ch.chat_type === 'group'
+          ? '<span style="background:#064e3b; color:#6ee7b7; font-size:10px; padding:1px 6px; border-radius:8px; margin-left:4px;">💬 GROUP</span>'
+          : '<span style="background:#1e3a5f; color:#7dd3fc; font-size:10px; padding:1px 6px; border-radius:8px; margin-left:4px;">📢 CHANNEL</span>';
         tr.innerHTML = `
           <td><input type="checkbox" class="tg-ch-select-checkbox" data-chkey="${key}"></td>
           <td><b>${key}</b></td>
-          <td>${ch.emoji || '🎯'} ${ch.name}</td>
+          <td>${ch.emoji || '🎯'} ${ch.name} ${typeBadge}</td>
           <td><span class="category-tag">${ch.base_exam || key}</span></td>
           <td style="color:#38bdf8; font-weight:700;">${count} Questions</td>
           <td style="font-family:monospace;">${ch.chat_id || ch.username || '—'}</td>
@@ -2895,7 +2912,7 @@ All candidates must join today before 9:00 PM!"></textarea>
 
         const opt = document.createElement('option');
         opt.value = key;
-        opt.innerText = (ch.emoji || '🎯') + ' ' + ch.name + ' (' + count + ' polls)';
+        opt.innerText = (ch.chat_type === 'group' ? '💬 ' : '📢 ') + (ch.emoji || '🎯') + ' ' + ch.name + ' (' + count + ' polls)';
         select.appendChild(opt);
       }
     }
@@ -2955,19 +2972,47 @@ All candidates must join today before 9:00 PM!"></textarea>
       const name = document.getElementById('new-ch-name').value.trim();
       const base = document.getElementById('new-ch-base').value;
       const chatid = document.getElementById('new-ch-chatid').value.trim();
+      const chtype = (document.getElementById('new-ch-type') || {value:'channel'}).value;
       if (!name) return alert('Enter channel or exam name');
 
       const res = await fetch('/api/channels/register', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({name, exam_type: base, chat_id: chatid})
+        body: JSON.stringify({name, exam_type: base, chat_id: chatid, chat_type: chtype})
       });
       const d = await res.json();
-      alert(d.message || ('Channel registered: ' + d.channel.name));
+      alert(d.message || ((chtype === 'group' ? 'Group' : 'Channel') + ' registered: ' + d.channel.name));
       document.getElementById('new-ch-name').value = '';
       document.getElementById('new-ch-chatid').value = '';
       loadChannels();
       fetchStats();
+    }
+
+    async function detectNewTelegramChats() {
+      const box = document.getElementById('tg-detect-result');
+      box.innerHTML = '<span style="color:#fbbf24;">🔍 Scanning Telegram for groups/channels where bot was added...</span>';
+      try {
+        const res = await fetch('/api/channels/detect_new', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: '{}'
+        });
+        const d = await res.json();
+        if (!d.ok) {
+          box.innerHTML = '<span style="color:#f87171;">❌ ' + (d.error || 'Detection failed') + '</span>';
+          return;
+        }
+        if (!d.added || d.added.length === 0) {
+          box.innerHTML = '<span style="color:#94a3b8;">Scanned ' + (d.scanned || 0) + ' chat(s) — కొత్తవి ఏమీ లేవు. ' + (d.note || '') + '</span>';
+          return;
+        }
+        box.innerHTML = '<span style="color:#34d399;">✅ ' + d.added.length + ' కొత్త target(s) registered: ' +
+          d.added.map(function(a){ return (a.chat_type === 'group' ? '💬 ' : '📢 ') + a.name; }).join(', ') + '</span>';
+        loadChannels();
+        fetchStats();
+      } catch (e) {
+        box.innerHTML = '<span style="color:#f87171;">❌ ' + e + '</span>';
+      }
     }
 
     async function sendChannelPoll(count) {
@@ -3795,11 +3840,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json(res)
             return
 
+        if p.path == "/api/channels/detect_new":
+            res = channel_router.detect_new_bot_chats()
+            self._send_json(res)
+            return
+
         if p.path == "/api/channels/register":
             name = body.get("name", "").strip()
             exam_t = body.get("exam_type", "")
             chat_id = body.get("chat_id", "")
-            info = channel_router.register_channel(name, chat_id=chat_id, exam_type=exam_t)
+            chat_type = body.get("chat_type", "channel")
+            info = channel_router.register_channel(name, chat_id=chat_id, exam_type=exam_t, chat_type=chat_type)
 
             try:
                 from core import dynamic_generator

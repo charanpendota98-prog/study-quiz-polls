@@ -37,6 +37,75 @@ TAXONOMY = {
 }
 
 
+def detect_new_bot_chats() -> dict:
+    """🔍 AUTO-DETECT: scan Telegram getUpdates for every group / supergroup /
+    channel the bot was added to, and auto-register any that are new.
+    The admin just adds the bot to a Telegram group → presses one button here."""
+    from core.telegram import Telegram
+    tg = Telegram(dry=False)
+    if not tg.token:
+        return {"ok": False, "error": "BOT_TOKEN not set in env/.env — add your bot token first."}
+
+    try:
+        res = tg._call("getUpdates", {
+            "limit": 100,
+            "allowed_updates": ["my_chat_member", "message", "channel_post"],
+        })
+    except Exception as e:
+        return {"ok": False, "error": f"Telegram getUpdates failed: {e}"}
+
+    found = {}
+    for u in res.get("result", []):
+        chat = None
+        status_ok = True
+        if "my_chat_member" in u:
+            mcm = u["my_chat_member"]
+            chat = mcm.get("chat")
+            new_status = (mcm.get("new_chat_member") or {}).get("status", "")
+            status_ok = new_status in ("member", "administrator", "creator")
+        elif "message" in u:
+            chat = u["message"].get("chat")
+        elif "channel_post" in u:
+            chat = u["channel_post"].get("chat")
+        if not chat or not status_ok:
+            continue
+        ctype = chat.get("type", "")
+        if ctype not in ("group", "supergroup", "channel"):
+            continue
+        cid = str(chat.get("id"))
+        found[cid] = {
+            "chat_id": cid,
+            "title": chat.get("title") or chat.get("username") or cid,
+            "username": chat.get("username", ""),
+            "chat_type": "group" if ctype in ("group", "supergroup") else "channel",
+        }
+
+    # skip chats already registered (built-in config + custom)
+    existing_ids = set()
+    for _k, _v in config.CHANNELS.items():
+        existing_ids.add(str(_v.get("chat_id", "")))
+    for _k, _v in load_custom_channels().get("channels", {}).items():
+        existing_ids.add(str(_v.get("chat_id", "")))
+        if _v.get("username"):
+            existing_ids.add("@" + str(_v["username"]).lstrip("@"))
+
+    added = []
+    for cid, info in found.items():
+        uname_ref = ("@" + info["username"]) if info["username"] else ""
+        if cid in existing_ids or (uname_ref and uname_ref in existing_ids):
+            continue
+        reg = register_channel(
+            info["title"],
+            chat_id=cid,
+            username=info["username"],
+            chat_type=info["chat_type"],
+        )
+        added.append({"key": reg["key"], "name": info["title"], "chat_id": cid, "chat_type": info["chat_type"]})
+
+    return {"ok": True, "scanned": len(found), "added": added,
+            "note": "Bot token webhook mode లో ఉంటే getUpdates ఖాళీగా రావచ్చు — bot ని group లో add చేశాక ఏదైనా ఒక message పంపి మళ్ళీ try చేయండి."}
+
+
 def load_custom_channels() -> dict:
     return load_json(CUSTOM_CHANNELS_FILE, {"channels": {}})
 
@@ -66,12 +135,14 @@ def detect_exam_base(title_or_exam: str) -> str:
     return "CURRENT"
 
 
-def register_channel(name: str, chat_id: str = "", exam_type: str = "", username: str = "", description: str = "") -> dict:
+def register_channel(name: str, chat_id: str = "", exam_type: str = "", username: str = "", description: str = "", chat_type: str = "channel") -> dict:
     """
-    Dynamically register a new Telegram channel and automatically configure:
+    Dynamically register a new Telegram CHANNEL or GROUP and automatically configure:
       - Detected exam base (e.g. 'TS Police Sub Inspector' -> 'POLICE')
       - Target audience and syllabus subjects
       - Immediate availability in question generator and quiz engine
+    chat_type: 'channel' (broadcast channel) or 'group' (group/supergroup where
+    the bot is a member — polls & messages work identically via Bot API).
     """
     key = re.sub(r'[^A-Z0-9_]', '_', name.upper()).strip('_')
     if not key:
@@ -88,6 +159,7 @@ def register_channel(name: str, chat_id: str = "", exam_type: str = "", username
         "emoji": template.get("emoji", "🎯"),
         "subject": f"{name} Exam Prep ({template.get('subject', 'General Studies')})",
         "public": True,
+        "chat_type": "group" if str(chat_type).lower().startswith("group") or str(chat_type).lower() == "supergroup" else "channel",
         "chat_id": chat_id,
         "username": username or name.replace(" ", ""),
         "audience": description or f"Aspirants targeting {name} & {base_exam}",
