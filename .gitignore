@@ -64,3 +64,4 @@ data/whatsapp_session.json
 data/dashboard_auth.json
 data/broadcast_history.json
 data/login_audit.json
+data/backups/

@@ -1044,6 +1044,7 @@ def get_broadcast_status() -> dict:
 # =====================================================================
 _SCHEDULER_RUNNING = False
 _LAST_TRIGGERED_MIN = {}
+_LAST_BACKUP_DAY = [""]  # 🗄️ daily auto-backup gate
 
 
 def start_scheduler_daemon():
@@ -1061,6 +1062,18 @@ def start_scheduler_daemon():
                 save_session(sess)
 
                 today_str = datetime.now().strftime("%Y-%m-%d")
+
+                # 🗄️ once-a-day automatic full backup (keeps last 7)
+                if _LAST_BACKUP_DAY[0] != today_str:
+                    _LAST_BACKUP_DAY[0] = today_str
+                    try:
+                        from core import backup
+                        res = backup.make_backup()
+                        if res.get("created"):
+                            _log(f"🗄️ Daily auto-backup saved: {res.get('file')} ({res.get('files')} files)")
+                    except Exception:
+                        pass
+
                 jobs = load_schedules()
                 for j in jobs:
                     if not j.get("enabled", True):

@@ -1136,6 +1136,19 @@ All candidates must join today before 9:00 PM!"></textarea>
         <div id="tg-ap-result" style="font-size:12px; margin-top:8px;"></div>
         <div id="tg-ap-jobs" style="font-size:12px; margin-top:10px;"></div>
       </div>
+
+      <!-- 🔍 QUESTION FINDER: search whole bank, preview, hand-pick & send -->
+      <div style="background:#0b1329; border:1px solid #38bdf8; border-radius:10px; padding:16px; margin-top:16px;">
+        <h3 style="font-size:15px; margin-bottom:4px;">🔍 Question Finder — ఏ Question అయినా వెతికి, నచ్చింది పంపండి</h3>
+        <p style="color:var(--text-muted); font-size:12px; margin-bottom:10px;">
+          Topic, పదం, లేదా channel పేరుతో search చేయండి (ఉదా: "blood relation", "percentage", "constitution"). నచ్చిన question పక్కన 📤 నొక్కితే — పైన select చేసిన channel కి instant గా వెళ్తుంది.
+        </p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <input type="text" id="qf-search" placeholder="🔍 e.g. blood relation, GDP, article 21..." style="flex:1; min-width:220px; margin:0; padding:8px 12px; font-size:13px;" onkeyup="qfDebounced()">
+          <span style="font-size:11px; color:#94a3b8;">Send target: <b style="color:#38bdf8;">పైన "Choose Channel" select</b></span>
+        </div>
+        <div id="qf-results" style="margin-top:10px; max-height:300px; overflow-y:auto; font-size:12px;"></div>
+      </div>
     </div>
   </div>
 
@@ -1755,7 +1768,8 @@ All candidates must join today before 9:00 PM!"></textarea>
           b(d.scheduler_running, '⏰ Scheduler: RUNNING', '⏰ Scheduler: OFF', '#f87171') +
           b(d.autopilot_slots > 0, '🤖 Auto-Pilot: ' + d.autopilot_slots + ' slot(s) ON', '🤖 Auto-Pilot: no slots') +
           b(d.ip_lock_on, '🛡️ IP Lock: ON', '🛡️ IP Lock: OFF (password only)') +
-          b(true, '📊 7-Day Polls: ' + d.week_polls, '');
+          b(true, '📊 7-Day Polls: ' + d.week_polls, '') +
+          b(!!(d.last_backup && d.last_backup.exists), '🗄️ Auto-Backup: ' + ((d.last_backup||{}).file || ''), '🗄️ Auto-Backup: pending (daily)');
         const low = d.low_stock || [];
         let bankHtml = `<b style="color:#38bdf8;">🧮 Question Bank:</b> ${d.total_fresh} fresh / ${d.total_questions} total`;
         if (low.length) {
@@ -1802,6 +1816,49 @@ All candidates must join today before 9:00 PM!"></textarea>
         a.click();
         URL.revokeObjectURL(a.href);
       } catch (e) { alert('Export failed: ' + e); }
+    }
+
+    // ================= 🔍 QUESTION FINDER =================
+    let _qfTimer = null;
+    function qfDebounced() {
+      clearTimeout(_qfTimer);
+      _qfTimer = setTimeout(searchQuestions, 350);
+    }
+
+    async function searchQuestions() {
+      const term = document.getElementById('qf-search').value.trim();
+      const box = document.getElementById('qf-results');
+      if (!term) { box.innerHTML = ''; return; }
+      box.innerHTML = '<span style="color:#fbbf24;">Searching...</span>';
+      try {
+        const r = await fetch('/api/questions/search?q=' + encodeURIComponent(term) + '&limit=30');
+        const d = await r.json();
+        if (!d.results || !d.results.length) {
+          box.innerHTML = '<span style="color:#64748b;">"' + term + '" కి matches లేవు — వేరే పదం try చేయండి.</span>';
+          return;
+        }
+        box.innerHTML = d.results.map(q => `
+          <div style="display:flex; align-items:center; gap:8px; padding:7px 9px; border-radius:6px; background:#050811; margin-bottom:5px; flex-wrap:wrap;">
+            <span style="flex:1; min-width:200px;">${q.q_en || '(Telugu-only question)'}</span>
+            <span class="category-tag" style="font-size:10px;">${q.channel}</span>
+            <span style="font-size:10px; color:#94a3b8;">${q.topic}</span>
+            <span style="font-size:10px; color:${q.fresh ? '#34d399' : '#f59e0b'};">${q.fresh ? '✨ FRESH' : '♻️ sent before'}</span>
+            <button class="btn btn-accent" style="font-size:10px; padding:3px 10px;" onclick="sendPickedQuestion('${q.id}')">📤 Send</button>
+          </div>`).join('');
+      } catch (e) { box.innerHTML = '<span style="color:#f87171;">❌ ' + e + '</span>'; }
+    }
+
+    async function sendPickedQuestion(qid) {
+      const ch = document.getElementById('post-poll-channel').value;
+      if (!ch) return alert('పైన "Choose Channel to Post Poll" select చేయండి');
+      try {
+        const r = await fetch('/api/questions/send', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({qid, channel: ch})
+        });
+        const d = await r.json();
+        alert(d.ok ? '✅ ' + d.message : '❌ ' + (d.error || 'failed'));
+      } catch (e) { alert('❌ ' + e); }
     }
 
     // ================= 🤖 TELEGRAM AUTO-PILOT =================
@@ -3825,7 +3882,38 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 "ip_lock_on": bool(sec.get("ip_lock_enabled")),
                 "uptime_min": up_min,
                 "week_polls": broadcast_log.get_summary().get("week_polls", 0),
+                "last_backup": __import__("core.backup", fromlist=["backup"]).last_backup_info(),
             })
+            return
+
+        if p.path == "/api/questions/search":
+            # 🔍 QUESTION FINDER: live search across the whole bank
+            qs = urllib.parse.parse_qs(p.query)
+            term = (qs.get("q", [""])[0] or "").strip().lower()
+            limit = min(int(qs.get("limit", ["30"])[0] or 30), 100)
+            bank = Bank()
+            results = []
+            for q in bank.questions:
+                if term:
+                    hay = " ".join([
+                        str(q.get("q_en", "")), str(q.get("q_te", "")),
+                        str(q.get("topic", "")), str(q.get("channel", "")),
+                        str(q.get("id", "")),
+                    ]).lower()
+                    if term not in hay:
+                        continue
+                ch = q.get("channel", "CURRENT")
+                results.append({
+                    "id": q.get("id"),
+                    "channel": ch,
+                    "topic": q.get("topic", ""),
+                    "q_en": str(q.get("q_en", ""))[:160],
+                    "options": len(q.get("options_en", []) or []),
+                    "fresh": q.get("id") not in set(bank.used.get(ch, [])),
+                })
+                if len(results) >= limit:
+                    break
+            self._send_json({"ok": True, "count": len(results), "results": results})
             return
 
         if p.path == "/api/backup":
@@ -4451,6 +4539,41 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if p.path == "/api/whatsapp/stop_pipeline":
             res = whatsapp_pipeline.stop_broadcast()
             self._send_json(res)
+            return
+
+        if p.path == "/api/questions/send":
+            # 🔍→📤 send ONE hand-picked question to any channel/group instantly
+            qid = str(body.get("qid", "")).strip()
+            ch = str(body.get("channel", "")).strip()
+            if not qid or not ch:
+                self._send_json({"ok": False, "error": "qid మరియు channel రెండూ కావాలి"})
+                return
+            from core.engine import Engine
+            from core.telegram import Telegram
+            from core import broadcast_log
+            bank = Bank()
+            q = next((x for x in bank.questions if x.get("id") == qid), None)
+            if not q:
+                self._send_json({"ok": False, "error": f"question {qid} కనపడలేదు"})
+                return
+            dry = not bool(Telegram().token)
+            eng = Engine(dry=dry)
+            send_key = ch if ch in config.CHANNELS else "CURRENT"
+            ok = eng.send_quiz(send_key, q)
+            if ok and not dry:
+                try:
+                    bank.mark_posted(q.get("channel", "CURRENT"), [q])
+                except Exception:
+                    pass
+            all_ch = channel_router.get_all_channels()
+            label = all_ch.get(ch, {}).get("name", ch)
+            broadcast_log.log_event("telegram", "🎯 " + label, 1 if ok else 0,
+                                    dry=dry, note="hand-picked: " + qid)
+            self._send_json({
+                "ok": bool(ok),
+                "message": (f"🎯 Hand-picked question '{qid}' → {label} " +
+                            ("[Live]" if not dry else "[Dry-Run — BOT_TOKEN set చేయండి]")) if ok else "send failed",
+            })
             return
 
         if p.path == "/api/bank/topup":
