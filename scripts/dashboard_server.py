@@ -12,6 +12,7 @@ import sys
 import os
 import json
 import time
+import base64
 import urllib.request
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -27,6 +28,94 @@ from core import hooks, districtwar, arena, campus, crm, whatsapp_pipeline, chan
 from core.telegram import Telegram
 
 PORT = int(config.env("DASHBOARD_PORT", "5000"))
+
+# =====================================================================
+# 🔒 DASHBOARD ACCESS LOCK — only the admin can open this panel.
+# Password lives in data/dashboard_auth.json (or env DASHBOARD_PASSWORD).
+# Login issues a 30-day HttpOnly cookie token; everything else is 401.
+# =====================================================================
+import secrets as _secrets
+
+AUTH_FILE = config.DATA / "dashboard_auth.json"
+DEFAULT_DASH_PASSWORD = "studentup123"
+
+
+def _load_auth() -> dict:
+    try:
+        if AUTH_FILE.exists():
+            d = json.loads(AUTH_FILE.read_text(encoding="utf-8"))
+            d.setdefault("password", DEFAULT_DASH_PASSWORD)
+            d.setdefault("tokens", [])
+            return d
+    except Exception:
+        pass
+    d = {"password": DEFAULT_DASH_PASSWORD, "tokens": []}
+    _save_auth(d)
+    return d
+
+
+def _save_auth(d: dict):
+    try:
+        AUTH_FILE.write_text(json.dumps(d, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _dash_password() -> str:
+    envp = os.environ.get("DASHBOARD_PASSWORD", "").strip()
+    return envp if envp else _load_auth().get("password", DEFAULT_DASH_PASSWORD)
+
+
+LOGIN_PAGE = """<!DOCTYPE html>
+<html lang="te">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔒 StudentUp — Admin Login</title>
+<style>
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+         background:radial-gradient(circle at 30% 20%, #0f2040 0%, #050811 70%);
+         font-family:'Segoe UI', system-ui, sans-serif; color:#e2e8f0; }
+  .card { background:#0b1329; border:1px solid #1e3a5f; border-radius:16px; padding:36px 32px;
+          width:min(380px, 90vw); box-shadow:0 20px 60px rgba(0,0,0,0.6); text-align:center; }
+  .lock { font-size:46px; margin-bottom:10px; }
+  h1 { font-size:20px; margin:0 0 6px; color:#38bdf8; }
+  p  { font-size:13px; color:#94a3b8; margin:0 0 20px; line-height:1.6; }
+  input { width:100%; box-sizing:border-box; padding:12px 14px; font-size:16px; letter-spacing:2px;
+          background:#050811; color:#f8fafc; border:1px solid #1e3a5f; border-radius:10px; outline:none; text-align:center; }
+  input:focus { border-color:#38bdf8; }
+  button { width:100%; margin-top:14px; padding:12px; font-size:15px; font-weight:800; border:none;
+           border-radius:10px; background:linear-gradient(90deg, #10b981, #38bdf8); color:#050811; cursor:pointer; }
+  button:hover { filter:brightness(1.1); }
+  .err { color:#f87171; font-size:13px; font-weight:700; min-height:18px; margin-top:12px; }
+  .hint { margin-top:18px; font-size:11px; color:#475569; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="lock">🔒</div>
+    <h1>StudentUp Admin Panel</h1>
+    <p>ఈ డాష్‌బోర్డ్ లాక్ చేయబడింది.<br>Admin password ఎంటర్ చేస్తేనే లోపలికి వెళ్ళగలరు.</p>
+    <input type="password" id="pw" placeholder="Admin Password" autofocus
+           onkeydown="if(event.key==='Enter')doLogin()">
+    <button onclick="doLogin()">🔓 Unlock Dashboard</button>
+    <div class="err" id="err"></div>
+    <div class="hint">Default password: <b>studentup123</b> — login అయ్యాక 🔑 బటన్‌తో వెంటనే మార్చుకోండి!</div>
+  </div>
+<script>
+async function doLogin() {
+  const pw = document.getElementById('pw').value;
+  const err = document.getElementById('err');
+  err.innerText = '';
+  try {
+    const r = await fetch('/api/auth/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password: pw})});
+    const d = await r.json();
+    if (d.ok) { location.href = '/'; }
+    else { err.innerText = '❌ తప్పు పాస్‌వర్డ్! Wrong password.'; document.getElementById('pw').value=''; }
+  } catch(e) { err.innerText = '❌ Server error: ' + e; }
+}
+</script>
+</body>
+</html>"""
 
 HTML_PAGE = """<!DOCTYPE html>
 <html lang="en">
@@ -105,10 +194,12 @@ HTML_PAGE = """<!DOCTYPE html>
       <h1>🚀 StudentUp Central Management & Mega Community Hub</h1>
       <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">100+ WhatsApp Groups, Excel Sheet Importer, Channel Bundles & Anti-Ban Delivery</p>
     </div>
-    <div style="display:flex; gap:10px; align-items:center;">
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
       <span class="badge-shield">🛡️ ANTI-BAN INTERLEAVED</span>
       <span class="badge-live">● ENGINE LIVE</span>
       <button class="btn btn-outline" onclick="location.reload()">🔄 Refresh</button>
+      <button class="btn btn-outline" style="border-color:#f59e0b; color:#f59e0b;" onclick="changeDashPassword()" title="Change admin password">🔑 Password</button>
+      <button class="btn btn-outline" style="border-color:#ef4444; color:#ef4444;" onclick="dashLogout()" title="Lock the dashboard">🔒 Lock / Logout</button>
     </div>
   </div>
 
@@ -171,9 +262,16 @@ HTML_PAGE = """<!DOCTYPE html>
           <span id="wa-session-status-badge" style="background:#10b981; color:#050811; font-size:11px; font-weight:800; padding:2px 8px; border-radius:12px;">● CONNECTED</span>
           <span style="background:rgba(59,130,246,0.2); color:#60a5fa; border:1px solid #3b82f6; border-radius:12px; padding:2px 8px; font-size:11px; font-weight:700;">🛡️ 100x Anti-Ban Active</span>
         </h3>
-        <p id="wa-session-desc" style="font-size:12px; color:var(--text-muted); margin-top:4px;">
-          Active Device: <b style="color:#f8fafc;" id="wa-device-name">StudentUp Node #1</b> (<span id="wa-device-phone">+91 98XXXXXXXX</span>) · Dialogs: <b style="color:#38bdf8;" id="wa-dialogs-count">27 Groups</b> · Anti-Ban: <b style="color:#10b981;">40-60s Jitter + 5-Poll Group Rotation + 60-90s Batch Rest</b>
-        </p>
+        <div id="wa-logged-in-card" style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:8px; background:#050811; border:1px solid #1e293b; border-radius:10px; padding:10px 14px;">
+          <div id="wa-login-number-badge" style="font-family:'Consolas', monospace; font-size:20px; font-weight:800; letter-spacing:1px; color:#64748b; background:#0b1329; border:2px dashed #334155; border-radius:10px; padding:6px 16px;">
+            📵 NOT LINKED
+          </div>
+          <div style="font-size:12px; color:var(--text-muted); line-height:1.7;">
+            <div>👤 Device: <b style="color:#f8fafc;" id="wa-device-name">—</b> <span id="wa-connected-since" style="color:#64748b;"></span></div>
+            <div>💬 Synced Groups: <b style="color:#38bdf8;" id="wa-dialogs-count">0 Groups</b> · 🛡️ Anti-Ban: <b style="color:#10b981;">40-60s Jitter + 5-Poll Rotation + 60-90s Batch Rest</b></div>
+          </div>
+          <span id="wa-device-phone" style="display:none;"></span>
+        </div>
       </div>
       <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
         <button class="btn btn-accent" style="font-size:12px; padding:6px 12px;" onclick="syncWADialogs()">🔄 Auto-Sync Joined Groups</button>
@@ -629,6 +727,7 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
         </div>
         <div style="display:flex; gap:8px;">
           <button class="btn btn-outline" style="padding:4px 10px; font-size:11px;" onclick="loadBulkTargets()">🔄 Reload Targets</button>
+          <button class="btn btn-purple" style="padding:4px 10px; font-size:11px;" onclick="switchTab('tab-excel-import')">📊 Upload Groups Excel / CSV</button>
         </div>
       </div>
 
@@ -689,6 +788,8 @@ All candidates must join today before 9:00 PM!"></textarea>
             <button class="btn btn-outline" style="padding:3px 7px; font-size:11px;" onclick="toggleAllBulkTargets(false)">Clear All</button>
             <button class="btn btn-outline" style="padding:3px 7px; font-size:11px;" onclick="selectBulkChannelsOnly()">Channels Only</button>
             <button class="btn btn-outline" style="padding:3px 7px; font-size:11px;" onclick="selectBulkWAGroupsOnly()">WhatsApp Only</button>
+            <button class="btn btn-outline" style="padding:3px 7px; font-size:11px; border-color:#10b981; color:#10b981;" onclick="selectVisibleBulkTargets(true)">✅ Select Visible</button>
+            <button class="btn btn-outline" style="padding:3px 7px; font-size:11px; border-color:#f59e0b; color:#f59e0b;" onclick="selectVisibleBulkTargets(false)">✖ Unselect Visible</button>
           </div>
 
           <div style="overflow-y:auto; flex:1; padding-right:6px;">
@@ -1104,8 +1205,34 @@ All candidates must join today before 9:00 PM!"></textarea>
         const countEl = document.getElementById('wa-dialogs-count');
 
         if (nameEl) nameEl.innerText = s.device_name || 'Dispatch Node #1';
-        if (phoneEl) phoneEl.innerText = s.phone || '+91 98XXXXXXXX';
-        if (countEl) countEl.innerText = (s.scanned_dialogs_count || 0) + ' Groups';
+        if (phoneEl) phoneEl.innerText = s.phone || '';
+        if (countEl) countEl.innerText = (s.scanned_dialogs_count || s.bridge_groups_count || 0) + ' Groups';
+
+        // 🪪 Big neat "which number is logged in" badge
+        const numBadge = document.getElementById('wa-login-number-badge');
+        const sinceEl = document.getElementById('wa-connected-since');
+        if (numBadge) {
+          if (s.status === 'connected' && s.phone) {
+            numBadge.innerText = '✅ ' + s.phone;
+            numBadge.style.color = '#10b981';
+            numBadge.style.border = '2px solid #10b981';
+            numBadge.style.background = 'rgba(16,185,129,0.08)';
+            numBadge.title = 'This WhatsApp number is linked & sending';
+            if (sinceEl) sinceEl.innerText = s.connected_at ? ('· 🔗 Linked since ' + s.connected_at) : '';
+          } else if (s.status === 'qr_ready' || s.status === 'code_ready' || s.status === 'connecting') {
+            numBadge.innerText = '⏳ LINKING...';
+            numBadge.style.color = '#f59e0b';
+            numBadge.style.border = '2px dashed #f59e0b';
+            numBadge.style.background = 'rgba(245,158,11,0.08)';
+            if (sinceEl) sinceEl.innerText = '';
+          } else {
+            numBadge.innerText = '📵 NOT LINKED';
+            numBadge.style.color = '#64748b';
+            numBadge.style.border = '2px dashed #334155';
+            numBadge.style.background = '#0b1329';
+            if (sinceEl) sinceEl.innerText = '';
+          }
+        }
 
         if (badge) {
           if (s.status === 'connected') {
@@ -1154,6 +1281,7 @@ All candidates must join today before 9:00 PM!"></textarea>
         loadWASession();
         loadWAGroups();
         fetchStats();
+        await loadBulkTargets();
         setTimeout(() => { box.style.display = 'none'; }, 5000);
       } catch (e) {
         box.innerHTML = '<div style="color:#ef4444;">❌ Failed to sync: ' + e + '</div>';
@@ -1296,6 +1424,27 @@ All candidates must join today before 9:00 PM!"></textarea>
       } catch (e) {
         box.innerHTML = '<div style="color:#ef4444;">❌ Pairing code request failed: ' + e + '</div>';
       }
+    }
+
+    async function dashLogout() {
+      if (!confirm('Lock the dashboard? మళ్ళీ open చేయాలంటే password అడుగుతుంది.')) return;
+      try { await fetch('/api/auth/logout', {method:'POST'}); } catch (e) {}
+      location.href = '/';
+    }
+
+    async function changeDashPassword() {
+      const oldP = prompt('ప్రస్తుత (current) password:');
+      if (oldP === null) return;
+      const newP = prompt('కొత్త (new) password (min 6 chars):');
+      if (!newP) return;
+      try {
+        const r = await fetch('/api/auth/change_password', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({old: oldP, new: newP})
+        });
+        const d = await r.json();
+        alert(d.ok ? '✅ Password changed! మిగతా devices అన్నీ logout అయ్యాయి.' : '❌ ' + (d.error || 'Failed'));
+      } catch (e) { alert('❌ ' + e); }
     }
 
     async function logoutWASession() {
@@ -1841,6 +1990,8 @@ All candidates must join today before 9:00 PM!"></textarea>
           fetchStats();
           loadWAGroups();
           loadChannels();
+          await loadBulkTargets();
+          toggleAllBulkTargets(true);  // auto-select everything incl. newly imported
         } else {
           log.innerText = '❌ Import failed: ' + (d.error || 'Unknown error');
         }
@@ -1910,52 +2061,122 @@ All candidates must join today before 9:00 PM!"></textarea>
       }
     }
 
+    // ------- STICKY SELECTION ENGINE: search/filter చేసినా selection పోదు -------
+    let bulkSelCh = null;   // Set of selected Telegram channel keys
+    let bulkSelWa = null;   // Set of selected WhatsApp group ids
+
+    function initBulkSelection() {
+      if (bulkSelCh !== null && bulkSelWa !== null) { autoSelectNewBulkItems(); return; }
+      // restore last selection from this browser; default = everything selected
+      try {
+        const saved = JSON.parse(localStorage.getItem('su_bulk_sel') || 'null');
+        if (saved && Array.isArray(saved.ch) && Array.isArray(saved.wa)) {
+          bulkSelCh = new Set(saved.ch);
+          bulkSelWa = new Set(saved.wa);
+          autoSelectNewBulkItems();
+          return;
+        }
+      } catch (e) {}
+      bulkSelCh = new Set(cachedBulkChannels.map(([k]) => k));
+      bulkSelWa = new Set(cachedBulkGroups.map(g => g.id));
+      persistBulkSelection();
+    }
+
+    // Any group/channel seen for the FIRST time (new sync/import) is auto-selected
+    function autoSelectNewBulkItems() {
+      let known = {ch: [], wa: []};
+      try { known = JSON.parse(localStorage.getItem('su_bulk_known') || '{"ch":[],"wa":[]}'); } catch (e) {}
+      const knownCh = new Set(known.ch || []), knownWa = new Set(known.wa || []);
+      let changed = false;
+      cachedBulkChannels.forEach(([k]) => { if (!knownCh.has(k)) { bulkSelCh.add(k); knownCh.add(k); changed = true; } });
+      cachedBulkGroups.forEach(g => { if (!knownWa.has(g.id)) { bulkSelWa.add(g.id); knownWa.add(g.id); changed = true; } });
+      if (changed) {
+        try { localStorage.setItem('su_bulk_known', JSON.stringify({ch: [...knownCh], wa: [...knownWa]})); } catch (e) {}
+        persistBulkSelection();
+      }
+    }
+
+    function persistBulkSelection() {
+      try {
+        localStorage.setItem('su_bulk_sel', JSON.stringify({ch: [...bulkSelCh], wa: [...bulkSelWa]}));
+      } catch (e) {}
+    }
+
+    function toggleBulkSel(kind, key, on) {
+      const set = kind === 'ch' ? bulkSelCh : bulkSelWa;
+      if (on) set.add(key); else set.delete(key);
+      persistBulkSelection();
+      updateBulkSelectedBadge();
+      checkBulkConflictsLive();
+    }
+
+    function getVisibleBulkItems() {
+      const q = (document.getElementById('bulk-target-search')?.value || '').toLowerCase();
+      const cat = document.getElementById('bulk-cat-filter')?.value || 'ALL';
+      const ch = cachedBulkChannels.filter(([key, c]) => {
+        const nameMatch = c.name.toLowerCase().includes(q) || key.toLowerCase().includes(q);
+        const catMatch = cat === 'ALL' || (c.exam_type && c.exam_type.toUpperCase().includes(cat)) || (c.name.toUpperCase().includes(cat));
+        return nameMatch && catMatch;
+      });
+      const wa = cachedBulkGroups.filter(g => {
+        const nameMatch = g.name.toLowerCase().includes(q) || (g.jid || '').toLowerCase().includes(q);
+        const catMatch = cat === 'ALL' || (g.category && g.category.toUpperCase() === cat.toUpperCase());
+        return nameMatch && catMatch;
+      });
+      return {ch, wa};
+    }
+
     function renderBulkTargetsList() {
       const chList = document.getElementById('bulk-channels-list');
       const waList = document.getElementById('bulk-groups-list');
       if (!chList || !waList) return;
+      initBulkSelection();
 
-      const q = (document.getElementById('bulk-target-search')?.value || '').toLowerCase();
-      const cat = document.getElementById('bulk-cat-filter')?.value || 'ALL';
-
+      const vis = getVisibleBulkItems();
       chList.innerHTML = '';
       waList.innerHTML = '';
 
-      let chCount = 0;
-      cachedBulkChannels.forEach(([key, ch]) => {
-        const nameMatch = ch.name.toLowerCase().includes(q) || key.toLowerCase().includes(q);
-        const catMatch = cat === 'ALL' || (ch.exam_type && ch.exam_type.toUpperCase().includes(cat)) || (ch.name.toUpperCase().includes(cat));
-        if (!nameMatch || !catMatch) return;
-        chCount++;
-
+      vis.ch.forEach(([key, ch]) => {
+        const sel = bulkSelCh.has(key);
         const div = document.createElement('div');
         div.className = 'bulk-target-item';
-        div.style = 'display:flex; align-items:center; gap:8px; font-size:12px; padding:3px 0;';
+        div.style = `display:flex; align-items:center; gap:8px; font-size:12px; padding:5px 8px; border-radius:6px; cursor:pointer; border:1px solid ${sel ? 'rgba(56,189,248,0.4)' : 'transparent'}; background:${sel ? 'rgba(56,189,248,0.08)' : 'transparent'};`;
         div.innerHTML = `
-          <input type="checkbox" class="bulk-target-ch" value="${key}" checked onchange="checkBulkConflictsLive(); updateBulkSelectedBadge();">
-          <span>📢 <b>${ch.name}</b> <span style="color:#64748b;">(${ch.chat_id || key})</span></span>
+          <input type="checkbox" class="bulk-target-ch" value="${key}" ${sel ? 'checked' : ''} style="pointer-events:none;">
+          <span style="flex:1;">📢 <b>${ch.name}</b> <span style="color:#64748b;">(${ch.chat_id || key})</span></span>
         `;
+        div.onclick = () => {
+          const cb = div.querySelector('input');
+          cb.checked = !cb.checked;
+          toggleBulkSel('ch', key, cb.checked);
+          div.style.background = cb.checked ? 'rgba(56,189,248,0.08)' : 'transparent';
+          div.style.border = cb.checked ? '1px solid rgba(56,189,248,0.4)' : '1px solid transparent';
+        };
         chList.appendChild(div);
       });
-      document.getElementById('bulk-channels-count').innerText = chCount;
+      document.getElementById('bulk-channels-count').innerText = vis.ch.length;
 
-      let waCount = 0;
-      cachedBulkGroups.forEach(g => {
-        const nameMatch = g.name.toLowerCase().includes(q) || (g.jid || '').toLowerCase().includes(q);
-        const catMatch = cat === 'ALL' || (g.category && g.category.toUpperCase() === cat.toUpperCase());
-        if (!nameMatch || !catMatch) return;
-        waCount++;
-
+      vis.wa.forEach(g => {
+        const sel = bulkSelWa.has(g.id);
         const div = document.createElement('div');
         div.className = 'bulk-target-item';
-        div.style = 'display:flex; align-items:center; gap:8px; font-size:12px; padding:3px 0;';
+        div.style = `display:flex; align-items:center; gap:8px; font-size:12px; padding:5px 8px; border-radius:6px; cursor:pointer; border:1px solid ${sel ? 'rgba(16,185,129,0.4)' : 'transparent'}; background:${sel ? 'rgba(16,185,129,0.08)' : 'transparent'};`;
+        const members = g.participants ? ` <span style="color:#64748b; font-size:10px;">👥 ${g.participants}</span>` : '';
+        const realTag = g.real ? ' <span style="color:#10b981; font-size:9px; font-weight:800;" title="Synced from real WhatsApp">✓REAL</span>' : '';
         div.innerHTML = `
-          <input type="checkbox" class="bulk-target-wa" value="${g.id}" checked onchange="checkBulkConflictsLive(); updateBulkSelectedBadge();">
-          <span>💬 <b>${g.name}</b> <span style="color:#10b981; font-size:10px; font-weight:700;">[${g.category || 'GENERAL'}]</span></span>
+          <input type="checkbox" class="bulk-target-wa" value="${g.id}" ${sel ? 'checked' : ''} style="pointer-events:none;">
+          <span style="flex:1;">💬 <b>${g.name}</b> <span style="color:#10b981; font-size:10px; font-weight:700;">[${g.category || 'GENERAL'}]</span>${members}${realTag}</span>
         `;
+        div.onclick = () => {
+          const cb = div.querySelector('input');
+          cb.checked = !cb.checked;
+          toggleBulkSel('wa', g.id, cb.checked);
+          div.style.background = cb.checked ? 'rgba(16,185,129,0.08)' : 'transparent';
+          div.style.border = cb.checked ? '1px solid rgba(16,185,129,0.4)' : '1px solid transparent';
+        };
         waList.appendChild(div);
       });
-      document.getElementById('bulk-groups-count').innerText = waCount;
+      document.getElementById('bulk-groups-count').innerText = vis.wa.length;
       updateBulkSelectedBadge();
     }
 
@@ -1964,10 +2185,23 @@ All candidates must join today before 9:00 PM!"></textarea>
     }
 
     function updateBulkSelectedBadge() {
-      const nCh = document.querySelectorAll('.bulk-target-ch:checked').length;
-      const nWa = document.querySelectorAll('.bulk-target-wa:checked').length;
+      initBulkSelection();
+      // prune ids that no longer exist
+      const chKeys = new Set(cachedBulkChannels.map(([k]) => k));
+      const waIds = new Set(cachedBulkGroups.map(g => g.id));
+      bulkSelCh.forEach(k => { if (!chKeys.has(k)) bulkSelCh.delete(k); });
+      bulkSelWa.forEach(k => { if (!waIds.has(k)) bulkSelWa.delete(k); });
       const badge = document.getElementById('bulk-selected-count-badge');
-      if (badge) badge.innerText = `${nCh + nWa} selected (${nCh} Ch, ${nWa} Grp)`;
+      if (badge) badge.innerText = `✅ ${bulkSelCh.size + bulkSelWa.size} selected (${bulkSelCh.size} Ch, ${bulkSelWa.size} Grp)`;
+    }
+
+    function selectVisibleBulkTargets(on) {
+      const vis = getVisibleBulkItems();
+      vis.ch.forEach(([key]) => { if (on) bulkSelCh.add(key); else bulkSelCh.delete(key); });
+      vis.wa.forEach(g => { if (on) bulkSelWa.add(g.id); else bulkSelWa.delete(g.id); });
+      persistBulkSelection();
+      renderBulkTargetsList();
+      checkBulkConflictsLive();
     }
 
     function applySelectedBundle(bundleId) {
@@ -1975,23 +2209,17 @@ All candidates must join today before 9:00 PM!"></textarea>
       const b = cachedBundles.find(x => x.id === bundleId);
       if (!b) return;
 
-      const targetGroups = new Set(b.target_groups || []);
-      const targetChannels = new Set(b.target_channels || []);
-
-      document.querySelectorAll('.bulk-target-wa').forEach(c => {
-        c.checked = targetGroups.has(c.value);
-      });
-      document.querySelectorAll('.bulk-target-ch').forEach(c => {
-        c.checked = targetChannels.has(c.value);
-      });
-
-      updateBulkSelectedBadge();
+      initBulkSelection();
+      bulkSelWa = new Set(b.target_groups || []);
+      bulkSelCh = new Set(b.target_channels || []);
+      persistBulkSelection();
+      renderBulkTargetsList();
       checkBulkConflictsLive(bundleId);
     }
 
     async function checkBulkConflictsLive(activeBundleId = '') {
-      const waGids = Array.from(document.querySelectorAll('.bulk-target-wa:checked')).map(c => c.value);
-      const chKeys = Array.from(document.querySelectorAll('.bulk-target-ch:checked')).map(c => c.value);
+      const waGids = (initBulkSelection(), [...bulkSelWa]);
+      const chKeys = (initBulkSelection(), [...bulkSelCh]);
       const alertBox = document.getElementById('bulk-conflict-alert');
       const msgBox = document.getElementById('bulk-conflict-msg');
       if (!alertBox || !msgBox) return;
@@ -2025,28 +2253,35 @@ All candidates must join today before 9:00 PM!"></textarea>
     }
 
     function toggleAllBulkTargets(val) {
-      document.querySelectorAll('.bulk-target-ch, .bulk-target-wa').forEach(c => c.checked = val);
-      updateBulkSelectedBadge();
+      initBulkSelection();
+      bulkSelCh = val ? new Set(cachedBulkChannels.map(([k]) => k)) : new Set();
+      bulkSelWa = val ? new Set(cachedBulkGroups.map(g => g.id)) : new Set();
+      persistBulkSelection();
+      renderBulkTargetsList();
       checkBulkConflictsLive();
     }
 
     function selectBulkChannelsOnly() {
-      document.querySelectorAll('.bulk-target-ch').forEach(c => c.checked = true);
-      document.querySelectorAll('.bulk-target-wa').forEach(c => c.checked = false);
-      updateBulkSelectedBadge();
+      initBulkSelection();
+      bulkSelCh = new Set(cachedBulkChannels.map(([k]) => k));
+      bulkSelWa = new Set();
+      persistBulkSelection();
+      renderBulkTargetsList();
       checkBulkConflictsLive();
     }
 
     function selectBulkWAGroupsOnly() {
-      document.querySelectorAll('.bulk-target-ch').forEach(c => c.checked = false);
-      document.querySelectorAll('.bulk-target-wa').forEach(c => c.checked = true);
-      updateBulkSelectedBadge();
+      initBulkSelection();
+      bulkSelCh = new Set();
+      bulkSelWa = new Set(cachedBulkGroups.map(g => g.id));
+      persistBulkSelection();
+      renderBulkTargetsList();
       checkBulkConflictsLive();
     }
 
     async function sendBulkQuizPollsToTargets() {
-      const chKeys = Array.from(document.querySelectorAll('.bulk-target-ch:checked')).map(c => c.value);
-      const waGids = Array.from(document.querySelectorAll('.bulk-target-wa:checked')).map(c => c.value);
+      const chKeys = (initBulkSelection(), [...bulkSelCh]);
+      const waGids = (initBulkSelection(), [...bulkSelWa]);
 
       if (chKeys.length === 0 && waGids.length === 0) {
         return alert('Please select at least one Telegram Channel or WhatsApp Group target!');
@@ -2123,8 +2358,8 @@ All candidates must join today before 9:00 PM!"></textarea>
         return alert('Please write a message or attach a file/URL to broadcast!');
       }
 
-      const chKeys = Array.from(document.querySelectorAll('.bulk-target-ch:checked')).map(c => c.value);
-      const waGids = Array.from(document.querySelectorAll('.bulk-target-wa:checked')).map(c => c.value);
+      const chKeys = (initBulkSelection(), [...bulkSelCh]);
+      const waGids = (initBulkSelection(), [...bulkSelWa]);
 
       if (chKeys.length === 0 && waGids.length === 0) {
         return alert('Please select at least one Channel or WhatsApp Group target!');
@@ -2235,6 +2470,7 @@ All candidates must join today before 9:00 PM!"></textarea>
         document.getElementById('wa-direct-excel-paste').value = '';
         fetchStats();
         loadWAGroups();
+        await loadBulkTargets();
       } catch (e) {
         statusEl.style.color = '#ef4444';
         statusEl.innerText = '❌ Import failed: ' + e;
@@ -2770,6 +3006,44 @@ All candidates must join today before 9:00 PM!"></textarea>
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
+    # ---------------- 🔒 access lock helpers ----------------
+    def _cookie_token(self) -> str:
+        raw = self.headers.get("Cookie", "") or ""
+        for part in raw.split(";"):
+            k, _, v = part.strip().partition("=")
+            if k == "su_auth":
+                return v.strip()
+        return ""
+
+    def _authed(self) -> bool:
+        tok = self._cookie_token()
+        return bool(tok) and tok in _load_auth().get("tokens", [])
+
+    def _deny(self, is_api: bool):
+        if is_api:
+            self._send_json({"ok": False, "error": "unauthorized — login required"}, code=401)
+        else:
+            body = LOGIN_PAGE.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    def _issue_login_cookie(self):
+        auth = _load_auth()
+        tok = _secrets.token_hex(24)
+        auth.setdefault("tokens", []).append(tok)
+        auth["tokens"] = auth["tokens"][-25:]  # keep last 25 sessions
+        _save_auth(auth)
+        body = json.dumps({"ok": True}).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Set-Cookie", f"su_auth={tok}; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax")
+        self.end_headers()
+        self.wfile.write(body)
+
     def _send_json(self, data, code=200):
         body = json.dumps(data, ensure_ascii=False).encode("utf-8")
         self.send_response(code)
@@ -2789,6 +3063,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         p = urllib.parse.urlparse(self.path)
+
+        # 🔒 Access lock: everything requires login except the login page itself
+        if p.path == "/login":
+            self._deny(is_api=False)
+            return
+        if not self._authed():
+            self._deny(is_api=p.path.startswith("/api/"))
+            return
+
         if p.path in ("/", "/index.html", "/dashboard"):
             self._send_html(HTML_PAGE)
             return
@@ -2943,6 +3226,43 @@ class DashboardHandler(BaseHTTPRequestHandler):
         p = urllib.parse.urlparse(self.path)
         length = int(self.headers.get("Content-Length", 0))
         body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+
+        # 🔒 Access lock
+        if p.path == "/api/auth/login":
+            pw = str(body.get("password", ""))
+            if pw and pw == _dash_password():
+                self._issue_login_cookie()
+            else:
+                time.sleep(1.2)  # slow brute-force attempts
+                self._send_json({"ok": False, "error": "wrong password"}, code=401)
+            return
+        if not self._authed():
+            self._send_json({"ok": False, "error": "unauthorized — login required"}, code=401)
+            return
+
+        if p.path == "/api/auth/logout":
+            auth = _load_auth()
+            tok = self._cookie_token()
+            auth["tokens"] = [t for t in auth.get("tokens", []) if t != tok]
+            _save_auth(auth)
+            self._send_json({"ok": True, "message": "logged out"})
+            return
+
+        if p.path == "/api/auth/change_password":
+            old = str(body.get("old", ""))
+            new = str(body.get("new", "")).strip()
+            if old != _dash_password():
+                self._send_json({"ok": False, "error": "current password is wrong"})
+                return
+            if len(new) < 6:
+                self._send_json({"ok": False, "error": "new password must be at least 6 characters"})
+                return
+            auth = _load_auth()
+            auth["password"] = new
+            auth["tokens"] = [self._cookie_token()]  # kick every other session
+            _save_auth(auth)
+            self._send_json({"ok": True, "message": "password changed — other sessions logged out"})
+            return
 
         if p.path == "/api/members/register":
             uid = str(body.get("uid", "")).strip()
