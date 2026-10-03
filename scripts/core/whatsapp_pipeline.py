@@ -827,7 +827,8 @@ def start_interleaved_broadcast(
                 # If this group finished, check if 5 groups completed: apply 60-90s batch cooldown
                 if not EXEC_STATE["stop_requested"] and grp_idx < len(groups) - 1:
                     if completed_groups_count % 5 == 0:
-                        batch_cooldown = random.uniform(60, 90)
+                        # Batch rest scales with the admin-chosen gap (longer gaps → longer rests)
+                        batch_cooldown = random.uniform(max(60, delay_max), max(90, delay_max * 1.5))
                         _log(f"☕ 5 Groups Completed! Anti-Ban Cooldown: pausing {batch_cooldown:.1f}s before next batch...")
                         _anti_ban_sleep(batch_cooldown if real_mode else 3.0)
                     else:

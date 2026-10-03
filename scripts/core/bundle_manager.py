@@ -391,25 +391,50 @@ def dispatch_bulk_broadcast(
             except Exception as e:
                 results["errors"].append(f"Telegram {ch_key} ({chat_id}): {e}")
 
-    # 2. WhatsApp Groups Dispatch
+    # 2. WhatsApp Groups Dispatch — runs in a BACKGROUND thread with random
+    #    human-like jitter between groups (so 100+ groups never get blasted
+    #    in the same second, and the HTTP request returns instantly).
     if target_group_ids:
+        import threading
+        import random as _random
+        import time as _time
+
         reg = whatsapp_pipeline.load_wa_registry()
         groups = reg.get("groups", [])
         gw = gateway_url or whatsapp_pipeline.EXEC_STATE.get("gateway") or ""
-
+        picked = []
         for gid in target_group_ids:
             grp = next((g for g in groups if g.get("id") == gid), None)
-            if not grp:
-                continue
-            jid = grp.get("jid") or grp.get("link")
-            try:
-                att = attachment_url or (f"data:application/octet-stream;base64,{attachment_data_b64}" if attachment_data_b64 else "")
-                ok, status = whatsapp_pipeline._dispatch_raw(gw, jid, message, attachment=att)
-                if ok:
-                    results["whatsapp_dispatched"] += 1
-                else:
-                    results["errors"].append(f"WhatsApp {grp.get('name')}: {status}")
-            except Exception as e:
-                results["errors"].append(f"WhatsApp {grp.get('name')}: {e}")
+            if grp:
+                picked.append(grp)
+
+        real_mode = whatsapp_pipeline.bridge_is_connected()
+
+        def _wa_worker():
+            sent, errs = 0, 0
+            whatsapp_pipeline._log(f"📨 Bulk message dispatch started → {len(picked)} WhatsApp groups (jitter 6-14s/group).")
+            for i, grp in enumerate(picked):
+                jid = grp.get("jid") or grp.get("link")
+                try:
+                    att = attachment_url or (f"data:application/octet-stream;base64,{attachment_data_b64}" if attachment_data_b64 else "")
+                    ok, status = whatsapp_pipeline._dispatch_raw(gw, jid, message, attachment=att)
+                    if ok:
+                        sent += 1
+                        whatsapp_pipeline._log(f"   ✅ [{i+1}/{len(picked)}] {grp.get('name')} → {status}")
+                    else:
+                        errs += 1
+                        whatsapp_pipeline._log(f"   ❌ [{i+1}/{len(picked)}] {grp.get('name')} → {status}")
+                except Exception as e:
+                    errs += 1
+                    whatsapp_pipeline._log(f"   ❌ [{i+1}/{len(picked)}] {grp.get('name')} → {e}")
+                if i < len(picked) - 1:
+                    gap = _random.uniform(6, 14)
+                    _time.sleep(gap if real_mode else min(gap, 0.3))
+            whatsapp_pipeline._log(f"🏁 Bulk message dispatch finished: {sent} sent, {errs} failed.")
+
+        threading.Thread(target=_wa_worker, daemon=True).start()
+        results["whatsapp_queued"] = len(picked)
+        results["whatsapp_dispatched"] = len(picked)
+        results["whatsapp_note"] = "Queued with 6-14s anti-ban jitter per group — live progress in the Dispatcher log panel."
 
     return results

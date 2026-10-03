@@ -183,16 +183,34 @@ HTML_PAGE = """<!DOCTYPE html>
     .shift-tag { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); padding: 3px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; }
     .progress-bar-container { width: 100%; background: #1e293b; border-radius: 9999px; height: 10px; overflow: hidden; margin-top: 10px; margin-bottom: 10px; }
     .progress-bar { height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); width: 0%; transition: width 0.3s; }
-    .guide-banner { background: linear-gradient(135deg, rgba(37,99,235,0.15) 0%, rgba(16,185,129,0.12) 100%); border: 1px solid rgba(59,130,246,0.3); border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; }
-    .guide-banner h4 { font-size: 14px; color: #38bdf8; display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-    .guide-banner p { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+    /* ---------- 📱 MOBILE / TABLET RESPONSIVE (operate from phone) ---------- */
+    @media (max-width: 920px) {
+      body { padding: 12px; }
+      .header { flex-direction: column; align-items: stretch; gap: 10px; padding-bottom: 12px; margin-bottom: 14px; }
+      .header h1 { font-size: 18px; }
+      .grid-stats { grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 14px; }
+      .stat-card { padding: 10px 12px; }
+      .stat-card .val { font-size: 20px; }
+      .stat-card .desc { display: none; }
+      .tabs { gap: 4px; padding-bottom: 6px; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+      .tab-btn { font-size: 12px; padding: 8px 10px; }
+      .panel-card { padding: 12px !important; }
+      table { display: block; overflow-x: auto; white-space: nowrap; font-size: 11px; }
+      #wa-login-number-badge { font-size: 16px !important; padding: 5px 12px !important; }
+      .btn { min-height: 38px; }
+      input, select, textarea { font-size: 16px !important; } /* stops mobile auto-zoom */
+    }
+    @media (max-width: 520px) {
+      .grid-stats { grid-template-columns: repeat(2, 1fr); }
+      .header h1 { font-size: 16px; }
+    }
   </style>
 </head>
 <body>
   <div class="header">
     <div>
-      <h1>🚀 StudentUp Central Management & Mega Community Hub</h1>
-      <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">100+ WhatsApp Groups, Excel Sheet Importer, Channel Bundles & Anti-Ban Delivery</p>
+      <h1>🚀 StudentUp Control Hub</h1>
+      <p style="color:var(--text-muted); font-size:12px; margin-top:4px;">WhatsApp + Telegram Bulk Delivery · Anti-Ban Engine</p>
     </div>
     <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
       <span class="badge-shield">🛡️ ANTI-BAN INTERLEAVED</span>
@@ -200,28 +218,6 @@ HTML_PAGE = """<!DOCTYPE html>
       <button class="btn btn-outline" onclick="location.reload()">🔄 Refresh</button>
       <button class="btn btn-outline" style="border-color:#f59e0b; color:#f59e0b;" onclick="changeDashPassword()" title="Change admin password">🔑 Password</button>
       <button class="btn btn-outline" style="border-color:#ef4444; color:#ef4444;" onclick="dashLogout()" title="Lock the dashboard">🔒 Lock / Logout</button>
-    </div>
-  </div>
-
-  <div class="guide-banner">
-    <h4>⚡ 100x Quick Operation & Zero-Effort Automation Guide (సులభమైన పూర్తి ఆటోమేషన్ గైడ్):</h4>
-    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:12px; margin-top:8px;">
-      <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px;">
-        <b style="color:#38bdf8;">1️⃣ 🚀 One-Click Multi-Target Broadcast:</b><br>
-        <span style="font-size:12px; color:var(--text-muted);">టెలిగ్రామ్ ఛానెల్స్ మరియు వాట్సాప్ గ్రూపులను సెలెక్ట్ చేసుకుని <b>"🎯 Send 5 Exam Polls to Selected Targets"</b> నొక్కితే చాలు—ఏకకాలంలో అన్ని గ్రూపులకు 5-పోల్ సిలబస్ పరీక్షా రౌండ్లు ఆటోమేటిక్‌గా మొదలవుతాయి.</span>
-      </div>
-      <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px;">
-        <b style="color:#10b981;">2️⃣ 🛡️ WhatsApp 100x Anti-Ban Jitter:</b><br>
-        <span style="font-size:12px; color:var(--text-muted);">40-60 సెకన్ల రాండమ్ జిట్టర్, గ్రూపుకు 5 పోల్స్ రొటేషన్, 5 గ్రూపుల బ్యాచ్ రెస్ట్ (60-90s) మరియు బైలింగ్వల్ (EN/TE) ఆల్టర్నేషన్‌తో మీ వాట్సాప్ నెంబర్ 100% సురక్షితంగా ఉంటుంది.</span>
-      </div>
-      <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px;">
-        <b style="color:#06b6d4;">3️⃣ ⏱️ Telegram 1-Min Live Timer (Zero-Leak):</b><br>
-        <span style="font-size:12px; color:var(--text-muted);">పోల్ పడగానే 1 నిమిషం కౌంట్‌డౌన్ టైమర్ నడుస్తుంది. ఆన్సర్ ఎవరికీ ఆటో-టిక్ అవ్వదు; విద్యార్థి స్వయంగా ఆప్షన్‌ను ట్యాప్ చేసినప్పుడు మాత్రమే ✅/❌ మరియు బైలింగ్వల్ వివరణ కనిపిస్తుంది.</span>
-      </div>
-      <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px;">
-        <b style="color:#a855f7;">4️⃣ ⚔️ Squad Battles & Rival Matchmaking:</b><br>
-        <span style="font-size:12px; color:var(--text-muted);">టెలిగ్రామ్ బాట్‌లో <code>/squad new</code> కొట్టగానే ఆటోమేటిక్‌గా వెయిటింగ్ లిస్ట్‌లోని ప్రత్యర్థి స్క్వాడ్‌లను చూపిస్తుంది. <code>/battle quick</code> లేదా WhatsApp Share Link ద్వారా క్షణాల్లో మ్యాచ్ ఆడవచ్చు.</span>
-      </div>
     </div>
   </div>
 
@@ -271,6 +267,25 @@ HTML_PAGE = """<!DOCTYPE html>
             <div>💬 Synced Groups: <b style="color:#38bdf8;" id="wa-dialogs-count">0 Groups</b> · 🛡️ Anti-Ban: <b style="color:#10b981;">40-60s Jitter + 5-Poll Rotation + 60-90s Batch Rest</b></div>
           </div>
           <span id="wa-device-phone" style="display:none;"></span>
+        </div>
+
+        <!-- ⏱️ GLOBAL SMART GAP ENGINE: no time restrictions, user-controlled pacing everywhere -->
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:8px; background:#050811; border:1px solid #1e293b; border-radius:10px; padding:8px 14px;">
+          <b style="font-size:12px; color:#f59e0b;">⏱️ Anti-Ban Gap Engine:</b>
+          <select id="global-gap-preset" onchange="applyGapPreset(this.value)" style="margin:0; padding:5px 8px; font-size:12px; background:#0b1329; border:1px solid #f59e0b; color:#f8fafc; border-radius:6px;">
+            <option value="20,35">⚡ Fast — 20-35s</option>
+            <option value="40,60" selected>🛡️ Normal — 40-60s</option>
+            <option value="90,150">🐢 Long — 1.5-2.5 min</option>
+            <option value="180,300">🧘 Extra Long — 3-5 min</option>
+            <option value="300,600">🌙 Marathon — 5-10 min</option>
+            <option value="custom">⚙️ Custom</option>
+          </select>
+          <span style="font-size:11px; color:var(--text-muted);">Gap:</span>
+          <input type="number" id="gap-min" value="40" min="3" style="width:64px; margin:0; padding:5px 6px; font-size:12px; text-align:center;" oninput="saveGapSettings()">
+          <span style="font-size:11px; color:var(--text-muted);">–</span>
+          <input type="number" id="gap-max" value="60" min="5" style="width:64px; margin:0; padding:5px 6px; font-size:12px; text-align:center;" oninput="saveGapSettings()">
+          <span style="font-size:11px; color:var(--text-muted);">sec/poll</span>
+          <span style="font-size:11px; color:#10b981; font-weight:700;">⏰ No time limits — మీ ఇష్టం వచ్చినప్పుడు పంపండి (day/night anytime)</span>
         </div>
       </div>
       <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
@@ -1426,6 +1441,52 @@ All candidates must join today before 9:00 PM!"></textarea>
       }
     }
 
+    // ---------- ⏱️ GLOBAL SMART GAP ENGINE (saved in browser, applies everywhere) ----------
+    function applyGapPreset(val) {
+      if (val === 'custom') return;
+      const [mn, mx] = val.split(',').map(Number);
+      document.getElementById('gap-min').value = mn;
+      document.getElementById('gap-max').value = mx;
+      saveGapSettings();
+    }
+
+    function getGapMin() {
+      const v = parseInt(document.getElementById('gap-min')?.value || '40', 10);
+      return isNaN(v) || v < 3 ? 3 : v;
+    }
+
+    function getGapMax() {
+      const mn = getGapMin();
+      const v = parseInt(document.getElementById('gap-max')?.value || '60', 10);
+      return isNaN(v) || v <= mn ? mn + 5 : v;
+    }
+
+    function gapLabel() {
+      const mn = getGapMin(), mx = getGapMax();
+      const fmt = s => s >= 60 ? (s / 60).toFixed(s % 60 ? 1 : 0) + ' min' : s + 's';
+      return `${fmt(mn)}–${fmt(mx)}`;
+    }
+
+    function saveGapSettings() {
+      try {
+        localStorage.setItem('su_gap', JSON.stringify({
+          min: getGapMin(), max: getGapMax(),
+          preset: document.getElementById('global-gap-preset')?.value || '40,60'
+        }));
+      } catch (e) {}
+    }
+
+    function loadGapSettings() {
+      try {
+        const s = JSON.parse(localStorage.getItem('su_gap') || 'null');
+        if (!s) return;
+        const presetEl = document.getElementById('global-gap-preset');
+        if (presetEl && s.preset) presetEl.value = s.preset;
+        if (s.min) document.getElementById('gap-min').value = s.min;
+        if (s.max) document.getElementById('gap-max').value = s.max;
+      } catch (e) {}
+    }
+
     async function dashLogout() {
       if (!confirm('Lock the dashboard? మళ్ళీ open చేయాలంటే password అడుగుతుంది.')) return;
       try { await fetch('/api/auth/logout', {method:'POST'}); } catch (e) {}
@@ -1618,7 +1679,7 @@ All candidates must join today before 9:00 PM!"></textarea>
       if (!gids || gids.length === 0) {
         return alert('Please select at least 1 WhatsApp group using the checkboxes to dispatch!');
       }
-      if (!confirm(`Run 5-poll anti-ban broadcast on ${gids.length} selected group(s)?\\n(40-60s gaps between polls, 60-90s rest after every 5 groups)`)) return;
+      if (!confirm(`Run 5-poll anti-ban broadcast on ${gids.length} selected group(s)?\\n(${gapLabel()} gaps between polls, batch rest after every 5 groups)`)) return;
 
       const gw = document.getElementById('wa-gateway-input').value;
       const res = await fetch('/api/whatsapp/start_pipeline', {
@@ -1628,8 +1689,8 @@ All candidates must join today before 9:00 PM!"></textarea>
           target_group_ids: gids,
           is_question: true,
           gateway: gw,
-          delay_min: 40,
-          delay_max: 60,
+          delay_min: getGapMin(),
+          delay_max: getGapMax(),
           questions_count: 5
         })
       });
@@ -1666,8 +1727,8 @@ All candidates must join today before 9:00 PM!"></textarea>
           custom_msg: msg,
           attachment: att,
           gateway: gw,
-          delay_min: 40,
-          delay_max: 60,
+          delay_min: getGapMin(),
+          delay_max: getGapMax(),
           questions_count: 5
         })
       });
@@ -2335,8 +2396,8 @@ All candidates must join today before 9:00 PM!"></textarea>
               target_group_ids: waGids,
               is_question: true,
               gateway: gw,
-              delay_min: 40,
-              delay_max: 60,
+              delay_min: getGapMin(),
+              delay_max: getGapMax(),
               questions_count: 5
             })
           });
@@ -2400,7 +2461,8 @@ All candidates must join today before 9:00 PM!"></textarea>
           })
         });
         const d = await res.json();
-        let logTxt = `✅ Completed Broadcast!\\n• Telegram Channels Dispatched: ${d.telegram_dispatched}\\n• WhatsApp Groups Dispatched: ${d.whatsapp_dispatched}`;
+        let logTxt = `✅ Broadcast Launched!\\n• Telegram Channels Dispatched: ${d.telegram_dispatched}\\n• WhatsApp Groups Queued: ${d.whatsapp_dispatched}`;
+        if (d.whatsapp_note) logTxt += `\\nℹ️ ${d.whatsapp_note}`;
         if (d.errors && d.errors.length > 0) {
           logTxt += `\\n⚠️ Notes/Errors (${d.errors.length}):\\n` + d.errors.slice(0, 5).join('\\n');
         }
@@ -2995,6 +3057,7 @@ All candidates must join today before 9:00 PM!"></textarea>
     loadSchedules();
     loadChannels();
     loadBundles();
+    loadGapSettings();
     loadBulkTargets();
     setInterval(fetchStats, 10000);
     setInterval(pollPipelineStatus, 1500);
