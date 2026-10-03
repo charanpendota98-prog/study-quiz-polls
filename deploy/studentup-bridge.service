@@ -1,0 +1,15 @@
+[Unit]
+Description=StudentUp WhatsApp Bridge (Baileys, port 3900)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/studentup
+ExecStart=/usr/bin/node gateway/wa_bridge.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
