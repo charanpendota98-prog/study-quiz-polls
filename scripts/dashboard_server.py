@@ -37,6 +37,37 @@ PORT = int(config.env("DASHBOARD_PORT", "5000"))
 import secrets as _secrets
 
 AUTH_FILE = config.DATA / "dashboard_auth.json"
+LOGIN_AUDIT_FILE = config.DATA / "login_audit.json"
+_START_TS = time.time()
+
+
+def _log_login_attempt(ip: str, ok: bool):
+    """🔐 Security audit: record every login attempt (success & failure)."""
+    try:
+        d = {"attempts": []}
+        if LOGIN_AUDIT_FILE.exists():
+            loaded = json.loads(LOGIN_AUDIT_FILE.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict) and isinstance(loaded.get("attempts"), list):
+                d = loaded
+        d["attempts"].append({
+            "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "ip": str(ip)[:60],
+            "ok": bool(ok),
+        })
+        d["attempts"] = d["attempts"][-200:]
+        LOGIN_AUDIT_FILE.write_text(json.dumps(d, indent=1), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _recent_logins(limit: int = 8) -> list:
+    try:
+        if LOGIN_AUDIT_FILE.exists():
+            d = json.loads(LOGIN_AUDIT_FILE.read_text(encoding="utf-8"))
+            return list(reversed(d.get("attempts", [])[-limit:]))
+    except Exception:
+        pass
+    return []
 DEFAULT_DASH_PASSWORD = "studentup123"
 
 
@@ -241,6 +272,7 @@ HTML_PAGE = """<!DOCTYPE html>
       <button class="btn btn-outline" style="border-color:#ef4444; color:#ef4444;" onclick="saveIpLock(false)">🔓 Turn OFF (password only)</button>
     </div>
     <div id="ip-lock-result" style="font-size:12px; margin-top:8px;"></div>
+    <div id="login-audit" style="font-size:11px; margin-top:10px;"></div>
     <p style="color:#64748b; font-size:11px; margin-top:8px;">
       💡 Mobile data IP మారుతూ ఉంటుంది — exact IP బదులు prefix (ఉదా: <code>49.37.</code>) వాడితే safe. 🚨 Lockout అయితే: server ని <code>DISABLE_IP_LOCK=1</code> env తో restart చేయండి (sandbox/local నుంచి ఎప్పుడూ access ఉంటుంది).
     </p>
@@ -1090,6 +1122,7 @@ All candidates must join today before 9:00 PM!"></textarea>
             </select>
           </div>
           <button class="btn btn-accent" onclick="createTgAutopilot()">🤖 Start Auto-Pilot (Selected Targets)</button>
+          <button class="btn btn-outline" style="border-color:#fbbf24; color:#fbbf24;" onclick="oneClickDailyPlan()" title="08:00 + 13:00 + 20:30 slots, all targets">🚀 1-Click Daily Plan</button>
         </div>
         <div style="margin-top:8px; font-size:12px; color:#94a3b8;">
           Subjects (optional):
@@ -1260,7 +1293,21 @@ All candidates must join today before 9:00 PM!"></textarea>
           <h2>📊 Broadcast History & Analytics</h2>
           <p style="color:var(--text-muted); font-size:13px;">ప్రతి poll dispatch (Telegram instant / WhatsApp anti-ban / Auto-Pilot) ఇక్కడ record అవుతుంది.</p>
         </div>
-        <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="loadHistory()">🔄 Refresh</button>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="downloadBackup()">💾 Full Backup (.zip)</button>
+          <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="exportHistoryCSV()">📥 Export CSV</button>
+          <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="loadHistory()">🔄 Refresh</button>
+        </div>
+      </div>
+
+      <!-- 🩺 MISSION CONTROL: whole system health at a glance -->
+      <div style="background:#0b1329; border:1px solid #38bdf8; border-radius:10px; padding:14px; margin-top:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <h3 style="font-size:14px;">🩺 Mission Control — System Health</h3>
+          <span id="health-uptime" style="font-size:11px; color:#64748b;"></span>
+        </div>
+        <div id="health-badges" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; font-size:12px;"></div>
+        <div id="health-bank" style="margin-top:10px; font-size:12px;"></div>
       </div>
 
       <div class="grid-stats" style="margin-top:14px;">
@@ -1325,7 +1372,7 @@ All candidates must join today before 9:00 PM!"></textarea>
       if (id === 'tab-wa-dispatch') loadWAGroups();
       if (id === 'tab-campus') loadCampusEvents();
       if (id === 'tab-dynamic-channels') { loadChannels(); loadTgAutopilotJobs(); }
-      if (id === 'tab-history') loadHistory();
+      if (id === 'tab-history') { loadHistory(); loadHealth(); }
       if (id === 'tab-bundles') loadBundles();
       if (id === 'tab-bulk-broadcast') loadBulkTargets();
       if (id === 'tab-squads') loadSquads();
@@ -1694,7 +1741,90 @@ All candidates must join today before 9:00 PM!"></textarea>
       } catch (e) { console.error('history load:', e); }
     }
 
+    // ================= 🩺 MISSION CONTROL (SYSTEM HEALTH) =================
+    async function loadHealth() {
+      try {
+        const r = await fetch('/api/health');
+        const d = await r.json();
+        document.getElementById('health-uptime').innerText = 'server uptime: ' + d.uptime_min + ' min';
+        const b = (ok, onTxt, offTxt, offColor) =>
+          `<span style="padding:4px 10px; border-radius:14px; font-weight:800; background:${ok ? 'rgba(52,211,153,0.12)' : 'rgba(245,158,11,0.10)'}; color:${ok ? '#34d399' : (offColor || '#f59e0b')}; border:1px solid ${ok ? '#34d399' : (offColor || '#f59e0b')};">${ok ? onTxt : offTxt}</span>`;
+        document.getElementById('health-badges').innerHTML =
+          b(d.telegram_live, '📢 Telegram: LIVE', '📢 Telegram: DRY-RUN (BOT_TOKEN set చేయండి)') +
+          b(d.whatsapp_connected, '💚 WhatsApp: CONNECTED', '💚 WhatsApp: NOT LINKED (QR scan)') +
+          b(d.scheduler_running, '⏰ Scheduler: RUNNING', '⏰ Scheduler: OFF', '#f87171') +
+          b(d.autopilot_slots > 0, '🤖 Auto-Pilot: ' + d.autopilot_slots + ' slot(s) ON', '🤖 Auto-Pilot: no slots') +
+          b(d.ip_lock_on, '🛡️ IP Lock: ON', '🛡️ IP Lock: OFF (password only)') +
+          b(true, '📊 7-Day Polls: ' + d.week_polls, '');
+        const low = d.low_stock || [];
+        let bankHtml = `<b style="color:#38bdf8;">🧮 Question Bank:</b> ${d.total_fresh} fresh / ${d.total_questions} total`;
+        if (low.length) {
+          bankHtml += ` · <span style="color:#f59e0b;">⚠️ Low stock (${low.length}):</span> ` +
+            low.map(r => `${r.channel} (${r.unused})`).join(', ') +
+            ` <button class="btn btn-accent" style="font-size:11px; padding:3px 10px; margin-left:6px;" onclick="runBankTopup()">⚡ Auto Top-Up Now</button>`;
+        } else {
+          bankHtml += ' · <span style="color:#34d399;">✅ అన్ని channels కి fresh stock బాగుంది</span>';
+        }
+        bankHtml += '<span id="topup-result" style="margin-left:8px;"></span>';
+        document.getElementById('health-bank').innerHTML = bankHtml;
+      } catch (e) { console.error('health:', e); }
+    }
+
+    async function runBankTopup() {
+      const el = document.getElementById('topup-result');
+      el.innerHTML = '<span style="color:#fbbf24;">⚡ Generating fresh questions...</span>';
+      try {
+        const r = await fetch('/api/bank/topup', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+        const d = await r.json();
+        el.innerHTML = d.ok ? '<span style="color:#34d399;">✅ ' + d.message + '</span>'
+                            : '<span style="color:#f87171;">❌ ' + (d.error || 'failed') + '</span>';
+        if (d.ok) { fetchStats(); setTimeout(loadHealth, 1200); }
+      } catch (e) { el.innerHTML = '<span style="color:#f87171;">❌ ' + e + '</span>'; }
+    }
+
+    function downloadBackup() {
+      window.location.href = '/api/backup';
+    }
+
+    async function exportHistoryCSV() {
+      try {
+        const r = await fetch('/api/history');
+        const d = await r.json();
+        const rows = [['Time','Platform','Target','Polls','Subjects','Mode','Note']];
+        (d.history || []).forEach(e => rows.push([
+          e.ts, e.kind, e.target, e.count, (e.subjects||[]).join('+') || 'ALL', e.dry ? 'DRY-RUN' : 'LIVE', e.note || ''
+        ]));
+        const csv = rows.map(r2 => r2.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\\n');
+        const blob = new Blob(['\\ufeff' + csv], {type: 'text/csv;charset=utf-8'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'broadcast_history.csv';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      } catch (e) { alert('Export failed: ' + e); }
+    }
+
     // ================= 🤖 TELEGRAM AUTO-PILOT =================
+    async function oneClickDailyPlan() {
+      // 🚀 zero-thinking setup: select ALL targets + 3 classic daily slots
+      let channels = getSelectedChannelKeys();
+      if (!channels.length) { selectAllChannels(true); channels = getSelectedChannelKeys(); }
+      if (!channels.length) return alert('ముందు కనీసం ఒక channel/group register చేయండి');
+      if (!confirm('🚀 Daily Plan: 08:00 + 13:00 + 20:30 కి ' + channels.length + ' target(s) × 5 polls auto-post అవుతాయి. OK?')) return;
+      const box = document.getElementById('tg-ap-result');
+      box.innerHTML = '<span style="color:#fbbf24;">Creating daily plan...</span>';
+      try {
+        const r = await fetch('/api/telegram/schedule', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({times: '08:00, 13:00, 20:30', channels, count: 5, subjects: []})
+        });
+        const d = await r.json();
+        box.innerHTML = d.ok ? '<span style="color:#34d399;">✅ ' + d.message + '</span>'
+                             : '<span style="color:#f87171;">❌ ' + (d.error || 'Failed') + '</span>';
+        if (d.ok) loadTgAutopilotJobs();
+      } catch (e) { box.innerHTML = '<span style="color:#f87171;">❌ ' + e + '</span>'; }
+    }
+
     async function createTgAutopilot() {
       const box = document.getElementById('tg-ap-result');
       const times = document.getElementById('tg-ap-times').value.trim();
@@ -1767,6 +1897,14 @@ All candidates must join today before 9:00 PM!"></textarea>
         } else {
           st.innerText = '🔓 IP LOCK: OFF';
           st.style.color = '#f59e0b';
+        }
+        const la = document.getElementById('login-audit');
+        const rec = d.recent_logins || [];
+        if (la) {
+          la.innerHTML = rec.length
+            ? '<b style="color:#94a3b8;">🔐 Recent login attempts:</b> ' +
+              rec.map(a => `<span style="margin-left:8px; color:${a.ok ? '#34d399' : '#f87171'};">${a.ok ? '✅' : '❌'} ${a.ip} <span style="color:#64748b;">(${a.ts})</span></span>`).join('')
+            : '';
         }
       } catch (e) {
         document.getElementById('ip-lock-result').innerHTML = '<span style="color:#f87171;">❌ ' + e + '</span>';
@@ -3657,6 +3795,62 @@ class DashboardHandler(BaseHTTPRequestHandler):
             })
             return
 
+        if p.path == "/api/health":
+            # 🩺 MISSION CONTROL: whole-system health in one call
+            from core.telegram import Telegram
+            from core import broadcast_log
+            jobs = whatsapp_pipeline.get_scheduled_jobs()
+            enabled_jobs = [j for j in jobs if j.get("enabled")]
+            bank = Bank()
+            stats = bank.stats()
+            # only channels that actually have questions, sorted by fresh stock
+            stock = sorted(
+                [{"channel": ch, **st} for ch, st in stats.items() if st.get("total", 0) > 0],
+                key=lambda r: r["unused"],
+            )
+            low = [r for r in stock if r["unused"] < 15]
+            up_min = int((time.time() - _START_TS) // 60)
+            sec = _load_auth()
+            self._send_json({
+                "ok": True,
+                "telegram_live": bool(Telegram().token),
+                "whatsapp_connected": whatsapp_pipeline.bridge_is_connected(),
+                "scheduler_running": bool(getattr(whatsapp_pipeline, "_SCHEDULER_RUNNING", False)),
+                "autopilot_slots": len([j for j in enabled_jobs if j.get("mode") == "tg"]),
+                "wa_slots": len([j for j in enabled_jobs if j.get("mode", "wa") != "tg"]),
+                "total_fresh": sum(r["unused"] for r in stock),
+                "total_questions": sum(r["total"] for r in stock),
+                "low_stock": low[:10],
+                "stock": stock,
+                "ip_lock_on": bool(sec.get("ip_lock_enabled")),
+                "uptime_min": up_min,
+                "week_polls": broadcast_log.get_summary().get("week_polls", 0),
+            })
+            return
+
+        if p.path == "/api/backup":
+            # 💾 ONE-CLICK FULL BACKUP: every data json/csv zipped & downloaded
+            import io, zipfile
+            buf = io.BytesIO()
+            added = 0
+            with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+                for f in sorted(config.DATA.glob("*")):
+                    if f.is_file() and f.suffix.lower() in (".json", ".csv", ".xlsx") and f.stat().st_size < 8_000_000:
+                        try:
+                            z.write(f, f"studentup_backup/{f.name}")
+                            added += 1
+                        except Exception:
+                            pass
+            data = buf.getvalue()
+            fname = "studentup_backup_" + datetime.now().strftime("%Y%m%d_%H%M") + ".zip"
+            self.send_response(200)
+            self.send_header("Content-Type", "application/zip")
+            self.send_header("Content-Disposition", f'attachment; filename="{fname}"')
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
+
         if p.path == "/api/security":
             sec = _load_auth()
             self._send_json({
@@ -3664,6 +3858,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 "ip_lock_enabled": bool(sec.get("ip_lock_enabled")),
                 "allowed_ips": sec.get("allowed_ips", []),
                 "your_ip": self._client_ip(),
+                "recent_logins": _recent_logins(8),
             })
             return
 
@@ -3828,8 +4023,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if p.path == "/api/auth/login":
             pw = str(body.get("password", ""))
             if pw and pw == _dash_password():
+                _log_login_attempt(self._client_ip(), True)
                 self._issue_login_cookie()
             else:
+                _log_login_attempt(self._client_ip(), False)
                 time.sleep(1.2)  # slow brute-force attempts
                 self._send_json({"ok": False, "error": "wrong password"}, code=401)
             return
@@ -4254,6 +4451,21 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if p.path == "/api/whatsapp/stop_pipeline":
             res = whatsapp_pipeline.stop_broadcast()
             self._send_json(res)
+            return
+
+        if p.path == "/api/bank/topup":
+            # ⚡ AUTO TOP-UP: refill thin channels with freshly generated questions
+            try:
+                from core.generator import top_up
+                added, errs = top_up(per_channel_min=25)
+                self._send_json({
+                    "ok": True,
+                    "added": len(added or []),
+                    "rejected": len(errs or []),
+                    "message": f"⚡ {len(added or [])} కొత్త fresh questions add అయ్యాయి! ({len(errs or [])} rejected by quality gate)",
+                })
+            except Exception as e:
+                self._send_json({"ok": False, "error": f"top-up failed: {e}"})
             return
 
         if p.path == "/api/telegram/schedule":
