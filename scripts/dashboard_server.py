@@ -1945,6 +1945,7 @@ All candidates must join today before 9:00 PM!"></textarea>
             <span style="flex:1;">${j.label}</span>
             <span style="font-size:11px; color:${j.enabled ? '#34d399' : '#f59e0b'};">${j.enabled ? '● ON' : '○ PAUSED'}</span>
             <span style="font-size:11px; color:#64748b;">runs: ${j.total_dispatches || 0}${j.last_run ? ' · last: ' + j.last_run : ''}</span>
+            <button class="btn btn-outline" style="font-size:10px; padding:2px 8px; color:#fbbf24; border-color:#fbbf24;" onclick="editScheduleJob('${j.id}')">✏️ Edit</button>
             <button class="btn btn-outline" style="font-size:10px; padding:2px 8px;" onclick="toggleTgApJob('${j.id}')">${j.enabled ? '⏸ Pause' : '▶ Resume'}</button>
             <button class="btn btn-outline" style="font-size:10px; padding:2px 8px; border-color:#ef4444; color:#ef4444;" onclick="deleteTgApJob('${j.id}')">🗑</button>
           </div>`).join('');
@@ -2381,11 +2382,18 @@ All candidates must join today before 9:00 PM!"></textarea>
     }
 
     async function scheduleQuizModal() {
-      const timeVal = prompt('Enter Daily Quiz Dispatch Time (HH:MM 24-hr format, e.g. 08:30, 13:00, 18:30, 21:00):', '10:00');
+      const timeVal = prompt('⏰ Daily Quiz Time (HH:MM 24-hr, e.g. 08:30, 13:00, 20:30):', '10:00');
       if (!timeVal) return;
-      const label = prompt('Slot Label or Title (e.g. Morning General English / Evening Police Practice):', 'Daily Scheduled Drill');
+      const label = prompt('🏷️ Slot పేరు (e.g. Morning Police Practice):', 'Daily Scheduled Drill');
+      const qCount = prompt('📊 ఒక్కో group కి ఎన్ని questions? (1-20):', '5');
+      if (qCount === null) return;
+      const daysVal = prompt('📅 ఎన్ని రోజులు నడవాలి?\\n  0 = ♾️ LIFE-LONG (ఎప్పటికీ ఆగదు)\\n  7 = 1 వారం\\n  30 = 1 నెల\\n  60 = 2 నెలలు\\n  90 = 3 నెలలు', '0');
+      if (daysVal === null) return;
+      const subjVal = prompt('📚 Subjects (+ తో): MATHS+REASONING+GK+CURRENT+ENGLISH+SCIENCE\\nఖాళీ = ALL subjects:', '');
+      if (subjVal === null) return;
       const cat = document.getElementById('wa-target-category').value;
       const gids = getSelectedGroupIds();
+      const days = parseInt(daysVal) || 0;
 
       try {
         const res = await fetch('/api/whatsapp/schedule_quiz', {
@@ -2397,7 +2405,10 @@ All candidates must join today before 9:00 PM!"></textarea>
             category: cat,
             target_group_ids: gids,
             is_question: true,
-            auto_mode: true
+            questions_count: parseInt(qCount) || 5,
+            days_duration: days,
+            auto_mode: days === 0,
+            subjects: subjVal.trim() ? subjVal.trim().toUpperCase().split(/[^A-Z]+/).filter(Boolean) : []
           })
         });
         const d = await res.json();
@@ -2423,6 +2434,35 @@ All candidates must join today before 9:00 PM!"></textarea>
       }
     }
 
+    // ✏️ EDIT any schedule any time — duration presets: 0=Life-Long, 30=1 Month, 60=2 Months...
+    async function editScheduleJob(id) {
+      try {
+        const res = await fetch('/api/whatsapp/schedules');
+        const d = await res.json();
+        const j = (d.jobs || []).find(x => x.id === id);
+        if (!j) return alert('Job దొరకలేదు');
+        const time = prompt('⏰ Time (HH:MM, 24hr):', j.time); if (time === null) return;
+        const count = prompt('📊 ఒక్కో slot కి ఎన్ని questions? (1-20):', j.questions_count || 5); if (count === null) return;
+        const days = prompt('📅 ఎన్ని రోజులు నడవాలి?\\n  0 = ♾️ LIFE-LONG (ఎప్పటికీ)\\n  7 = 1 వారం\\n  30 = 1 నెల\\n  60 = 2 నెలలు\\n  90 = 3 నెలలు\\n  (ఏ సంఖ్య అయినా పెట్టొచ్చు)', j.days_duration || 0); if (days === null) return;
+        const subj = prompt('📚 Subjects (+ తో కలపండి): MATHS+REASONING+GK+CURRENT+ENGLISH+SCIENCE\\nఖాళీగా వదిలేస్తే = ALL subjects:', (j.subjects || []).join('+')); if (subj === null) return;
+        const updates = {
+          id: id,
+          time: time.trim(),
+          questions_count: parseInt(count) || 5,
+          days_duration: parseInt(days) || 0,
+          subjects: subj.trim() ? subj.trim().toUpperCase().split(/[^A-Z]+/).filter(Boolean) : []
+        };
+        const r = await fetch('/api/whatsapp/update_schedule', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(updates)
+        });
+        const dd = await r.json();
+        alert(dd.ok ? '✅ Schedule updated! ' + (updates.days_duration === 0 ? '♾️ Life-Long mode' : '📅 ' + updates.days_duration + ' రోజులు (auto-stop: ' + (dd.job.end_date || '') + ')') : '❌ ' + (dd.error || 'failed'));
+        loadSchedules();
+        loadTgAutopilotJobs();
+      } catch (e) { alert('❌ ' + e); }
+    }
+
     async function loadSchedules() {
       try {
         const res = await fetch('/api/whatsapp/schedules');
@@ -2443,12 +2483,13 @@ All candidates must join today before 9:00 PM!"></textarea>
             : '<span style="background:#64748b; color:white; font-weight:800; font-size:10px; padding:2px 6px; border-radius:10px;">○ PAUSED</span>';
 
           const modeBadge = j.auto_mode || (!j.days_duration && !j.end_date)
-            ? '<span style="background:#0284c7; color:white; font-size:10px; font-weight:700; padding:1px 6px; border-radius:8px;">🔄 AUTO-CONTINUOUS</span>'
-            : `<span style="background:#d97706; color:white; font-size:10px; font-weight:700; padding:1px 6px; border-radius:8px;">📅 Until ${j.end_date || (j.days_duration + 'd')}</span>`;
+            ? '<span style="background:#0284c7; color:white; font-size:10px; font-weight:700; padding:1px 6px; border-radius:8px;">♾️ LIFE-LONG</span>'
+            : `<span style="background:#d97706; color:white; font-size:10px; font-weight:700; padding:1px 6px; border-radius:8px;">📅 ${j.days_duration}d → ${j.end_date || ''}</span>`;
 
           const targetLabel = (j.target_group_ids && j.target_group_ids.length > 0)
             ? `${j.target_group_ids.length} Selected Groups`
             : `All ${j.category || 'General'} Groups`;
+          const subjLabel = (j.subjects && j.subjects.length) ? j.subjects.join('+') : 'ALL subjects';
 
           return `
             <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.06); flex-wrap:wrap; gap:8px;">
@@ -2460,10 +2501,11 @@ All candidates must join today before 9:00 PM!"></textarea>
                   ${modeBadge}
                 </div>
                 <div style="font-size:11px; color:var(--text-muted); margin-top:3px;">
-                  Category: <span class="category-tag">${j.category || 'ALL'}</span> · Target: <b>${targetLabel}</b> · Dispatches: <b>${j.total_dispatches || 0} times</b>
+                  Category: <span class="category-tag">${j.category || 'ALL'}</span> · Target: <b>${targetLabel}</b> · <b>${j.questions_count || 5}</b> polls/slot · 📚 ${subjLabel} · Dispatches: <b>${j.total_dispatches || 0} times</b>
                 </div>
               </div>
               <div style="display:flex; gap:6px;">
+                <button class="btn btn-outline" style="padding:3px 8px; font-size:11px; color:#fbbf24; border-color:#fbbf24;" onclick="editScheduleJob('${j.id}')">✏️ Edit</button>
                 <button class="btn btn-outline" style="padding:3px 8px; font-size:11px;" onclick="toggleScheduleJob('${j.id}')">${isEn ? '⏸ Pause' : '▶ Enable'}</button>
                 <button class="btn btn-outline" style="padding:3px 8px; font-size:11px; color:#ef4444;" onclick="deleteScheduleJob('${j.id}')">🗑 Delete</button>
               </div>
@@ -4528,7 +4570,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     questions_count=q_count,
                     days_duration=days_dur,
                     auto_mode=auto_mode,
-                    end_date=end_date
+                    end_date=end_date,
+                    subjects=[str(s).upper() for s in (body.get("subjects") or []) if s],
                 )
                 created_jobs.append(job)
 
@@ -4548,6 +4591,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
             jid = body.get("id")
             updated = whatsapp_pipeline.toggle_scheduled_job(jid)
             self._send_json({"ok": bool(updated), "job": updated})
+            return
+
+        if p.path == "/api/whatsapp/update_schedule":
+            jid = body.get("id")
+            updates = {k: v for k, v in body.items() if k != "id"}
+            job = whatsapp_pipeline.update_scheduled_job(jid, updates)
+            self._send_json({"ok": bool(job), "job": job,
+                             "message": "✏️ Schedule updated!" if job else "job not found"})
             return
 
         if p.path == "/api/whatsapp/delete_schedule":

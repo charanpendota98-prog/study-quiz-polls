@@ -350,6 +350,48 @@ def toggle_scheduled_job(job_id: str) -> dict:
     return target
 
 
+def update_scheduled_job(job_id: str, updates: dict) -> dict:
+    """✏️ EDIT an existing schedule any time — time, polls count, duration
+    (0 = LIFE-LONG, 30 = 1 month, 60 = 2 months...), subjects, targets."""
+    jobs = load_schedules()
+    target = None
+    for j in jobs:
+        if j.get("id") != job_id:
+            continue
+        if "time" in updates and str(updates["time"]).strip():
+            t = str(updates["time"]).strip()
+            if len(t) == 4 and t[1] == ":":
+                t = "0" + t
+            j["time"] = t
+        if "label" in updates and str(updates["label"]).strip():
+            j["label"] = str(updates["label"]).strip()
+        if "questions_count" in updates:
+            j["questions_count"] = max(1, min(int(updates["questions_count"] or 1), 20))
+        if "subjects" in updates:
+            j["subjects"] = [str(s).upper() for s in (updates["subjects"] or []) if s]
+        if "category" in updates and updates["category"]:
+            j["category"] = str(updates["category"])
+        if "target_group_ids" in updates and isinstance(updates["target_group_ids"], list):
+            j["target_group_ids"] = updates["target_group_ids"]
+        if "telegram_channels" in updates and isinstance(updates["telegram_channels"], list):
+            j["telegram_channels"] = updates["telegram_channels"]
+        if "days_duration" in updates:
+            days = max(0, int(updates["days_duration"] or 0))
+            j["days_duration"] = days
+            j["auto_mode"] = (days == 0)
+            if days == 0:
+                j["end_date"] = ""
+                j["status"] = "Active (♾️ Life-Long)" if j.get("enabled", True) else "Paused"
+            else:
+                j["end_date"] = (datetime.now() + timedelta(days=days)).strftime("%Y-%m-%d")
+                j["status"] = f"Active ({days} Days → {j['end_date']})" if j.get("enabled", True) else "Paused"
+        target = j
+        break
+    if target:
+        save_schedules(jobs)
+    return target
+
+
 def delete_scheduled_job(job_id: str) -> bool:
     jobs = load_schedules()
     before = len(jobs)

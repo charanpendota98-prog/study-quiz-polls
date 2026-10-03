@@ -269,6 +269,9 @@ def import_rows_list(rows: list, default_category: str = "") -> dict:
         name = str(parts[0]).strip()
         if name.lower() in ("name", "title", "group name", "channel name", "group", "group/channel name"):
             continue
+        # skip template guide/example rows
+        if name.startswith("👇") or name.lower().startswith("example:") or "YOUR_LINK" in str(parts[1] if len(parts) > 1 else ""):
+            continue
 
         link_or_jid = str(parts[1]).strip() if len(parts) > 1 else ""
         category = str(parts[2]).strip() if len(parts) > 2 and parts[2] else (default_category or channel_router.detect_exam_base(name))
@@ -449,11 +452,18 @@ def build_groups_template_xlsx() -> bytes:
         ["Shift", "MORNING / EVENING / ALL_DAY"],
         ["Group Type", "EXAM_SPECIFIC లేదా GENERAL"],
         ["Daily Times", "రోజూ ఎన్నిసార్లు+ఎప్పుడు: 08:00+13:00+20:30 (+ తో విడదీయండి; ఖాళీ వదిలేస్తే schedule ఉండదు)"],
-        ["Polls Per Slot", "ఒక్కో time కి ఎన్ని polls (1-20, default 5)"],
-        ["Days (0=Always)", "ఎన్ని రోజులు నడవాలి — 0 అంటే ఎప్పటికీ (Always-On), 30 అంటే 30 రోజులు"],
+        ["Polls Per Slot", "ఒక్కో time కి ఎన్ని questions/polls (1-20, default 5)"],
+        ["Days (0=Always)", "ఎన్ని రోజులు: 0 = ♾️ LIFE-LONG (ఎప్పటికీ) · 7 = 1 వారం · 30 = 1 నెల · 60 = 2 నెలలు · 90 = 3 నెలలు"],
         ["Subjects", "MATHS+REASONING+GK+CURRENT+ENGLISH+SCIENCE — ఖాళీ అంటే ALL subjects"],
         [""],
         ["🛡️ WhatsApp sends అన్నీ anti-ban engine (40-60s gaps) తోనే వెళ్తాయి — safe!"],
+        ["✏️ Import అయ్యాక కూడా Dashboard → WhatsApp tab → schedule పక్కన Edit button తో ఎప్పుడైనా మార్చుకోవచ్చు!"],
+    ]
+    my_groups = [
+        TEMPLATE_HEADER,
+        ["👇 మీ groups ఇక్కడ నింపండి (ఈ 2 example rows తీసేసి మీవి పెట్టండి)", "", "", "", "", "", "", "", ""],
+        ["Example: Nizamabad SI Batch", "https://chat.whatsapp.com/YOUR_LINK_1", "POLICE", "ALL_DAY", "EXAM_SPECIFIC", "08:00+20:30", "5", "30", "REASONING+GK"],
+        ["Example: My TET Group", "https://chat.whatsapp.com/YOUR_LINK_2", "TET_DSC", "ALL_DAY", "EXAM_SPECIFIC", "07:00+19:00", "10", "0", ""],
     ]
     police = [
         TEMPLATE_HEADER,
@@ -473,6 +483,7 @@ def build_groups_template_xlsx() -> bytes:
     ]
     return build_multisheet_xlsx_bytes({
         "📖 Instructions": instructions,
+        "✍️ My_Groups": my_groups,
         "Police_SI_Groups": police,
         "TET_DSC_Groups": tet,
         "Banking_Groups": banking,
