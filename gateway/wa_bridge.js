@@ -325,6 +325,37 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, groups, count: groups.length });
     }
 
+    // ---- auto-join a group via invite link (paste link → bot joins itself)
+    if (url.pathname === '/join' && req.method === 'POST') {
+      if (!state.sock || state.status !== 'connected') {
+        return json(res, 409, { ok: false, error: 'not connected — login first' });
+      }
+      const link = String(body.link || '').trim();
+      const m = link.match(/chat\.whatsapp\.com\/(?:invite\/)?([A-Za-z0-9]+)/);
+      if (!m) return json(res, 400, { ok: false, error: 'invalid WhatsApp invite link' });
+      try {
+        const jid = await state.sock.groupAcceptInvite(m[1]);
+        let name = jid, participants = 0;
+        try {
+          const meta = await state.sock.groupMetadata(jid);
+          name = meta.subject || jid;
+          participants = (meta.participants || []).length;
+        } catch (_) {}
+        refreshGroups().catch(() => {});
+        return json(res, 200, { ok: true, jid, name, participants, joined: true });
+      } catch (e) {
+        const msg = String(e.message || e);
+        // already a member → try to resolve the group info from invite
+        if (/already|conflict|409/i.test(msg)) {
+          try {
+            const info = await state.sock.groupGetInviteInfo(m[1]);
+            return json(res, 200, { ok: true, jid: info.id, name: info.subject || info.id, participants: info.size || 0, joined: false, note: 'already a member' });
+          } catch (_) {}
+        }
+        return json(res, 500, { ok: false, error: msg });
+      }
+    }
+
     // ---- send
     if (url.pathname === '/send' && req.method === 'POST') {
       const sent = await sendPayload(body);

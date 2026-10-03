@@ -478,6 +478,142 @@ def remove_group(gid: str) -> bool:
     return len(d["groups"]) < before
 
 
+# =====================================================================
+# ➕ QUICK ADD NEW GROUPS — paste invite links, bot auto-joins via bridge
+# Accepted line formats:
+#   https://chat.whatsapp.com/XXXXX
+#   Group Name | https://chat.whatsapp.com/XXXXX
+#   Group Name | https://chat.whatsapp.com/XXXXX | CATEGORY
+# =====================================================================
+def quick_add_groups(raw_text: str) -> dict:
+    results = {"ok": True, "added": [], "joined": 0, "failed": [], "total_lines": 0}
+    connected = bridge_is_connected()
+    d = load_wa_registry()
+    existing_jids = {g.get("jid") for g in d.get("groups", [])}
+
+    for line in raw_text.strip().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        results["total_lines"] += 1
+        parts = [p.strip() for p in line.split("|")]
+        name_hint, link, category = "", "", "AUTO"
+        for p in parts:
+            if "chat.whatsapp.com" in p or p.endswith("@g.us"):
+                link = p
+            elif p.upper() in ("POLICE", "TSPSC", "APPSC", "SSC", "RAILWAY", "BANKING",
+                               "TET_DSC", "GENERAL", "CURRENT", "DEFENCE"):
+                category = p.upper()
+            elif p:
+                name_hint = p
+        if not link:
+            results["failed"].append({"line": line, "error": "no WhatsApp link/JID found"})
+            continue
+
+        jid, name, participants, joined = link, name_hint or link, 0, False
+        # If the bridge is live and it's an invite link → bot JOINS the group itself
+        if connected and "chat.whatsapp.com" in link:
+            jr = _bridge_call("/join", payload={"link": link}, timeout=45)
+            if jr and jr.get("ok"):
+                jid = jr.get("jid", link)
+                name = name_hint or jr.get("name", link)
+                participants = jr.get("participants", 0)
+                joined = bool(jr.get("joined"))
+            elif jr:
+                results["failed"].append({"line": line, "error": jr.get("error", "join failed")})
+                continue
+
+        if jid in existing_jids:
+            results["failed"].append({"line": line, "error": f"already added ({name})"})
+            continue
+
+        if category == "AUTO":
+            category = channel_router.detect_exam_base(name)
+        new_g = {
+            "id": f"G_{len(d.get('groups', [])) + 1}_{int(time.time() * 1000) % 10000}",
+            "name": name,
+            "jid": jid,
+            "category": category,
+            "shift": "ALL_DAY",
+            "active": True,
+            "participants": participants,
+            "real": joined,
+        }
+        d.setdefault("groups", []).append(new_g)
+        existing_jids.add(jid)
+        results["added"].append({"name": name, "jid": jid, "category": category, "joined": joined, "participants": participants})
+        if joined:
+            results["joined"] += 1
+
+    save_wa_registry(d)
+    return results
+
+
+# =====================================================================
+# 🎯 SUBJECT-WISE POLL SELECTION — top-level exam/subject targeting
+# =====================================================================
+SUBJECT_TOPIC_MAP = {
+    "MATHS": ["interest", "average", "percentage", "ratio", "time-work", "number series",
+              "profit", "partnership", "mensuration", "algebra", "speed", "train", "boat",
+              "mixture", "lcm", "hcf", "fraction", "age"],
+    "REASONING": ["coding", "symbol", "calendar", "ranking", "clock", "analogy",
+                  "blood relation", "direction", "series", "syllogism", "puzzle",
+                  "odd one", "seating", "venn"],
+    "GK": ["gk", "history", "geography", "polity", "economy", "constitution",
+           "telangana", "andhra", "india", "static", "award", "sports", "culture"],
+    "CURRENT": ["current", "affairs", "news", "2025", "2026"],
+    "ENGLISH": ["english", "vocabulary", "grammar", "synonym", "antonym", "idiom",
+                "spelling", "sentence"],
+    "SCIENCE": ["science", "physics", "chemistry", "biology", "tech", "computer"],
+}
+
+
+def pick_subject_questions(bank, category: str, n: int, subjects: list = None):
+    """PYQ-quality pick, filtered to the admin-chosen subjects.
+    Falls back gracefully: subject-filtered → category pool → CURRENT."""
+    subjects = [s.upper() for s in (subjects or []) if s and s.upper() != "ALL"]
+    if not subjects:
+        return bank.pick(category, n)
+
+    keywords = []
+    for s in subjects:
+        keywords.extend(SUBJECT_TOPIC_MAP.get(s, [s.lower()]))
+
+    def _matches(q):
+        topic = (q.get("topic") or "").lower()
+        return any(k in topic for k in keywords)
+
+    # Current Affairs is its own channel too
+    pools = []
+    try:
+        pool = [q for q in bank.questions if q.get("channel") == category and _matches(q)]
+        pools.append(pool)
+        if "CURRENT" in subjects:
+            pools.append([q for q in bank.questions if q.get("channel") == "CURRENT"])
+        # widen across all channels if the category pool is thin
+        if sum(len(p) for p in pools) < n:
+            pools.append([q for q in bank.questions if _matches(q)])
+    except Exception:
+        return bank.pick(category, n)
+
+    merged, seen = [], set()
+    for pool in pools:
+        random.shuffle(pool)
+        for q in pool:
+            qid = q.get("id") or id(q)
+            if qid not in seen:
+                seen.add(qid)
+                merged.append(q)
+
+    if len(merged) < n:
+        for q in (bank.pick(category, n) or []):
+            qid = q.get("id") or id(q)
+            if qid not in seen:
+                seen.add(qid)
+                merged.append(q)
+    return merged[:n] if merged else bank.pick(category, n)
+
+
 def apply_stealth_jitter(text: str) -> str:
     """Inject zero-width invisible markers so each dispatch has a unique SHA-256 hash."""
     words = text.split(" ")
@@ -685,7 +821,8 @@ def start_interleaved_broadcast(
     attachment_url: str = "",
     two_phase_answer: bool = True,
     delay_min: int = 40,
-    delay_max: int = 60
+    delay_max: int = 60,
+    subjects: list = None
 ) -> dict:
     """
     Launch asynchronous non-blocking broadcast worker with Advanced Anti-Ban Engine:
@@ -772,11 +909,11 @@ def start_interleaved_broadcast(
                     gen_pool = ["TSPSC", "SSC", "BANKING", "CURRENT", "POLICE"]
                     chosen_cat = random.choice(gen_pool)
                     pool_label = f"Universal Aptitude/GK ({chosen_cat})"
-                    qs = bank.pick(chosen_cat, questions_per_group or 5)
+                    qs = pick_subject_questions(bank, chosen_cat, questions_per_group or 5, subjects)
                 else:
                     chosen_cat = cat
                     pool_label = cat
-                    qs = bank.pick(cat, questions_per_group or 5)
+                    qs = pick_subject_questions(bank, cat, questions_per_group or 5, subjects)
 
                 if not qs:
                     qs = bank.pick("CURRENT", questions_per_group or 5) or bank.pick("TSPSC", questions_per_group or 5)

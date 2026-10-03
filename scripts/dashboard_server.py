@@ -746,6 +746,20 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
         </div>
       </div>
 
+      <!-- ➕ QUICK ADD NEW GROUPS: paste invite links → bot auto-joins & registers -->
+      <div style="background:#0b1329; border:1px solid #10b981; border-radius:10px; padding:12px; margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+          <h4 style="font-size:13px; color:#10b981; margin:0;">➕ Quick Add New Groups (Invite Links paste చేస్తే చాలు — bot దే auto-join అవుతుంది!)</h4>
+          <span style="font-size:10px; color:var(--text-muted);">Formats: link only · Name | link · Name | link | CATEGORY</span>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-start;">
+          <textarea id="quick-add-links" rows="2" placeholder="https://chat.whatsapp.com/XXXXXXXX
+Warangal Police SI Batch | https://chat.whatsapp.com/YYYYYYYY | POLICE" style="flex:1; min-width:250px; margin:0; font-size:12px;"></textarea>
+          <button class="btn btn-accent" style="padding:10px 16px; font-size:13px; font-weight:700; white-space:nowrap;" onclick="quickAddGroups()">➕ Add & Auto-Join</button>
+        </div>
+        <div id="quick-add-result" style="font-size:12px; margin-top:6px;"></div>
+      </div>
+
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:18px; margin-bottom:18px;">
         <!-- Left Column: Message & Attachment Composer -->
         <div style="background:#0f172a; border:1px solid #1e293b; border-radius:10px; padding:16px;">
@@ -771,7 +785,31 @@ All candidates must join today before 9:00 PM!"></textarea>
 
           <div style="margin-top:16px; display:flex; flex-direction:column; gap:8px;">
             <button class="btn btn-accent" style="width:100%; padding:12px; font-size:14px; font-weight:800;" onclick="sendBulkBroadcast()">🚀 Send Bulk Message to Selected Targets</button>
-            <button class="btn btn-purple" style="width:100%; padding:10px; font-size:13px; font-weight:700;" onclick="sendBulkQuizPollsToTargets()">🎯 Send 5 Exam Polls to Selected Targets (Anti-Ban)</button>
+          </div>
+
+          <!-- 🎯 TOP-LEVEL EXAM POLL BUILDER: subjects + count + difficulty-free smart pick -->
+          <div style="margin-top:14px; background:#0b1329; border:1px solid #8b5cf6; border-radius:10px; padding:12px;">
+            <h4 style="font-size:13px; color:#a78bfa; margin-bottom:8px;">🎯 Exam Poll Builder (Subject-Wise)</h4>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+              <span style="font-size:11px; color:var(--text-muted);">Polls/group:</span>
+              <select id="poll-count-select" style="margin:0; padding:4px 8px; font-size:12px; width:70px;">
+                <option value="3">3</option>
+                <option value="5" selected>5</option>
+                <option value="10">10</option>
+                <option value="15">15</option>
+              </select>
+              <span style="font-size:11px; color:var(--text-muted);">Subjects (ఏవీ టిక్ చేయకపోతే = All):</span>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; font-size:12px; margin-bottom:10px;">
+              <label style="cursor:pointer;"><input type="checkbox" class="poll-subj" value="MATHS"> 🔢 Maths / Aptitude</label>
+              <label style="cursor:pointer;"><input type="checkbox" class="poll-subj" value="REASONING"> 🧩 Reasoning</label>
+              <label style="cursor:pointer;"><input type="checkbox" class="poll-subj" value="GK"> 📚 GK / History / Polity</label>
+              <label style="cursor:pointer;"><input type="checkbox" class="poll-subj" value="CURRENT"> 🗞️ Current Affairs</label>
+              <label style="cursor:pointer;"><input type="checkbox" class="poll-subj" value="ENGLISH"> 📖 English</label>
+              <label style="cursor:pointer;"><input type="checkbox" class="poll-subj" value="SCIENCE"> 🔬 Science & Tech</label>
+            </div>
+            <button class="btn btn-purple" style="width:100%; padding:10px; font-size:13px; font-weight:700;" onclick="sendBulkQuizPollsToTargets()">🎯 Send Exam Polls to Selected Targets</button>
+            <div style="font-size:10px; color:var(--text-muted); margin-top:6px;">💬 WhatsApp: anti-ban gap engine · 📢 Telegram: instant (official Bot API — no ban risk, no gaps)</div>
           </div>
         </div>
 
@@ -2093,6 +2131,38 @@ All candidates must join today before 9:00 PM!"></textarea>
     let cachedBulkGroups = [];
     let cachedBundles = [];
 
+    async function quickAddGroups() {
+      const txt = document.getElementById('quick-add-links').value.trim();
+      const out = document.getElementById('quick-add-result');
+      if (!txt) return alert('WhatsApp invite links paste చేయండి (ఒక్కో line కి ఒకటి)!');
+      out.innerHTML = '<span style="color:#38bdf8;">⏳ Adding groups... (bridge connected అయితే bot auto-join అవుతుంది, కొన్ని సెకన్లు పడుతుంది)</span>';
+      try {
+        const res = await fetch('/api/whatsapp/quick_add', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({text: txt})
+        });
+        const d = await res.json();
+        if (!d.ok && d.error) { out.innerHTML = '<span style="color:#ef4444;">❌ ' + d.error + '</span>'; return; }
+        let html = `<span style="color:#10b981; font-weight:700;">✅ ${d.added.length} group(s) added` +
+                   (d.joined ? ` · 🤝 ${d.joined} auto-joined via invite link!` : '') + '</span>';
+        d.added.forEach(g => {
+          html += `<div style="color:#a7f3d0;">&nbsp;&nbsp;💬 ${g.name} <span style="color:#64748b;">[${g.category}]${g.joined ? ' · ✓JOINED' : ''}${g.participants ? ' · 👥 ' + g.participants : ''}</span></div>`;
+        });
+        (d.failed || []).forEach(f => {
+          html += `<div style="color:#f87171;">&nbsp;&nbsp;⚠️ ${f.line.slice(0, 60)} → ${f.error}</div>`;
+        });
+        out.innerHTML = html;
+        if (d.added.length) {
+          document.getElementById('quick-add-links').value = '';
+          loadWAGroups();
+          fetchStats();
+          await loadBulkTargets();  // new groups auto-selected by the sticky engine
+        }
+      } catch (e) {
+        out.innerHTML = '<span style="color:#ef4444;">❌ ' + e + '</span>';
+      }
+    }
+
     async function loadBulkTargets() {
       try {
         const [chRes, waRes, bRes] = await Promise.all([
@@ -2343,6 +2413,8 @@ All candidates must join today before 9:00 PM!"></textarea>
     async function sendBulkQuizPollsToTargets() {
       const chKeys = (initBulkSelection(), [...bulkSelCh]);
       const waGids = (initBulkSelection(), [...bulkSelWa]);
+      const pollCount = parseInt(document.getElementById('poll-count-select')?.value || '5', 10);
+      const pollSubjects = Array.from(document.querySelectorAll('.poll-subj:checked')).map(c => c.value);
 
       if (chKeys.length === 0 && waGids.length === 0) {
         return alert('Please select at least one Telegram Channel or WhatsApp Group target!');
@@ -2365,7 +2437,8 @@ All candidates must join today before 9:00 PM!"></textarea>
         console.error(e);
       }
 
-      if (!confirm(`🚀 Launch 5-poll anti-ban quiz dispatch to ${chKeys.length} Telegram Channels and ${waGids.length} WhatsApp Groups?`)) return;
+      const subjLabel = pollSubjects.length ? pollSubjects.join(', ') : 'All Subjects';
+      if (!confirm(`🚀 Launch ${pollCount}-poll quiz dispatch?\n• Subjects: ${subjLabel}\n• ${chKeys.length} Telegram Channels (instant) + ${waGids.length} WhatsApp Groups (${gapLabel()} gaps)`)) return;
 
       const log = document.getElementById('bulk-broadcast-log');
       log.innerText = `Starting live quiz rounds on selected targets...`;
@@ -2377,7 +2450,7 @@ All candidates must join today before 9:00 PM!"></textarea>
             await fetch('/api/post_poll', {
               method: 'POST',
               headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({channel: k, count: 5})
+              body: JSON.stringify({channel: k, count: pollCount, subjects: pollSubjects})
             });
           } catch (e) {
             console.error('Channel post error:', e);
@@ -2398,7 +2471,8 @@ All candidates must join today before 9:00 PM!"></textarea>
               gateway: gw,
               delay_min: getGapMin(),
               delay_max: getGapMax(),
-              questions_count: 5
+              questions_count: pollCount,
+              subjects: pollSubjects
             })
           });
         } catch (e) {
@@ -2406,8 +2480,8 @@ All candidates must join today before 9:00 PM!"></textarea>
         }
       }
 
-      log.innerText = `✅ Dispatched 5-Poll Exam Rounds across ${chKeys.length} Channels and ${waGids.length} WhatsApp Groups with Anti-Ban Protection!`;
-      alert(`✅ Exam Polls launched across ${chKeys.length} Channels and ${waGids.length} Groups!`);
+      log.innerText = `✅ ${pollCount}-Poll Exam Rounds (${subjLabel}) → ${chKeys.length} Channels (instant) + ${waGids.length} WhatsApp Groups (anti-ban queue)!`;
+      alert(`✅ Exam Polls launched! ${chKeys.length} Channels + ${waGids.length} Groups · Subjects: ${subjLabel}`);
     }
 
     async function sendBulkBroadcast() {
@@ -3590,6 +3664,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json(res)
             return
 
+        if p.path == "/api/whatsapp/quick_add":
+            raw = body.get("text", "")
+            if not raw.strip():
+                self._send_json({"ok": False, "error": "no links given"})
+                return
+            res = whatsapp_pipeline.quick_add_groups(raw)
+            self._send_json(res)
+            return
+
         if p.path == "/api/whatsapp/logout":
             res = whatsapp_pipeline.logout_session()
             self._send_json({"ok": True, "session": res})
@@ -3684,6 +3767,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             delay_min = int(body.get("delay_min", 40))
             delay_max = int(body.get("delay_max", 60))
             q_count = int(body.get("questions_count", 5))
+            subjects = body.get("subjects", None)
 
             if gw:
                 reg = whatsapp_pipeline.load_wa_registry()
@@ -3700,7 +3784,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 attachment_url=att,
                 two_phase_answer=True,
                 delay_min=delay_min,
-                delay_max=delay_max
+                delay_max=delay_max,
+                subjects=subjects
             )
             self._send_json(res)
             return
@@ -3741,15 +3826,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
             ch_cfg = all_ch.get(ch, {})
             base = ch_cfg.get("base_exam", ch)
 
+            subjects = body.get("subjects", None)
             sent = 0
-            for _ in range(count):
-                qs = bank.pick(base, 1)
-                if not qs:
-                    qs = bank.pick("CURRENT", 1)
-                if qs:
-                    ok = eng.send_quiz(base, qs[0])
-                    if ok:
-                        sent += 1
+            # Subject-wise smart pick (same engine as WhatsApp) — Telegram sends instantly, no gaps needed (official Bot API)
+            picked = whatsapp_pipeline.pick_subject_questions(bank, base, count, subjects) or []
+            if len(picked) < count:
+                extra = bank.pick("CURRENT", count - len(picked)) or []
+                picked.extend(extra)
+            for q in picked[:count]:
+                ok = eng.send_quiz(base, q)
+                if ok:
+                    sent += 1
 
             mode_label = "Live Channel" if not dry_mode else "Verified Dry-Run Simulation"
             self._send_json({
