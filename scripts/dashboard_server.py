@@ -846,6 +846,28 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
 
   <!-- TAB: BULK BROADCAST & ATTACHMENTS (GROUPS & CHANNELS) -->
   <div id="tab-bulk-broadcast" class="tab-pane active">
+
+    <!-- 🧭 MISSION HOME: ఒక్క చూపులో అంతా అర్థమయ్యే setup guide -->
+    <div class="panel-card" id="setup-guide-card" style="border:1px solid #10b981;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <h2 style="font-size:15px;">🧭 Setup Guide — ఏం అయింది, ఏం మిగిలింది</h2>
+        <span id="sg-progress-label" style="font-size:12px; font-weight:800; color:#10b981;"></span>
+      </div>
+      <div style="background:#0b1220; border-radius:10px; height:10px; margin:8px 0 12px; overflow:hidden;">
+        <div id="sg-progress-bar" style="height:100%; width:0%; background:linear-gradient(90deg,#10b981,#38bdf8); transition:width 0.6s;"></div>
+      </div>
+      <div id="sg-steps" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:8px;"></div>
+    </div>
+
+    <!-- 📆 TODAY'S TIMELINE: ఈరోజు ఏ టైంకి ఏం వెళ్తుంది -->
+    <div class="panel-card" id="today-timeline-card" style="border:1px solid #38bdf8;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+        <h2 style="font-size:15px;">📆 ఈరోజు Timeline — Auto Sends</h2>
+        <span id="tl-next-chip" style="font-size:12px; font-weight:800; color:#fbbf24;"></span>
+      </div>
+      <div id="tl-list" style="display:flex; flex-direction:column; gap:4px;"></div>
+    </div>
+
     <div class="panel-card">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
         <h2>🚀 Bulk Message & Live Dispatcher (WhatsApp Groups + Telegram Channels)</h2>
@@ -1461,7 +1483,7 @@ All candidates must join today before 9:00 PM!"></textarea>
       if (id === 'tab-dynamic-channels') { loadChannels(); loadTgAutopilotJobs(); }
       if (id === 'tab-history') { loadHistory(); loadHealth(); }
       if (id === 'tab-bundles') loadBundles();
-      if (id === 'tab-bulk-broadcast') loadBulkTargets();
+      if (id === 'tab-bulk-broadcast') { loadBulkTargets(); renderMissionHome(); }
       if (id === 'tab-squads') loadSquads();
       if (id === 'tab-members') loadMembers();
     }
@@ -1829,6 +1851,75 @@ All candidates must join today before 9:00 PM!"></textarea>
     }
 
     // ====== 📡 HEADER LIVE STATUS STRIP (ప్రతి tab లో కనిపిస్తుంది) ======
+    // 🧭 MISSION HOME — ఏం అయింది / ఏం మిగిలింది + ఈరోజు timeline
+    async function renderMissionHome() {
+      try {
+        const [hr, sr, gr] = await Promise.all([
+          fetch('/api/health'), fetch('/api/whatsapp/schedules'), fetch('/api/whatsapp/groups')
+        ]);
+        const h = await hr.json(), s = await sr.json(), g = await gr.json();
+        const groups = (g.groups || []).length;
+        const jobs = (s.jobs || []).filter(j => j.enabled !== false);
+        const steps = [
+          {done: !!h.whatsapp_connected, icon: '💚', t: 'WhatsApp Connect', hint: 'QR scan ఒక్కసారే — తర్వాత never-disconnect engine చూసుకుంటుంది', tab: 'tab-wa-dispatch'},
+          {done: !!h.telegram_live, icon: '📢', t: 'Telegram Bot Token', hint: 'env/.env లో BOT_TOKEN పెడితే TG LIVE అవుతుంది', tab: 'tab-dynamic-channels'},
+          {done: groups > 0, icon: '👥', t: 'Groups Add (' + groups + ' ఉన్నాయి)', hint: 'Excel upload లేదా Quick-Add తో groups పెట్టండి', tab: 'tab-excel-import'},
+          {done: jobs.length > 0, icon: '⏰', t: 'Daily Schedule (' + jobs.length + ' slots)', hint: 'Builder లో time + ఎన్ని రోజులో set చేయండి', tab: 'tab-wa-dispatch'},
+          {done: (h.total_fresh || 0) >= 50, icon: '📦', t: 'Question Stock (' + (h.total_fresh || 0) + ' fresh)', hint: 'తక్కువైనా పర్లేదు — system auto top-up చేస్తుంది', tab: 'tab-control'}
+        ];
+        const done = steps.filter(x => x.done).length;
+        document.getElementById('sg-progress-bar').style.width = Math.round(done / steps.length * 100) + '%';
+        document.getElementById('sg-progress-label').textContent = done === steps.length
+          ? '🎉 5/5 — అంతా READY, Full Auto-Pilot!' : done + '/' + steps.length + ' steps complete';
+        document.getElementById('sg-steps').innerHTML = steps.map(x => `
+          <div style="display:flex; align-items:center; gap:8px; background:${x.done ? 'rgba(16,185,129,0.08)' : 'rgba(251,191,36,0.07)'}; border:1px solid ${x.done ? '#10b981' : '#fbbf24'}; border-radius:10px; padding:8px 10px;">
+            <span style="font-size:18px;">${x.done ? '✅' : x.icon}</span>
+            <div style="flex:1;">
+              <div style="font-size:12px; font-weight:800;">${x.t}</div>
+              <div style="font-size:10px; color:var(--text-muted);">${x.hint}</div>
+            </div>
+            ${x.done ? '' : `<button class="btn btn-outline" style="padding:3px 8px; font-size:10px; white-space:nowrap;" onclick="switchTab('${x.tab}')">👉 ఇక్కడ</button>`}
+          </div>`).join('');
+
+        // 📆 today's timeline
+        const today = new Date().toISOString().slice(0, 10);
+        const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+        const items = jobs
+          .filter(j => !(j.start_date && j.start_date > today))
+          .map(j => {
+            const p = (j.time || '00:00').split(':');
+            const m = parseInt(p[0]) * 60 + parseInt(p[1]);
+            return Object.assign({}, j, {_m: m, _done: (j.last_run || '').startsWith(today)});
+          })
+          .sort((a, b) => a._m - b._m);
+        const next = items.find(x => !x._done && x._m >= nowMin);
+        const tl = document.getElementById('tl-list');
+        const chip = document.getElementById('tl-next-chip');
+        if (items.length === 0) {
+          tl.innerHTML = '<div style="color:var(--text-muted); font-size:12px; padding:8px;">ఈరోజు scheduled sends లేవు — పైన Setup Guide లో ⏰ step తో ఒక slot పెట్టండి!</div>';
+          chip.textContent = '';
+        } else {
+          tl.innerHTML = items.map(j => {
+            const isNext = next && j.id === next.id;
+            const state = j._done ? '✅ Sent' : (j._m < nowMin ? '🕒 ఈరోజు దాటింది' : (isNext ? '⏭️ NEXT' : '🕒 Upcoming'));
+            const modeIc = j.mode === 'tg' ? '📢 TG' : (j.mode === 'both' ? '📢+💚' : '💚 WA');
+            return `<div style="display:flex; align-items:center; gap:10px; padding:6px 10px; border-radius:8px; ${isNext ? 'background:rgba(251,191,36,0.1); border:1px solid #fbbf24;' : 'border-bottom:1px solid rgba(255,255,255,0.05);'}">
+              <span style="font-family:monospace; font-weight:800; color:#38bdf8; font-size:14px;">${j.time}</span>
+              <span style="font-size:12px; flex:1;">${j.label || 'Quiz Drill'} <span style="color:var(--text-muted);">· ${modeIc} · ${j.questions_count || 5} Qs</span></span>
+              <span style="font-size:11px; font-weight:700;">${state}</span>
+            </div>`;
+          }).join('');
+          if (next) {
+            let dm = next._m - nowMin; if (dm < 0) dm += 1440;
+            chip.textContent = '⏭️ Next: ' + next.time + ' (ఇంకో ' + (dm >= 60 ? Math.floor(dm / 60) + 'h ' + (dm % 60) + 'm' : dm + 'm') + ' లో)';
+          } else {
+            chip.textContent = items.some(x => x._done) ? '✅ ఈరోజు slots అన్నీ పూర్తి — రేపు మళ్ళీ auto!' : '';
+          }
+        }
+      } catch (e) { /* silent */ }
+    }
+    setInterval(renderMissionHome, 60000);
+
     async function refreshStatusStrip() {
       try {
         const r = await fetch('/api/health');
@@ -2653,6 +2744,7 @@ All candidates must join today before 9:00 PM!"></textarea>
             </div>
           `;
         }).join('');
+        try { renderMissionHome(); } catch (e2) {}
       } catch (e) {
         console.error(e);
       }
@@ -3913,6 +4005,7 @@ All candidates must join today before 9:00 PM!"></textarea>
     loadGapSettings();
     loadBulkTargets();
     refreshStatusStrip();
+    renderMissionHome();
     setInterval(fetchStats, 10000);
     setInterval(pollPipelineStatus, 1500);
     setInterval(loadWASession, 10000);
