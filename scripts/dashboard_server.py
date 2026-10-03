@@ -153,6 +153,14 @@ HTML_PAGE = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- 📱 PWA: phone home-screen లో app లా install అవుతుంది -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0b1220">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon.svg">
   <title>StudentUp — Ultimate Control, Excel Importer & Bundle Hub</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -245,8 +253,10 @@ HTML_PAGE = """<!DOCTYPE html>
       <p style="color:var(--text-muted); font-size:12px; margin-top:4px;">WhatsApp + Telegram Bulk Delivery · Anti-Ban Engine</p>
     </div>
     <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-      <span class="badge-shield">🛡️ ANTI-BAN INTERLEAVED</span>
-      <span class="badge-live">● ENGINE LIVE</span>
+      <span id="live-status-strip" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+        <span class="badge-shield">🛡️ ANTI-BAN INTERLEAVED</span>
+        <span class="badge-live">● ENGINE LIVE</span>
+      </span>
       <button class="btn btn-outline" onclick="location.reload()">🔄 Refresh</button>
       <button class="btn btn-outline" style="border-color:#f59e0b; color:#f59e0b;" onclick="changeDashPassword()" title="Change admin password">🔑 Password</button>
       <button class="btn btn-outline" style="border-color:#34d399; color:#34d399;" onclick="toggleIpLockPanel()" title="Allow only specific IP addresses">🛡️ IP Lock</button>
@@ -1754,6 +1764,23 @@ All candidates must join today before 9:00 PM!"></textarea>
         }
       } catch (e) { console.error('history load:', e); }
     }
+
+    // ====== 📡 HEADER LIVE STATUS STRIP (ప్రతి tab లో కనిపిస్తుంది) ======
+    async function refreshStatusStrip() {
+      try {
+        const r = await fetch('/api/health');
+        const d = await r.json();
+        const chip = (txt, on) =>
+          `<span style="font-size:10px; font-weight:800; padding:3px 9px; border-radius:12px; border:1px solid ${on ? '#34d399' : '#f59e0b'}; color:${on ? '#34d399' : '#f59e0b'}; background:${on ? 'rgba(52,211,153,0.08)' : 'rgba(245,158,11,0.07)'};">${txt}</span>`;
+        document.getElementById('live-status-strip').innerHTML =
+          chip(d.telegram_live ? '📢 TG LIVE' : '📢 TG DRY', d.telegram_live) +
+          chip(d.whatsapp_connected ? '💚 WA ON' : '💚 WA OFF', d.whatsapp_connected) +
+          chip('🤖 ' + (d.autopilot_slots + d.wa_slots) + ' SLOTS', (d.autopilot_slots + d.wa_slots) > 0) +
+          chip('📦 ' + d.total_fresh + ' FRESH', d.total_fresh > 50) +
+          chip(d.ip_lock_on ? '🛡️ IP LOCK' : '🔑 PW ONLY', d.ip_lock_on);
+      } catch (e) {}
+    }
+    setInterval(refreshStatusStrip, 60000);
 
     // ================= 🩺 MISSION CONTROL (SYSTEM HEALTH) =================
     async function loadHealth() {
@@ -3702,6 +3729,7 @@ All candidates must join today before 9:00 PM!"></textarea>
     loadBundles();
     loadGapSettings();
     loadBulkTargets();
+    refreshStatusStrip();
     setInterval(fetchStats, 10000);
     setInterval(pollPipelineStatus, 1500);
     setInterval(loadWASession, 10000);
@@ -3841,6 +3869,37 @@ class DashboardHandler(BaseHTTPRequestHandler):
         # 🔒 Access lock: everything requires login except the login page itself
         if p.path == "/login":
             self._deny(is_api=False)
+            return
+
+        # 📱 PWA assets — login అవసరం లేదు (browser install కోసం), IP lock apply అవుతుంది
+        if p.path == "/manifest.json":
+            body = json.dumps({
+                "name": "StudentUp Control Hub",
+                "short_name": "StudentUp",
+                "start_url": "/",
+                "display": "standalone",
+                "background_color": "#0b1220",
+                "theme_color": "#0b1220",
+                "icons": [{"src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}],
+            }).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/manifest+json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        if p.path == "/icon.svg":
+            body = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+                    '<rect width="100" height="100" rx="20" fill="#0b1220"/>'
+                    '<text x="50" y="62" font-size="52" text-anchor="middle">🚀</text>'
+                    '<text x="50" y="92" font-size="14" text-anchor="middle" fill="#38bdf8" '
+                    'font-family="sans-serif" font-weight="bold">StudentUp</text></svg>').encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "image/svg+xml")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
             return
         if not self._authed():
             self._deny(is_api=p.path.startswith("/api/"))

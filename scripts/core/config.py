@@ -229,15 +229,23 @@ PUBLIC_CHANNELS = [k for k, v in CHANNELS.items() if v["public"] and k != "JOBS"
 
 def channel_chat_id(key: str) -> str:
     """
-    Resolve the Telegram chat target for a channel.
-    Priority: env CHANNEL_<KEY> (numeric id or @username) -> config username.
+    Resolve the Telegram chat target for a channel OR group.
+    Priority: env CHANNEL_<KEY> -> registered chat_id (numeric -100... or @user)
+              -> config username.
     """
     explicit = env(f"CHANNEL_{key}", "")
     if explicit:
         return explicit.strip()
     cfg = CHANNELS.get(key, {})
-    uname = cfg.get("username", "")
-    return f"@{uname}" if uname else ""
+    # ✅ custom channels/groups registered from the dashboard carry their own
+    # chat_id (e.g. "-1001234567890" for groups) — ALWAYS honour it first.
+    cid = str(cfg.get("chat_id", "") or "").strip()
+    if cid:
+        if cid.lstrip("-").isdigit():
+            return cid                      # numeric id as-is
+        return "@" + cid.lstrip("@")        # @username (never double-@)
+    uname = str(cfg.get("username", "") or "").strip()
+    return ("@" + uname.lstrip("@")) if uname else ""
 
 
 # ---------------------------------------------------------------------------
