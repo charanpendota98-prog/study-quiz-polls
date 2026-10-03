@@ -21,13 +21,15 @@ Engineered specifically for 100+ to 150+ WhatsApp Groups:
      - Broadcast runs in a detached thread so the Web Dashboard never times out or freezes.
      - Live progress streaming, live active queues, and abort controls.
 """
+import os
 import time
 import random
 import json
 import threading
 import urllib.request
 import urllib.parse
-from datetime import datetime
+import urllib.error
+from datetime import datetime, timedelta
 from pathlib import Path
 from core import config
 from core.store import load_json, save_json_atomic
@@ -38,6 +40,39 @@ WA_CONFIG_FILE = config.DATA / "whatsapp_groups.json"
 WA_SESSION_FILE = config.DATA / "whatsapp_session.json"
 WA_SCHEDULES_FILE = config.DATA / "whatsapp_schedules.json"
 ZERO_WIDTH_CHARS = ["\u200B", "\u200C", "\u200D", "\uFEFF"]
+
+# ---------------------------------------------------------------------
+# REAL WHATSAPP BRIDGE (gateway/wa_bridge.js — Baileys WhatsApp Web)
+# The Node bridge holds the actual WhatsApp Web session. All login /
+# group-sync / send operations go through it. If the bridge is not
+# running, the dashboard clearly reports it instead of faking success.
+# ---------------------------------------------------------------------
+WA_BRIDGE_URL = os.environ.get("WA_BRIDGE_URL", "http://127.0.0.1:3900").rstrip("/")
+
+
+def _bridge_call(path: str, payload: dict = None, method: str = None, timeout: int = 40):
+    """Call the Node WhatsApp bridge. Returns dict or None if bridge is down."""
+    url = f"{WA_BRIDGE_URL}{path}"
+    try:
+        if payload is not None or (method or "").upper() == "POST":
+            data = json.dumps(payload or {}).encode("utf-8")
+            req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+        else:
+            req = urllib.request.Request(url)
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        try:
+            return json.loads(e.read().decode("utf-8"))
+        except Exception:
+            return {"ok": False, "error": f"HTTP {e.code}"}
+    except Exception:
+        return None
+
+
+def bridge_is_connected() -> bool:
+    st = _bridge_call("/status", timeout=5)
+    return bool(st and st.get("connected"))
 
 HEADERS = [
     "🎯 *Daily Exam Quiz Challenge*",
@@ -67,17 +102,17 @@ EXEC_STATE = {
 }
 
 DEFAULT_SESSION = {
-    "status": "connected",
-    "phone": "+91 98XXXXXXXX",
-    "device_name": "StudentUp Dispatch Node #1 (Always-On)",
-    "connected_at": "2026-09-26 10:00",
-    "qr_data": "https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=STUDENTUP_WA_AUTH_SESSION_KEY_778899",
-    "pairing_code": "STUD-8899",
-    "scanned_dialogs_count": 27,
+    "status": "bridge_offline",
+    "phone": "",
+    "device_name": "StudentUp Dispatch Node #1",
+    "connected_at": "",
+    "qr_data": "",
+    "pairing_code": "",
+    "scanned_dialogs_count": 0,
     "auto_reconnect": True,
     "heartbeat_interval_sec": 30,
-    "last_sync": "Just now",
-    "last_heartbeat": "Just now"
+    "last_sync": "",
+    "last_heartbeat": ""
 }
 
 
@@ -109,57 +144,137 @@ def save_schedules(jobs: list):
     save_json_atomic(WA_SCHEDULES_FILE, {"jobs": jobs})
 
 
-def get_session_info() -> dict:
-    return load_session()
-
-
-def request_login_qr() -> dict:
-    import uuid
+def _session_from_bridge(st: dict) -> dict:
+    """Map the Node bridge /status payload onto the session dict the dashboard expects."""
     sess = load_session()
-    token = uuid.uuid4().hex[:12].upper()
-    sess["status"] = "qr_ready"
-    sess["qr_data"] = f"https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=STUDENTUP_WA_{token}"
-    sess["pairing_code"] = f"{token[:4]}-{token[4:8]}"
-    save_session(sess)
-    return sess
-
-
-def request_pairing_code(phone_number: str) -> dict:
-    import uuid
-    sess = load_session()
-    digits = uuid.uuid4().hex[:8].upper()
-    code = f"{digits[:4]}-{digits[4:8]}"
-    sess["status"] = "code_ready"
-    sess["phone"] = phone_number.strip()
-    sess["pairing_code"] = code
-    save_session(sess)
-    return sess
-
-
-def confirm_session_connected(device_name: str = "Primary WhatsApp Phone") -> dict:
-    sess = load_session()
-    sess["status"] = "connected"
-    sess["device_name"] = device_name
-    sess["connected_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
-    sess["last_sync"] = "Just now"
+    sess["status"] = st.get("status", "offline")
+    sess["phone"] = st.get("phone") or sess.get("phone") or ""
+    sess["device_name"] = st.get("device_name") or "StudentUp Dispatch Node #1"
+    sess["qr_data"] = st.get("qr_data") or ""
+    sess["pairing_code"] = st.get("pairing_code") or ""
+    sess["connected_at"] = st.get("connected_at") or sess.get("connected_at") or ""
+    sess["bridge_groups_count"] = st.get("groups_count", 0)
+    sess["has_saved_session"] = bool(st.get("has_saved_session"))
+    sess["last_error"] = st.get("last_error") or ""
     sess["last_heartbeat"] = datetime.now().strftime("%H:%M:%S")
     save_session(sess)
     return sess
 
 
-def sync_dialogs_from_session() -> dict:
-    """Simulate or query all joined groups and channels from the active WhatsApp session."""
-    d = load_wa_registry()
-    groups = d.get("groups", [])
+def get_session_info() -> dict:
+    """REAL session status straight from the Baileys bridge (never faked)."""
+    st = _bridge_call("/status", timeout=6)
+    if st is None:
+        sess = load_session()
+        sess["status"] = "bridge_offline"
+        sess["message"] = (
+            "WhatsApp bridge is not running. Start it with: cd gateway && npm install && node wa_bridge.js"
+        )
+        save_session(sess)
+        return sess
+    return _session_from_bridge(st)
+
+
+def request_login_qr() -> dict:
+    """Ask the bridge to open a REAL WhatsApp Web session and return the real QR."""
+    st = _bridge_call("/login/qr", payload={}, timeout=45)
+    if st is None:
+        sess = load_session()
+        sess["status"] = "bridge_offline"
+        sess["qr_data"] = ""
+        sess["message"] = (
+            "WhatsApp bridge is offline — start it first: cd gateway && npm install && node wa_bridge.js"
+        )
+        save_session(sess)
+        return sess
+    return _session_from_bridge(st)
+
+
+def request_pairing_code(phone_number: str) -> dict:
+    """Request a REAL 8-character WhatsApp pairing code for the given number."""
+    st = _bridge_call("/login/code", payload={"phone": phone_number.strip()}, timeout=45)
+    if st is None:
+        sess = load_session()
+        sess["status"] = "bridge_offline"
+        sess["pairing_code"] = ""
+        sess["message"] = (
+            "WhatsApp bridge is offline — start it first: cd gateway && npm install && node wa_bridge.js"
+        )
+        save_session(sess)
+        return sess
+    return _session_from_bridge(st)
+
+
+def confirm_session_connected(device_name: str = "Primary WhatsApp Phone") -> dict:
+    """Connection is confirmed by the bridge itself — this just re-checks live status."""
+    return get_session_info()
+
+
+def logout_session() -> dict:
+    st = _bridge_call("/logout", payload={}, timeout=20)
     sess = load_session()
-    sess["scanned_dialogs_count"] = len(groups)
+    sess["status"] = "offline" if st else "bridge_offline"
+    sess["qr_data"] = ""
+    sess["pairing_code"] = ""
+    save_session(sess)
+    return sess
+
+
+def sync_dialogs_from_session() -> dict:
+    """Pull the REAL list of joined WhatsApp groups from the live session and
+    merge them into the local registry (upsert by JID, auto exam-category)."""
+    st = _bridge_call("/groups?fresh=1", timeout=45)
+    if st is None:
+        return {
+            "ok": False,
+            "error": "WhatsApp bridge is offline. Start it: cd gateway && node wa_bridge.js",
+            "dialogs_count": 0,
+        }
+    if not st.get("ok"):
+        return {
+            "ok": False,
+            "error": st.get("error", "WhatsApp not connected — scan the QR first."),
+            "dialogs_count": 0,
+        }
+
+    real_groups = st.get("groups", [])
+    d = load_wa_registry()
+    existing = {g.get("jid"): g for g in d.get("groups", [])}
+    added, updated = 0, 0
+    for rg in real_groups:
+        jid = rg.get("jid")
+        if not jid:
+            continue
+        if jid in existing:
+            existing[jid]["name"] = rg.get("name", existing[jid].get("name"))
+            existing[jid]["participants"] = rg.get("participants", 0)
+            existing[jid]["real"] = True
+            updated += 1
+        else:
+            d.setdefault("groups", []).append({
+                "id": f"G_{len(d.get('groups', [])) + 1}_{int(time.time()) % 1000}",
+                "name": rg.get("name", jid),
+                "jid": jid,
+                "category": channel_router.detect_exam_base(rg.get("name", "")),
+                "shift": "ALL_DAY",
+                "active": True,
+                "participants": rg.get("participants", 0),
+                "real": True,
+            })
+            added += 1
+    save_wa_registry(d)
+
+    sess = load_session()
+    sess["scanned_dialogs_count"] = len(real_groups)
     sess["last_sync"] = datetime.now().strftime("%H:%M:%S")
     save_session(sess)
     return {
         "ok": True,
-        "dialogs_count": len(groups),
-        "groups": groups,
-        "last_sync": sess["last_sync"]
+        "dialogs_count": len(real_groups),
+        "added": added,
+        "updated": updated,
+        "groups": d.get("groups", []),
+        "last_sync": sess["last_sync"],
     }
 
 
@@ -442,6 +557,50 @@ def build_question_only_post(
     return apply_stealth_jitter("\n".join(lines))
 
 
+def build_native_poll_payload(
+    q: dict,
+    category: str,
+    q_index: int = 1,
+    total_q: int = 1,
+    english_first: bool = True
+) -> dict:
+    """Build a REAL tappable WhatsApp poll (sent by the Baileys bridge).
+    WhatsApp limits: poll name ≤ 255 chars, ≤ 12 options, option ≤ 100 chars."""
+    q_en = (q.get("q_en") or "").strip()
+    q_te = (q.get("q_te") or "").strip()
+
+    parts = [f"🎯 Q {q_index}/{total_q} • {category}"]
+    primary, secondary = (q_en, q_te) if english_first else (q_te, q_en)
+    if primary:
+        parts.append(primary)
+    if secondary and secondary != primary:
+        parts.append(secondary)
+    name = "\n".join(parts)[:250]
+
+    opts_en = q.get("options_en", []) or []
+    opts_te = q.get("options_te", []) or []
+    options = []
+    for i in range(max(len(opts_en), len(opts_te))):
+        o_en = (opts_en[i] if i < len(opts_en) else "").strip()
+        o_te = (opts_te[i] if i < len(opts_te) else "").strip()
+        if o_en and o_te and o_en.lower() != o_te.lower():
+            combined = f"{o_en} / {o_te}" if english_first else f"{o_te} / {o_en}"
+        else:
+            combined = o_en or o_te
+        if combined:
+            options.append(combined[:95])
+    # WhatsApp rejects duplicate poll options — de-duplicate while keeping order
+    seen, unique = set(), []
+    for o in options:
+        key = o.lower()
+        if key not in seen:
+            seen.add(key)
+            unique.append(o)
+    if len(unique) < 2:
+        return None
+    return {"name": name, "options": unique[:12]}
+
+
 def build_answer_key_post(
     q: dict,
     category: str,
@@ -475,19 +634,37 @@ def build_answer_key_post(
     return apply_stealth_jitter("\n".join(lines))
 
 
-def _dispatch_raw(gateway_url: str, jid: str, text: str, attachment: str = ""):
-    if not gateway_url:
-        return True, "Simulated Dispatch (OK)"
-    try:
-        payload = {"recipient": jid, "message": text}
-        if attachment:
-            payload["attachment"] = attachment
-        req_data = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(gateway_url, data=req_data, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=12) as r:
-            return True, f"HTTP {r.status}"
-    except Exception as e:
-        return False, str(e)
+def _dispatch_raw(gateway_url: str, jid: str, text: str, attachment: str = "", poll: dict = None):
+    """Send for real through the Baileys bridge. Order of preference:
+    1. Local bridge (gateway/wa_bridge.js) — text, media URL and native polls.
+    2. Legacy external gateway webhook (if gateway_url configured).
+    3. Otherwise honestly report that nothing was sent (no fake OK)."""
+    payload = {"jid": jid, "text": text}
+    if attachment:
+        payload["attachment"] = attachment
+    if poll:
+        payload["poll"] = poll
+
+    res = _bridge_call("/send", payload=payload, timeout=60)
+    if res is not None:
+        if res.get("ok"):
+            return True, f"✅ REAL SEND via WhatsApp Web ({'+'.join(res.get('sent', []))})"
+        return False, f"Bridge error: {res.get('error', 'unknown')}"
+
+    # Bridge not running — fall back to legacy external webhook gateway
+    if gateway_url:
+        try:
+            legacy = {"recipient": jid, "message": text}
+            if attachment:
+                legacy["attachment"] = attachment
+            req_data = json.dumps(legacy).encode("utf-8")
+            req = urllib.request.Request(gateway_url, data=req_data, headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=12) as r:
+                return True, f"HTTP {r.status} (external gateway)"
+        except Exception as e:
+            return False, str(e)
+
+    return False, "NOT SENT — WhatsApp bridge offline (start: cd gateway && node wa_bridge.js)"
 
 
 def _log(msg: str):
@@ -560,6 +737,18 @@ def start_interleaved_broadcast(
             bank = Bank()
             gw = reg.get("gateway_url", "").strip()
 
+            # REAL MODE: when the Baileys bridge is connected we are posting to
+            # real WhatsApp groups → honour the FULL anti-ban delays. In
+            # simulation/test mode (bridge offline) delays are capped short.
+            real_mode = bridge_is_connected()
+            if real_mode:
+                _log("🟢 REAL WhatsApp Web session detected — full anti-ban timing engaged, native polls ON.")
+            else:
+                _log("⚪ Bridge offline — DRY-RUN mode (nothing actually sent, delays shortened).")
+
+            def _anti_ban_sleep(seconds: float):
+                time.sleep(seconds if real_mode else min(seconds, 2.0))
+
             completed_groups_count = 0
 
             for grp_idx, grp in enumerate(groups):
@@ -600,6 +789,7 @@ def start_interleaved_broadcast(
 
                     EXEC_STATE["current_stage"] = f"Posting Poll {q_idx + 1}/{q_count}"
 
+                    poll_payload = None
                     if is_question and qs:
                         q = qs[q_idx]
                         txt = build_question_only_post(
@@ -608,11 +798,20 @@ def start_interleaved_broadcast(
                             total_q=q_count,
                             english_first=english_first
                         )
+                        # Native tappable WhatsApp poll (real vote counts, anti-ban friendly: 1 message)
+                        poll_payload = build_native_poll_payload(
+                            q, chosen_cat,
+                            q_index=q_idx + 1, total_q=q_count,
+                            english_first=english_first
+                        )
                     else:
                         txt = apply_stealth_jitter(custom_message)
 
                     _log(f"   📤 Poll {q_idx + 1}/{q_count} -> Dispatched: {pool_label}")
-                    ok, res = _dispatch_raw(gw, grp["jid"], txt, attachment=attachment_url)
+                    ok, res = _dispatch_raw(gw, grp["jid"], txt, attachment=attachment_url, poll=poll_payload)
+                    if not ok and poll_payload:
+                        # Poll rejected (e.g. announcement-only community) → retry as plain text
+                        ok, res = _dispatch_raw(gw, grp["jid"], txt, attachment=attachment_url)
                     _log(f"      -> Gateway Status: {res}")
 
                     EXEC_STATE["progress"] += 1
@@ -621,8 +820,7 @@ def start_interleaved_broadcast(
                     if q_idx < q_count - 1 and not EXEC_STATE["stop_requested"]:
                         poll_gap = random.uniform(delay_min, delay_max)
                         _log(f"   ⏳ Natural Human Anti-Ban Gap: waiting {poll_gap:.1f}s before next poll...")
-                        # Scale gracefully during live operations and automated tests
-                        time.sleep(min(poll_gap, 2.0))
+                        _anti_ban_sleep(poll_gap)
 
                 completed_groups_count += 1
 
@@ -631,12 +829,12 @@ def start_interleaved_broadcast(
                     if completed_groups_count % 5 == 0:
                         batch_cooldown = random.uniform(60, 90)
                         _log(f"☕ 5 Groups Completed! Anti-Ban Cooldown: pausing {batch_cooldown:.1f}s before next batch...")
-                        time.sleep(min(batch_cooldown, 3.0))
+                        _anti_ban_sleep(batch_cooldown if real_mode else 3.0)
                     else:
                         # Inter-group safety pause
                         group_pause = random.uniform(5, 12)
                         _log(f"   🔄 Group completed. Switching to next group in {group_pause:.1f}s...")
-                        time.sleep(min(group_pause, 1.0))
+                        _anti_ban_sleep(group_pause if real_mode else 1.0)
 
             _log(f"🎉 Anti-Ban Dispatch Successfully Completed across {completed_groups_count} groups ({EXEC_STATE['progress']} polls)!")
         except Exception as ex:

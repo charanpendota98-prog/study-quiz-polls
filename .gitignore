@@ -55,3 +55,9 @@ data/sheet_queue.json
 data/jobs_board.json
 data/notebook_drafts.json
 data/gate_state.json
+
+# WhatsApp bridge (real Baileys gateway)
+gateway/node_modules/
+gateway/auth/
+gateway/package-lock.json
+data/whatsapp_session.json

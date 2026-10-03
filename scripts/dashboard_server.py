@@ -179,6 +179,7 @@ HTML_PAGE = """<!DOCTYPE html>
         <button class="btn btn-accent" style="font-size:12px; padding:6px 12px;" onclick="syncWADialogs()">🔄 Auto-Sync Joined Groups</button>
         <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="showQRLoginModal()">📷 Scan QR Login</button>
         <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="showCodeLoginModal()">🔢 Login with Code</button>
+        <button class="btn btn-outline" style="font-size:12px; padding:6px 12px; border-color:#ef4444; color:#ef4444;" onclick="logoutWASession()">🚪 Unlink Device</button>
       </div>
     </div>
     <div id="wa-login-dialog" style="display:none; margin-top:14px; background:#050811; padding:14px; border-radius:8px; border:1px solid var(--border);"></div>
@@ -1084,7 +1085,7 @@ All candidates must join today before 9:00 PM!"></textarea>
           statText.innerText = 'Status: Idle';
         }
         if (d.logs && d.logs.length > 0) {
-          logBox.innerText = d.logs.join('\n');
+          logBox.innerText = d.logs.join('\\n');
           logBox.scrollTop = logBox.scrollHeight;
         }
       } catch (e) {
@@ -1110,19 +1111,27 @@ All candidates must join today before 9:00 PM!"></textarea>
           if (s.status === 'connected') {
             badge.style.background = '#10b981';
             badge.style.color = '#050811';
-            badge.innerText = '● ALWAYS-ON CONNECTED';
+            badge.innerText = '● REAL WHATSAPP CONNECTED';
           } else if (s.status === 'qr_ready') {
             badge.style.background = '#f59e0b';
             badge.style.color = '#050811';
-            badge.innerText = '📷 QR CODE READY';
+            badge.innerText = '📷 QR CODE READY — SCAN NOW';
           } else if (s.status === 'code_ready') {
             badge.style.background = '#38bdf8';
             badge.style.color = '#050811';
             badge.innerText = '🔢 PAIRING CODE: ' + s.pairing_code;
+          } else if (s.status === 'connecting') {
+            badge.style.background = '#6366f1';
+            badge.style.color = '#fff';
+            badge.innerText = '⏳ CONNECTING TO WHATSAPP...';
+          } else if (s.status === 'bridge_offline') {
+            badge.style.background = '#ef4444';
+            badge.style.color = '#fff';
+            badge.innerText = '⚠️ BRIDGE OFFLINE (run: node gateway/wa_bridge.js)';
           } else {
             badge.style.background = '#ef4444';
             badge.style.color = '#fff';
-            badge.innerText = '○ DISCONNECTED';
+            badge.innerText = '○ NOT LINKED — SCAN QR TO LOGIN';
           }
         }
       } catch (e) {
@@ -1137,35 +1146,112 @@ All candidates must join today before 9:00 PM!"></textarea>
       try {
         const res = await fetch('/api/whatsapp/sync_dialogs', {method: 'POST'});
         const d = await res.json();
-        box.innerHTML = `<div style="color:#10b981; font-weight:700;">✅ Synced ${d.dialogs_count || 0} active dialogs from WhatsApp!</div>`;
+        if (d.ok === false) {
+          box.innerHTML = `<div style="color:#ef4444; font-weight:700;">❌ ${d.error || 'Sync failed — connect WhatsApp first (Scan QR Login).'}</div>`;
+          return;
+        }
+        box.innerHTML = `<div style="color:#10b981; font-weight:700;">✅ Synced ${d.dialogs_count || 0} REAL joined groups from your WhatsApp! (${d.added || 0} new, ${d.updated || 0} updated)</div>`;
         loadWASession();
         loadWAGroups();
         fetchStats();
-        setTimeout(() => { box.style.display = 'none'; }, 4000);
+        setTimeout(() => { box.style.display = 'none'; }, 5000);
       } catch (e) {
         box.innerHTML = '<div style="color:#ef4444;">❌ Failed to sync: ' + e + '</div>';
       }
     }
 
+    let waLoginPoller = null;
+
+    function stopWALoginPoller() {
+      if (waLoginPoller) { clearInterval(waLoginPoller); waLoginPoller = null; }
+    }
+
+    function closeWALoginDialog() {
+      stopWALoginPoller();
+      const box = document.getElementById('wa-login-dialog');
+      if (box) box.style.display = 'none';
+    }
+
+    // Poll the REAL session status every 2.5s until the phone actually links.
+    function startWALoginPoller(mode) {
+      stopWALoginPoller();
+      waLoginPoller = setInterval(async () => {
+        try {
+          const res = await fetch('/api/whatsapp/session');
+          const s = await res.json();
+          loadWASession();
+          const box = document.getElementById('wa-login-dialog');
+          if (!box) return;
+          if (s.status === 'connected') {
+            stopWALoginPoller();
+            box.innerHTML = `<div style="color:#10b981; font-weight:700;">🎉 REAL WhatsApp Linked Successfully! Device: ${s.device_name || ''} ${s.phone || ''}<br><span style="font-size:12px; color:#cbd5e1;">Auto-syncing your joined groups now...</span></div>`;
+            loadWAGroups();
+            fetchStats();
+            try { await fetch('/api/whatsapp/sync_dialogs', {method: 'POST'}); } catch (_) {}
+            loadWAGroups();
+            setTimeout(() => { box.style.display = 'none'; }, 5000);
+          } else if (mode === 'qr' && s.status === 'qr_ready' && s.qr_data) {
+            const img = document.getElementById('wa-live-qr-img');
+            if (img && img.src !== s.qr_data) img.src = s.qr_data;  // QR auto-refreshes every ~60s
+            else if (!img) showQRLoginModal();  // QR arrived after "not ready" screen
+          } else if (mode === 'code' && s.status === 'code_ready' && s.pairing_code) {
+            const codeEl = document.getElementById('wa-live-pairing-code');
+            if (codeEl && codeEl.innerText !== s.pairing_code) codeEl.innerText = s.pairing_code;
+          } else if (s.status === 'offline' && s.last_error) {
+            stopWALoginPoller();
+            box.innerHTML = `<div style="color:#ef4444; font-weight:700;">❌ Could not reach WhatsApp servers from this machine.</div>
+              <div style="font-size:12px; color:#cbd5e1; margin-top:6px;">Detail: ${s.last_error}<br>
+              Check the server's internet access / firewall (web.whatsapp.com must be reachable), then retry.</div>
+              <button class="btn btn-accent" style="font-size:11px; padding:5px 10px; margin-top:8px;" onclick="showQRLoginModal()">🔄 Retry QR Login</button>`;
+          }
+        } catch (e) { /* keep polling */ }
+      }, 2500);
+    }
+
     async function showQRLoginModal() {
       const box = document.getElementById('wa-login-dialog');
       box.style.display = 'block';
-      box.innerHTML = '<div style="color:#38bdf8;">Generating Ultra-Secure WhatsApp Web QR Code...</div>';
+      box.innerHTML = '<div style="color:#38bdf8;">🔐 Opening REAL WhatsApp Web session & generating live QR... (takes ~5-10s)</div>';
       try {
         const res = await fetch('/api/whatsapp/request_qr', {method: 'POST'});
         const d = await res.json();
-        const s = d.session || {};
+        const s = d.session || d || {};
+        if (s.status === 'bridge_offline') {
+          box.innerHTML = `<div style="color:#ef4444; font-weight:700;">⚠️ WhatsApp Bridge is not running!</div>
+            <div style="font-size:12px; color:#cbd5e1; margin-top:6px;">Start it in a terminal, then try again:<br>
+            <code style="color:#facc15;">cd gateway && npm install && node wa_bridge.js</code></div>`;
+          return;
+        }
+        if (s.status === 'connected') {
+          box.innerHTML = '<div style="color:#10b981; font-weight:700;">✅ Already connected to a REAL WhatsApp session!</div>';
+          loadWASession();
+          setTimeout(() => { box.style.display = 'none'; }, 3000);
+          return;
+        }
+        if (!s.qr_data) {
+          if (s.status === 'offline' && s.last_error) {
+            box.innerHTML = `<div style="color:#ef4444; font-weight:700;">❌ Could not reach WhatsApp servers from this machine.</div>
+              <div style="font-size:12px; color:#cbd5e1; margin-top:6px;">Detail: ${s.last_error}<br>
+              This server's network must allow <b>web.whatsapp.com</b>. Run the bridge on your own PC / VPS with open internet, then retry.</div>
+              <button class="btn btn-accent" style="font-size:11px; padding:5px 10px; margin-top:8px;" onclick="showQRLoginModal()">🔄 Retry QR Login</button>`;
+            return;
+          }
+          box.innerHTML = '<div style="color:#f59e0b;">⏳ QR not ready yet (' + (s.status || 'connecting') + '). Waiting for WhatsApp servers...</div>';
+          startWALoginPoller('qr');
+          return;
+        }
         box.innerHTML = `
           <div style="display:flex; gap:20px; align-items:center; flex-wrap:wrap;">
-            <img src="${s.qr_data}" style="width:160px; height:160px; border-radius:8px; border:2px solid #10b981; background:white; padding:4px;">
+            <img id="wa-live-qr-img" src="${s.qr_data}" style="width:200px; height:200px; border-radius:8px; border:2px solid #10b981; background:white; padding:4px;">
             <div>
-              <h4 style="color:#10b981; margin-bottom:6px;">📱 Scan with WhatsApp on your phone</h4>
-              <p style="font-size:12px; color:#cbd5e1; margin-bottom:8px;">1. Open WhatsApp on your phone<br>2. Tap Menu / Settings > Linked Devices<br>3. Tap <b>Link a Device</b> and point camera here.</p>
-              <button class="btn btn-accent" style="font-size:11px; padding:5px 10px;" onclick="confirmWALogin('Primary Mobile')">✅ I Have Scanned (Confirm Link)</button>
-              <button class="btn btn-outline" style="font-size:11px; padding:5px 10px; margin-left:6px;" onclick="document.getElementById('wa-login-dialog').style.display='none'">Close</button>
+              <h4 style="color:#10b981; margin-bottom:6px;">📱 Scan with WhatsApp — this is a REAL login QR</h4>
+              <p style="font-size:12px; color:#cbd5e1; margin-bottom:8px;">1. Open WhatsApp on your phone<br>2. Tap Menu / Settings &gt; <b>Linked Devices</b><br>3. Tap <b>Link a Device</b> and scan this code.<br><span style="color:#f59e0b;">QR auto-refreshes; connection is detected automatically — no button needed.</span></p>
+              <div id="wa-qr-wait-status" style="font-size:12px; color:#38bdf8; margin-bottom:8px;">⏳ Waiting for your phone to scan...</div>
+              <button class="btn btn-outline" style="font-size:11px; padding:5px 10px;" onclick="closeWALoginDialog()">Close</button>
             </div>
           </div>
         `;
+        startWALoginPoller('qr');
         loadWASession();
       } catch (e) {
         box.innerHTML = '<div style="color:#ef4444;">❌ QR Request failed: ' + e + '</div>';
@@ -1185,19 +1271,45 @@ All candidates must join today before 9:00 PM!"></textarea>
           body: JSON.stringify({phone})
         });
         const d = await res.json();
-        const s = d.session || {};
+        const s = d.session || d || {};
+        if (s.status === 'bridge_offline') {
+          box.innerHTML = `<div style="color:#ef4444; font-weight:700;">⚠️ WhatsApp Bridge is not running!</div>
+            <div style="font-size:12px; color:#cbd5e1; margin-top:6px;">Start it in a terminal, then try again:<br>
+            <code style="color:#facc15;">cd gateway && npm install && node wa_bridge.js</code></div>`;
+          return;
+        }
+        if (!s.pairing_code) {
+          box.innerHTML = '<div style="color:#f59e0b;">⏳ Requesting real pairing code from WhatsApp servers... keep this open.</div>';
+          startWALoginPoller('code');
+          return;
+        }
         box.innerHTML = `
           <div style="background:#0b1329; border:1px solid #38bdf8; padding:16px; border-radius:8px;">
-            <h4 style="color:#38bdf8; margin-bottom:6px;">🔢 WhatsApp 8-Digit Pairing Code</h4>
-            <div style="font-size:24px; font-weight:800; letter-spacing:4px; color:#facc15; margin:10px 0;">${s.pairing_code}</div>
-            <p style="font-size:12px; color:#cbd5e1; margin-bottom:10px;">Enter this code on your phone notification to link your WhatsApp account permanently.</p>
-            <button class="btn btn-accent" style="font-size:11px; padding:5px 10px;" onclick="confirmWALogin('Phone Code Linked Device')">✅ Confirm Pairing Complete</button>
-            <button class="btn btn-outline" style="font-size:11px; padding:5px 10px; margin-left:6px;" onclick="document.getElementById('wa-login-dialog').style.display='none'">Close</button>
+            <h4 style="color:#38bdf8; margin-bottom:6px;">🔢 REAL WhatsApp Pairing Code</h4>
+            <div id="wa-live-pairing-code" style="font-size:24px; font-weight:800; letter-spacing:4px; color:#facc15; margin:10px 0;">${s.pairing_code}</div>
+            <p style="font-size:12px; color:#cbd5e1; margin-bottom:10px;">On your phone: WhatsApp &gt; <b>Linked Devices</b> &gt; <b>Link a Device</b> &gt; <b>Link with phone number instead</b> — then type this code. Connection is detected automatically.</p>
+            <button class="btn btn-outline" style="font-size:11px; padding:5px 10px;" onclick="closeWALoginDialog()">Close</button>
           </div>
         `;
+        startWALoginPoller('code');
         loadWASession();
       } catch (e) {
         box.innerHTML = '<div style="color:#ef4444;">❌ Pairing code request failed: ' + e + '</div>';
+      }
+    }
+
+    async function logoutWASession() {
+      if (!confirm('Unlink this WhatsApp device and wipe the saved session?')) return;
+      const box = document.getElementById('wa-login-dialog');
+      box.style.display = 'block';
+      box.innerHTML = '<div style="color:#f59e0b;">🚪 Unlinking device from WhatsApp...</div>';
+      try {
+        await fetch('/api/whatsapp/logout', {method: 'POST'});
+        box.innerHTML = '<div style="color:#10b981;">✅ Device unlinked. Use Scan QR Login to connect again.</div>';
+        loadWASession();
+        setTimeout(() => { box.style.display = 'none'; }, 4000);
+      } catch (e) {
+        box.innerHTML = '<div style="color:#ef4444;">❌ Logout failed: ' + e + '</div>';
       }
     }
 
@@ -1314,11 +1426,11 @@ All candidates must join today before 9:00 PM!"></textarea>
       const res = await fetch('/api/whatsapp/groups');
       const d = await res.json();
       const groups = d.groups || [];
-      const lines = ['Group Name\tLink or JID\tCategory\tShift\tGroup Type'];
+      const lines = ['Group Name\\tLink or JID\\tCategory\\tShift\\tGroup Type'];
       groups.forEach(g => {
-        lines.push(`${g.name}\t${g.jid}\t${g.category || 'GENERAL'}\t${g.shift || 'ALL_DAY'}\t${g.group_type || 'EXAM_SPECIFIC'}`);
+        lines.push(`${g.name}\\t${g.jid}\\t${g.category || 'GENERAL'}\\t${g.shift || 'ALL_DAY'}\\t${g.group_type || 'EXAM_SPECIFIC'}`);
       });
-      document.getElementById('excel-paste-text').value = lines.join('\n');
+      document.getElementById('excel-paste-text').value = lines.join('\\n');
       document.getElementById('excel-import-log').innerText = `📋 Exported ${groups.length} groups to text box! You can copy/edit them directly and click Save.`;
     }
 
@@ -1357,7 +1469,7 @@ All candidates must join today before 9:00 PM!"></textarea>
       if (!gids || gids.length === 0) {
         return alert('Please select at least 1 WhatsApp group using the checkboxes to dispatch!');
       }
-      if (!confirm(`Run 5-poll anti-ban broadcast on ${gids.length} selected group(s)?\n(40-60s gaps between polls, 60-90s rest after every 5 groups)`)) return;
+      if (!confirm(`Run 5-poll anti-ban broadcast on ${gids.length} selected group(s)?\\n(40-60s gaps between polls, 60-90s rest after every 5 groups)`)) return;
 
       const gw = document.getElementById('wa-gateway-input').value;
       const res = await fetch('/api/whatsapp/start_pipeline', {
@@ -1488,8 +1600,8 @@ All candidates must join today before 9:00 PM!"></textarea>
           });
           const cData = await cRes.json();
           if (cData.has_conflicts) {
-            const warn = cData.conflicts.map(c => c.message).join('\n');
-            const proceed = confirm(`⚠️ Group Conflict Warning for ${t}:\n${warn}\n\nDo you still want to proceed and save this schedule?`);
+            const warn = cData.conflicts.map(c => c.message).join('\\n');
+            const proceed = confirm(`⚠️ Group Conflict Warning for ${t}:\\n${warn}\\n\\nDo you still want to proceed and save this schedule?`);
             if (!proceed) return;
           }
         }
@@ -1514,7 +1626,7 @@ All candidates must join today before 9:00 PM!"></textarea>
         });
         const d = await res.json();
         if (d.ok) {
-          alert(`⏰ Successfully scheduled ${allTimes.length} daily recurring slot(s): ${allTimes.join(', ')}!\nMode: ${isAuto ? 'Auto Continuous (Always-On)' : daysDur + ' Days'}`);
+          alert(`⏰ Successfully scheduled ${allTimes.length} daily recurring slot(s): ${allTimes.join(', ')}!\\nMode: ${isAuto ? 'Auto Continuous (Always-On)' : daysDur + ' Days'}`);
           document.getElementById('clock-slot-label').value = '';
           document.getElementById('clock-extra-times').value = '';
           const alertBox = document.getElementById('sched-conflict-alert');
@@ -1949,8 +2061,8 @@ All candidates must join today before 9:00 PM!"></textarea>
         });
         const cData = await cRes.json();
         if (cData.has_conflicts) {
-          const warn = cData.conflicts.map(c => c.message).join('\n');
-          const cont = confirm(`⚠️ Targets Conflict Notice:\n${warn}\n\nDo you want to proceed anyway?`);
+          const warn = cData.conflicts.map(c => c.message).join('\\n');
+          const cont = confirm(`⚠️ Targets Conflict Notice:\\n${warn}\\n\\nDo you want to proceed anyway?`);
           if (!cont) return;
         }
       } catch (e) {
@@ -2027,8 +2139,8 @@ All candidates must join today before 9:00 PM!"></textarea>
         });
         const cData = await cRes.json();
         if (cData.has_conflicts) {
-          const warn = cData.conflicts.map(c => c.message).join('\n');
-          const cont = confirm(`⚠️ Targets Conflict Notice:\n${warn}\n\nDo you want to proceed with dispatch anyway?`);
+          const warn = cData.conflicts.map(c => c.message).join('\\n');
+          const cont = confirm(`⚠️ Targets Conflict Notice:\\n${warn}\\n\\nDo you want to proceed with dispatch anyway?`);
           if (!cont) return;
         }
       } catch (e) {
@@ -2053,9 +2165,9 @@ All candidates must join today before 9:00 PM!"></textarea>
           })
         });
         const d = await res.json();
-        let logTxt = `✅ Completed Broadcast!\n• Telegram Channels Dispatched: ${d.telegram_dispatched}\n• WhatsApp Groups Dispatched: ${d.whatsapp_dispatched}`;
+        let logTxt = `✅ Completed Broadcast!\\n• Telegram Channels Dispatched: ${d.telegram_dispatched}\\n• WhatsApp Groups Dispatched: ${d.whatsapp_dispatched}`;
         if (d.errors && d.errors.length > 0) {
-          logTxt += `\n⚠️ Notes/Errors (${d.errors.length}):\n` + d.errors.slice(0, 5).join('\n');
+          logTxt += `\\n⚠️ Notes/Errors (${d.errors.length}):\\n` + d.errors.slice(0, 5).join('\\n');
         }
         log.innerText = logTxt;
         alert(`Dispatched successfully to ${d.telegram_dispatched} Channels and ${d.whatsapp_dispatched} WhatsApp Groups!`);
@@ -2267,8 +2379,8 @@ All candidates must join today before 9:00 PM!"></textarea>
         });
         const cData = await cRes.json();
         if (cData.has_conflicts) {
-          const warn = cData.conflicts.map(c => c.message).join('\n');
-          const ok = confirm(`⚠️ Bundle Overlap Notice:\n${warn}\n\nDo you want to save this bundle anyway?`);
+          const warn = cData.conflicts.map(c => c.message).join('\\n');
+          const ok = confirm(`⚠️ Bundle Overlap Notice:\\n${warn}\\n\\nDo you want to save this bundle anyway?`);
           if (!ok) return;
         }
       } catch (e) {
@@ -3028,6 +3140,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if p.path == "/api/whatsapp/sync_dialogs":
             res = whatsapp_pipeline.sync_dialogs_from_session()
             self._send_json(res)
+            return
+
+        if p.path == "/api/whatsapp/logout":
+            res = whatsapp_pipeline.logout_session()
+            self._send_json({"ok": True, "session": res})
             return
 
         if p.path == "/api/whatsapp/schedule_quiz":
