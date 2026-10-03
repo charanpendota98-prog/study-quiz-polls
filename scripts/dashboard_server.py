@@ -448,10 +448,18 @@ HTML_PAGE = """<!DOCTYPE html>
           <!-- ⏰ ADVANCED VISUAL SCHEDULE BUILDER — any duration: 2d, 15d, 1 month, 2 months, life-long -->
           <div id="schedule-builder" style="display:none; margin-top:14px; background:linear-gradient(135deg,#0d1b36,#101d33); border:1px solid #fbbf24; border-radius:12px; padding:16px;">
             <h3 style="font-size:14px; color:#fbbf24; margin-bottom:10px;">🛠️ Advanced Schedule Builder</h3>
-            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px;">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px;">
               <div>
-                <label>⏰ Daily Time</label>
-                <input type="time" id="sb-time" value="10:00">
+                <label>⏰ From Time</label>
+                <input type="time" id="sb-time" value="10:00" oninput="updateTimesPreview()">
+              </div>
+              <div>
+                <label>🕣 To Time (optional)</label>
+                <input type="time" id="sb-time-to" oninput="updateTimesPreview()">
+              </div>
+              <div>
+                <label>🔁 రోజుకి ఎన్నిసార్లు?</label>
+                <input type="number" id="sb-times-per-day" min="1" max="12" value="1" oninput="updateTimesPreview()">
               </div>
               <div>
                 <label>📊 Questions / slot</label>
@@ -460,6 +468,17 @@ HTML_PAGE = """<!DOCTYPE html>
               <div>
                 <label>🏷️ Slot పేరు (optional)</label>
                 <input type="text" id="sb-label" placeholder="Morning Police Drill">
+              </div>
+            </div>
+            <div id="sb-times-preview" style="font-size:11px; color:#38bdf8; margin-top:5px;">⏰ 1 slot: 10:00</div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-top:10px;">
+              <div>
+                <label>📅 From Date (ఖాళీ = ఈరోజే start)</label>
+                <input type="date" id="sb-date-from" oninput="datesPicked()">
+              </div>
+              <div>
+                <label>📅 To Date (exact last day — optional)</label>
+                <input type="date" id="sb-date-to" oninput="datesPicked()">
               </div>
             </div>
             <label style="margin-top:10px; display:block;">📅 ఎన్ని రోజులు నడవాలి? (tap చేయండి — ఏదైనా పెట్టుకోవచ్చు)</label>
@@ -2439,8 +2458,43 @@ All candidates must join today before 9:00 PM!"></textarea>
       if (d === 90) return '3 నెలలు (90 రోజులు) తర్వాత auto-stop';
       return d + ' రోజుల తర్వాత auto-stop';
     }
+    // 🔁 From-To window లో రోజుకి N సార్లు — evenly spread times auto-compute
+    function computeSlotTimes() {
+      const fromT = document.getElementById('sb-time').value || '10:00';
+      const toT = document.getElementById('sb-time-to').value;
+      const n = Math.max(1, Math.min(parseInt(document.getElementById('sb-times-per-day').value) || 1, 12));
+      if (!toT || n <= 1) return [fromT];
+      const toMin = s => { const p = s.split(':'); return parseInt(p[0]) * 60 + parseInt(p[1]); };
+      const f = toMin(fromT), t = toMin(toT);
+      const span = t >= f ? (t - f) : (t + 1440 - f);  // overnight window కూడా support
+      const step = span / (n - 1);
+      const out = [];
+      for (let i = 0; i < n; i++) {
+        const m = Math.round(f + step * i) % 1440;
+        out.push(String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'));
+      }
+      return Array.from(new Set(out));
+    }
+    function updateTimesPreview() {
+      const times = computeSlotTimes();
+      document.getElementById('sb-times-preview').textContent =
+        '⏰ ' + times.length + ' slot' + (times.length > 1 ? 's రోజూ' : '') + ': ' + times.join(' · ');
+    }
+    function datesPicked() {
+      const from = document.getElementById('sb-date-from').value;
+      const to = document.getElementById('sb-date-to').value;
+      const note = document.getElementById('sb-dur-note');
+      if (to) {
+        document.querySelectorAll('.sb-chip').forEach(b => { b.style.background = ''; b.style.color = ''; b.style.borderColor = ''; });
+        document.getElementById('sb-custom-days').value = '';
+        note.textContent = '✅ ' + (from ? from + ' నుంచి ' : 'ఈరోజు నుంచి ') + to + ' వరకు — ఆ తర్వాత auto-stop';
+      } else if (from) {
+        note.textContent = '✅ ' + from + ' నుంచి start — duration: ' + durLabel(sbSelectedDays);
+      }
+    }
     function selectDurChip(days, btn) {
       sbSelectedDays = days;
+      document.getElementById('sb-date-to').value = '';
       document.getElementById('sb-custom-days').value = '';
       document.querySelectorAll('.sb-chip').forEach(b => { b.style.background = ''; b.style.color = ''; b.style.borderColor = ''; });
       if (btn) { btn.style.background = '#fbbf24'; btn.style.color = '#050811'; btn.style.borderColor = '#fbbf24'; }
@@ -2456,33 +2510,40 @@ All candidates must join today before 9:00 PM!"></textarea>
     }
     async function createScheduleFromBuilder() {
       const timeVal = document.getElementById('sb-time').value;
-      if (!timeVal) return alert('⏰ Time select చేయండి');
+      if (!timeVal) return alert('⏰ From Time select చేయండి');
+      const times = computeSlotTimes();
       const qCount = parseInt(document.getElementById('sb-count').value) || 5;
       const label = document.getElementById('sb-label').value.trim();
       const subjects = Array.from(document.querySelectorAll('.sb-subj:checked')).map(c => c.value);
       const cat = document.getElementById('wa-target-category').value;
       const gids = getSelectedGroupIds();
-      const days = sbSelectedDays;
+      const dateFrom = document.getElementById('sb-date-from').value;
+      const dateTo = document.getElementById('sb-date-to').value;
+      if (dateTo && dateFrom && dateTo < dateFrom) return alert('❌ To Date, From Date కంటే ముందు ఉండకూడదు!');
+      const days = dateTo ? 0 : sbSelectedDays;
 
       try {
         const res = await fetch('/api/whatsapp/schedule_quiz', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({
-            time: timeVal.trim(),
+            times: times,
             label: label || 'Daily Scheduled Drill',
             category: cat,
             target_group_ids: gids,
             is_question: true,
             questions_count: qCount,
             days_duration: days,
-            auto_mode: days === 0,
+            auto_mode: !dateTo && days === 0,
+            end_date: dateTo || '',
+            start_date: dateFrom || '',
             subjects: subjects
           })
         });
         const d = await res.json();
         if (d.ok) {
-          alert('✅ Schedule created! ⏰ ' + timeVal + ' daily · ' + qCount + ' questions · ' + durLabel(days));
+          const durTxt = dateTo ? ((dateFrom || 'ఈరోజు') + ' → ' + dateTo) : durLabel(days);
+          alert('✅ ' + times.length + ' schedule(s) created!\\n⏰ ' + times.join(' · ') + '\\n📊 ' + qCount + ' questions ఒక్కో slot కి\\n📅 ' + durTxt);
           toggleScheduleBuilder();
           loadSchedules();
         }
@@ -2514,20 +2575,26 @@ All candidates must join today before 9:00 PM!"></textarea>
         const time = prompt('⏰ Time (HH:MM, 24hr):', j.time); if (time === null) return;
         const count = prompt('📊 ఒక్కో slot కి ఎన్ని questions? (1-20):', j.questions_count || 5); if (count === null) return;
         const days = prompt('📅 ఎన్ని రోజులు నడవాలి?\\n  0 = ♾️ LIFE-LONG (ఎప్పటికీ)\\n  2 = 2 రోజులు\\n  7 = 1 వారం\\n  15 = 15 రోజులు\\n  30 = 1 నెల\\n  60 = 2 నెలలు\\n  90 = 3 నెలలు\\n  (ఏ సంఖ్య అయినా పెట్టొచ్చు — 1 నుంచి 3650 వరకు)', j.days_duration || 0); if (days === null) return;
+        const sdate = prompt('⏳ From Date — ఎప్పటి నుంచి start? (YYYY-MM-DD)\\nఖాళీ = వెంటనే/ఈరోజే:', j.start_date || ''); if (sdate === null) return;
+        const edate = prompt('🏁 To Date — exact last day? (YYYY-MM-DD)\\nఖాళీ = పైన ఇచ్చిన days నుంచే లెక్క:', ''); if (edate === null) return;
         const subj = prompt('📚 Subjects (+ తో కలపండి): MATHS+REASONING+GK+CURRENT+ENGLISH+SCIENCE\\nఖాళీగా వదిలేస్తే = ALL subjects:', (j.subjects || []).join('+')); if (subj === null) return;
         const updates = {
           id: id,
           time: time.trim(),
           questions_count: parseInt(count) || 5,
           days_duration: parseInt(days) || 0,
+          start_date: sdate.trim(),
           subjects: subj.trim() ? subj.trim().toUpperCase().split(/[^A-Z]+/).filter(Boolean) : []
         };
+        if (edate.trim()) updates.end_date = edate.trim();
         const r = await fetch('/api/whatsapp/update_schedule', {
           method: 'POST', headers: {'Content-Type': 'application/json'},
           body: JSON.stringify(updates)
         });
         const dd = await r.json();
-        alert(dd.ok ? '✅ Schedule updated! ' + (updates.days_duration === 0 ? '♾️ Life-Long mode' : '📅 ' + updates.days_duration + ' రోజులు (auto-stop: ' + (dd.job.end_date || '') + ')') : '❌ ' + (dd.error || 'failed'));
+        const durMsg = updates.end_date ? ('📅 ' + (updates.start_date || 'ఈరోజు') + ' → ' + updates.end_date)
+          : (updates.days_duration === 0 ? '♾️ Life-Long mode' : '📅 ' + updates.days_duration + ' రోజులు (auto-stop: ' + (dd.job.end_date || '') + ')');
+        alert(dd.ok ? '✅ Schedule updated! ' + durMsg + (updates.start_date ? ' · ⏳ Starts ' + updates.start_date : '') : '❌ ' + (dd.error || 'failed'));
         loadSchedules();
         loadTgAutopilotJobs();
       } catch (e) { alert('❌ ' + e); }
@@ -2555,6 +2622,9 @@ All candidates must join today before 9:00 PM!"></textarea>
           const modeBadge = j.auto_mode || (!j.days_duration && !j.end_date)
             ? '<span style="background:#0284c7; color:white; font-size:10px; font-weight:700; padding:1px 6px; border-radius:8px;">♾️ LIFE-LONG</span>'
             : `<span style="background:#d97706; color:white; font-size:10px; font-weight:700; padding:1px 6px; border-radius:8px;">📅 ${j.days_duration}d → ${j.end_date || ''}</span>`;
+          const today = new Date().toISOString().slice(0, 10);
+          const startBadge = (j.start_date && j.start_date > today)
+            ? `<span style="background:#7c3aed; color:white; font-size:10px; font-weight:700; padding:1px 6px; border-radius:8px;">⏳ Starts ${j.start_date}</span>` : '';
 
           const targetLabel = (j.target_group_ids && j.target_group_ids.length > 0)
             ? `${j.target_group_ids.length} Selected Groups`
@@ -2569,6 +2639,7 @@ All candidates must join today before 9:00 PM!"></textarea>
                   <b>${j.label || 'Daily Exam Drill'}</b>
                   ${statusBadge}
                   ${modeBadge}
+                  ${startBadge}
                 </div>
                 <div style="font-size:11px; color:var(--text-muted); margin-top:3px;">
                   Category: <span class="category-tag">${j.category || 'ALL'}</span> · Target: <b>${targetLabel}</b> · <b>${j.questions_count || 5}</b> polls/slot · 📚 ${subjLabel} · Dispatches: <b>${j.total_dispatches || 0} times</b>
@@ -4641,6 +4712,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     days_duration=days_dur,
                     auto_mode=auto_mode,
                     end_date=end_date,
+                    start_date=str(body.get("start_date", "")).strip(),
                     subjects=[str(s).upper() for s in (body.get("subjects") or []) if s],
                 )
                 created_jobs.append(job)

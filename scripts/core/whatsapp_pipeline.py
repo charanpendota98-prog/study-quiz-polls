@@ -289,6 +289,7 @@ def add_scheduled_job(
     days_duration: int = 0,
     auto_mode: bool = True,
     end_date: str = "",
+    start_date: str = "",
     telegram_channels: list = None,
     subjects: list = None,
     mode: str = "wa",
@@ -301,12 +302,29 @@ def add_scheduled_job(
         clean_time = "0" + clean_time  # format 9:00 -> 09:00
 
     auto_label = label.strip() if label else f"{clean_time} Daily {category} Drill"
-    # Calculate end date if days_duration > 0
-    calculated_end_date = end_date
-    if days_duration > 0 and not calculated_end_date:
-        calculated_end_date = (datetime.now() + timedelta(days=int(days_duration))).strftime("%Y-%m-%d")
+    # 📅 exact TO-date given directly → honor it (and switch off life-long mode)
+    calculated_end_date = (end_date or "").strip()
+    start_clean = (start_date or "").strip()
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    if start_clean and start_clean <= today_str:
+        start_clean = ""  # starting today/past = starts immediately
+    if calculated_end_date:
+        auto_mode = False
+        base = datetime.strptime(start_clean, "%Y-%m-%d") if start_clean else datetime.now()
+        try:
+            days_duration = max((datetime.strptime(calculated_end_date, "%Y-%m-%d") - base).days, 1)
+        except Exception:
+            pass
+    elif days_duration > 0:
+        base = datetime.strptime(start_clean, "%Y-%m-%d") if start_clean else datetime.now()
+        calculated_end_date = (base + timedelta(days=int(days_duration))).strftime("%Y-%m-%d")
 
-    mode_label = "Auto Continuous" if auto_mode or days_duration == 0 else f"{days_duration} Days Limited"
+    if auto_mode or (days_duration == 0 and not calculated_end_date):
+        mode_label = "♾️ Life-Long"
+    else:
+        mode_label = f"→ {calculated_end_date}" if calculated_end_date else f"{days_duration} Days Limited"
+    if start_clean:
+        mode_label = f"⏳ Starts {start_clean} {mode_label}"
     job = {
         "id": job_id,
         "time": clean_time,
@@ -322,6 +340,7 @@ def add_scheduled_job(
         "auto_mode": bool(auto_mode),
         "days_duration": int(days_duration) if days_duration else 0,
         "end_date": calculated_end_date,
+        "start_date": start_clean,
         "status": f"Active ({mode_label})",
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "last_run": None,
@@ -375,7 +394,21 @@ def update_scheduled_job(job_id: str, updates: dict) -> dict:
             j["target_group_ids"] = updates["target_group_ids"]
         if "telegram_channels" in updates and isinstance(updates["telegram_channels"], list):
             j["telegram_channels"] = updates["telegram_channels"]
-        if "days_duration" in updates:
+        if "start_date" in updates:
+            sd = str(updates["start_date"] or "").strip()
+            today_s = datetime.now().strftime("%Y-%m-%d")
+            j["start_date"] = "" if (not sd or sd <= today_s) else sd
+        if "end_date" in updates and str(updates["end_date"] or "").strip():
+            ed = str(updates["end_date"]).strip()
+            j["end_date"] = ed
+            j["auto_mode"] = False
+            try:
+                base = datetime.strptime(j.get("start_date") or datetime.now().strftime("%Y-%m-%d"), "%Y-%m-%d")
+                j["days_duration"] = max((datetime.strptime(ed, "%Y-%m-%d") - base).days, 1)
+            except Exception:
+                pass
+            j["status"] = f"Active (→ {ed})" if j.get("enabled", True) else "Paused"
+        elif "days_duration" in updates:
             days = max(0, int(updates["days_duration"] or 0))
             j["days_duration"] = days
             j["auto_mode"] = (days == 0)
@@ -383,7 +416,11 @@ def update_scheduled_job(job_id: str, updates: dict) -> dict:
                 j["end_date"] = ""
                 j["status"] = "Active (♾️ Life-Long)" if j.get("enabled", True) else "Paused"
             else:
-                j["end_date"] = (datetime.now() + timedelta(days=days)).strftime("%Y-%m-%d")
+                try:
+                    base = datetime.strptime(j["start_date"], "%Y-%m-%d") if j.get("start_date") else datetime.now()
+                except Exception:
+                    base = datetime.now()
+                j["end_date"] = (base + timedelta(days=days)).strftime("%Y-%m-%d")
                 j["status"] = f"Active ({days} Days → {j['end_date']})" if j.get("enabled", True) else "Paused"
         target = j
         break
@@ -1143,6 +1180,9 @@ def start_scheduler_daemon():
                 jobs = load_schedules()
                 for j in jobs:
                     if not j.get("enabled", True):
+                        continue
+                    # ⏳ FROM-date: not started yet → wait silently
+                    if j.get("start_date") and today_str < j["start_date"]:
                         continue
                     # Check end_date expiration if auto_mode is false and end_date set
                     end_d = j.get("end_date")
