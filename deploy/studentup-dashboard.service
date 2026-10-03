@@ -1,0 +1,17 @@
+[Unit]
+Description=StudentUp Control Dashboard (port 5000)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/studentup
+ExecStart=/usr/bin/python3 scripts/dashboard_server.py
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+# extra env (BOT_TOKEN etc.) comes from env/.env — loaded by the app itself
+
+[Install]
+WantedBy=multi-user.target

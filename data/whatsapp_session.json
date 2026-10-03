@@ -1,13 +1,12 @@
 {
-  "status": "connected",
-  "phone": "+919988776655",
-  "device_name": "Aspirants Cell Phone",
-  "connected_at": "2026-09-27 18:18",
-  "qr_data": "https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=STUDENTUP_WA_34E8755A4F6A",
-  "pairing_code": "44A1-61CA",
-  "scanned_dialogs_count": 33,
-  "auto_reconnect": true,
-  "heartbeat_interval_sec": 30,
-  "last_sync": "18:18:28",
-  "last_heartbeat": "15:00:45"
+  "last_heartbeat": "05:17:52",
+  "status": "offline",
+  "phone": "",
+  "device_name": "StudentUp Dispatch Node",
+  "qr_data": "",
+  "pairing_code": "",
+  "connected_at": "",
+  "bridge_groups_count": 0,
+  "has_saved_session": false,
+  "last_error": "connection closed (code 408)"
 }

@@ -1,0 +1,15 @@
+{
+  "name": "studentup-wa-bridge",
+  "version": "1.0.0",
+  "description": "StudentUp real WhatsApp gateway bridge (Baileys) — QR login, pairing code, group sync, bulk send, native polls",
+  "main": "wa_bridge.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node wa_bridge.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.9",
+    "pino": "^9.5.0",
+    "qrcode": "^1.5.4"
+  }
+}

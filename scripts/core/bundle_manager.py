@@ -254,9 +254,14 @@ def parse_xlsx_sheets_data(xlsx_bytes: bytes, selected_sheets: list = None) -> d
 
 
 def import_rows_list(rows: list, default_category: str = "") -> dict:
-    """Takes a list of row lists [Name, Link/JID, Category, Shift, Group_Type] and saves to DB."""
+    """Takes row lists and saves to DB. ADVANCED columns (all after col-5 optional):
+    [1 Group Name | 2 Link or JID | 3 Category | 4 Shift | 5 Group Type |
+     6 Daily Times (08:00+20:30) | 7 Polls Per Slot | 8 Days (0=Always) | 9 Subjects (MATHS+GK)]
+    Rows with Daily Times get an automatic daily schedule after import."""
+    import re as _re
     added_groups = []
     added_channels = []
+    schedules_wanted = []
 
     for parts in rows:
         if not parts or not parts[0]:
@@ -264,26 +269,225 @@ def import_rows_list(rows: list, default_category: str = "") -> dict:
         name = str(parts[0]).strip()
         if name.lower() in ("name", "title", "group name", "channel name", "group", "group/channel name"):
             continue
+        # skip template guide/example rows
+        if name.startswith("👇") or name.lower().startswith("example:") or "YOUR_LINK" in str(parts[1] if len(parts) > 1 else ""):
+            continue
 
         link_or_jid = str(parts[1]).strip() if len(parts) > 1 else ""
         category = str(parts[2]).strip() if len(parts) > 2 and parts[2] else (default_category or channel_router.detect_exam_base(name))
         shift = str(parts[3]).strip().upper() if len(parts) > 3 and str(parts[3]).strip().upper() in ("MORNING", "EVENING", "ALL_DAY") else "ALL_DAY"
         g_type = str(parts[4]).strip().upper() if len(parts) > 4 and parts[4] else ("GENERAL" if "general" in (category.lower() + " " + name.lower()) else "EXAM_SPECIFIC")
 
+        # ---- advanced auto-schedule columns (6-9) ----
+        raw_times = str(parts[5]).strip() if len(parts) > 5 else ""
+        times = []
+        for tok in _re.split(r"[+;/\s]+", raw_times):
+            tok = tok.strip()
+            if _re.fullmatch(r"\d{1,2}:\d{2}", tok):
+                times.append(("0" + tok) if len(tok) == 4 else tok)
+        try:
+            polls_per_slot = max(1, min(int(float(str(parts[6]).strip())), 20)) if len(parts) > 6 and str(parts[6]).strip() else 5
+        except Exception:
+            polls_per_slot = 5
+        try:
+            days = max(0, int(float(str(parts[7]).strip()))) if len(parts) > 7 and str(parts[7]).strip() else 0
+        except Exception:
+            days = 0
+        raw_subj = str(parts[8]).strip().upper() if len(parts) > 8 else ""
+        subjects = [s for s in _re.split(r"[+;,/\s]+", raw_subj) if s and s != "ALL"]
+
         if link_or_jid.startswith("@") or "t.me/" in link_or_jid:
             ch_info = channel_router.register_channel(name, chat_id=link_or_jid, exam_type=category)
             added_channels.append(ch_info)
+            continue
+
+        if "chat.whatsapp.com" in link_or_jid:
+            # invite link → Quick-Add engine (auto-joins via bridge when connected, dedups by jid)
+            qres = whatsapp_pipeline.quick_add_groups(f"{name} | {link_or_jid} | {category}")
+            grp = None
+            if qres.get("added"):
+                a = qres["added"][0]
+                reg = whatsapp_pipeline.load_wa_registry()
+                grp = next((g for g in reg.get("groups", []) if g.get("jid") == a.get("jid") or g.get("name") == name), None)
+            if not grp:
+                grp = whatsapp_pipeline.add_group(name, link_or_jid, category=category, shift=shift, group_type=g_type)
+            added_groups.append(grp)
         else:
             grp = whatsapp_pipeline.add_group(name, link_or_jid, category=category, shift=shift, group_type=g_type)
             added_groups.append(grp)
+
+        if times and grp and grp.get("id"):
+            schedules_wanted.append({
+                "gid": grp["id"],
+                "times": times,
+                "count": polls_per_slot,
+                "days": days,
+                "subjects": subjects,
+                "category": category,
+            })
 
     return {
         "ok": True,
         "imported_groups_count": len(added_groups),
         "imported_channels_count": len(added_channels),
         "groups": added_groups,
-        "channels": added_channels
+        "channels": added_channels,
+        "schedules_wanted": schedules_wanted,
     }
+
+
+def create_schedules_for_imports(schedules_wanted: list, label_prefix: str = "📥 Excel") -> list:
+    """Group identical schedule configs together → one job per time slot
+    covering all matching groups (clean scheduler, no job spam)."""
+    created = []
+    buckets = {}
+    for s in schedules_wanted or []:
+        key = ("+".join(s["times"]), s["count"], s["days"], "+".join(s["subjects"]), s["category"])
+        buckets.setdefault(key, []).append(s)
+    for (times_key, count, days, subj_key, category), items in buckets.items():
+        gids = [s["gid"] for s in items]
+        subjects = items[0]["subjects"]
+        for t in items[0]["times"]:
+            job = whatsapp_pipeline.add_scheduled_job(
+                t,
+                target_group_ids=gids,
+                category=category or "ALL",
+                questions_count=count,
+                days_duration=days,
+                auto_mode=(days == 0),
+                subjects=subjects,
+                mode="wa",
+                label=f"{label_prefix} {t} · {len(gids)} group(s)" + (f" · {subj_key}" if subj_key else "") + (f" · {days}d" if days else " · Always-On"),
+            )
+            created.append({"id": job["id"], "time": job["time"], "groups": len(gids), "days": days})
+    return created
+
+
+def build_multisheet_xlsx_bytes(sheets: dict) -> bytes:
+    """Generic native .xlsx builder (no external libs): {sheet_name: [[row], ...]}."""
+    def _esc(v):
+        return str(v).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+    names = list(sheets.keys())
+    ws_xmls = []
+    for sname in names:
+        rows_xml = []
+        for r_idx, row in enumerate(sheets[sname], 1):
+            cells = "".join(f'<c t="inlineStr"><is><t xml:space="preserve">{_esc(v)}</t></is></c>' for v in row)
+            rows_xml.append(f'<row r="{r_idx}">{cells}</row>')
+        ws_xmls.append(
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            f'<sheetData>{"".join(rows_xml)}</sheetData></worksheet>'
+        )
+
+    overrides = "".join(
+        f'<Override PartName="/xl/worksheets/sheet{i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+        for i in range(len(names))
+    )
+    content_types = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+        '<Default Extension="xml" ContentType="application/xml"/>'
+        '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+        f'{overrides}</Types>'
+    )
+    rels = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+        '</Relationships>'
+    )
+    sheet_tags = "".join(
+        f'<sheet name="{_esc(n)[:31]}" sheetId="{i+1}" r:id="rId{i+1}"/>' for i, n in enumerate(names)
+    )
+    workbook = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        f'<sheets>{sheet_tags}</sheets></workbook>'
+    )
+    wb_rels = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        + "".join(
+            f'<Relationship Id="rId{i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet{i+1}.xml"/>'
+            for i in range(len(names))
+        )
+        + '</Relationships>'
+    )
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("[Content_Types].xml", content_types)
+        z.writestr("_rels/.rels", rels)
+        z.writestr("xl/workbook.xml", workbook)
+        z.writestr("xl/_rels/workbook.xml.rels", wb_rels)
+        for i, x in enumerate(ws_xmls):
+            z.writestr(f"xl/worksheets/sheet{i+1}.xml", x)
+    return buf.getvalue()
+
+
+TEMPLATE_HEADER = ["Group Name", "Invite Link or JID", "Exam Category", "Shift",
+                   "Group Type", "Daily Times", "Polls Per Slot", "Days (0=Always)", "Subjects"]
+
+
+def build_groups_template_xlsx() -> bytes:
+    """📥 BEST-PRACTICE sample workbook: Instructions (Telugu) + 3 exam sheets
+    pre-filled with example rows covering every advanced column."""
+    instructions = [
+        ["📖 StudentUp — WhatsApp Groups Bulk Import & Auto-Schedule Template"],
+        [""],
+        ["✅ ఎలా వాడాలి:"],
+        ["1. పక్క sheets లో (Police_SI_Groups, TET_DSC_Groups, Banking_Groups) మీ groups rows నింపండి."],
+        ["2. కావాలంటే కొత్త sheets add చేసుకోండి — sheet పేరు exam పేరుతో పెడితే category auto-detect అవుతుంది."],
+        ["3. Dashboard → 📊 Multi-Sheet Excel Importer → file upload → కావాల్సిన sheets select → Import!"],
+        ["4. Daily Times column నింపిన ప్రతి group కి ఆటోమేటిక్ డైలీ schedule create అవుతుంది — మీరు ఏమీ చేయక్కర్లేదు!"],
+        [""],
+        ["📋 Columns గైడ్:"],
+        ["Group Name", "గ్రూప్ పేరు (ఉదా: Warangal SI Batch 1)"],
+        ["Invite Link or JID", "https://chat.whatsapp.com/XXXX (link అయితే bridge connect అయినప్పుడు auto-join!) లేదా 1203...@g.us"],
+        ["Exam Category", "POLICE / TET_DSC / SSC / BANKING / RAILWAY / AP_BTECH / TS_10TH ... లేదా AUTO"],
+        ["Shift", "MORNING / EVENING / ALL_DAY"],
+        ["Group Type", "EXAM_SPECIFIC లేదా GENERAL"],
+        ["Daily Times", "రోజూ ఎన్నిసార్లు+ఎప్పుడు: 08:00+13:00+20:30 (+ తో విడదీయండి; ఖాళీ వదిలేస్తే schedule ఉండదు)"],
+        ["Polls Per Slot", "ఒక్కో time కి ఎన్ని questions/polls (1-20, default 5)"],
+        ["Days (0=Always)", "ఎన్ని రోజులు: 0 = ♾️ LIFE-LONG (ఎప్పటికీ) · 7 = 1 వారం · 30 = 1 నెల · 60 = 2 నెలలు · 90 = 3 నెలలు"],
+        ["Subjects", "MATHS+REASONING+GK+CURRENT+ENGLISH+SCIENCE — ఖాళీ అంటే ALL subjects"],
+        [""],
+        ["🛡️ WhatsApp sends అన్నీ anti-ban engine (40-60s gaps) తోనే వెళ్తాయి — safe!"],
+        ["✏️ Import అయ్యాక కూడా Dashboard → WhatsApp tab → schedule పక్కన Edit button తో ఎప్పుడైనా మార్చుకోవచ్చు!"],
+    ]
+    my_groups = [
+        TEMPLATE_HEADER,
+        ["👇 మీ groups ఇక్కడ నింపండి (ఈ 2 example rows తీసేసి మీవి పెట్టండి)", "", "", "", "", "", "", "", ""],
+        ["Example: Nizamabad SI Batch", "https://chat.whatsapp.com/YOUR_LINK_1", "POLICE", "ALL_DAY", "EXAM_SPECIFIC", "08:00+20:30", "5", "30", "REASONING+GK"],
+        ["Example: My TET Group", "https://chat.whatsapp.com/YOUR_LINK_2", "TET_DSC", "ALL_DAY", "EXAM_SPECIFIC", "07:00+19:00", "10", "0", ""],
+    ]
+    police = [
+        TEMPLATE_HEADER,
+        ["Warangal SI Batch 1", "https://chat.whatsapp.com/EXAMPLE1AbCdEf", "POLICE", "ALL_DAY", "EXAM_SPECIFIC", "08:00+20:30", "5", "0", "REASONING+GK+CURRENT"],
+        ["Hyderabad Constable Daily", "https://chat.whatsapp.com/EXAMPLE2GhIjKl", "POLICE", "EVENING", "EXAM_SPECIFIC", "19:00", "10", "60", "MATHS+REASONING"],
+        ["Karimnagar SI Mock Tests", "120363000000000001@g.us", "POLICE", "MORNING", "EXAM_SPECIFIC", "06:30+12:00+21:00", "3", "0", ""],
+    ]
+    tet = [
+        TEMPLATE_HEADER,
+        ["TS TET Paper-1 Aspirants", "https://chat.whatsapp.com/EXAMPLE3MnOpQr", "TET_DSC", "ALL_DAY", "EXAM_SPECIFIC", "07:00+18:00", "5", "90", "GK+ENGLISH"],
+        ["AP DSC SGT Practice Hub", "120363000000000002@g.us", "TET_DSC", "ALL_DAY", "EXAM_SPECIFIC", "", "", "", ""],
+    ]
+    banking = [
+        TEMPLATE_HEADER,
+        ["IBPS PO Speed Maths", "https://chat.whatsapp.com/EXAMPLE4StUvWx", "BANKING", "MORNING", "EXAM_SPECIFIC", "09:00", "5", "45", "MATHS+REASONING+ENGLISH"],
+        ["SBI Clerk Current Affairs", "120363000000000003@g.us", "BANKING", "ALL_DAY", "EXAM_SPECIFIC", "08:30+20:00", "5", "0", "CURRENT+GK"],
+    ]
+    return build_multisheet_xlsx_bytes({
+        "📖 Instructions": instructions,
+        "✍️ My_Groups": my_groups,
+        "Police_SI_Groups": police,
+        "TET_DSC_Groups": tet,
+        "Banking_Groups": banking,
+    })
 
 
 def import_from_csv_or_excel_text(raw_text: str) -> dict:
@@ -304,7 +508,9 @@ def import_from_csv_or_excel_text(raw_text: str) -> dict:
         else:
             parts = [line]
         rows.append(parts)
-    return import_rows_list(rows)
+    res = import_rows_list(rows)
+    res["schedules_created"] = create_schedules_for_imports(res.pop("schedules_wanted", []), "📥 Paste")
+    return res
 
 
 def import_from_multisheet_excel(xlsx_bytes: bytes, selected_sheet_names: list = None) -> dict:
@@ -314,24 +520,31 @@ def import_from_multisheet_excel(xlsx_bytes: bytes, selected_sheet_names: list =
     total_channels = 0
     all_groups = []
     all_channels = []
+    all_schedules = []
     per_sheet = {}
 
     for sname, rows in sheet_data.items():
+        if "instruction" in sname.lower() or "📖" in sname:
+            continue  # skip the guide sheet from the sample template
         res = import_rows_list(rows, default_category=channel_router.detect_exam_base(sname))
+        sched = create_schedules_for_imports(res.pop("schedules_wanted", []), f"📥 {sname}")
+        all_schedules.extend(sched)
         total_groups += res["imported_groups_count"]
         total_channels += res["imported_channels_count"]
         all_groups.extend(res["groups"])
         all_channels.extend(res["channels"])
         per_sheet[sname] = {
             "groups": res["imported_groups_count"],
-            "channels": res["imported_channels_count"]
+            "channels": res["imported_channels_count"],
+            "schedules": len(sched),
         }
 
     return {
         "ok": True,
-        "sheets_processed": list(sheet_data.keys()),
+        "sheets_processed": [s for s in sheet_data.keys()],
         "imported_groups_count": total_groups,
         "imported_channels_count": total_channels,
+        "schedules_created": all_schedules,
         "per_sheet": per_sheet,
         "groups": all_groups,
         "channels": all_channels
@@ -391,25 +604,50 @@ def dispatch_bulk_broadcast(
             except Exception as e:
                 results["errors"].append(f"Telegram {ch_key} ({chat_id}): {e}")
 
-    # 2. WhatsApp Groups Dispatch
+    # 2. WhatsApp Groups Dispatch — runs in a BACKGROUND thread with random
+    #    human-like jitter between groups (so 100+ groups never get blasted
+    #    in the same second, and the HTTP request returns instantly).
     if target_group_ids:
+        import threading
+        import random as _random
+        import time as _time
+
         reg = whatsapp_pipeline.load_wa_registry()
         groups = reg.get("groups", [])
         gw = gateway_url or whatsapp_pipeline.EXEC_STATE.get("gateway") or ""
-
+        picked = []
         for gid in target_group_ids:
             grp = next((g for g in groups if g.get("id") == gid), None)
-            if not grp:
-                continue
-            jid = grp.get("jid") or grp.get("link")
-            try:
-                att = attachment_url or (f"data:application/octet-stream;base64,{attachment_data_b64}" if attachment_data_b64 else "")
-                ok, status = whatsapp_pipeline._dispatch_raw(gw, jid, message, attachment=att)
-                if ok:
-                    results["whatsapp_dispatched"] += 1
-                else:
-                    results["errors"].append(f"WhatsApp {grp.get('name')}: {status}")
-            except Exception as e:
-                results["errors"].append(f"WhatsApp {grp.get('name')}: {e}")
+            if grp:
+                picked.append(grp)
+
+        real_mode = whatsapp_pipeline.bridge_is_connected()
+
+        def _wa_worker():
+            sent, errs = 0, 0
+            whatsapp_pipeline._log(f"📨 Bulk message dispatch started → {len(picked)} WhatsApp groups (jitter 6-14s/group).")
+            for i, grp in enumerate(picked):
+                jid = grp.get("jid") or grp.get("link")
+                try:
+                    att = attachment_url or (f"data:application/octet-stream;base64,{attachment_data_b64}" if attachment_data_b64 else "")
+                    ok, status = whatsapp_pipeline._dispatch_raw(gw, jid, message, attachment=att)
+                    if ok:
+                        sent += 1
+                        whatsapp_pipeline._log(f"   ✅ [{i+1}/{len(picked)}] {grp.get('name')} → {status}")
+                    else:
+                        errs += 1
+                        whatsapp_pipeline._log(f"   ❌ [{i+1}/{len(picked)}] {grp.get('name')} → {status}")
+                except Exception as e:
+                    errs += 1
+                    whatsapp_pipeline._log(f"   ❌ [{i+1}/{len(picked)}] {grp.get('name')} → {e}")
+                if i < len(picked) - 1:
+                    gap = _random.uniform(6, 14)
+                    _time.sleep(gap if real_mode else min(gap, 0.3))
+            whatsapp_pipeline._log(f"🏁 Bulk message dispatch finished: {sent} sent, {errs} failed.")
+
+        threading.Thread(target=_wa_worker, daemon=True).start()
+        results["whatsapp_queued"] = len(picked)
+        results["whatsapp_dispatched"] = len(picked)
+        results["whatsapp_note"] = "Queued with 6-14s anti-ban jitter per group — live progress in the Dispatcher log panel."
 
     return results

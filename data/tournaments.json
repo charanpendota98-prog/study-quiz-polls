@@ -285,13 +285,13 @@
   "district_wars_weekly": {
     "2026-W39": {
       "Warangal": {
-        "pts": 71358.5,
-        "wars": 118,
-        "wins": 118
+        "pts": 80493.5,
+        "wars": 133,
+        "wins": 133
       },
       "Guntur": {
-        "pts": 20811.0,
-        "wars": 118,
+        "pts": 23466.0,
+        "wars": 133,
         "wins": 1
       },
       "Karimnagar": {
@@ -321,13 +321,13 @@
     },
     "2026-10": {
       "Warangal": {
-        "pts": 23751.0,
-        "wars": 39,
-        "wins": 39
+        "pts": 32886.0,
+        "wars": 54,
+        "wins": 54
       },
       "Guntur": {
-        "pts": 6903.0,
-        "wars": 39,
+        "pts": 9558.0,
+        "wars": 54,
         "wins": 0
       }
     }

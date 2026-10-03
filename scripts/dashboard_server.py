@@ -12,6 +12,7 @@ import sys
 import os
 import json
 import time
+import base64
 import urllib.request
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -28,11 +29,138 @@ from core.telegram import Telegram
 
 PORT = int(config.env("DASHBOARD_PORT", "5000"))
 
+# =====================================================================
+# 🔒 DASHBOARD ACCESS LOCK — only the admin can open this panel.
+# Password lives in data/dashboard_auth.json (or env DASHBOARD_PASSWORD).
+# Login issues a 30-day HttpOnly cookie token; everything else is 401.
+# =====================================================================
+import secrets as _secrets
+
+AUTH_FILE = config.DATA / "dashboard_auth.json"
+LOGIN_AUDIT_FILE = config.DATA / "login_audit.json"
+_START_TS = time.time()
+
+
+def _log_login_attempt(ip: str, ok: bool):
+    """🔐 Security audit: record every login attempt (success & failure)."""
+    try:
+        d = {"attempts": []}
+        if LOGIN_AUDIT_FILE.exists():
+            loaded = json.loads(LOGIN_AUDIT_FILE.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict) and isinstance(loaded.get("attempts"), list):
+                d = loaded
+        d["attempts"].append({
+            "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "ip": str(ip)[:60],
+            "ok": bool(ok),
+        })
+        d["attempts"] = d["attempts"][-200:]
+        LOGIN_AUDIT_FILE.write_text(json.dumps(d, indent=1), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _recent_logins(limit: int = 8) -> list:
+    try:
+        if LOGIN_AUDIT_FILE.exists():
+            d = json.loads(LOGIN_AUDIT_FILE.read_text(encoding="utf-8"))
+            return list(reversed(d.get("attempts", [])[-limit:]))
+    except Exception:
+        pass
+    return []
+DEFAULT_DASH_PASSWORD = "studentup123"
+
+
+def _load_auth() -> dict:
+    try:
+        if AUTH_FILE.exists():
+            d = json.loads(AUTH_FILE.read_text(encoding="utf-8"))
+            d.setdefault("password", DEFAULT_DASH_PASSWORD)
+            d.setdefault("tokens", [])
+            return d
+    except Exception:
+        pass
+    d = {"password": DEFAULT_DASH_PASSWORD, "tokens": []}
+    _save_auth(d)
+    return d
+
+
+def _save_auth(d: dict):
+    try:
+        AUTH_FILE.write_text(json.dumps(d, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _dash_password() -> str:
+    envp = os.environ.get("DASHBOARD_PASSWORD", "").strip()
+    return envp if envp else _load_auth().get("password", DEFAULT_DASH_PASSWORD)
+
+
+LOGIN_PAGE = """<!DOCTYPE html>
+<html lang="te">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔒 StudentUp — Admin Login</title>
+<style>
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+         background:radial-gradient(circle at 30% 20%, #0f2040 0%, #050811 70%);
+         font-family:'Segoe UI', system-ui, sans-serif; color:#e2e8f0; }
+  .card { background:#0b1329; border:1px solid #1e3a5f; border-radius:16px; padding:36px 32px;
+          width:min(380px, 90vw); box-shadow:0 20px 60px rgba(0,0,0,0.6); text-align:center; }
+  .lock { font-size:46px; margin-bottom:10px; }
+  h1 { font-size:20px; margin:0 0 6px; color:#38bdf8; }
+  p  { font-size:13px; color:#94a3b8; margin:0 0 20px; line-height:1.6; }
+  input { width:100%; box-sizing:border-box; padding:12px 14px; font-size:16px; letter-spacing:2px;
+          background:#050811; color:#f8fafc; border:1px solid #1e3a5f; border-radius:10px; outline:none; text-align:center; }
+  input:focus { border-color:#38bdf8; }
+  button { width:100%; margin-top:14px; padding:12px; font-size:15px; font-weight:800; border:none;
+           border-radius:10px; background:linear-gradient(90deg, #10b981, #38bdf8); color:#050811; cursor:pointer; }
+  button:hover { filter:brightness(1.1); }
+  .err { color:#f87171; font-size:13px; font-weight:700; min-height:18px; margin-top:12px; }
+  .hint { margin-top:18px; font-size:11px; color:#475569; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="lock">🔒</div>
+    <h1>StudentUp Admin Panel</h1>
+    <p>ఈ డాష్‌బోర్డ్ లాక్ చేయబడింది.<br>Admin password ఎంటర్ చేస్తేనే లోపలికి వెళ్ళగలరు.</p>
+    <input type="password" id="pw" placeholder="Admin Password" autofocus
+           onkeydown="if(event.key==='Enter')doLogin()">
+    <button onclick="doLogin()">🔓 Unlock Dashboard</button>
+    <div class="err" id="err"></div>
+    <div class="hint">Default password: <b>studentup123</b> — login అయ్యాక 🔑 బటన్‌తో వెంటనే మార్చుకోండి!</div>
+  </div>
+<script>
+async function doLogin() {
+  const pw = document.getElementById('pw').value;
+  const err = document.getElementById('err');
+  err.innerText = '';
+  try {
+    const r = await fetch('/api/auth/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password: pw})});
+    const d = await r.json();
+    if (d.ok) { location.href = '/'; }
+    else { err.innerText = '❌ తప్పు పాస్‌వర్డ్! Wrong password.'; document.getElementById('pw').value=''; }
+  } catch(e) { err.innerText = '❌ Server error: ' + e; }
+}
+</script>
+</body>
+</html>"""
+
 HTML_PAGE = """<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- 📱 PWA: phone home-screen లో app లా install అవుతుంది -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0b1220">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon.svg">
   <title>StudentUp — Ultimate Control, Excel Importer & Bundle Hub</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -94,44 +222,70 @@ HTML_PAGE = """<!DOCTYPE html>
     .shift-tag { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); padding: 3px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; }
     .progress-bar-container { width: 100%; background: #1e293b; border-radius: 9999px; height: 10px; overflow: hidden; margin-top: 10px; margin-bottom: 10px; }
     .progress-bar { height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); width: 0%; transition: width 0.3s; }
-    .guide-banner { background: linear-gradient(135deg, rgba(37,99,235,0.15) 0%, rgba(16,185,129,0.12) 100%); border: 1px solid rgba(59,130,246,0.3); border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; }
-    .guide-banner h4 { font-size: 14px; color: #38bdf8; display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-    .guide-banner p { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+    /* ---------- 📱 MOBILE / TABLET RESPONSIVE (operate from phone) ---------- */
+    @media (max-width: 920px) {
+      body { padding: 12px; }
+      .header { flex-direction: column; align-items: stretch; gap: 10px; padding-bottom: 12px; margin-bottom: 14px; }
+      .header h1 { font-size: 18px; }
+      .grid-stats { grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 14px; }
+      .stat-card { padding: 10px 12px; }
+      .stat-card .val { font-size: 20px; }
+      .stat-card .desc { display: none; }
+      .tabs { gap: 4px; padding-bottom: 6px; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+      .tab-btn { font-size: 12px; padding: 8px 10px; }
+      .panel-card { padding: 12px !important; }
+      table { display: block; overflow-x: auto; white-space: nowrap; font-size: 11px; }
+      #wa-login-number-badge { font-size: 16px !important; padding: 5px 12px !important; }
+      .btn { min-height: 38px; }
+      input, select, textarea { font-size: 16px !important; } /* stops mobile auto-zoom */
+      .hist-grid { grid-template-columns: 1fr !important; }
+    }
+    @media (max-width: 520px) {
+      .grid-stats { grid-template-columns: repeat(2, 1fr); }
+      .header h1 { font-size: 16px; }
+    }
   </style>
 </head>
 <body>
   <div class="header">
     <div>
-      <h1>🚀 StudentUp Central Management & Mega Community Hub</h1>
-      <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">100+ WhatsApp Groups, Excel Sheet Importer, Channel Bundles & Anti-Ban Delivery</p>
+      <h1>🚀 StudentUp Control Hub</h1>
+      <p style="color:var(--text-muted); font-size:12px; margin-top:4px;">WhatsApp + Telegram Bulk Delivery · Anti-Ban Engine</p>
     </div>
-    <div style="display:flex; gap:10px; align-items:center;">
-      <span class="badge-shield">🛡️ ANTI-BAN INTERLEAVED</span>
-      <span class="badge-live">● ENGINE LIVE</span>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <span id="live-status-strip" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+        <span class="badge-shield">🛡️ ANTI-BAN INTERLEAVED</span>
+        <span class="badge-live">● ENGINE LIVE</span>
+      </span>
       <button class="btn btn-outline" onclick="location.reload()">🔄 Refresh</button>
+      <button class="btn btn-outline" style="border-color:#f59e0b; color:#f59e0b;" onclick="changeDashPassword()" title="Change admin password">🔑 Password</button>
+      <button class="btn btn-outline" style="border-color:#34d399; color:#34d399;" onclick="toggleIpLockPanel()" title="Allow only specific IP addresses">🛡️ IP Lock</button>
+      <button class="btn btn-outline" style="border-color:#ef4444; color:#ef4444;" onclick="dashLogout()" title="Lock the dashboard">🔒 Lock / Logout</button>
     </div>
   </div>
 
-  <div class="guide-banner">
-    <h4>⚡ 100x Quick Operation & Zero-Effort Automation Guide (సులభమైన పూర్తి ఆటోమేషన్ గైడ్):</h4>
-    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:12px; margin-top:8px;">
-      <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px;">
-        <b style="color:#38bdf8;">1️⃣ 🚀 One-Click Multi-Target Broadcast:</b><br>
-        <span style="font-size:12px; color:var(--text-muted);">టెలిగ్రామ్ ఛానెల్స్ మరియు వాట్సాప్ గ్రూపులను సెలెక్ట్ చేసుకుని <b>"🎯 Send 5 Exam Polls to Selected Targets"</b> నొక్కితే చాలు—ఏకకాలంలో అన్ని గ్రూపులకు 5-పోల్ సిలబస్ పరీక్షా రౌండ్లు ఆటోమేటిక్‌గా మొదలవుతాయి.</span>
-      </div>
-      <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px;">
-        <b style="color:#10b981;">2️⃣ 🛡️ WhatsApp 100x Anti-Ban Jitter:</b><br>
-        <span style="font-size:12px; color:var(--text-muted);">40-60 సెకన్ల రాండమ్ జిట్టర్, గ్రూపుకు 5 పోల్స్ రొటేషన్, 5 గ్రూపుల బ్యాచ్ రెస్ట్ (60-90s) మరియు బైలింగ్వల్ (EN/TE) ఆల్టర్నేషన్‌తో మీ వాట్సాప్ నెంబర్ 100% సురక్షితంగా ఉంటుంది.</span>
-      </div>
-      <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px;">
-        <b style="color:#06b6d4;">3️⃣ ⏱️ Telegram 1-Min Live Timer (Zero-Leak):</b><br>
-        <span style="font-size:12px; color:var(--text-muted);">పోల్ పడగానే 1 నిమిషం కౌంట్‌డౌన్ టైమర్ నడుస్తుంది. ఆన్సర్ ఎవరికీ ఆటో-టిక్ అవ్వదు; విద్యార్థి స్వయంగా ఆప్షన్‌ను ట్యాప్ చేసినప్పుడు మాత్రమే ✅/❌ మరియు బైలింగ్వల్ వివరణ కనిపిస్తుంది.</span>
-      </div>
-      <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px;">
-        <b style="color:#a855f7;">4️⃣ ⚔️ Squad Battles & Rival Matchmaking:</b><br>
-        <span style="font-size:12px; color:var(--text-muted);">టెలిగ్రామ్ బాట్‌లో <code>/squad new</code> కొట్టగానే ఆటోమేటిక్‌గా వెయిటింగ్ లిస్ట్‌లోని ప్రత్యర్థి స్క్వాడ్‌లను చూపిస్తుంది. <code>/battle quick</code> లేదా WhatsApp Share Link ద్వారా క్షణాల్లో మ్యాచ్ ఆడవచ్చు.</span>
-      </div>
+  <!-- 🛡️ IP ALLOWLIST PANEL (2nd security layer on top of password) -->
+  <div id="ip-lock-panel" style="display:none; background:#0f172a; border:1px solid #34d399; border-radius:12px; padding:18px; margin-bottom:18px;">
+    <h3 style="font-size:15px; margin-bottom:6px;">🛡️ IP Allowlist — కొన్ని IP ల నుంచే dashboard open అవ్వాలి</h3>
+    <p style="color:var(--text-muted); font-size:12px; margin-bottom:10px;">
+      Password తో పాటు రెండో security layer. Lock ON అయితే, list లో ఉన్న IP ల నుంచి మాత్రమే login page కూడా కనిపిస్తుంది — మిగతా వాళ్ళకి 403 Access Denied.
+    </p>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
+      <span id="ip-lock-status" style="font-weight:800; font-size:13px;">...</span>
+      <span style="font-size:12px; color:#94a3b8;">Your current IP: <b id="ip-lock-myip" style="color:#fbbf24;">...</b></span>
+      <button class="btn btn-outline" style="font-size:11px; padding:4px 10px;" onclick="addMyIpToList()">➕ Add My Current IP</button>
     </div>
+    <label>Allowed IPs (one per line — formats: <code>49.37.12.34</code> exact · <code>49.37.</code> prefix/range · <code>49.37.0.0/16</code> CIDR):</label>
+    <textarea id="ip-allow-list" rows="4" style="width:100%; font-family:monospace; font-size:13px;" placeholder="49.37.12.34"></textarea>
+    <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;">
+      <button class="btn btn-accent" onclick="saveIpLock(true)">🛡️ Save & Turn ON</button>
+      <button class="btn btn-outline" style="border-color:#ef4444; color:#ef4444;" onclick="saveIpLock(false)">🔓 Turn OFF (password only)</button>
+    </div>
+    <div id="ip-lock-result" style="font-size:12px; margin-top:8px;"></div>
+    <div id="login-audit" style="font-size:11px; margin-top:10px;"></div>
+    <p style="color:#64748b; font-size:11px; margin-top:8px;">
+      💡 Mobile data IP మారుతూ ఉంటుంది — exact IP బదులు prefix (ఉదా: <code>49.37.</code>) వాడితే safe. 🚨 Lockout అయితే: server ని <code>DISABLE_IP_LOCK=1</code> env తో restart చేయండి (sandbox/local నుంచి ఎప్పుడూ access ఉంటుంది).
+    </p>
   </div>
 
   <div class="grid-stats">
@@ -171,14 +325,41 @@ HTML_PAGE = """<!DOCTYPE html>
           <span id="wa-session-status-badge" style="background:#10b981; color:#050811; font-size:11px; font-weight:800; padding:2px 8px; border-radius:12px;">● CONNECTED</span>
           <span style="background:rgba(59,130,246,0.2); color:#60a5fa; border:1px solid #3b82f6; border-radius:12px; padding:2px 8px; font-size:11px; font-weight:700;">🛡️ 100x Anti-Ban Active</span>
         </h3>
-        <p id="wa-session-desc" style="font-size:12px; color:var(--text-muted); margin-top:4px;">
-          Active Device: <b style="color:#f8fafc;" id="wa-device-name">StudentUp Node #1</b> (<span id="wa-device-phone">+91 98XXXXXXXX</span>) · Dialogs: <b style="color:#38bdf8;" id="wa-dialogs-count">27 Groups</b> · Anti-Ban: <b style="color:#10b981;">40-60s Jitter + 5-Poll Group Rotation + 60-90s Batch Rest</b>
-        </p>
+        <div id="wa-logged-in-card" style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:8px; background:#050811; border:1px solid #1e293b; border-radius:10px; padding:10px 14px;">
+          <div id="wa-login-number-badge" style="font-family:'Consolas', monospace; font-size:20px; font-weight:800; letter-spacing:1px; color:#64748b; background:#0b1329; border:2px dashed #334155; border-radius:10px; padding:6px 16px;">
+            📵 NOT LINKED
+          </div>
+          <div style="font-size:12px; color:var(--text-muted); line-height:1.7;">
+            <div>👤 Device: <b style="color:#f8fafc;" id="wa-device-name">—</b> <span id="wa-connected-since" style="color:#64748b;"></span></div>
+            <div>💬 Synced Groups: <b style="color:#38bdf8;" id="wa-dialogs-count">0 Groups</b> · 🛡️ Anti-Ban: <b style="color:#10b981;">40-60s Jitter + 5-Poll Rotation + 60-90s Batch Rest</b></div>
+          </div>
+          <span id="wa-device-phone" style="display:none;"></span>
+        </div>
+
+        <!-- ⏱️ GLOBAL SMART GAP ENGINE: no time restrictions, user-controlled pacing everywhere -->
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:8px; background:#050811; border:1px solid #1e293b; border-radius:10px; padding:8px 14px;">
+          <b style="font-size:12px; color:#f59e0b;">⏱️ Anti-Ban Gap Engine:</b>
+          <select id="global-gap-preset" onchange="applyGapPreset(this.value)" style="margin:0; padding:5px 8px; font-size:12px; background:#0b1329; border:1px solid #f59e0b; color:#f8fafc; border-radius:6px;">
+            <option value="20,35">⚡ Fast — 20-35s</option>
+            <option value="40,60" selected>🛡️ Normal — 40-60s</option>
+            <option value="90,150">🐢 Long — 1.5-2.5 min</option>
+            <option value="180,300">🧘 Extra Long — 3-5 min</option>
+            <option value="300,600">🌙 Marathon — 5-10 min</option>
+            <option value="custom">⚙️ Custom</option>
+          </select>
+          <span style="font-size:11px; color:var(--text-muted);">Gap:</span>
+          <input type="number" id="gap-min" value="40" min="3" style="width:64px; margin:0; padding:5px 6px; font-size:12px; text-align:center;" oninput="saveGapSettings()">
+          <span style="font-size:11px; color:var(--text-muted);">–</span>
+          <input type="number" id="gap-max" value="60" min="5" style="width:64px; margin:0; padding:5px 6px; font-size:12px; text-align:center;" oninput="saveGapSettings()">
+          <span style="font-size:11px; color:var(--text-muted);">sec/poll</span>
+          <span style="font-size:11px; color:#10b981; font-weight:700;">⏰ No time limits — మీ ఇష్టం వచ్చినప్పుడు పంపండి (day/night anytime)</span>
+        </div>
       </div>
       <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
         <button class="btn btn-accent" style="font-size:12px; padding:6px 12px;" onclick="syncWADialogs()">🔄 Auto-Sync Joined Groups</button>
         <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="showQRLoginModal()">📷 Scan QR Login</button>
         <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="showCodeLoginModal()">🔢 Login with Code</button>
+        <button class="btn btn-outline" style="font-size:12px; padding:6px 12px; border-color:#ef4444; color:#ef4444;" onclick="logoutWASession()">🚪 Unlink Device</button>
       </div>
     </div>
     <div id="wa-login-dialog" style="display:none; margin-top:14px; background:#050811; padding:14px; border-radius:8px; border:1px solid var(--border);"></div>
@@ -194,6 +375,7 @@ HTML_PAGE = """<!DOCTYPE html>
     <button class="tab-btn" onclick="switchTab('tab-control')">⚡ Fast Actions & District War</button>
     <button class="tab-btn" onclick="switchTab('tab-squads')">👥 Squad Wars & Arena</button>
     <button class="tab-btn" onclick="switchTab('tab-members')">📋 Registered Members & CRM</button>
+    <button class="tab-btn" onclick="switchTab('tab-history')">📊 History & Analytics</button>
   </div>
 
   <!-- TAB 1: WHATSAPP INTERLEAVED DISPATCHER -->
@@ -259,8 +441,71 @@ HTML_PAGE = """<!DOCTYPE html>
           <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">
             <button class="btn btn-accent" onclick="startInterleaved(true)">🚀 Start 5-Poll Anti-Ban Quiz Rounds</button>
             <button class="btn btn-purple" onclick="startInterleaved(false)">📢 Send Custom Announcement</button>
-            <button class="btn btn-outline" onclick="scheduleQuizModal()">⏰ Schedule Daily Timed Quiz</button>
+            <button class="btn btn-outline" onclick="toggleScheduleBuilder()">⏰ Schedule Daily Timed Quiz</button>
             <button class="btn btn-danger" onclick="stopInterleaved()">🛑 Stop Pipeline</button>
+          </div>
+
+          <!-- ⏰ ADVANCED VISUAL SCHEDULE BUILDER — any duration: 2d, 15d, 1 month, 2 months, life-long -->
+          <div id="schedule-builder" style="display:none; margin-top:14px; background:linear-gradient(135deg,#0d1b36,#101d33); border:1px solid #fbbf24; border-radius:12px; padding:16px;">
+            <h3 style="font-size:14px; color:#fbbf24; margin-bottom:10px;">🛠️ Advanced Schedule Builder</h3>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px;">
+              <div>
+                <label>⏰ From Time</label>
+                <input type="time" id="sb-time" value="10:00" oninput="updateTimesPreview()">
+              </div>
+              <div>
+                <label>🕣 To Time (optional)</label>
+                <input type="time" id="sb-time-to" oninput="updateTimesPreview()">
+              </div>
+              <div>
+                <label>🔁 రోజుకి ఎన్నిసార్లు?</label>
+                <input type="number" id="sb-times-per-day" min="1" max="12" value="1" oninput="updateTimesPreview()">
+              </div>
+              <div>
+                <label>📊 Questions / slot</label>
+                <input type="number" id="sb-count" min="1" max="20" value="5">
+              </div>
+              <div>
+                <label>🏷️ Slot పేరు (optional)</label>
+                <input type="text" id="sb-label" placeholder="Morning Police Drill">
+              </div>
+            </div>
+            <div id="sb-times-preview" style="font-size:11px; color:#38bdf8; margin-top:5px;">⏰ 1 slot: 10:00</div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-top:10px;">
+              <div>
+                <label>📅 From Date (ఖాళీ = ఈరోజే start)</label>
+                <input type="date" id="sb-date-from" oninput="datesPicked()">
+              </div>
+              <div>
+                <label>📅 To Date (exact last day — optional)</label>
+                <input type="date" id="sb-date-to" oninput="datesPicked()">
+              </div>
+            </div>
+            <label style="margin-top:10px; display:block;">📅 ఎన్ని రోజులు నడవాలి? (tap చేయండి — ఏదైనా పెట్టుకోవచ్చు)</label>
+            <div id="sb-dur-chips" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:4px;">
+              <button class="btn btn-outline sb-chip" data-days="0" onclick="selectDurChip(0,this)" style="padding:5px 10px; font-size:12px;">♾️ Life-Long</button>
+              <button class="btn btn-outline sb-chip" data-days="2" onclick="selectDurChip(2,this)" style="padding:5px 10px; font-size:12px;">2 Days</button>
+              <button class="btn btn-outline sb-chip" data-days="7" onclick="selectDurChip(7,this)" style="padding:5px 10px; font-size:12px;">1 Week</button>
+              <button class="btn btn-outline sb-chip" data-days="15" onclick="selectDurChip(15,this)" style="padding:5px 10px; font-size:12px;">15 Days</button>
+              <button class="btn btn-outline sb-chip" data-days="30" onclick="selectDurChip(30,this)" style="padding:5px 10px; font-size:12px;">1 Month</button>
+              <button class="btn btn-outline sb-chip" data-days="60" onclick="selectDurChip(60,this)" style="padding:5px 10px; font-size:12px;">2 Months</button>
+              <button class="btn btn-outline sb-chip" data-days="90" onclick="selectDurChip(90,this)" style="padding:5px 10px; font-size:12px;">3 Months</button>
+              <input type="number" id="sb-custom-days" min="1" max="3650" placeholder="Custom days" style="width:110px; padding:5px 8px; font-size:12px;" oninput="customDurTyped()">
+            </div>
+            <div id="sb-dur-note" style="font-size:11px; color:#fbbf24; margin-top:5px;">♾️ Life-Long selected — ఎప్పటికీ ఆగదు</div>
+            <label style="margin-top:10px; display:block;">📚 Subjects (ఏదీ select చేయకపోతే = ALL subjects mix)</label>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:4px; font-size:12px;">
+              <label style="display:flex; align-items:center; gap:4px;"><input type="checkbox" class="sb-subj" value="MATHS">🔢 Maths</label>
+              <label style="display:flex; align-items:center; gap:4px;"><input type="checkbox" class="sb-subj" value="REASONING">🧠 Reasoning</label>
+              <label style="display:flex; align-items:center; gap:4px;"><input type="checkbox" class="sb-subj" value="GK">🌍 GK</label>
+              <label style="display:flex; align-items:center; gap:4px;"><input type="checkbox" class="sb-subj" value="CURRENT">📰 Current Affairs</label>
+              <label style="display:flex; align-items:center; gap:4px;"><input type="checkbox" class="sb-subj" value="ENGLISH">🔤 English</label>
+              <label style="display:flex; align-items:center; gap:4px;"><input type="checkbox" class="sb-subj" value="SCIENCE">🔬 Science</label>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
+              <button class="btn btn-accent" onclick="createScheduleFromBuilder()">✅ Create Schedule (Target: selected groups/category above)</button>
+              <button class="btn btn-outline" onclick="toggleScheduleBuilder()">✖ Close</button>
+            </div>
           </div>
 
           <div class="schedule-control-card" style="margin-top:16px; background:#0b1329; border:1px solid #38bdf8; border-radius:10px; padding:16px;">
@@ -444,7 +689,7 @@ HTML_PAGE = """<!DOCTYPE html>
               </p>
             </div>
             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-              <a href="/api/excel/template" download="studentup_sample_whatsapp_groups.csv" class="btn btn-outline" style="font-size:12px; padding:6px 14px; text-decoration:none; color:#38bdf8; border-color:#38bdf8;">📥 Download Sample Excel Template</a>
+              <a href="/api/excel/template_xlsx" class="btn btn-outline" style="font-size:12px; padding:6px 14px; text-decoration:none; color:#34d399; border-color:#34d399;">📥 Sample Excel (.xlsx + Auto-Schedule)</a>
               <input type="file" id="wa-excel-file-input" accept=".csv, .xlsx, .xls, .txt, .tsv" style="display:none;" onchange="handleExcelFileUpload(event)">
               <button class="btn btn-accent" style="font-size:12px; padding:6px 14px;" onclick="document.getElementById('wa-excel-file-input').click()">📁 Choose Excel / CSV File</button>
               <button class="btn btn-purple" style="font-size:12px; padding:6px 14px;" onclick="importInTabExcel()">📥 Import Pasted Rows</button>
@@ -550,8 +795,9 @@ HTML_PAGE = """<!DOCTYPE html>
 
       <div style="background:#0f172a; padding:12px; border-radius:8px; margin-bottom:14px; font-size:12px; color:var(--text-muted); border-left:4px solid #38bdf8;">
         💡 <b>Excel Columns (Tab / Comma separated / .xlsx):</b><br>
-        <code>Group or Channel Name | Link or JID | Category (Optional) | Shift (Optional) | Group Type (Optional: GENERAL or EXAM_SPECIFIC)</code><br>
-        <span style="color:#a7f3d0; font-size:11px;">(Note: 5వ కాలమ్‌లో GENERAL అని రాస్తే జనరల్ గ్రూప్ అని, EXAM_SPECIFIC అని రాస్తే ఆ నిర్దిష్ట పరీక్ష సిలబస్ గ్రూప్ అని సిస్టమ్ రికార్డ్ చేస్తుంది).</span>
+        <code>Group Name | Link or JID | Category | Shift | Group Type | Daily Times | Polls Per Slot | Days (0=Always) | Subjects</code><br>
+        <span style="color:#a7f3d0; font-size:11px;">మొదటి 2 columns చాలు — మిగతావన్నీ optional! ⏰ <b>Daily Times</b> (ఉదా: <code>08:00+20:30</code>) నింపితే ఆ group కి <b>ఆటోమేటిక్ డైలీ schedule</b> create అవుతుంది — ఎన్నిసార్లు (times), ఎన్ని polls (<b>Polls Per Slot</b>), ఎన్ని రోజులు (<b>Days</b>: 0 = Always-On), ఏ subjects (<code>MATHS+GK</code>) అన్నీ Excel లోనే!
+        Invite link ఇస్తే bridge connect అయినప్పుడు <b>auto-join</b> కూడా అవుతుంది. 🛡️ Sends అన్నీ anti-ban engine తోనే.</span>
       </div>
 
       <!-- File Browse Upload with Multi-Sheet Inspector -->
@@ -561,7 +807,7 @@ HTML_PAGE = """<!DOCTYPE html>
           <input type="file" id="excel-tab-file-input" accept=".csv, .xlsx, .xls, .txt, .tsv" style="display:none;" onchange="handleMainExcelFileUpload(event)">
           <button class="btn btn-accent" onclick="document.getElementById('excel-tab-file-input').click()">📂 Choose Excel / CSV File</button>
           <span id="selected-file-label" style="font-size:13px; color:var(--text-muted);">No file selected yet</span>
-          <a href="/api/excel/template" download="studentup_sample_whatsapp_groups.csv" class="btn btn-outline" style="text-decoration:none; color:#38bdf8; border-color:#38bdf8; margin-left:auto;">📥 Download Sample Template</a>
+          <a href="/api/excel/template_xlsx" class="btn btn-outline" style="text-decoration:none; color:#34d399; border-color:#34d399; margin-left:auto;">📥 Sample Excel (.xlsx, Multi-Sheet + Auto-Schedule)</a>
         </div>
 
         <!-- Multi-Sheet Selection Checkbox Panel (Appears when .xlsx uploaded) -->
@@ -600,6 +846,28 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
 
   <!-- TAB: BULK BROADCAST & ATTACHMENTS (GROUPS & CHANNELS) -->
   <div id="tab-bulk-broadcast" class="tab-pane active">
+
+    <!-- 🧭 MISSION HOME: ఒక్క చూపులో అంతా అర్థమయ్యే setup guide -->
+    <div class="panel-card" id="setup-guide-card" style="border:1px solid #10b981;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <h2 style="font-size:15px;">🧭 Setup Guide — ఏం అయింది, ఏం మిగిలింది</h2>
+        <span id="sg-progress-label" style="font-size:12px; font-weight:800; color:#10b981;"></span>
+      </div>
+      <div style="background:#0b1220; border-radius:10px; height:10px; margin:8px 0 12px; overflow:hidden;">
+        <div id="sg-progress-bar" style="height:100%; width:0%; background:linear-gradient(90deg,#10b981,#38bdf8); transition:width 0.6s;"></div>
+      </div>
+      <div id="sg-steps" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:8px;"></div>
+    </div>
+
+    <!-- 📆 TODAY'S TIMELINE: ఈరోజు ఏ టైంకి ఏం వెళ్తుంది -->
+    <div class="panel-card" id="today-timeline-card" style="border:1px solid #38bdf8;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+        <h2 style="font-size:15px;">📆 ఈరోజు Timeline — Auto Sends</h2>
+        <span id="tl-next-chip" style="font-size:12px; font-weight:800; color:#fbbf24;"></span>
+      </div>
+      <div id="tl-list" style="display:flex; flex-direction:column; gap:4px;"></div>
+    </div>
+
     <div class="panel-card">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
         <h2>🚀 Bulk Message & Live Dispatcher (WhatsApp Groups + Telegram Channels)</h2>
@@ -628,7 +896,22 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
         </div>
         <div style="display:flex; gap:8px;">
           <button class="btn btn-outline" style="padding:4px 10px; font-size:11px;" onclick="loadBulkTargets()">🔄 Reload Targets</button>
+          <button class="btn btn-purple" style="padding:4px 10px; font-size:11px;" onclick="switchTab('tab-excel-import')">📊 Upload Groups Excel / CSV</button>
         </div>
+      </div>
+
+      <!-- ➕ QUICK ADD NEW GROUPS: paste invite links → bot auto-joins & registers -->
+      <div style="background:#0b1329; border:1px solid #10b981; border-radius:10px; padding:12px; margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+          <h4 style="font-size:13px; color:#10b981; margin:0;">➕ Quick Add New Groups (Invite Links paste చేస్తే చాలు — bot దే auto-join అవుతుంది!)</h4>
+          <span style="font-size:10px; color:var(--text-muted);">Formats: link only · Name | link · Name | link | CATEGORY</span>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-start;">
+          <textarea id="quick-add-links" rows="2" placeholder="https://chat.whatsapp.com/XXXXXXXX
+Warangal Police SI Batch | https://chat.whatsapp.com/YYYYYYYY | POLICE" style="flex:1; min-width:250px; margin:0; font-size:12px;"></textarea>
+          <button class="btn btn-accent" style="padding:10px 16px; font-size:13px; font-weight:700; white-space:nowrap;" onclick="quickAddGroups()">➕ Add & Auto-Join</button>
+        </div>
+        <div id="quick-add-result" style="font-size:12px; margin-top:6px;"></div>
       </div>
 
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:18px; margin-bottom:18px;">
@@ -656,7 +939,31 @@ All candidates must join today before 9:00 PM!"></textarea>
 
           <div style="margin-top:16px; display:flex; flex-direction:column; gap:8px;">
             <button class="btn btn-accent" style="width:100%; padding:12px; font-size:14px; font-weight:800;" onclick="sendBulkBroadcast()">🚀 Send Bulk Message to Selected Targets</button>
-            <button class="btn btn-purple" style="width:100%; padding:10px; font-size:13px; font-weight:700;" onclick="sendBulkQuizPollsToTargets()">🎯 Send 5 Exam Polls to Selected Targets (Anti-Ban)</button>
+          </div>
+
+          <!-- 🎯 TOP-LEVEL EXAM POLL BUILDER: subjects + count + difficulty-free smart pick -->
+          <div style="margin-top:14px; background:#0b1329; border:1px solid #8b5cf6; border-radius:10px; padding:12px;">
+            <h4 style="font-size:13px; color:#a78bfa; margin-bottom:8px;">🎯 Exam Poll Builder (Subject-Wise)</h4>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+              <span style="font-size:11px; color:var(--text-muted);">Polls/group:</span>
+              <select id="poll-count-select" style="margin:0; padding:4px 8px; font-size:12px; width:70px;">
+                <option value="3">3</option>
+                <option value="5" selected>5</option>
+                <option value="10">10</option>
+                <option value="15">15</option>
+              </select>
+              <span style="font-size:11px; color:var(--text-muted);">Subjects (ఏవీ టిక్ చేయకపోతే = All):</span>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; font-size:12px; margin-bottom:10px;">
+              <label style="cursor:pointer;"><input type="checkbox" class="poll-subj" value="MATHS"> 🔢 Maths / Aptitude</label>
+              <label style="cursor:pointer;"><input type="checkbox" class="poll-subj" value="REASONING"> 🧩 Reasoning</label>
+              <label style="cursor:pointer;"><input type="checkbox" class="poll-subj" value="GK"> 📚 GK / History / Polity</label>
+              <label style="cursor:pointer;"><input type="checkbox" class="poll-subj" value="CURRENT"> 🗞️ Current Affairs</label>
+              <label style="cursor:pointer;"><input type="checkbox" class="poll-subj" value="ENGLISH"> 📖 English</label>
+              <label style="cursor:pointer;"><input type="checkbox" class="poll-subj" value="SCIENCE"> 🔬 Science & Tech</label>
+            </div>
+            <button class="btn btn-purple" style="width:100%; padding:10px; font-size:13px; font-weight:700;" onclick="sendBulkQuizPollsToTargets()">🎯 Send Exam Polls to Selected Targets</button>
+            <div style="font-size:10px; color:var(--text-muted); margin-top:6px;">💬 WhatsApp: anti-ban gap engine · 📢 Telegram: instant (official Bot API — no ban risk, no gaps)</div>
           </div>
         </div>
 
@@ -688,6 +995,8 @@ All candidates must join today before 9:00 PM!"></textarea>
             <button class="btn btn-outline" style="padding:3px 7px; font-size:11px;" onclick="toggleAllBulkTargets(false)">Clear All</button>
             <button class="btn btn-outline" style="padding:3px 7px; font-size:11px;" onclick="selectBulkChannelsOnly()">Channels Only</button>
             <button class="btn btn-outline" style="padding:3px 7px; font-size:11px;" onclick="selectBulkWAGroupsOnly()">WhatsApp Only</button>
+            <button class="btn btn-outline" style="padding:3px 7px; font-size:11px; border-color:#10b981; color:#10b981;" onclick="selectVisibleBulkTargets(true)">✅ Select Visible</button>
+            <button class="btn btn-outline" style="padding:3px 7px; font-size:11px; border-color:#f59e0b; color:#f59e0b;" onclick="selectVisibleBulkTargets(false)">✖ Unselect Visible</button>
           </div>
 
           <div style="overflow-y:auto; flex:1; padding-right:6px;">
@@ -798,8 +1107,22 @@ All candidates must join today before 9:00 PM!"></textarea>
 
       <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
         <div style="background:#0f172a; padding:18px; border-radius:10px; border:1px solid var(--border);">
-          <h3 style="font-size:15px; margin-bottom:12px;">➕ Register New Exam Channel</h3>
-          <label>Channel / Exam Name:</label>
+          <h3 style="font-size:15px; margin-bottom:12px;">➕ Register Telegram Channel <u>or Group</u></h3>
+
+          <!-- 🔍 one-click: bot ని add చేసిన groups/channels auto-register -->
+          <div style="background:#0b1329; border:1px solid #10b981; border-radius:8px; padding:10px; margin-bottom:12px;">
+            <div style="font-size:12px; color:#a7f3d0; margin-bottom:6px;">💡 <b>Easy way:</b> మీ Telegram <b>group</b> లో bot ని add చేయండి (member/admin గా) → ఈ button నొక్కండి — అన్నీ ఆటోమేటిక్‌గా register అవుతాయి!</div>
+            <button class="btn btn-accent" style="font-size:12px; padding:6px 14px;" onclick="detectNewTelegramChats()">🔍 Auto-Detect Bot Groups & Channels</button>
+            <div id="tg-detect-result" style="font-size:12px; margin-top:6px;"></div>
+          </div>
+
+          <label>Type:</label>
+          <select id="new-ch-type">
+            <option value="channel">📢 Channel (broadcast)</option>
+            <option value="group">💬 Group / Supergroup (bot must be member)</option>
+          </select>
+
+          <label>Channel / Group / Exam Name:</label>
           <input type="text" id="new-ch-name" placeholder="e.g. TS Police Sub Inspector 2026">
 
           <label>Exam Category (or Auto-Detect):</label>
@@ -828,10 +1151,10 @@ All candidates must join today before 9:00 PM!"></textarea>
             <option value="CURRENT">Current Affairs & Daily GK</option>
           </select>
 
-          <label>Telegram Chat ID or @username (optional for preview):</label>
-          <input type="text" id="new-ch-chatid" placeholder="@MyNewPoliceExamChannel or -100123456789">
+          <label>Telegram Chat ID or @username (groups కి usually -100... id):</label>
+          <input type="text" id="new-ch-chatid" placeholder="@MyChannel or -100123456789 (group id)">
 
-          <button class="btn btn-accent" onclick="createNewChannel()">⚡ Register Channel & Auto-Synthesize Polls</button>
+          <button class="btn btn-accent" onclick="createNewChannel()">⚡ Register & Auto-Synthesize Polls</button>
         </div>
 
         <div>
@@ -875,6 +1198,52 @@ All candidates must join today before 9:00 PM!"></textarea>
           </thead>
           <tbody></tbody>
         </table>
+      </div>
+
+      <!-- 🤖 TELEGRAM AUTO-PILOT: daily hands-free poll posting -->
+      <div style="background:#0b1329; border:1px solid #a78bfa; border-radius:10px; padding:16px; margin-top:16px;">
+        <h3 style="font-size:15px; margin-bottom:4px;">🤖 Telegram Auto-Pilot — రోజూ ఆటోమేటిక్ Polls (Zero Effort)</h3>
+        <p style="color:var(--text-muted); font-size:12px; margin-bottom:10px;">
+          పై table లో channels/groups select చేసి, times పెట్టి ON చేయండి — ప్రతి రోజు ఆ time కి ఆటోమేటిక్‌గా polls post అవుతాయి (instant, no gaps — official Bot API).
+        </p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+          <div>
+            <label style="font-size:11px;">Daily Times (comma sep):</label>
+            <input type="text" id="tg-ap-times" placeholder="08:00, 13:00, 20:30" style="width:180px; margin:0; padding:7px 10px; font-size:13px;">
+          </div>
+          <div>
+            <label style="font-size:11px;">Polls per slot:</label>
+            <select id="tg-ap-count" style="margin:0; padding:7px 10px; width:90px;">
+              <option value="1">1</option><option value="3">3</option><option value="5" selected>5</option><option value="10">10</option>
+            </select>
+          </div>
+          <button class="btn btn-accent" onclick="createTgAutopilot()">🤖 Start Auto-Pilot (Selected Targets)</button>
+          <button class="btn btn-outline" style="border-color:#fbbf24; color:#fbbf24;" onclick="oneClickDailyPlan()" title="08:00 + 13:00 + 20:30 slots, all targets">🚀 1-Click Daily Plan</button>
+        </div>
+        <div style="margin-top:8px; font-size:12px; color:#94a3b8;">
+          Subjects (optional):
+          <label style="display:inline; font-size:12px;"><input type="checkbox" class="tg-ap-subj" value="MATHS"> ➗ Maths</label>
+          <label style="display:inline; font-size:12px;"><input type="checkbox" class="tg-ap-subj" value="REASONING"> 🧠 Reasoning</label>
+          <label style="display:inline; font-size:12px;"><input type="checkbox" class="tg-ap-subj" value="GK"> 🌍 GK</label>
+          <label style="display:inline; font-size:12px;"><input type="checkbox" class="tg-ap-subj" value="CURRENT"> 📰 Current</label>
+          <label style="display:inline; font-size:12px;"><input type="checkbox" class="tg-ap-subj" value="ENGLISH"> 🔤 English</label>
+          <label style="display:inline; font-size:12px;"><input type="checkbox" class="tg-ap-subj" value="SCIENCE"> 🔬 Science</label>
+        </div>
+        <div id="tg-ap-result" style="font-size:12px; margin-top:8px;"></div>
+        <div id="tg-ap-jobs" style="font-size:12px; margin-top:10px;"></div>
+      </div>
+
+      <!-- 🔍 QUESTION FINDER: search whole bank, preview, hand-pick & send -->
+      <div style="background:#0b1329; border:1px solid #38bdf8; border-radius:10px; padding:16px; margin-top:16px;">
+        <h3 style="font-size:15px; margin-bottom:4px;">🔍 Question Finder — ఏ Question అయినా వెతికి, నచ్చింది పంపండి</h3>
+        <p style="color:var(--text-muted); font-size:12px; margin-bottom:10px;">
+          Topic, పదం, లేదా channel పేరుతో search చేయండి (ఉదా: "blood relation", "percentage", "constitution"). నచ్చిన question పక్కన 📤 నొక్కితే — పైన select చేసిన channel కి instant గా వెళ్తుంది.
+        </p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <input type="text" id="qf-search" placeholder="🔍 e.g. blood relation, GDP, article 21..." style="flex:1; min-width:220px; margin:0; padding:8px 12px; font-size:13px;" onkeyup="qfDebounced()">
+          <span style="font-size:11px; color:#94a3b8;">Send target: <b style="color:#38bdf8;">పైన "Choose Channel" select</b></span>
+        </div>
+        <div id="qf-results" style="margin-top:10px; max-height:300px; overflow-y:auto; font-size:12px;"></div>
       </div>
     </div>
   </div>
@@ -1025,6 +1394,72 @@ All candidates must join today before 9:00 PM!"></textarea>
     </div>
   </div>
 
+  <!-- TAB: 📊 BROADCAST HISTORY & ANALYTICS -->
+  <div id="tab-history" class="tab-pane">
+    <div class="panel-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <div>
+          <h2>📊 Broadcast History & Analytics</h2>
+          <p style="color:var(--text-muted); font-size:13px;">ప్రతి poll dispatch (Telegram instant / WhatsApp anti-ban / Auto-Pilot) ఇక్కడ record అవుతుంది.</p>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="downloadBackup()">💾 Full Backup (.zip)</button>
+          <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="exportHistoryCSV()">📥 Export CSV</button>
+          <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="loadHistory()">🔄 Refresh</button>
+        </div>
+      </div>
+
+      <!-- 🩺 MISSION CONTROL: whole system health at a glance -->
+      <div style="background:#0b1329; border:1px solid #38bdf8; border-radius:10px; padding:14px; margin-top:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <h3 style="font-size:14px;">🩺 Mission Control — System Health</h3>
+          <span id="health-uptime" style="font-size:11px; color:#64748b;"></span>
+        </div>
+        <div id="health-badges" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; font-size:12px;"></div>
+        <div id="health-bank" style="margin-top:10px; font-size:12px;"></div>
+      </div>
+
+      <div class="grid-stats" style="margin-top:14px;">
+        <div class="stat-card">
+          <div class="label">Today's Polls Sent</div>
+          <div class="val" id="hist-today" style="color:#38bdf8;">...</div>
+          <div class="desc"><span id="hist-today-ev">...</span> dispatch events</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Last 7 Days Polls</div>
+          <div class="val" id="hist-week" style="color:#34d399;">...</div>
+          <div class="desc"><span id="hist-week-ev">...</span> dispatch events</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">📢 Telegram vs 💚 WhatsApp (7d)</div>
+          <div class="val" id="hist-split" style="color:#a78bfa; font-size:20px;">...</div>
+          <div class="desc">polls by platform</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">🏆 Top Target (7d)</div>
+          <div class="val" id="hist-top" style="color:#fbbf24; font-size:16px;">...</div>
+          <div class="desc">most polls received</div>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 2fr 1fr; gap:16px; margin-top:16px;" class="hist-grid">
+        <div style="background:#0f172a; border:1px solid var(--border); border-radius:10px; padding:14px;">
+          <h3 style="font-size:14px; margin-bottom:8px;">🕒 Recent Dispatches</h3>
+          <div id="hist-table-wrap" style="max-height:420px; overflow-y:auto;">
+            <table id="table-history">
+              <thead><tr><th>Time</th><th>Platform</th><th>Target</th><th>Polls</th><th>Subjects</th><th>Mode</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+        <div style="background:#0f172a; border:1px solid var(--border); border-radius:10px; padding:14px;">
+          <h3 style="font-size:14px; margin-bottom:8px;">🏆 Top Targets (7 days)</h3>
+          <div id="hist-top-list" style="font-size:12px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     function switchTab(id, btnElem) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -1045,9 +1480,10 @@ All candidates must join today before 9:00 PM!"></textarea>
 
       if (id === 'tab-wa-dispatch') loadWAGroups();
       if (id === 'tab-campus') loadCampusEvents();
-      if (id === 'tab-dynamic-channels') loadChannels();
+      if (id === 'tab-dynamic-channels') { loadChannels(); loadTgAutopilotJobs(); }
+      if (id === 'tab-history') { loadHistory(); loadHealth(); }
       if (id === 'tab-bundles') loadBundles();
-      if (id === 'tab-bulk-broadcast') loadBulkTargets();
+      if (id === 'tab-bulk-broadcast') { loadBulkTargets(); renderMissionHome(); }
       if (id === 'tab-squads') loadSquads();
       if (id === 'tab-members') loadMembers();
     }
@@ -1084,7 +1520,7 @@ All candidates must join today before 9:00 PM!"></textarea>
           statText.innerText = 'Status: Idle';
         }
         if (d.logs && d.logs.length > 0) {
-          logBox.innerText = d.logs.join('\n');
+          logBox.innerText = d.logs.join('\\n');
           logBox.scrollTop = logBox.scrollHeight;
         }
       } catch (e) {
@@ -1103,26 +1539,60 @@ All candidates must join today before 9:00 PM!"></textarea>
         const countEl = document.getElementById('wa-dialogs-count');
 
         if (nameEl) nameEl.innerText = s.device_name || 'Dispatch Node #1';
-        if (phoneEl) phoneEl.innerText = s.phone || '+91 98XXXXXXXX';
-        if (countEl) countEl.innerText = (s.scanned_dialogs_count || 0) + ' Groups';
+        if (phoneEl) phoneEl.innerText = s.phone || '';
+        if (countEl) countEl.innerText = (s.scanned_dialogs_count || s.bridge_groups_count || 0) + ' Groups';
+
+        // 🪪 Big neat "which number is logged in" badge
+        const numBadge = document.getElementById('wa-login-number-badge');
+        const sinceEl = document.getElementById('wa-connected-since');
+        if (numBadge) {
+          if (s.status === 'connected' && s.phone) {
+            numBadge.innerText = '✅ ' + s.phone;
+            numBadge.style.color = '#10b981';
+            numBadge.style.border = '2px solid #10b981';
+            numBadge.style.background = 'rgba(16,185,129,0.08)';
+            numBadge.title = 'This WhatsApp number is linked & sending';
+            if (sinceEl) sinceEl.innerText = s.connected_at ? ('· 🔗 Linked since ' + s.connected_at) : '';
+          } else if (s.status === 'qr_ready' || s.status === 'code_ready' || s.status === 'connecting') {
+            numBadge.innerText = '⏳ LINKING...';
+            numBadge.style.color = '#f59e0b';
+            numBadge.style.border = '2px dashed #f59e0b';
+            numBadge.style.background = 'rgba(245,158,11,0.08)';
+            if (sinceEl) sinceEl.innerText = '';
+          } else {
+            numBadge.innerText = '📵 NOT LINKED';
+            numBadge.style.color = '#64748b';
+            numBadge.style.border = '2px dashed #334155';
+            numBadge.style.background = '#0b1329';
+            if (sinceEl) sinceEl.innerText = '';
+          }
+        }
 
         if (badge) {
           if (s.status === 'connected') {
             badge.style.background = '#10b981';
             badge.style.color = '#050811';
-            badge.innerText = '● ALWAYS-ON CONNECTED';
+            badge.innerText = '● REAL WHATSAPP CONNECTED';
           } else if (s.status === 'qr_ready') {
             badge.style.background = '#f59e0b';
             badge.style.color = '#050811';
-            badge.innerText = '📷 QR CODE READY';
+            badge.innerText = '📷 QR CODE READY — SCAN NOW';
           } else if (s.status === 'code_ready') {
             badge.style.background = '#38bdf8';
             badge.style.color = '#050811';
             badge.innerText = '🔢 PAIRING CODE: ' + s.pairing_code;
+          } else if (s.status === 'connecting') {
+            badge.style.background = '#6366f1';
+            badge.style.color = '#fff';
+            badge.innerText = '⏳ CONNECTING TO WHATSAPP...';
+          } else if (s.status === 'bridge_offline') {
+            badge.style.background = '#ef4444';
+            badge.style.color = '#fff';
+            badge.innerText = '⚠️ BRIDGE OFFLINE (run: node gateway/wa_bridge.js)';
           } else {
             badge.style.background = '#ef4444';
             badge.style.color = '#fff';
-            badge.innerText = '○ DISCONNECTED';
+            badge.innerText = '○ NOT LINKED — SCAN QR TO LOGIN';
           }
         }
       } catch (e) {
@@ -1137,35 +1607,113 @@ All candidates must join today before 9:00 PM!"></textarea>
       try {
         const res = await fetch('/api/whatsapp/sync_dialogs', {method: 'POST'});
         const d = await res.json();
-        box.innerHTML = `<div style="color:#10b981; font-weight:700;">✅ Synced ${d.dialogs_count || 0} active dialogs from WhatsApp!</div>`;
+        if (d.ok === false) {
+          box.innerHTML = `<div style="color:#ef4444; font-weight:700;">❌ ${d.error || 'Sync failed — connect WhatsApp first (Scan QR Login).'}</div>`;
+          return;
+        }
+        box.innerHTML = `<div style="color:#10b981; font-weight:700;">✅ Synced ${d.dialogs_count || 0} REAL joined groups from your WhatsApp! (${d.added || 0} new, ${d.updated || 0} updated)</div>`;
         loadWASession();
         loadWAGroups();
         fetchStats();
-        setTimeout(() => { box.style.display = 'none'; }, 4000);
+        await loadBulkTargets();
+        setTimeout(() => { box.style.display = 'none'; }, 5000);
       } catch (e) {
         box.innerHTML = '<div style="color:#ef4444;">❌ Failed to sync: ' + e + '</div>';
       }
     }
 
+    let waLoginPoller = null;
+
+    function stopWALoginPoller() {
+      if (waLoginPoller) { clearInterval(waLoginPoller); waLoginPoller = null; }
+    }
+
+    function closeWALoginDialog() {
+      stopWALoginPoller();
+      const box = document.getElementById('wa-login-dialog');
+      if (box) box.style.display = 'none';
+    }
+
+    // Poll the REAL session status every 2.5s until the phone actually links.
+    function startWALoginPoller(mode) {
+      stopWALoginPoller();
+      waLoginPoller = setInterval(async () => {
+        try {
+          const res = await fetch('/api/whatsapp/session');
+          const s = await res.json();
+          loadWASession();
+          const box = document.getElementById('wa-login-dialog');
+          if (!box) return;
+          if (s.status === 'connected') {
+            stopWALoginPoller();
+            box.innerHTML = `<div style="color:#10b981; font-weight:700;">🎉 REAL WhatsApp Linked Successfully! Device: ${s.device_name || ''} ${s.phone || ''}<br><span style="font-size:12px; color:#cbd5e1;">Auto-syncing your joined groups now...</span></div>`;
+            loadWAGroups();
+            fetchStats();
+            try { await fetch('/api/whatsapp/sync_dialogs', {method: 'POST'}); } catch (_) {}
+            loadWAGroups();
+            setTimeout(() => { box.style.display = 'none'; }, 5000);
+          } else if (mode === 'qr' && s.status === 'qr_ready' && s.qr_data) {
+            const img = document.getElementById('wa-live-qr-img');
+            if (img && img.src !== s.qr_data) img.src = s.qr_data;  // QR auto-refreshes every ~60s
+            else if (!img) showQRLoginModal();  // QR arrived after "not ready" screen
+          } else if (mode === 'code' && s.status === 'code_ready' && s.pairing_code) {
+            const codeEl = document.getElementById('wa-live-pairing-code');
+            if (codeEl && codeEl.innerText !== s.pairing_code) codeEl.innerText = s.pairing_code;
+          } else if (s.status === 'offline' && s.last_error) {
+            stopWALoginPoller();
+            box.innerHTML = `<div style="color:#ef4444; font-weight:700;">❌ Could not reach WhatsApp servers from this machine.</div>
+              <div style="font-size:12px; color:#cbd5e1; margin-top:6px;">Detail: ${s.last_error}<br>
+              Check the server's internet access / firewall (web.whatsapp.com must be reachable), then retry.</div>
+              <button class="btn btn-accent" style="font-size:11px; padding:5px 10px; margin-top:8px;" onclick="showQRLoginModal()">🔄 Retry QR Login</button>`;
+          }
+        } catch (e) { /* keep polling */ }
+      }, 2500);
+    }
+
     async function showQRLoginModal() {
       const box = document.getElementById('wa-login-dialog');
       box.style.display = 'block';
-      box.innerHTML = '<div style="color:#38bdf8;">Generating Ultra-Secure WhatsApp Web QR Code...</div>';
+      box.innerHTML = '<div style="color:#38bdf8;">🔐 Opening REAL WhatsApp Web session & generating live QR... (takes ~5-10s)</div>';
       try {
         const res = await fetch('/api/whatsapp/request_qr', {method: 'POST'});
         const d = await res.json();
-        const s = d.session || {};
+        const s = d.session || d || {};
+        if (s.status === 'bridge_offline') {
+          box.innerHTML = `<div style="color:#ef4444; font-weight:700;">⚠️ WhatsApp Bridge is not running!</div>
+            <div style="font-size:12px; color:#cbd5e1; margin-top:6px;">Start it in a terminal, then try again:<br>
+            <code style="color:#facc15;">cd gateway && npm install && node wa_bridge.js</code></div>`;
+          return;
+        }
+        if (s.status === 'connected') {
+          box.innerHTML = '<div style="color:#10b981; font-weight:700;">✅ Already connected to a REAL WhatsApp session!</div>';
+          loadWASession();
+          setTimeout(() => { box.style.display = 'none'; }, 3000);
+          return;
+        }
+        if (!s.qr_data) {
+          if (s.status === 'offline' && s.last_error) {
+            box.innerHTML = `<div style="color:#ef4444; font-weight:700;">❌ Could not reach WhatsApp servers from this machine.</div>
+              <div style="font-size:12px; color:#cbd5e1; margin-top:6px;">Detail: ${s.last_error}<br>
+              This server's network must allow <b>web.whatsapp.com</b>. Run the bridge on your own PC / VPS with open internet, then retry.</div>
+              <button class="btn btn-accent" style="font-size:11px; padding:5px 10px; margin-top:8px;" onclick="showQRLoginModal()">🔄 Retry QR Login</button>`;
+            return;
+          }
+          box.innerHTML = '<div style="color:#f59e0b;">⏳ QR not ready yet (' + (s.status || 'connecting') + '). Waiting for WhatsApp servers...</div>';
+          startWALoginPoller('qr');
+          return;
+        }
         box.innerHTML = `
           <div style="display:flex; gap:20px; align-items:center; flex-wrap:wrap;">
-            <img src="${s.qr_data}" style="width:160px; height:160px; border-radius:8px; border:2px solid #10b981; background:white; padding:4px;">
+            <img id="wa-live-qr-img" src="${s.qr_data}" style="width:200px; height:200px; border-radius:8px; border:2px solid #10b981; background:white; padding:4px;">
             <div>
-              <h4 style="color:#10b981; margin-bottom:6px;">📱 Scan with WhatsApp on your phone</h4>
-              <p style="font-size:12px; color:#cbd5e1; margin-bottom:8px;">1. Open WhatsApp on your phone<br>2. Tap Menu / Settings > Linked Devices<br>3. Tap <b>Link a Device</b> and point camera here.</p>
-              <button class="btn btn-accent" style="font-size:11px; padding:5px 10px;" onclick="confirmWALogin('Primary Mobile')">✅ I Have Scanned (Confirm Link)</button>
-              <button class="btn btn-outline" style="font-size:11px; padding:5px 10px; margin-left:6px;" onclick="document.getElementById('wa-login-dialog').style.display='none'">Close</button>
+              <h4 style="color:#10b981; margin-bottom:6px;">📱 Scan with WhatsApp — this is a REAL login QR</h4>
+              <p style="font-size:12px; color:#cbd5e1; margin-bottom:8px;">1. Open WhatsApp on your phone<br>2. Tap Menu / Settings &gt; <b>Linked Devices</b><br>3. Tap <b>Link a Device</b> and scan this code.<br><span style="color:#f59e0b;">QR auto-refreshes; connection is detected automatically — no button needed.</span></p>
+              <div id="wa-qr-wait-status" style="font-size:12px; color:#38bdf8; margin-bottom:8px;">⏳ Waiting for your phone to scan...</div>
+              <button class="btn btn-outline" style="font-size:11px; padding:5px 10px;" onclick="closeWALoginDialog()">Close</button>
             </div>
           </div>
         `;
+        startWALoginPoller('qr');
         loadWASession();
       } catch (e) {
         box.innerHTML = '<div style="color:#ef4444;">❌ QR Request failed: ' + e + '</div>';
@@ -1185,19 +1733,480 @@ All candidates must join today before 9:00 PM!"></textarea>
           body: JSON.stringify({phone})
         });
         const d = await res.json();
-        const s = d.session || {};
+        const s = d.session || d || {};
+        if (s.status === 'bridge_offline') {
+          box.innerHTML = `<div style="color:#ef4444; font-weight:700;">⚠️ WhatsApp Bridge is not running!</div>
+            <div style="font-size:12px; color:#cbd5e1; margin-top:6px;">Start it in a terminal, then try again:<br>
+            <code style="color:#facc15;">cd gateway && npm install && node wa_bridge.js</code></div>`;
+          return;
+        }
+        if (!s.pairing_code) {
+          box.innerHTML = '<div style="color:#f59e0b;">⏳ Requesting real pairing code from WhatsApp servers... keep this open.</div>';
+          startWALoginPoller('code');
+          return;
+        }
         box.innerHTML = `
           <div style="background:#0b1329; border:1px solid #38bdf8; padding:16px; border-radius:8px;">
-            <h4 style="color:#38bdf8; margin-bottom:6px;">🔢 WhatsApp 8-Digit Pairing Code</h4>
-            <div style="font-size:24px; font-weight:800; letter-spacing:4px; color:#facc15; margin:10px 0;">${s.pairing_code}</div>
-            <p style="font-size:12px; color:#cbd5e1; margin-bottom:10px;">Enter this code on your phone notification to link your WhatsApp account permanently.</p>
-            <button class="btn btn-accent" style="font-size:11px; padding:5px 10px;" onclick="confirmWALogin('Phone Code Linked Device')">✅ Confirm Pairing Complete</button>
-            <button class="btn btn-outline" style="font-size:11px; padding:5px 10px; margin-left:6px;" onclick="document.getElementById('wa-login-dialog').style.display='none'">Close</button>
+            <h4 style="color:#38bdf8; margin-bottom:6px;">🔢 REAL WhatsApp Pairing Code</h4>
+            <div id="wa-live-pairing-code" style="font-size:24px; font-weight:800; letter-spacing:4px; color:#facc15; margin:10px 0;">${s.pairing_code}</div>
+            <p style="font-size:12px; color:#cbd5e1; margin-bottom:10px;">On your phone: WhatsApp &gt; <b>Linked Devices</b> &gt; <b>Link a Device</b> &gt; <b>Link with phone number instead</b> — then type this code. Connection is detected automatically.</p>
+            <button class="btn btn-outline" style="font-size:11px; padding:5px 10px;" onclick="closeWALoginDialog()">Close</button>
           </div>
         `;
+        startWALoginPoller('code');
         loadWASession();
       } catch (e) {
         box.innerHTML = '<div style="color:#ef4444;">❌ Pairing code request failed: ' + e + '</div>';
+      }
+    }
+
+    // ---------- ⏱️ GLOBAL SMART GAP ENGINE (saved in browser, applies everywhere) ----------
+    function applyGapPreset(val) {
+      if (val === 'custom') return;
+      const [mn, mx] = val.split(',').map(Number);
+      document.getElementById('gap-min').value = mn;
+      document.getElementById('gap-max').value = mx;
+      saveGapSettings();
+    }
+
+    function getGapMin() {
+      const v = parseInt(document.getElementById('gap-min')?.value || '40', 10);
+      return isNaN(v) || v < 3 ? 3 : v;
+    }
+
+    function getGapMax() {
+      const mn = getGapMin();
+      const v = parseInt(document.getElementById('gap-max')?.value || '60', 10);
+      return isNaN(v) || v <= mn ? mn + 5 : v;
+    }
+
+    function gapLabel() {
+      const mn = getGapMin(), mx = getGapMax();
+      const fmt = s => s >= 60 ? (s / 60).toFixed(s % 60 ? 1 : 0) + ' min' : s + 's';
+      return `${fmt(mn)}–${fmt(mx)}`;
+    }
+
+    function saveGapSettings() {
+      try {
+        localStorage.setItem('su_gap', JSON.stringify({
+          min: getGapMin(), max: getGapMax(),
+          preset: document.getElementById('global-gap-preset')?.value || '40,60'
+        }));
+      } catch (e) {}
+    }
+
+    function loadGapSettings() {
+      try {
+        const s = JSON.parse(localStorage.getItem('su_gap') || 'null');
+        if (!s) return;
+        const presetEl = document.getElementById('global-gap-preset');
+        if (presetEl && s.preset) presetEl.value = s.preset;
+        if (s.min) document.getElementById('gap-min').value = s.min;
+        if (s.max) document.getElementById('gap-max').value = s.max;
+      } catch (e) {}
+    }
+
+    async function dashLogout() {
+      if (!confirm('Lock the dashboard? మళ్ళీ open చేయాలంటే password అడుగుతుంది.')) return;
+      try { await fetch('/api/auth/logout', {method:'POST'}); } catch (e) {}
+      location.href = '/';
+    }
+
+    // ================= 📊 BROADCAST HISTORY & ANALYTICS =================
+    async function loadHistory() {
+      try {
+        const r = await fetch('/api/history');
+        const d = await r.json();
+        const s = d.summary || {};
+        document.getElementById('hist-today').innerText = s.today_polls ?? 0;
+        document.getElementById('hist-today-ev').innerText = s.today_events ?? 0;
+        document.getElementById('hist-week').innerText = s.week_polls ?? 0;
+        document.getElementById('hist-week-ev').innerText = s.week_events ?? 0;
+        const bk = s.by_kind || {};
+        document.getElementById('hist-split').innerText = (bk.telegram || 0) + ' / ' + (bk.whatsapp || 0);
+        const tops = s.top_targets || [];
+        document.getElementById('hist-top').innerText = tops.length ? tops[0].target : '—';
+        document.getElementById('hist-top-list').innerHTML = tops.length
+          ? tops.map((t, i) => `<div style="display:flex; justify-content:space-between; padding:5px 6px; border-radius:6px; background:${i===0?'rgba(251,191,36,0.08)':'transparent'};"><span>${i+1}. ${t.target}</span><b style="color:#38bdf8;">${t.count}</b></div>`).join('')
+          : '<span style="color:#64748b;">No dispatches yet — ఏదైనా poll పంపండి!</span>';
+        const tbody = document.querySelector('#table-history tbody');
+        tbody.innerHTML = '';
+        (d.history || []).forEach(e => {
+          const tr = document.createElement('tr');
+          const kindBadge = e.kind === 'telegram' ? '📢 Telegram' : (e.kind === 'whatsapp' ? '💚 WhatsApp' : '🤖 ' + e.kind);
+          tr.innerHTML = `
+            <td style="font-family:monospace; font-size:11px;">${e.ts}</td>
+            <td>${kindBadge}</td>
+            <td>${e.target}</td>
+            <td style="color:#38bdf8; font-weight:700;">${e.count}</td>
+            <td style="font-size:11px;">${(e.subjects||[]).join(', ') || 'ALL'}</td>
+            <td style="font-size:11px;">${e.dry ? '<span style="color:#f59e0b;">DRY-RUN</span>' : '<span style="color:#34d399;">LIVE</span>'}${e.note ? ' · ' + e.note : ''}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+        if (!(d.history || []).length) {
+          tbody.innerHTML = '<tr><td colspan="6" style="color:#64748b;">ఇంకా dispatches లేవు.</td></tr>';
+        }
+      } catch (e) { console.error('history load:', e); }
+    }
+
+    // ====== 📡 HEADER LIVE STATUS STRIP (ప్రతి tab లో కనిపిస్తుంది) ======
+    // 🧭 MISSION HOME — ఏం అయింది / ఏం మిగిలింది + ఈరోజు timeline
+    async function renderMissionHome() {
+      try {
+        const [hr, sr, gr] = await Promise.all([
+          fetch('/api/health'), fetch('/api/whatsapp/schedules'), fetch('/api/whatsapp/groups')
+        ]);
+        const h = await hr.json(), s = await sr.json(), g = await gr.json();
+        const groups = (g.groups || []).length;
+        const jobs = (s.jobs || []).filter(j => j.enabled !== false);
+        const steps = [
+          {done: !!h.whatsapp_connected, icon: '💚', t: 'WhatsApp Connect', hint: 'QR scan ఒక్కసారే — తర్వాత never-disconnect engine చూసుకుంటుంది', tab: 'tab-wa-dispatch'},
+          {done: !!h.telegram_live, icon: '📢', t: 'Telegram Bot Token', hint: 'env/.env లో BOT_TOKEN పెడితే TG LIVE అవుతుంది', tab: 'tab-dynamic-channels'},
+          {done: groups > 0, icon: '👥', t: 'Groups Add (' + groups + ' ఉన్నాయి)', hint: 'Excel upload లేదా Quick-Add తో groups పెట్టండి', tab: 'tab-excel-import'},
+          {done: jobs.length > 0, icon: '⏰', t: 'Daily Schedule (' + jobs.length + ' slots)', hint: 'Builder లో time + ఎన్ని రోజులో set చేయండి', tab: 'tab-wa-dispatch'},
+          {done: (h.total_fresh || 0) >= 50, icon: '📦', t: 'Question Stock (' + (h.total_fresh || 0) + ' fresh)', hint: 'తక్కువైనా పర్లేదు — system auto top-up చేస్తుంది', tab: 'tab-control'}
+        ];
+        const done = steps.filter(x => x.done).length;
+        document.getElementById('sg-progress-bar').style.width = Math.round(done / steps.length * 100) + '%';
+        document.getElementById('sg-progress-label').textContent = done === steps.length
+          ? '🎉 5/5 — అంతా READY, Full Auto-Pilot!' : done + '/' + steps.length + ' steps complete';
+        document.getElementById('sg-steps').innerHTML = steps.map(x => `
+          <div style="display:flex; align-items:center; gap:8px; background:${x.done ? 'rgba(16,185,129,0.08)' : 'rgba(251,191,36,0.07)'}; border:1px solid ${x.done ? '#10b981' : '#fbbf24'}; border-radius:10px; padding:8px 10px;">
+            <span style="font-size:18px;">${x.done ? '✅' : x.icon}</span>
+            <div style="flex:1;">
+              <div style="font-size:12px; font-weight:800;">${x.t}</div>
+              <div style="font-size:10px; color:var(--text-muted);">${x.hint}</div>
+            </div>
+            ${x.done ? '' : `<button class="btn btn-outline" style="padding:3px 8px; font-size:10px; white-space:nowrap;" onclick="switchTab('${x.tab}')">👉 ఇక్కడ</button>`}
+          </div>`).join('');
+
+        // 📆 today's timeline
+        const today = new Date().toISOString().slice(0, 10);
+        const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+        const items = jobs
+          .filter(j => !(j.start_date && j.start_date > today))
+          .map(j => {
+            const p = (j.time || '00:00').split(':');
+            const m = parseInt(p[0]) * 60 + parseInt(p[1]);
+            return Object.assign({}, j, {_m: m, _done: (j.last_run || '').startsWith(today)});
+          })
+          .sort((a, b) => a._m - b._m);
+        const next = items.find(x => !x._done && x._m >= nowMin);
+        const tl = document.getElementById('tl-list');
+        const chip = document.getElementById('tl-next-chip');
+        if (items.length === 0) {
+          tl.innerHTML = '<div style="color:var(--text-muted); font-size:12px; padding:8px;">ఈరోజు scheduled sends లేవు — పైన Setup Guide లో ⏰ step తో ఒక slot పెట్టండి!</div>';
+          chip.textContent = '';
+        } else {
+          tl.innerHTML = items.map(j => {
+            const isNext = next && j.id === next.id;
+            const state = j._done ? '✅ Sent' : (j._m < nowMin ? '🕒 ఈరోజు దాటింది' : (isNext ? '⏭️ NEXT' : '🕒 Upcoming'));
+            const modeIc = j.mode === 'tg' ? '📢 TG' : (j.mode === 'both' ? '📢+💚' : '💚 WA');
+            return `<div style="display:flex; align-items:center; gap:10px; padding:6px 10px; border-radius:8px; ${isNext ? 'background:rgba(251,191,36,0.1); border:1px solid #fbbf24;' : 'border-bottom:1px solid rgba(255,255,255,0.05);'}">
+              <span style="font-family:monospace; font-weight:800; color:#38bdf8; font-size:14px;">${j.time}</span>
+              <span style="font-size:12px; flex:1;">${j.label || 'Quiz Drill'} <span style="color:var(--text-muted);">· ${modeIc} · ${j.questions_count || 5} Qs</span></span>
+              <span style="font-size:11px; font-weight:700;">${state}</span>
+            </div>`;
+          }).join('');
+          if (next) {
+            let dm = next._m - nowMin; if (dm < 0) dm += 1440;
+            chip.textContent = '⏭️ Next: ' + next.time + ' (ఇంకో ' + (dm >= 60 ? Math.floor(dm / 60) + 'h ' + (dm % 60) + 'm' : dm + 'm') + ' లో)';
+          } else {
+            chip.textContent = items.some(x => x._done) ? '✅ ఈరోజు slots అన్నీ పూర్తి — రేపు మళ్ళీ auto!' : '';
+          }
+        }
+      } catch (e) { /* silent */ }
+    }
+    setInterval(renderMissionHome, 60000);
+
+    async function refreshStatusStrip() {
+      try {
+        const r = await fetch('/api/health');
+        const d = await r.json();
+        const chip = (txt, on) =>
+          `<span style="font-size:10px; font-weight:800; padding:3px 9px; border-radius:12px; border:1px solid ${on ? '#34d399' : '#f59e0b'}; color:${on ? '#34d399' : '#f59e0b'}; background:${on ? 'rgba(52,211,153,0.08)' : 'rgba(245,158,11,0.07)'};">${txt}</span>`;
+        document.getElementById('live-status-strip').innerHTML =
+          chip(d.telegram_live ? '📢 TG LIVE' : '📢 TG DRY', d.telegram_live) +
+          chip(d.whatsapp_connected ? '💚 WA ON' : '💚 WA OFF', d.whatsapp_connected) +
+          chip('🤖 ' + (d.autopilot_slots + d.wa_slots) + ' SLOTS', (d.autopilot_slots + d.wa_slots) > 0) +
+          chip('📦 ' + d.total_fresh + ' FRESH', d.total_fresh > 50) +
+          chip(d.ip_lock_on ? '🛡️ IP LOCK' : '🔑 PW ONLY', d.ip_lock_on);
+      } catch (e) {}
+    }
+    setInterval(refreshStatusStrip, 60000);
+
+    // ================= 🩺 MISSION CONTROL (SYSTEM HEALTH) =================
+    async function loadHealth() {
+      try {
+        const r = await fetch('/api/health');
+        const d = await r.json();
+        document.getElementById('health-uptime').innerText = 'server uptime: ' + d.uptime_min + ' min';
+        const b = (ok, onTxt, offTxt, offColor) =>
+          `<span style="padding:4px 10px; border-radius:14px; font-weight:800; background:${ok ? 'rgba(52,211,153,0.12)' : 'rgba(245,158,11,0.10)'}; color:${ok ? '#34d399' : (offColor || '#f59e0b')}; border:1px solid ${ok ? '#34d399' : (offColor || '#f59e0b')};">${ok ? onTxt : offTxt}</span>`;
+        document.getElementById('health-badges').innerHTML =
+          b(d.telegram_live, '📢 Telegram: LIVE', '📢 Telegram: DRY-RUN (BOT_TOKEN set చేయండి)') +
+          b(d.whatsapp_connected, '💚 WhatsApp: CONNECTED', '💚 WhatsApp: NOT LINKED (QR scan)') +
+          b(d.scheduler_running, '⏰ Scheduler: RUNNING', '⏰ Scheduler: OFF', '#f87171') +
+          b(d.autopilot_slots > 0, '🤖 Auto-Pilot: ' + d.autopilot_slots + ' slot(s) ON', '🤖 Auto-Pilot: no slots') +
+          b(d.ip_lock_on, '🛡️ IP Lock: ON', '🛡️ IP Lock: OFF (password only)') +
+          b(true, '📊 7-Day Polls: ' + d.week_polls, '') +
+          b(!!(d.last_backup && d.last_backup.exists), '🗄️ Auto-Backup: ' + ((d.last_backup||{}).file || ''), '🗄️ Auto-Backup: pending (daily)');
+        const low = d.low_stock || [];
+        let bankHtml = `<b style="color:#38bdf8;">🧮 Question Bank:</b> ${d.total_fresh} fresh / ${d.total_questions} total`;
+        if (low.length) {
+          bankHtml += ` · <span style="color:#f59e0b;">⚠️ Low stock (${low.length}):</span> ` +
+            low.map(r => `${r.channel} (${r.unused})`).join(', ') +
+            ` <button class="btn btn-accent" style="font-size:11px; padding:3px 10px; margin-left:6px;" onclick="runBankTopup()">⚡ Auto Top-Up Now</button>`;
+        } else {
+          bankHtml += ' · <span style="color:#34d399;">✅ అన్ని channels కి fresh stock బాగుంది</span>';
+        }
+        bankHtml += '<span id="topup-result" style="margin-left:8px;"></span>';
+        document.getElementById('health-bank').innerHTML = bankHtml;
+      } catch (e) { console.error('health:', e); }
+    }
+
+    async function runBankTopup() {
+      const el = document.getElementById('topup-result');
+      el.innerHTML = '<span style="color:#fbbf24;">⚡ Generating fresh questions...</span>';
+      try {
+        const r = await fetch('/api/bank/topup', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+        const d = await r.json();
+        el.innerHTML = d.ok ? '<span style="color:#34d399;">✅ ' + d.message + '</span>'
+                            : '<span style="color:#f87171;">❌ ' + (d.error || 'failed') + '</span>';
+        if (d.ok) { fetchStats(); setTimeout(loadHealth, 1200); }
+      } catch (e) { el.innerHTML = '<span style="color:#f87171;">❌ ' + e + '</span>'; }
+    }
+
+    function downloadBackup() {
+      window.location.href = '/api/backup';
+    }
+
+    async function exportHistoryCSV() {
+      try {
+        const r = await fetch('/api/history');
+        const d = await r.json();
+        const rows = [['Time','Platform','Target','Polls','Subjects','Mode','Note']];
+        (d.history || []).forEach(e => rows.push([
+          e.ts, e.kind, e.target, e.count, (e.subjects||[]).join('+') || 'ALL', e.dry ? 'DRY-RUN' : 'LIVE', e.note || ''
+        ]));
+        const csv = rows.map(r2 => r2.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\\n');
+        const blob = new Blob(['\\ufeff' + csv], {type: 'text/csv;charset=utf-8'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'broadcast_history.csv';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      } catch (e) { alert('Export failed: ' + e); }
+    }
+
+    // ================= 🔍 QUESTION FINDER =================
+    let _qfTimer = null;
+    function qfDebounced() {
+      clearTimeout(_qfTimer);
+      _qfTimer = setTimeout(searchQuestions, 350);
+    }
+
+    async function searchQuestions() {
+      const term = document.getElementById('qf-search').value.trim();
+      const box = document.getElementById('qf-results');
+      if (!term) { box.innerHTML = ''; return; }
+      box.innerHTML = '<span style="color:#fbbf24;">Searching...</span>';
+      try {
+        const r = await fetch('/api/questions/search?q=' + encodeURIComponent(term) + '&limit=30');
+        const d = await r.json();
+        if (!d.results || !d.results.length) {
+          box.innerHTML = '<span style="color:#64748b;">"' + term + '" కి matches లేవు — వేరే పదం try చేయండి.</span>';
+          return;
+        }
+        box.innerHTML = d.results.map(q => `
+          <div style="display:flex; align-items:center; gap:8px; padding:7px 9px; border-radius:6px; background:#050811; margin-bottom:5px; flex-wrap:wrap;">
+            <span style="flex:1; min-width:200px;">${q.q_en || '(Telugu-only question)'}</span>
+            <span class="category-tag" style="font-size:10px;">${q.channel}</span>
+            <span style="font-size:10px; color:#94a3b8;">${q.topic}</span>
+            <span style="font-size:10px; color:${q.fresh ? '#34d399' : '#f59e0b'};">${q.fresh ? '✨ FRESH' : '♻️ sent before'}</span>
+            <button class="btn btn-accent" style="font-size:10px; padding:3px 10px;" onclick="sendPickedQuestion('${q.id}')">📤 Send</button>
+          </div>`).join('');
+      } catch (e) { box.innerHTML = '<span style="color:#f87171;">❌ ' + e + '</span>'; }
+    }
+
+    async function sendPickedQuestion(qid) {
+      const ch = document.getElementById('post-poll-channel').value;
+      if (!ch) return alert('పైన "Choose Channel to Post Poll" select చేయండి');
+      try {
+        const r = await fetch('/api/questions/send', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({qid, channel: ch})
+        });
+        const d = await r.json();
+        alert(d.ok ? '✅ ' + d.message : '❌ ' + (d.error || 'failed'));
+      } catch (e) { alert('❌ ' + e); }
+    }
+
+    // ================= 🤖 TELEGRAM AUTO-PILOT =================
+    async function oneClickDailyPlan() {
+      // 🚀 zero-thinking setup: select ALL targets + 3 classic daily slots
+      let channels = getSelectedChannelKeys();
+      if (!channels.length) { selectAllChannels(true); channels = getSelectedChannelKeys(); }
+      if (!channels.length) return alert('ముందు కనీసం ఒక channel/group register చేయండి');
+      if (!confirm('🚀 Daily Plan: 08:00 + 13:00 + 20:30 కి ' + channels.length + ' target(s) × 5 polls auto-post అవుతాయి. OK?')) return;
+      const box = document.getElementById('tg-ap-result');
+      box.innerHTML = '<span style="color:#fbbf24;">Creating daily plan...</span>';
+      try {
+        const r = await fetch('/api/telegram/schedule', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({times: '08:00, 13:00, 20:30', channels, count: 5, subjects: []})
+        });
+        const d = await r.json();
+        box.innerHTML = d.ok ? '<span style="color:#34d399;">✅ ' + d.message + '</span>'
+                             : '<span style="color:#f87171;">❌ ' + (d.error || 'Failed') + '</span>';
+        if (d.ok) loadTgAutopilotJobs();
+      } catch (e) { box.innerHTML = '<span style="color:#f87171;">❌ ' + e + '</span>'; }
+    }
+
+    async function createTgAutopilot() {
+      const box = document.getElementById('tg-ap-result');
+      const times = document.getElementById('tg-ap-times').value.trim();
+      const count = document.getElementById('tg-ap-count').value;
+      const channels = getSelectedChannelKeys();
+      const subjects = Array.from(document.querySelectorAll('.tg-ap-subj:checked')).map(c => c.value);
+      if (!times) return alert('Times ఇవ్వండి — ఉదా: 08:00, 20:30');
+      if (!channels.length) return alert('పై table లో కనీసం ఒక channel/group select చేయండి (checkbox)');
+      box.innerHTML = '<span style="color:#fbbf24;">Creating auto-pilot slots...</span>';
+      try {
+        const r = await fetch('/api/telegram/schedule', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({times, channels, count: parseInt(count), subjects})
+        });
+        const d = await r.json();
+        box.innerHTML = d.ok ? '<span style="color:#34d399;">✅ ' + d.message + '</span>'
+                             : '<span style="color:#f87171;">❌ ' + (d.error || 'Failed') + '</span>';
+        if (d.ok) { document.getElementById('tg-ap-times').value = ''; loadTgAutopilotJobs(); }
+      } catch (e) { box.innerHTML = '<span style="color:#f87171;">❌ ' + e + '</span>'; }
+    }
+
+    async function loadTgAutopilotJobs() {
+      const wrap = document.getElementById('tg-ap-jobs');
+      if (!wrap) return;
+      try {
+        const r = await fetch('/api/whatsapp/schedules');
+        const d = await r.json();
+        const jobs = (d.jobs || d.schedules || []).filter(j => j.mode === 'tg');
+        if (!jobs.length) { wrap.innerHTML = '<span style="color:#64748b;">No Telegram auto-pilot slots yet.</span>'; return; }
+        wrap.innerHTML = '<div style="font-weight:800; color:#a78bfa; margin-bottom:6px;">🤖 Active Auto-Pilot Slots:</div>' + jobs.map(j => `
+          <div style="display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:6px; background:#050811; margin-bottom:5px; flex-wrap:wrap;">
+            <b style="color:#38bdf8;">${j.time}</b>
+            <span style="flex:1;">${j.label}</span>
+            <span style="font-size:11px; color:${j.enabled ? '#34d399' : '#f59e0b'};">${j.enabled ? '● ON' : '○ PAUSED'}</span>
+            <span style="font-size:11px; color:#64748b;">runs: ${j.total_dispatches || 0}${j.last_run ? ' · last: ' + j.last_run : ''}</span>
+            <button class="btn btn-outline" style="font-size:10px; padding:2px 8px; color:#fbbf24; border-color:#fbbf24;" onclick="editScheduleJob('${j.id}')">✏️ Edit</button>
+            <button class="btn btn-outline" style="font-size:10px; padding:2px 8px;" onclick="toggleTgApJob('${j.id}')">${j.enabled ? '⏸ Pause' : '▶ Resume'}</button>
+            <button class="btn btn-outline" style="font-size:10px; padding:2px 8px; border-color:#ef4444; color:#ef4444;" onclick="deleteTgApJob('${j.id}')">🗑</button>
+          </div>`).join('');
+      } catch (e) { wrap.innerHTML = ''; }
+    }
+
+    async function toggleTgApJob(id) {
+      await fetch('/api/whatsapp/toggle_schedule', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id: id})});
+      loadTgAutopilotJobs();
+    }
+
+    async function deleteTgApJob(id) {
+      if (!confirm('ఈ Auto-Pilot slot ని delete చేయాలా?')) return;
+      await fetch('/api/whatsapp/delete_schedule', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id: id})});
+      loadTgAutopilotJobs();
+    }
+
+    function toggleIpLockPanel() {
+      const p = document.getElementById('ip-lock-panel');
+      const show = p.style.display === 'none';
+      p.style.display = show ? 'block' : 'none';
+      if (show) loadIpLock();
+    }
+
+    async function loadIpLock() {
+      try {
+        const r = await fetch('/api/security');
+        const d = await r.json();
+        document.getElementById('ip-lock-myip').innerText = d.your_ip || '?';
+        document.getElementById('ip-allow-list').value = (d.allowed_ips || []).join('\\n');
+        const st = document.getElementById('ip-lock-status');
+        if (d.ip_lock_enabled) {
+          st.innerText = '🛡️ IP LOCK: ON';
+          st.style.color = '#34d399';
+        } else {
+          st.innerText = '🔓 IP LOCK: OFF';
+          st.style.color = '#f59e0b';
+        }
+        const la = document.getElementById('login-audit');
+        const rec = d.recent_logins || [];
+        if (la) {
+          la.innerHTML = rec.length
+            ? '<b style="color:#94a3b8;">🔐 Recent login attempts:</b> ' +
+              rec.map(a => `<span style="margin-left:8px; color:${a.ok ? '#34d399' : '#f87171'};">${a.ok ? '✅' : '❌'} ${a.ip} <span style="color:#64748b;">(${a.ts})</span></span>`).join('')
+            : '';
+        }
+      } catch (e) {
+        document.getElementById('ip-lock-result').innerHTML = '<span style="color:#f87171;">❌ ' + e + '</span>';
+      }
+    }
+
+    function addMyIpToList() {
+      const my = document.getElementById('ip-lock-myip').innerText;
+      if (!my || my === '?' || my === '...') return alert('Current IP ఇంకా load అవ్వలేదు');
+      const ta = document.getElementById('ip-allow-list');
+      const lines = ta.value.split('\\n').map(s => s.trim()).filter(Boolean);
+      if (lines.indexOf(my) === -1) lines.push(my);
+      ta.value = lines.join('\\n');
+    }
+
+    async function saveIpLock(enable) {
+      const box = document.getElementById('ip-lock-result');
+      const lines = document.getElementById('ip-allow-list').value.split('\\n').map(s => s.trim()).filter(Boolean);
+      if (enable && lines.length === 0) return alert('కనీసం ఒక IP ఇవ్వండి — లేదా "Add My Current IP" నొక్కండి');
+      if (enable && !confirm('🛡️ IP Lock ON చేయాలా? List లో లేని IP ల నుంచి dashboard open అవ్వదు (మీ current IP safety కోసం auto-add అవుతుంది).')) return;
+      box.innerHTML = '<span style="color:#fbbf24;">Saving...</span>';
+      try {
+        const r = await fetch('/api/security/update', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ip_lock_enabled: enable, allowed_ips: lines})
+        });
+        const d = await r.json();
+        if (!d.ok) { box.innerHTML = '<span style="color:#f87171;">❌ ' + (d.error || 'Failed') + '</span>'; return; }
+        box.innerHTML = '<span style="color:#34d399;">✅ ' + (d.message || 'Saved') + (d.note ? ' · ⚠️ ' + d.note : '') + '</span>';
+        loadIpLock();
+      } catch (e) {
+        box.innerHTML = '<span style="color:#f87171;">❌ ' + e + '</span>';
+      }
+    }
+
+    async function changeDashPassword() {
+      const oldP = prompt('ప్రస్తుత (current) password:');
+      if (oldP === null) return;
+      const newP = prompt('కొత్త (new) password (min 6 chars):');
+      if (!newP) return;
+      try {
+        const r = await fetch('/api/auth/change_password', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({old: oldP, new: newP})
+        });
+        const d = await r.json();
+        alert(d.ok ? '✅ Password changed! మిగతా devices అన్నీ logout అయ్యాయి.' : '❌ ' + (d.error || 'Failed'));
+      } catch (e) { alert('❌ ' + e); }
+    }
+
+    async function logoutWASession() {
+      if (!confirm('Unlink this WhatsApp device and wipe the saved session?')) return;
+      const box = document.getElementById('wa-login-dialog');
+      box.style.display = 'block';
+      box.innerHTML = '<div style="color:#f59e0b;">🚪 Unlinking device from WhatsApp...</div>';
+      try {
+        await fetch('/api/whatsapp/logout', {method: 'POST'});
+        box.innerHTML = '<div style="color:#10b981;">✅ Device unlinked. Use Scan QR Login to connect again.</div>';
+        loadWASession();
+        setTimeout(() => { box.style.display = 'none'; }, 4000);
+      } catch (e) {
+        box.innerHTML = '<div style="color:#ef4444;">❌ Logout failed: ' + e + '</div>';
       }
     }
 
@@ -1314,11 +2323,11 @@ All candidates must join today before 9:00 PM!"></textarea>
       const res = await fetch('/api/whatsapp/groups');
       const d = await res.json();
       const groups = d.groups || [];
-      const lines = ['Group Name\tLink or JID\tCategory\tShift\tGroup Type'];
+      const lines = ['Group Name\\tLink or JID\\tCategory\\tShift\\tGroup Type'];
       groups.forEach(g => {
-        lines.push(`${g.name}\t${g.jid}\t${g.category || 'GENERAL'}\t${g.shift || 'ALL_DAY'}\t${g.group_type || 'EXAM_SPECIFIC'}`);
+        lines.push(`${g.name}\\t${g.jid}\\t${g.category || 'GENERAL'}\\t${g.shift || 'ALL_DAY'}\\t${g.group_type || 'EXAM_SPECIFIC'}`);
       });
-      document.getElementById('excel-paste-text').value = lines.join('\n');
+      document.getElementById('excel-paste-text').value = lines.join('\\n');
       document.getElementById('excel-import-log').innerText = `📋 Exported ${groups.length} groups to text box! You can copy/edit them directly and click Save.`;
     }
 
@@ -1357,7 +2366,7 @@ All candidates must join today before 9:00 PM!"></textarea>
       if (!gids || gids.length === 0) {
         return alert('Please select at least 1 WhatsApp group using the checkboxes to dispatch!');
       }
-      if (!confirm(`Run 5-poll anti-ban broadcast on ${gids.length} selected group(s)?\n(40-60s gaps between polls, 60-90s rest after every 5 groups)`)) return;
+      if (!confirm(`Run 5-poll anti-ban broadcast on ${gids.length} selected group(s)?\\n(${gapLabel()} gaps between polls, batch rest after every 5 groups)`)) return;
 
       const gw = document.getElementById('wa-gateway-input').value;
       const res = await fetch('/api/whatsapp/start_pipeline', {
@@ -1367,8 +2376,8 @@ All candidates must join today before 9:00 PM!"></textarea>
           target_group_ids: gids,
           is_question: true,
           gateway: gw,
-          delay_min: 40,
-          delay_max: 60,
+          delay_min: getGapMin(),
+          delay_max: getGapMax(),
           questions_count: 5
         })
       });
@@ -1405,8 +2414,8 @@ All candidates must join today before 9:00 PM!"></textarea>
           custom_msg: msg,
           attachment: att,
           gateway: gw,
-          delay_min: 40,
-          delay_max: 60,
+          delay_min: getGapMin(),
+          delay_max: getGapMax(),
           questions_count: 5
         })
       });
@@ -1488,8 +2497,8 @@ All candidates must join today before 9:00 PM!"></textarea>
           });
           const cData = await cRes.json();
           if (cData.has_conflicts) {
-            const warn = cData.conflicts.map(c => c.message).join('\n');
-            const proceed = confirm(`⚠️ Group Conflict Warning for ${t}:\n${warn}\n\nDo you still want to proceed and save this schedule?`);
+            const warn = cData.conflicts.map(c => c.message).join('\\n');
+            const proceed = confirm(`⚠️ Group Conflict Warning for ${t}:\\n${warn}\\n\\nDo you still want to proceed and save this schedule?`);
             if (!proceed) return;
           }
         }
@@ -1514,7 +2523,7 @@ All candidates must join today before 9:00 PM!"></textarea>
         });
         const d = await res.json();
         if (d.ok) {
-          alert(`⏰ Successfully scheduled ${allTimes.length} daily recurring slot(s): ${allTimes.join(', ')}!\nMode: ${isAuto ? 'Auto Continuous (Always-On)' : daysDur + ' Days'}`);
+          alert(`⏰ Successfully scheduled ${allTimes.length} daily recurring slot(s): ${allTimes.join(', ')}!\\nMode: ${isAuto ? 'Auto Continuous (Always-On)' : daysDur + ' Days'}`);
           document.getElementById('clock-slot-label').value = '';
           document.getElementById('clock-extra-times').value = '';
           const alertBox = document.getElementById('sched-conflict-alert');
@@ -1526,29 +2535,107 @@ All candidates must join today before 9:00 PM!"></textarea>
       }
     }
 
-    async function scheduleQuizModal() {
-      const timeVal = prompt('Enter Daily Quiz Dispatch Time (HH:MM 24-hr format, e.g. 08:30, 13:00, 18:30, 21:00):', '10:00');
-      if (!timeVal) return;
-      const label = prompt('Slot Label or Title (e.g. Morning General English / Evening Police Practice):', 'Daily Scheduled Drill');
+    // 🛠️ ADVANCED VISUAL SCHEDULE BUILDER
+    let sbSelectedDays = 0;
+    function toggleScheduleBuilder() {
+      const el = document.getElementById('schedule-builder');
+      el.style.display = el.style.display === 'none' ? 'block' : 'none';
+      if (el.style.display === 'block') el.scrollIntoView({behavior: 'smooth', block: 'center'});
+    }
+    function durLabel(d) {
+      if (d === 0) return '♾️ Life-Long — ఎప్పటికీ ఆగదు';
+      if (d === 30) return '1 నెల (30 రోజులు) తర్వాత auto-stop';
+      if (d === 60) return '2 నెలలు (60 రోజులు) తర్వాత auto-stop';
+      if (d === 90) return '3 నెలలు (90 రోజులు) తర్వాత auto-stop';
+      return d + ' రోజుల తర్వాత auto-stop';
+    }
+    // 🔁 From-To window లో రోజుకి N సార్లు — evenly spread times auto-compute
+    function computeSlotTimes() {
+      const fromT = document.getElementById('sb-time').value || '10:00';
+      const toT = document.getElementById('sb-time-to').value;
+      const n = Math.max(1, Math.min(parseInt(document.getElementById('sb-times-per-day').value) || 1, 12));
+      if (!toT || n <= 1) return [fromT];
+      const toMin = s => { const p = s.split(':'); return parseInt(p[0]) * 60 + parseInt(p[1]); };
+      const f = toMin(fromT), t = toMin(toT);
+      const span = t >= f ? (t - f) : (t + 1440 - f);  // overnight window కూడా support
+      const step = span / (n - 1);
+      const out = [];
+      for (let i = 0; i < n; i++) {
+        const m = Math.round(f + step * i) % 1440;
+        out.push(String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'));
+      }
+      return Array.from(new Set(out));
+    }
+    function updateTimesPreview() {
+      const times = computeSlotTimes();
+      document.getElementById('sb-times-preview').textContent =
+        '⏰ ' + times.length + ' slot' + (times.length > 1 ? 's రోజూ' : '') + ': ' + times.join(' · ');
+    }
+    function datesPicked() {
+      const from = document.getElementById('sb-date-from').value;
+      const to = document.getElementById('sb-date-to').value;
+      const note = document.getElementById('sb-dur-note');
+      if (to) {
+        document.querySelectorAll('.sb-chip').forEach(b => { b.style.background = ''; b.style.color = ''; b.style.borderColor = ''; });
+        document.getElementById('sb-custom-days').value = '';
+        note.textContent = '✅ ' + (from ? from + ' నుంచి ' : 'ఈరోజు నుంచి ') + to + ' వరకు — ఆ తర్వాత auto-stop';
+      } else if (from) {
+        note.textContent = '✅ ' + from + ' నుంచి start — duration: ' + durLabel(sbSelectedDays);
+      }
+    }
+    function selectDurChip(days, btn) {
+      sbSelectedDays = days;
+      document.getElementById('sb-date-to').value = '';
+      document.getElementById('sb-custom-days').value = '';
+      document.querySelectorAll('.sb-chip').forEach(b => { b.style.background = ''; b.style.color = ''; b.style.borderColor = ''; });
+      if (btn) { btn.style.background = '#fbbf24'; btn.style.color = '#050811'; btn.style.borderColor = '#fbbf24'; }
+      document.getElementById('sb-dur-note').textContent = '✅ ' + durLabel(days) + ' selected';
+    }
+    function customDurTyped() {
+      const v = parseInt(document.getElementById('sb-custom-days').value);
+      if (!isNaN(v) && v > 0) {
+        sbSelectedDays = v;
+        document.querySelectorAll('.sb-chip').forEach(b => { b.style.background = ''; b.style.color = ''; b.style.borderColor = ''; });
+        document.getElementById('sb-dur-note').textContent = '✅ Custom: ' + durLabel(v) + ' selected';
+      }
+    }
+    async function createScheduleFromBuilder() {
+      const timeVal = document.getElementById('sb-time').value;
+      if (!timeVal) return alert('⏰ From Time select చేయండి');
+      const times = computeSlotTimes();
+      const qCount = parseInt(document.getElementById('sb-count').value) || 5;
+      const label = document.getElementById('sb-label').value.trim();
+      const subjects = Array.from(document.querySelectorAll('.sb-subj:checked')).map(c => c.value);
       const cat = document.getElementById('wa-target-category').value;
       const gids = getSelectedGroupIds();
+      const dateFrom = document.getElementById('sb-date-from').value;
+      const dateTo = document.getElementById('sb-date-to').value;
+      if (dateTo && dateFrom && dateTo < dateFrom) return alert('❌ To Date, From Date కంటే ముందు ఉండకూడదు!');
+      const days = dateTo ? 0 : sbSelectedDays;
 
       try {
         const res = await fetch('/api/whatsapp/schedule_quiz', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({
-            time: timeVal.trim(),
+            times: times,
             label: label || 'Daily Scheduled Drill',
             category: cat,
             target_group_ids: gids,
             is_question: true,
-            auto_mode: true
+            questions_count: qCount,
+            days_duration: days,
+            auto_mode: !dateTo && days === 0,
+            end_date: dateTo || '',
+            start_date: dateFrom || '',
+            subjects: subjects
           })
         });
         const d = await res.json();
         if (d.ok) {
-          alert('⏰ Daily recurring slot added for ' + timeVal + ' (' + (label || 'Drill') + ')!');
+          const durTxt = dateTo ? ((dateFrom || 'ఈరోజు') + ' → ' + dateTo) : durLabel(days);
+          alert('✅ ' + times.length + ' schedule(s) created!\\n⏰ ' + times.join(' · ') + '\\n📊 ' + qCount + ' questions ఒక్కో slot కి\\n📅 ' + durTxt);
+          toggleScheduleBuilder();
           loadSchedules();
         }
       } catch (e) {
@@ -1567,6 +2654,41 @@ All candidates must join today before 9:00 PM!"></textarea>
       } catch (e) {
         alert('Error: ' + e);
       }
+    }
+
+    // ✏️ EDIT any schedule any time — duration presets: 0=Life-Long, 30=1 Month, 60=2 Months...
+    async function editScheduleJob(id) {
+      try {
+        const res = await fetch('/api/whatsapp/schedules');
+        const d = await res.json();
+        const j = (d.jobs || []).find(x => x.id === id);
+        if (!j) return alert('Job దొరకలేదు');
+        const time = prompt('⏰ Time (HH:MM, 24hr):', j.time); if (time === null) return;
+        const count = prompt('📊 ఒక్కో slot కి ఎన్ని questions? (1-20):', j.questions_count || 5); if (count === null) return;
+        const days = prompt('📅 ఎన్ని రోజులు నడవాలి?\\n  0 = ♾️ LIFE-LONG (ఎప్పటికీ)\\n  2 = 2 రోజులు\\n  7 = 1 వారం\\n  15 = 15 రోజులు\\n  30 = 1 నెల\\n  60 = 2 నెలలు\\n  90 = 3 నెలలు\\n  (ఏ సంఖ్య అయినా పెట్టొచ్చు — 1 నుంచి 3650 వరకు)', j.days_duration || 0); if (days === null) return;
+        const sdate = prompt('⏳ From Date — ఎప్పటి నుంచి start? (YYYY-MM-DD)\\nఖాళీ = వెంటనే/ఈరోజే:', j.start_date || ''); if (sdate === null) return;
+        const edate = prompt('🏁 To Date — exact last day? (YYYY-MM-DD)\\nఖాళీ = పైన ఇచ్చిన days నుంచే లెక్క:', ''); if (edate === null) return;
+        const subj = prompt('📚 Subjects (+ తో కలపండి): MATHS+REASONING+GK+CURRENT+ENGLISH+SCIENCE\\nఖాళీగా వదిలేస్తే = ALL subjects:', (j.subjects || []).join('+')); if (subj === null) return;
+        const updates = {
+          id: id,
+          time: time.trim(),
+          questions_count: parseInt(count) || 5,
+          days_duration: parseInt(days) || 0,
+          start_date: sdate.trim(),
+          subjects: subj.trim() ? subj.trim().toUpperCase().split(/[^A-Z]+/).filter(Boolean) : []
+        };
+        if (edate.trim()) updates.end_date = edate.trim();
+        const r = await fetch('/api/whatsapp/update_schedule', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(updates)
+        });
+        const dd = await r.json();
+        const durMsg = updates.end_date ? ('📅 ' + (updates.start_date || 'ఈరోజు') + ' → ' + updates.end_date)
+          : (updates.days_duration === 0 ? '♾️ Life-Long mode' : '📅 ' + updates.days_duration + ' రోజులు (auto-stop: ' + (dd.job.end_date || '') + ')');
+        alert(dd.ok ? '✅ Schedule updated! ' + durMsg + (updates.start_date ? ' · ⏳ Starts ' + updates.start_date : '') : '❌ ' + (dd.error || 'failed'));
+        loadSchedules();
+        loadTgAutopilotJobs();
+      } catch (e) { alert('❌ ' + e); }
     }
 
     async function loadSchedules() {
@@ -1589,12 +2711,16 @@ All candidates must join today before 9:00 PM!"></textarea>
             : '<span style="background:#64748b; color:white; font-weight:800; font-size:10px; padding:2px 6px; border-radius:10px;">○ PAUSED</span>';
 
           const modeBadge = j.auto_mode || (!j.days_duration && !j.end_date)
-            ? '<span style="background:#0284c7; color:white; font-size:10px; font-weight:700; padding:1px 6px; border-radius:8px;">🔄 AUTO-CONTINUOUS</span>'
-            : `<span style="background:#d97706; color:white; font-size:10px; font-weight:700; padding:1px 6px; border-radius:8px;">📅 Until ${j.end_date || (j.days_duration + 'd')}</span>`;
+            ? '<span style="background:#0284c7; color:white; font-size:10px; font-weight:700; padding:1px 6px; border-radius:8px;">♾️ LIFE-LONG</span>'
+            : `<span style="background:#d97706; color:white; font-size:10px; font-weight:700; padding:1px 6px; border-radius:8px;">📅 ${j.days_duration}d → ${j.end_date || ''}</span>`;
+          const today = new Date().toISOString().slice(0, 10);
+          const startBadge = (j.start_date && j.start_date > today)
+            ? `<span style="background:#7c3aed; color:white; font-size:10px; font-weight:700; padding:1px 6px; border-radius:8px;">⏳ Starts ${j.start_date}</span>` : '';
 
           const targetLabel = (j.target_group_ids && j.target_group_ids.length > 0)
             ? `${j.target_group_ids.length} Selected Groups`
             : `All ${j.category || 'General'} Groups`;
+          const subjLabel = (j.subjects && j.subjects.length) ? j.subjects.join('+') : 'ALL subjects';
 
           return `
             <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.06); flex-wrap:wrap; gap:8px;">
@@ -1604,18 +2730,21 @@ All candidates must join today before 9:00 PM!"></textarea>
                   <b>${j.label || 'Daily Exam Drill'}</b>
                   ${statusBadge}
                   ${modeBadge}
+                  ${startBadge}
                 </div>
                 <div style="font-size:11px; color:var(--text-muted); margin-top:3px;">
-                  Category: <span class="category-tag">${j.category || 'ALL'}</span> · Target: <b>${targetLabel}</b> · Dispatches: <b>${j.total_dispatches || 0} times</b>
+                  Category: <span class="category-tag">${j.category || 'ALL'}</span> · Target: <b>${targetLabel}</b> · <b>${j.questions_count || 5}</b> polls/slot · 📚 ${subjLabel} · Dispatches: <b>${j.total_dispatches || 0} times</b>
                 </div>
               </div>
               <div style="display:flex; gap:6px;">
+                <button class="btn btn-outline" style="padding:3px 8px; font-size:11px; color:#fbbf24; border-color:#fbbf24;" onclick="editScheduleJob('${j.id}')">✏️ Edit</button>
                 <button class="btn btn-outline" style="padding:3px 8px; font-size:11px;" onclick="toggleScheduleJob('${j.id}')">${isEn ? '⏸ Pause' : '▶ Enable'}</button>
                 <button class="btn btn-outline" style="padding:3px 8px; font-size:11px; color:#ef4444;" onclick="deleteScheduleJob('${j.id}')">🗑 Delete</button>
               </div>
             </div>
           `;
         }).join('');
+        try { renderMissionHome(); } catch (e2) {}
       } catch (e) {
         console.error(e);
       }
@@ -1725,10 +2854,16 @@ All candidates must join today before 9:00 PM!"></textarea>
         });
         const d = await res.json();
         if (d.ok) {
-          log.innerHTML = `<span style="color:#10b981; font-weight:700;">✅ Success! Imported ${d.imported_groups_count} WhatsApp Groups and ${d.imported_channels_count} Telegram Channels across ${d.sheets_processed.length} sheets!</span>`;
+          const schedCount = (d.schedules_created || []).length;
+          const schedMsg = schedCount
+            ? ` · ⏰ <b style="color:#a78bfa;">${schedCount} daily auto-schedule(s) created</b> (Daily Times column నుంచి — ఇక రోజూ ఆటోమేటిక్‌గా వెళ్తాయి!)`
+            : '';
+          log.innerHTML = `<span style="color:#10b981; font-weight:700;">✅ Success! Imported ${d.imported_groups_count} WhatsApp Groups and ${d.imported_channels_count} Telegram Channels across ${d.sheets_processed.length} sheets!${schedMsg}</span>`;
           fetchStats();
           loadWAGroups();
           loadChannels();
+          await loadBulkTargets();
+          toggleAllBulkTargets(true);  // auto-select everything incl. newly imported
         } else {
           log.innerText = '❌ Import failed: ' + (d.error || 'Unknown error');
         }
@@ -1769,6 +2904,38 @@ All candidates must join today before 9:00 PM!"></textarea>
     let cachedBulkGroups = [];
     let cachedBundles = [];
 
+    async function quickAddGroups() {
+      const txt = document.getElementById('quick-add-links').value.trim();
+      const out = document.getElementById('quick-add-result');
+      if (!txt) return alert('WhatsApp invite links paste చేయండి (ఒక్కో line కి ఒకటి)!');
+      out.innerHTML = '<span style="color:#38bdf8;">⏳ Adding groups... (bridge connected అయితే bot auto-join అవుతుంది, కొన్ని సెకన్లు పడుతుంది)</span>';
+      try {
+        const res = await fetch('/api/whatsapp/quick_add', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({text: txt})
+        });
+        const d = await res.json();
+        if (!d.ok && d.error) { out.innerHTML = '<span style="color:#ef4444;">❌ ' + d.error + '</span>'; return; }
+        let html = `<span style="color:#10b981; font-weight:700;">✅ ${d.added.length} group(s) added` +
+                   (d.joined ? ` · 🤝 ${d.joined} auto-joined via invite link!` : '') + '</span>';
+        d.added.forEach(g => {
+          html += `<div style="color:#a7f3d0;">&nbsp;&nbsp;💬 ${g.name} <span style="color:#64748b;">[${g.category}]${g.joined ? ' · ✓JOINED' : ''}${g.participants ? ' · 👥 ' + g.participants : ''}</span></div>`;
+        });
+        (d.failed || []).forEach(f => {
+          html += `<div style="color:#f87171;">&nbsp;&nbsp;⚠️ ${f.line.slice(0, 60)} → ${f.error}</div>`;
+        });
+        out.innerHTML = html;
+        if (d.added.length) {
+          document.getElementById('quick-add-links').value = '';
+          loadWAGroups();
+          fetchStats();
+          await loadBulkTargets();  // new groups auto-selected by the sticky engine
+        }
+      } catch (e) {
+        out.innerHTML = '<span style="color:#ef4444;">❌ ' + e + '</span>';
+      }
+    }
+
     async function loadBulkTargets() {
       try {
         const [chRes, waRes, bRes] = await Promise.all([
@@ -1798,52 +2965,122 @@ All candidates must join today before 9:00 PM!"></textarea>
       }
     }
 
+    // ------- STICKY SELECTION ENGINE: search/filter చేసినా selection పోదు -------
+    let bulkSelCh = null;   // Set of selected Telegram channel keys
+    let bulkSelWa = null;   // Set of selected WhatsApp group ids
+
+    function initBulkSelection() {
+      if (bulkSelCh !== null && bulkSelWa !== null) { autoSelectNewBulkItems(); return; }
+      // restore last selection from this browser; default = everything selected
+      try {
+        const saved = JSON.parse(localStorage.getItem('su_bulk_sel') || 'null');
+        if (saved && Array.isArray(saved.ch) && Array.isArray(saved.wa)) {
+          bulkSelCh = new Set(saved.ch);
+          bulkSelWa = new Set(saved.wa);
+          autoSelectNewBulkItems();
+          return;
+        }
+      } catch (e) {}
+      bulkSelCh = new Set(cachedBulkChannels.map(([k]) => k));
+      bulkSelWa = new Set(cachedBulkGroups.map(g => g.id));
+      persistBulkSelection();
+    }
+
+    // Any group/channel seen for the FIRST time (new sync/import) is auto-selected
+    function autoSelectNewBulkItems() {
+      let known = {ch: [], wa: []};
+      try { known = JSON.parse(localStorage.getItem('su_bulk_known') || '{"ch":[],"wa":[]}'); } catch (e) {}
+      const knownCh = new Set(known.ch || []), knownWa = new Set(known.wa || []);
+      let changed = false;
+      cachedBulkChannels.forEach(([k]) => { if (!knownCh.has(k)) { bulkSelCh.add(k); knownCh.add(k); changed = true; } });
+      cachedBulkGroups.forEach(g => { if (!knownWa.has(g.id)) { bulkSelWa.add(g.id); knownWa.add(g.id); changed = true; } });
+      if (changed) {
+        try { localStorage.setItem('su_bulk_known', JSON.stringify({ch: [...knownCh], wa: [...knownWa]})); } catch (e) {}
+        persistBulkSelection();
+      }
+    }
+
+    function persistBulkSelection() {
+      try {
+        localStorage.setItem('su_bulk_sel', JSON.stringify({ch: [...bulkSelCh], wa: [...bulkSelWa]}));
+      } catch (e) {}
+    }
+
+    function toggleBulkSel(kind, key, on) {
+      const set = kind === 'ch' ? bulkSelCh : bulkSelWa;
+      if (on) set.add(key); else set.delete(key);
+      persistBulkSelection();
+      updateBulkSelectedBadge();
+      checkBulkConflictsLive();
+    }
+
+    function getVisibleBulkItems() {
+      const q = (document.getElementById('bulk-target-search')?.value || '').toLowerCase();
+      const cat = document.getElementById('bulk-cat-filter')?.value || 'ALL';
+      const ch = cachedBulkChannels.filter(([key, c]) => {
+        const nameMatch = c.name.toLowerCase().includes(q) || key.toLowerCase().includes(q);
+        const catMatch = cat === 'ALL' || (c.exam_type && c.exam_type.toUpperCase().includes(cat)) || (c.name.toUpperCase().includes(cat));
+        return nameMatch && catMatch;
+      });
+      const wa = cachedBulkGroups.filter(g => {
+        const nameMatch = g.name.toLowerCase().includes(q) || (g.jid || '').toLowerCase().includes(q);
+        const catMatch = cat === 'ALL' || (g.category && g.category.toUpperCase() === cat.toUpperCase());
+        return nameMatch && catMatch;
+      });
+      return {ch, wa};
+    }
+
     function renderBulkTargetsList() {
       const chList = document.getElementById('bulk-channels-list');
       const waList = document.getElementById('bulk-groups-list');
       if (!chList || !waList) return;
+      initBulkSelection();
 
-      const q = (document.getElementById('bulk-target-search')?.value || '').toLowerCase();
-      const cat = document.getElementById('bulk-cat-filter')?.value || 'ALL';
-
+      const vis = getVisibleBulkItems();
       chList.innerHTML = '';
       waList.innerHTML = '';
 
-      let chCount = 0;
-      cachedBulkChannels.forEach(([key, ch]) => {
-        const nameMatch = ch.name.toLowerCase().includes(q) || key.toLowerCase().includes(q);
-        const catMatch = cat === 'ALL' || (ch.exam_type && ch.exam_type.toUpperCase().includes(cat)) || (ch.name.toUpperCase().includes(cat));
-        if (!nameMatch || !catMatch) return;
-        chCount++;
-
+      vis.ch.forEach(([key, ch]) => {
+        const sel = bulkSelCh.has(key);
         const div = document.createElement('div');
         div.className = 'bulk-target-item';
-        div.style = 'display:flex; align-items:center; gap:8px; font-size:12px; padding:3px 0;';
+        div.style = `display:flex; align-items:center; gap:8px; font-size:12px; padding:5px 8px; border-radius:6px; cursor:pointer; border:1px solid ${sel ? 'rgba(56,189,248,0.4)' : 'transparent'}; background:${sel ? 'rgba(56,189,248,0.08)' : 'transparent'};`;
         div.innerHTML = `
-          <input type="checkbox" class="bulk-target-ch" value="${key}" checked onchange="checkBulkConflictsLive(); updateBulkSelectedBadge();">
-          <span>📢 <b>${ch.name}</b> <span style="color:#64748b;">(${ch.chat_id || key})</span></span>
+          <input type="checkbox" class="bulk-target-ch" value="${key}" ${sel ? 'checked' : ''} style="pointer-events:none;">
+          <span style="flex:1;">${ch.chat_type === 'group' ? '💬' : '📢'} <b>${ch.name}</b> ${ch.chat_type === 'group' ? '<span style="color:#6ee7b7; font-size:9px; font-weight:800;">TG GROUP</span>' : ''} <span style="color:#64748b;">(${ch.chat_id || key})</span></span>
         `;
+        div.onclick = () => {
+          const cb = div.querySelector('input');
+          cb.checked = !cb.checked;
+          toggleBulkSel('ch', key, cb.checked);
+          div.style.background = cb.checked ? 'rgba(56,189,248,0.08)' : 'transparent';
+          div.style.border = cb.checked ? '1px solid rgba(56,189,248,0.4)' : '1px solid transparent';
+        };
         chList.appendChild(div);
       });
-      document.getElementById('bulk-channels-count').innerText = chCount;
+      document.getElementById('bulk-channels-count').innerText = vis.ch.length;
 
-      let waCount = 0;
-      cachedBulkGroups.forEach(g => {
-        const nameMatch = g.name.toLowerCase().includes(q) || (g.jid || '').toLowerCase().includes(q);
-        const catMatch = cat === 'ALL' || (g.category && g.category.toUpperCase() === cat.toUpperCase());
-        if (!nameMatch || !catMatch) return;
-        waCount++;
-
+      vis.wa.forEach(g => {
+        const sel = bulkSelWa.has(g.id);
         const div = document.createElement('div');
         div.className = 'bulk-target-item';
-        div.style = 'display:flex; align-items:center; gap:8px; font-size:12px; padding:3px 0;';
+        div.style = `display:flex; align-items:center; gap:8px; font-size:12px; padding:5px 8px; border-radius:6px; cursor:pointer; border:1px solid ${sel ? 'rgba(16,185,129,0.4)' : 'transparent'}; background:${sel ? 'rgba(16,185,129,0.08)' : 'transparent'};`;
+        const members = g.participants ? ` <span style="color:#64748b; font-size:10px;">👥 ${g.participants}</span>` : '';
+        const realTag = g.real ? ' <span style="color:#10b981; font-size:9px; font-weight:800;" title="Synced from real WhatsApp">✓REAL</span>' : '';
         div.innerHTML = `
-          <input type="checkbox" class="bulk-target-wa" value="${g.id}" checked onchange="checkBulkConflictsLive(); updateBulkSelectedBadge();">
-          <span>💬 <b>${g.name}</b> <span style="color:#10b981; font-size:10px; font-weight:700;">[${g.category || 'GENERAL'}]</span></span>
+          <input type="checkbox" class="bulk-target-wa" value="${g.id}" ${sel ? 'checked' : ''} style="pointer-events:none;">
+          <span style="flex:1;">💬 <b>${g.name}</b> <span style="color:#10b981; font-size:10px; font-weight:700;">[${g.category || 'GENERAL'}]</span>${members}${realTag}</span>
         `;
+        div.onclick = () => {
+          const cb = div.querySelector('input');
+          cb.checked = !cb.checked;
+          toggleBulkSel('wa', g.id, cb.checked);
+          div.style.background = cb.checked ? 'rgba(16,185,129,0.08)' : 'transparent';
+          div.style.border = cb.checked ? '1px solid rgba(16,185,129,0.4)' : '1px solid transparent';
+        };
         waList.appendChild(div);
       });
-      document.getElementById('bulk-groups-count').innerText = waCount;
+      document.getElementById('bulk-groups-count').innerText = vis.wa.length;
       updateBulkSelectedBadge();
     }
 
@@ -1852,10 +3089,23 @@ All candidates must join today before 9:00 PM!"></textarea>
     }
 
     function updateBulkSelectedBadge() {
-      const nCh = document.querySelectorAll('.bulk-target-ch:checked').length;
-      const nWa = document.querySelectorAll('.bulk-target-wa:checked').length;
+      initBulkSelection();
+      // prune ids that no longer exist
+      const chKeys = new Set(cachedBulkChannels.map(([k]) => k));
+      const waIds = new Set(cachedBulkGroups.map(g => g.id));
+      bulkSelCh.forEach(k => { if (!chKeys.has(k)) bulkSelCh.delete(k); });
+      bulkSelWa.forEach(k => { if (!waIds.has(k)) bulkSelWa.delete(k); });
       const badge = document.getElementById('bulk-selected-count-badge');
-      if (badge) badge.innerText = `${nCh + nWa} selected (${nCh} Ch, ${nWa} Grp)`;
+      if (badge) badge.innerText = `✅ ${bulkSelCh.size + bulkSelWa.size} selected (${bulkSelCh.size} Ch, ${bulkSelWa.size} Grp)`;
+    }
+
+    function selectVisibleBulkTargets(on) {
+      const vis = getVisibleBulkItems();
+      vis.ch.forEach(([key]) => { if (on) bulkSelCh.add(key); else bulkSelCh.delete(key); });
+      vis.wa.forEach(g => { if (on) bulkSelWa.add(g.id); else bulkSelWa.delete(g.id); });
+      persistBulkSelection();
+      renderBulkTargetsList();
+      checkBulkConflictsLive();
     }
 
     function applySelectedBundle(bundleId) {
@@ -1863,23 +3113,17 @@ All candidates must join today before 9:00 PM!"></textarea>
       const b = cachedBundles.find(x => x.id === bundleId);
       if (!b) return;
 
-      const targetGroups = new Set(b.target_groups || []);
-      const targetChannels = new Set(b.target_channels || []);
-
-      document.querySelectorAll('.bulk-target-wa').forEach(c => {
-        c.checked = targetGroups.has(c.value);
-      });
-      document.querySelectorAll('.bulk-target-ch').forEach(c => {
-        c.checked = targetChannels.has(c.value);
-      });
-
-      updateBulkSelectedBadge();
+      initBulkSelection();
+      bulkSelWa = new Set(b.target_groups || []);
+      bulkSelCh = new Set(b.target_channels || []);
+      persistBulkSelection();
+      renderBulkTargetsList();
       checkBulkConflictsLive(bundleId);
     }
 
     async function checkBulkConflictsLive(activeBundleId = '') {
-      const waGids = Array.from(document.querySelectorAll('.bulk-target-wa:checked')).map(c => c.value);
-      const chKeys = Array.from(document.querySelectorAll('.bulk-target-ch:checked')).map(c => c.value);
+      const waGids = (initBulkSelection(), [...bulkSelWa]);
+      const chKeys = (initBulkSelection(), [...bulkSelCh]);
       const alertBox = document.getElementById('bulk-conflict-alert');
       const msgBox = document.getElementById('bulk-conflict-msg');
       if (!alertBox || !msgBox) return;
@@ -1913,28 +3157,37 @@ All candidates must join today before 9:00 PM!"></textarea>
     }
 
     function toggleAllBulkTargets(val) {
-      document.querySelectorAll('.bulk-target-ch, .bulk-target-wa').forEach(c => c.checked = val);
-      updateBulkSelectedBadge();
+      initBulkSelection();
+      bulkSelCh = val ? new Set(cachedBulkChannels.map(([k]) => k)) : new Set();
+      bulkSelWa = val ? new Set(cachedBulkGroups.map(g => g.id)) : new Set();
+      persistBulkSelection();
+      renderBulkTargetsList();
       checkBulkConflictsLive();
     }
 
     function selectBulkChannelsOnly() {
-      document.querySelectorAll('.bulk-target-ch').forEach(c => c.checked = true);
-      document.querySelectorAll('.bulk-target-wa').forEach(c => c.checked = false);
-      updateBulkSelectedBadge();
+      initBulkSelection();
+      bulkSelCh = new Set(cachedBulkChannels.map(([k]) => k));
+      bulkSelWa = new Set();
+      persistBulkSelection();
+      renderBulkTargetsList();
       checkBulkConflictsLive();
     }
 
     function selectBulkWAGroupsOnly() {
-      document.querySelectorAll('.bulk-target-ch').forEach(c => c.checked = false);
-      document.querySelectorAll('.bulk-target-wa').forEach(c => c.checked = true);
-      updateBulkSelectedBadge();
+      initBulkSelection();
+      bulkSelCh = new Set();
+      bulkSelWa = new Set(cachedBulkGroups.map(g => g.id));
+      persistBulkSelection();
+      renderBulkTargetsList();
       checkBulkConflictsLive();
     }
 
     async function sendBulkQuizPollsToTargets() {
-      const chKeys = Array.from(document.querySelectorAll('.bulk-target-ch:checked')).map(c => c.value);
-      const waGids = Array.from(document.querySelectorAll('.bulk-target-wa:checked')).map(c => c.value);
+      const chKeys = (initBulkSelection(), [...bulkSelCh]);
+      const waGids = (initBulkSelection(), [...bulkSelWa]);
+      const pollCount = parseInt(document.getElementById('poll-count-select')?.value || '5', 10);
+      const pollSubjects = Array.from(document.querySelectorAll('.poll-subj:checked')).map(c => c.value);
 
       if (chKeys.length === 0 && waGids.length === 0) {
         return alert('Please select at least one Telegram Channel or WhatsApp Group target!');
@@ -1949,15 +3202,16 @@ All candidates must join today before 9:00 PM!"></textarea>
         });
         const cData = await cRes.json();
         if (cData.has_conflicts) {
-          const warn = cData.conflicts.map(c => c.message).join('\n');
-          const cont = confirm(`⚠️ Targets Conflict Notice:\n${warn}\n\nDo you want to proceed anyway?`);
+          const warn = cData.conflicts.map(c => c.message).join('\\n');
+          const cont = confirm(`⚠️ Targets Conflict Notice:\\n${warn}\\n\\nDo you want to proceed anyway?`);
           if (!cont) return;
         }
       } catch (e) {
         console.error(e);
       }
 
-      if (!confirm(`🚀 Launch 5-poll anti-ban quiz dispatch to ${chKeys.length} Telegram Channels and ${waGids.length} WhatsApp Groups?`)) return;
+      const subjLabel = pollSubjects.length ? pollSubjects.join(', ') : 'All Subjects';
+      if (!confirm(`🚀 Launch ${pollCount}-poll quiz dispatch?\n• Subjects: ${subjLabel}\n• ${chKeys.length} Telegram Channels (instant) + ${waGids.length} WhatsApp Groups (${gapLabel()} gaps)`)) return;
 
       const log = document.getElementById('bulk-broadcast-log');
       log.innerText = `Starting live quiz rounds on selected targets...`;
@@ -1969,7 +3223,7 @@ All candidates must join today before 9:00 PM!"></textarea>
             await fetch('/api/post_poll', {
               method: 'POST',
               headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({channel: k, count: 5})
+              body: JSON.stringify({channel: k, count: pollCount, subjects: pollSubjects})
             });
           } catch (e) {
             console.error('Channel post error:', e);
@@ -1988,9 +3242,10 @@ All candidates must join today before 9:00 PM!"></textarea>
               target_group_ids: waGids,
               is_question: true,
               gateway: gw,
-              delay_min: 40,
-              delay_max: 60,
-              questions_count: 5
+              delay_min: getGapMin(),
+              delay_max: getGapMax(),
+              questions_count: pollCount,
+              subjects: pollSubjects
             })
           });
         } catch (e) {
@@ -1998,8 +3253,8 @@ All candidates must join today before 9:00 PM!"></textarea>
         }
       }
 
-      log.innerText = `✅ Dispatched 5-Poll Exam Rounds across ${chKeys.length} Channels and ${waGids.length} WhatsApp Groups with Anti-Ban Protection!`;
-      alert(`✅ Exam Polls launched across ${chKeys.length} Channels and ${waGids.length} Groups!`);
+      log.innerText = `✅ ${pollCount}-Poll Exam Rounds (${subjLabel}) → ${chKeys.length} Channels (instant) + ${waGids.length} WhatsApp Groups (anti-ban queue)!`;
+      alert(`✅ Exam Polls launched! ${chKeys.length} Channels + ${waGids.length} Groups · Subjects: ${subjLabel}`);
     }
 
     async function sendBulkBroadcast() {
@@ -2011,8 +3266,8 @@ All candidates must join today before 9:00 PM!"></textarea>
         return alert('Please write a message or attach a file/URL to broadcast!');
       }
 
-      const chKeys = Array.from(document.querySelectorAll('.bulk-target-ch:checked')).map(c => c.value);
-      const waGids = Array.from(document.querySelectorAll('.bulk-target-wa:checked')).map(c => c.value);
+      const chKeys = (initBulkSelection(), [...bulkSelCh]);
+      const waGids = (initBulkSelection(), [...bulkSelWa]);
 
       if (chKeys.length === 0 && waGids.length === 0) {
         return alert('Please select at least one Channel or WhatsApp Group target!');
@@ -2027,8 +3282,8 @@ All candidates must join today before 9:00 PM!"></textarea>
         });
         const cData = await cRes.json();
         if (cData.has_conflicts) {
-          const warn = cData.conflicts.map(c => c.message).join('\n');
-          const cont = confirm(`⚠️ Targets Conflict Notice:\n${warn}\n\nDo you want to proceed with dispatch anyway?`);
+          const warn = cData.conflicts.map(c => c.message).join('\\n');
+          const cont = confirm(`⚠️ Targets Conflict Notice:\\n${warn}\\n\\nDo you want to proceed with dispatch anyway?`);
           if (!cont) return;
         }
       } catch (e) {
@@ -2053,9 +3308,10 @@ All candidates must join today before 9:00 PM!"></textarea>
           })
         });
         const d = await res.json();
-        let logTxt = `✅ Completed Broadcast!\n• Telegram Channels Dispatched: ${d.telegram_dispatched}\n• WhatsApp Groups Dispatched: ${d.whatsapp_dispatched}`;
+        let logTxt = `✅ Broadcast Launched!\\n• Telegram Channels Dispatched: ${d.telegram_dispatched}\\n• WhatsApp Groups Queued: ${d.whatsapp_dispatched}`;
+        if (d.whatsapp_note) logTxt += `\\nℹ️ ${d.whatsapp_note}`;
         if (d.errors && d.errors.length > 0) {
-          logTxt += `\n⚠️ Notes/Errors (${d.errors.length}):\n` + d.errors.slice(0, 5).join('\n');
+          logTxt += `\\n⚠️ Notes/Errors (${d.errors.length}):\\n` + d.errors.slice(0, 5).join('\\n');
         }
         log.innerText = logTxt;
         alert(`Dispatched successfully to ${d.telegram_dispatched} Channels and ${d.whatsapp_dispatched} WhatsApp Groups!`);
@@ -2075,7 +3331,9 @@ All candidates must join today before 9:00 PM!"></textarea>
         body: JSON.stringify({raw_text: raw})
       });
       const d = await res.json();
-      log.innerText = '✅ Success! Imported ' + d.imported_groups_count + ' WhatsApp Groups and ' + d.imported_channels_count + ' Telegram Channels.';
+      const sc = (d.schedules_created || []).length;
+      log.innerText = '✅ Success! Imported ' + d.imported_groups_count + ' WhatsApp Groups and ' + d.imported_channels_count + ' Telegram Channels.' +
+        (sc ? ' ⏰ ' + sc + ' daily auto-schedule(s) created!' : '');
       fetchStats();
       loadWAGroups();
     }
@@ -2123,9 +3381,75 @@ All candidates must join today before 9:00 PM!"></textarea>
         document.getElementById('wa-direct-excel-paste').value = '';
         fetchStats();
         loadWAGroups();
+        await loadBulkTargets();
       } catch (e) {
         statusEl.style.color = '#ef4444';
         statusEl.innerText = '❌ Import failed: ' + e;
+      }
+    }
+
+    async function createCampusEvent() {
+      const college = document.getElementById('campus-college-name').value.trim();
+      const district = document.getElementById('campus-district').value.trim();
+      if (!college) return alert('College name ఎంటర్ చేయండి!');
+      if (!district) return alert('District ఎంటర్ చేయండి!');
+      const nq = parseInt(document.getElementById('campus-nq').value || '10', 10);
+      const level = document.getElementById('campus-level').value || 'easy';
+      const subjects = [];
+      if (document.getElementById('subj-reasoning')?.checked) subjects.push('reasoning');
+      if (document.getElementById('subj-quant')?.checked) subjects.push('quant');
+      if (document.getElementById('subj-science')?.checked) subjects.push('science');
+      if (document.getElementById('subj-english')?.checked) subjects.push('english');
+      if (document.getElementById('subj-ca')?.checked) subjects.push('ca');
+      if (document.getElementById('subj-coding')?.checked) subjects.push('coding');
+      if (subjects.length === 0) return alert('కనీసం ఒక subject select చేయండి!');
+
+      const card = document.getElementById('campus-active-card');
+      card.innerHTML = '<div style="color:#38bdf8;">⏳ Generating exam, link & QR...</div>';
+      try {
+        const res = await fetch('/api/campus/create', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({college, district, n_q: nq, level, subjects})
+        });
+        const d = await res.json();
+        if (!d.ok) { card.innerHTML = '<div style="color:#ef4444;">❌ ' + (d.error || 'Failed') + '</div>'; return; }
+        card.innerHTML = `
+          <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
+            <img src="${d.qr}" style="width:150px; height:150px; border-radius:8px; background:white; padding:5px; border:2px solid #10b981;">
+            <div style="flex:1; min-width:200px;">
+              <div style="font-size:14px; font-weight:800; color:#10b981;">✅ ${d.college} — Exam Ready!</div>
+              <div style="margin:6px 0; font-size:12px;">Code: <b style="color:#facc15;">${d.code}</b></div>
+              <div style="font-size:11px; word-break:break-all; color:#38bdf8;">${d.link}</div>
+              <div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">
+                <button class="btn btn-accent" style="padding:4px 10px; font-size:11px;" onclick="navigator.clipboard.writeText('${d.link}').then(()=>alert('✅ Link copied!'))">📋 Copy Link</button>
+                <a href="${d.qr}" target="_blank" class="btn btn-outline" style="padding:4px 10px; font-size:11px; text-decoration:none;">🖼️ Full-Size QR</a>
+                <a href="https://wa.me/?text=${encodeURIComponent('🏫 ' + d.college + ' Exam! Join: ' + d.link)}" target="_blank" class="btn btn-purple" style="padding:4px 10px; font-size:11px; text-decoration:none;">📲 Share on WhatsApp</a>
+              </div>
+            </div>
+          </div>`;
+        loadCampusEvents();
+      } catch (e) {
+        card.innerHTML = '<div style="color:#ef4444;">❌ ' + e + '</div>';
+      }
+    }
+
+    async function viewCampusReport(code) {
+      const card = document.getElementById('campus-active-card');
+      card.innerHTML = '<div style="color:#38bdf8;">⏳ Loading report for ' + code + '...</div>';
+      try {
+        const res = await fetch('/api/campus/report?code=' + encodeURIComponent(code));
+        const d = await res.json();
+        const rep = d.report;
+        if (!rep) { card.innerHTML = '<div style="color:#ef4444;">❌ Report not found for ' + code + '</div>'; return; }
+        const players = rep.players || rep.top_players || [];
+        let rows = players.slice(0, 15).map((pl, i) =>
+          `<tr><td style="padding:3px 8px;">${i + 1}</td><td style="padding:3px 8px;"><b>${pl.name || pl.user || '—'}</b></td><td style="padding:3px 8px; color:#38bdf8;">${pl.score ?? pl.points ?? 0}</td></tr>`).join('');
+        card.innerHTML = `
+          <div style="font-size:14px; font-weight:800; color:#38bdf8;">📋 ${rep.name || code} — Principal Report</div>
+          <div style="font-size:12px; color:var(--text-muted); margin:6px 0;">District: ${rep.district || '—'} · Students: <b style="color:#10b981;">${rep.players_count ?? players.length}</b> · Status: ${rep.state || '—'}</div>
+          ${rows ? `<table style="width:100%; font-size:12px; border-collapse:collapse; margin-top:6px;"><thead><tr style="color:#64748b;"><th style="text-align:left; padding:3px 8px;">#</th><th style="text-align:left; padding:3px 8px;">Student</th><th style="text-align:left; padding:3px 8px;">Score</th></tr></thead><tbody>${rows}</tbody></table>` : '<div style="font-size:12px; color:#64748b; margin-top:8px;">ఇంకా students join అవ్వలేదు — QR scan చేయగానే ఇక్కడ కనిపిస్తారు.</div>'}`;
+      } catch (e) {
+        card.innerHTML = '<div style="color:#ef4444;">❌ ' + e + '</div>';
       }
     }
 
@@ -2267,8 +3591,8 @@ All candidates must join today before 9:00 PM!"></textarea>
         });
         const cData = await cRes.json();
         if (cData.has_conflicts) {
-          const warn = cData.conflicts.map(c => c.message).join('\n');
-          const ok = confirm(`⚠️ Bundle Overlap Notice:\n${warn}\n\nDo you want to save this bundle anyway?`);
+          const warn = cData.conflicts.map(c => c.message).join('\\n');
+          const ok = confirm(`⚠️ Bundle Overlap Notice:\\n${warn}\\n\\nDo you want to save this bundle anyway?`);
           if (!ok) return;
         }
       } catch (e) {
@@ -2331,10 +3655,13 @@ All candidates must join today before 9:00 PM!"></textarea>
       for (const [key, ch] of Object.entries(d.channels || {})) {
         const count = counts[ch.base_exam || key] || counts[key] || 0;
         const tr = document.createElement('tr');
+        const typeBadge = ch.chat_type === 'group'
+          ? '<span style="background:#064e3b; color:#6ee7b7; font-size:10px; padding:1px 6px; border-radius:8px; margin-left:4px;">💬 GROUP</span>'
+          : '<span style="background:#1e3a5f; color:#7dd3fc; font-size:10px; padding:1px 6px; border-radius:8px; margin-left:4px;">📢 CHANNEL</span>';
         tr.innerHTML = `
           <td><input type="checkbox" class="tg-ch-select-checkbox" data-chkey="${key}"></td>
           <td><b>${key}</b></td>
-          <td>${ch.emoji || '🎯'} ${ch.name}</td>
+          <td>${ch.emoji || '🎯'} ${ch.name} ${typeBadge}</td>
           <td><span class="category-tag">${ch.base_exam || key}</span></td>
           <td style="color:#38bdf8; font-weight:700;">${count} Questions</td>
           <td style="font-family:monospace;">${ch.chat_id || ch.username || '—'}</td>
@@ -2346,7 +3673,7 @@ All candidates must join today before 9:00 PM!"></textarea>
 
         const opt = document.createElement('option');
         opt.value = key;
-        opt.innerText = (ch.emoji || '🎯') + ' ' + ch.name + ' (' + count + ' polls)';
+        opt.innerText = (ch.chat_type === 'group' ? '💬 ' : '📢 ') + (ch.emoji || '🎯') + ' ' + ch.name + ' (' + count + ' polls)';
         select.appendChild(opt);
       }
     }
@@ -2406,19 +3733,47 @@ All candidates must join today before 9:00 PM!"></textarea>
       const name = document.getElementById('new-ch-name').value.trim();
       const base = document.getElementById('new-ch-base').value;
       const chatid = document.getElementById('new-ch-chatid').value.trim();
+      const chtype = (document.getElementById('new-ch-type') || {value:'channel'}).value;
       if (!name) return alert('Enter channel or exam name');
 
       const res = await fetch('/api/channels/register', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({name, exam_type: base, chat_id: chatid})
+        body: JSON.stringify({name, exam_type: base, chat_id: chatid, chat_type: chtype})
       });
       const d = await res.json();
-      alert(d.message || ('Channel registered: ' + d.channel.name));
+      alert(d.message || ((chtype === 'group' ? 'Group' : 'Channel') + ' registered: ' + d.channel.name));
       document.getElementById('new-ch-name').value = '';
       document.getElementById('new-ch-chatid').value = '';
       loadChannels();
       fetchStats();
+    }
+
+    async function detectNewTelegramChats() {
+      const box = document.getElementById('tg-detect-result');
+      box.innerHTML = '<span style="color:#fbbf24;">🔍 Scanning Telegram for groups/channels where bot was added...</span>';
+      try {
+        const res = await fetch('/api/channels/detect_new', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: '{}'
+        });
+        const d = await res.json();
+        if (!d.ok) {
+          box.innerHTML = '<span style="color:#f87171;">❌ ' + (d.error || 'Detection failed') + '</span>';
+          return;
+        }
+        if (!d.added || d.added.length === 0) {
+          box.innerHTML = '<span style="color:#94a3b8;">Scanned ' + (d.scanned || 0) + ' chat(s) — కొత్తవి ఏమీ లేవు. ' + (d.note || '') + '</span>';
+          return;
+        }
+        box.innerHTML = '<span style="color:#34d399;">✅ ' + d.added.length + ' కొత్త target(s) registered: ' +
+          d.added.map(function(a){ return (a.chat_type === 'group' ? '💬 ' : '📢 ') + a.name; }).join(', ') + '</span>';
+        loadChannels();
+        fetchStats();
+      } catch (e) {
+        box.innerHTML = '<span style="color:#f87171;">❌ ' + e + '</span>';
+      }
     }
 
     async function sendChannelPoll(count) {
@@ -2647,7 +4002,10 @@ All candidates must join today before 9:00 PM!"></textarea>
     loadSchedules();
     loadChannels();
     loadBundles();
+    loadGapSettings();
     loadBulkTargets();
+    refreshStatusStrip();
+    renderMissionHome();
     setInterval(fetchStats, 10000);
     setInterval(pollPipelineStatus, 1500);
     setInterval(loadWASession, 10000);
@@ -2658,6 +4016,107 @@ All candidates must join today before 9:00 PM!"></textarea>
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
+    # ---------------- 🔒 access lock helpers ----------------
+    def _cookie_token(self) -> str:
+        raw = self.headers.get("Cookie", "") or ""
+        for part in raw.split(";"):
+            k, _, v = part.strip().partition("=")
+            if k == "su_auth":
+                return v.strip()
+        return ""
+
+    def _authed(self) -> bool:
+        tok = self._cookie_token()
+        return bool(tok) and tok in _load_auth().get("tokens", [])
+
+    # ---------------- 🛡️ IP ALLOWLIST (2nd security layer) ----------------
+    def _client_ip(self) -> str:
+        """Real visitor IP. Behind the preview proxy the trusted proxy APPENDS
+        the real client IP to X-Forwarded-For — so take the LAST entry
+        (first entries can be spoofed by the client)."""
+        xff = (self.headers.get("X-Forwarded-For", "") or "").strip()
+        if xff:
+            return xff.split(",")[-1].strip()
+        return self.client_address[0]
+
+    def _ip_allowed(self) -> bool:
+        if os.environ.get("DISABLE_IP_LOCK") == "1":
+            return True  # emergency override: restart server with DISABLE_IP_LOCK=1
+        sec = _load_auth()
+        if not sec.get("ip_lock_enabled"):
+            return True
+        allowed = [str(a).strip() for a in (sec.get("allowed_ips") or []) if str(a).strip()]
+        if not allowed:
+            return True
+        # sandbox-local failsafe: direct loopback requests (no proxy header) always pass
+        xff = (self.headers.get("X-Forwarded-For", "") or "").strip()
+        if not xff and self.client_address[0] in ("127.0.0.1", "::1", "localhost"):
+            return True
+        ip = self._client_ip()
+        import ipaddress
+        try:
+            ipobj = ipaddress.ip_address(ip)
+        except ValueError:
+            ipobj = None
+        for e in allowed:
+            if e == ip:
+                return True
+            if (e.endswith(".") or e.endswith(":")) and ip.startswith(e):
+                return True  # prefix rule e.g. "49.37." matches whole mobile range
+            if "/" in e and ipobj is not None:
+                try:
+                    if ipobj in ipaddress.ip_network(e, strict=False):
+                        return True
+                except ValueError:
+                    pass
+        return False
+
+    def _deny_ip(self, is_api: bool):
+        ip = self._client_ip()
+        if is_api:
+            self._send_json({"ok": False, "error": f"access denied — your IP {ip} is not in the allowlist"}, code=403)
+            return
+        body = ("<!DOCTYPE html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>"
+                "<title>403 — Access Denied</title></head>"
+                "<body style='background:#0b1220; color:#e2e8f0; font-family:sans-serif; display:flex; align-items:center; justify-content:center; height:100vh; margin:0;'>"
+                "<div style='text-align:center; max-width:420px; padding:24px;'>"
+                "<div style='font-size:52px;'>🛡️</div>"
+                "<h2 style='color:#f87171;'>Access Denied</h2>"
+                f"<p style='color:#94a3b8;'>Your IP <b style='color:#fbbf24;'>{ip}</b> is not in the admin allowlist.</p>"
+                "<p style='color:#64748b; font-size:13px;'>ఈ dashboard కొన్ని IP addresses కి మాత్రమే open అవుతుంది. Admin ని సంప్రదించండి.</p>"
+                "</div></body></html>").encode("utf-8")
+        self.send_response(403)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+    def _deny(self, is_api: bool):
+        if is_api:
+            self._send_json({"ok": False, "error": "unauthorized — login required"}, code=401)
+        else:
+            body = LOGIN_PAGE.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    def _issue_login_cookie(self):
+        auth = _load_auth()
+        tok = _secrets.token_hex(24)
+        auth.setdefault("tokens", []).append(tok)
+        auth["tokens"] = auth["tokens"][-25:]  # keep last 25 sessions
+        _save_auth(auth)
+        body = json.dumps({"ok": True}).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Set-Cookie", f"su_auth={tok}; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax")
+        self.end_headers()
+        self.wfile.write(body)
+
     def _send_json(self, data, code=200):
         body = json.dumps(data, ensure_ascii=False).encode("utf-8")
         self.send_response(code)
@@ -2677,8 +4136,160 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         p = urllib.parse.urlparse(self.path)
+
+        # 🛡️ IP allowlist — checked BEFORE everything (even the login page)
+        if not self._ip_allowed():
+            self._deny_ip(is_api=p.path.startswith("/api/"))
+            return
+
+        # 🔒 Access lock: everything requires login except the login page itself
+        if p.path == "/login":
+            self._deny(is_api=False)
+            return
+
+        # 📱 PWA assets — login అవసరం లేదు (browser install కోసం), IP lock apply అవుతుంది
+        if p.path == "/manifest.json":
+            body = json.dumps({
+                "name": "StudentUp Control Hub",
+                "short_name": "StudentUp",
+                "start_url": "/",
+                "display": "standalone",
+                "background_color": "#0b1220",
+                "theme_color": "#0b1220",
+                "icons": [{"src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}],
+            }).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/manifest+json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        if p.path == "/icon.svg":
+            body = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+                    '<rect width="100" height="100" rx="20" fill="#0b1220"/>'
+                    '<text x="50" y="62" font-size="52" text-anchor="middle">🚀</text>'
+                    '<text x="50" y="92" font-size="14" text-anchor="middle" fill="#38bdf8" '
+                    'font-family="sans-serif" font-weight="bold">StudentUp</text></svg>').encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "image/svg+xml")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if not self._authed():
+            self._deny(is_api=p.path.startswith("/api/"))
+            return
+
         if p.path in ("/", "/index.html", "/dashboard"):
             self._send_html(HTML_PAGE)
+            return
+
+        if p.path == "/api/history":
+            from core import broadcast_log
+            self._send_json({
+                "ok": True,
+                "summary": broadcast_log.get_summary(),
+                "history": broadcast_log.get_history(limit=80),
+            })
+            return
+
+        if p.path == "/api/health":
+            # 🩺 MISSION CONTROL: whole-system health in one call
+            from core.telegram import Telegram
+            from core import broadcast_log
+            jobs = whatsapp_pipeline.get_scheduled_jobs()
+            enabled_jobs = [j for j in jobs if j.get("enabled")]
+            bank = Bank()
+            stats = bank.stats()
+            # only channels that actually have questions, sorted by fresh stock
+            stock = sorted(
+                [{"channel": ch, **st} for ch, st in stats.items() if st.get("total", 0) > 0],
+                key=lambda r: r["unused"],
+            )
+            low = [r for r in stock if r["unused"] < 15]
+            up_min = int((time.time() - _START_TS) // 60)
+            sec = _load_auth()
+            self._send_json({
+                "ok": True,
+                "telegram_live": bool(Telegram().token),
+                "whatsapp_connected": whatsapp_pipeline.bridge_is_connected(),
+                "scheduler_running": bool(getattr(whatsapp_pipeline, "_SCHEDULER_RUNNING", False)),
+                "autopilot_slots": len([j for j in enabled_jobs if j.get("mode") == "tg"]),
+                "wa_slots": len([j for j in enabled_jobs if j.get("mode", "wa") != "tg"]),
+                "total_fresh": sum(r["unused"] for r in stock),
+                "total_questions": sum(r["total"] for r in stock),
+                "low_stock": low[:10],
+                "stock": stock,
+                "ip_lock_on": bool(sec.get("ip_lock_enabled")),
+                "uptime_min": up_min,
+                "week_polls": broadcast_log.get_summary().get("week_polls", 0),
+                "last_backup": __import__("core.backup", fromlist=["backup"]).last_backup_info(),
+            })
+            return
+
+        if p.path == "/api/questions/search":
+            # 🔍 QUESTION FINDER: live search across the whole bank
+            qs = urllib.parse.parse_qs(p.query)
+            term = (qs.get("q", [""])[0] or "").strip().lower()
+            limit = min(int(qs.get("limit", ["30"])[0] or 30), 100)
+            bank = Bank()
+            results = []
+            for q in bank.questions:
+                if term:
+                    hay = " ".join([
+                        str(q.get("q_en", "")), str(q.get("q_te", "")),
+                        str(q.get("topic", "")), str(q.get("channel", "")),
+                        str(q.get("id", "")),
+                    ]).lower()
+                    if term not in hay:
+                        continue
+                ch = q.get("channel", "CURRENT")
+                results.append({
+                    "id": q.get("id"),
+                    "channel": ch,
+                    "topic": q.get("topic", ""),
+                    "q_en": str(q.get("q_en", ""))[:160],
+                    "options": len(q.get("options_en", []) or []),
+                    "fresh": q.get("id") not in set(bank.used.get(ch, [])),
+                })
+                if len(results) >= limit:
+                    break
+            self._send_json({"ok": True, "count": len(results), "results": results})
+            return
+
+        if p.path == "/api/backup":
+            # 💾 ONE-CLICK FULL BACKUP: every data json/csv zipped & downloaded
+            import io, zipfile
+            buf = io.BytesIO()
+            added = 0
+            with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+                for f in sorted(config.DATA.glob("*")):
+                    if f.is_file() and f.suffix.lower() in (".json", ".csv", ".xlsx") and f.stat().st_size < 8_000_000:
+                        try:
+                            z.write(f, f"studentup_backup/{f.name}")
+                            added += 1
+                        except Exception:
+                            pass
+            data = buf.getvalue()
+            fname = "studentup_backup_" + datetime.now().strftime("%Y%m%d_%H%M") + ".zip"
+            self.send_response(200)
+            self.send_header("Content-Type", "application/zip")
+            self.send_header("Content-Disposition", f'attachment; filename="{fname}"')
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
+
+        if p.path == "/api/security":
+            sec = _load_auth()
+            self._send_json({
+                "ok": True,
+                "ip_lock_enabled": bool(sec.get("ip_lock_enabled")),
+                "allowed_ips": sec.get("allowed_ips", []),
+                "your_ip": self._client_ip(),
+                "recent_logins": _recent_logins(8),
+            })
             return
 
         if p.path == "/api/stats":
@@ -2771,6 +4382,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
             })
             return
 
+        if p.path == "/api/excel/template_xlsx":
+            # 📥 BEST sample workbook: Instructions + 3 sheets + auto-schedule columns
+            data = bundle_manager.build_groups_template_xlsx()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            self.send_header("Content-Disposition", 'attachment; filename="studentup_groups_template.xlsx"')
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
+
         if p.path == "/api/excel/template":
             tmpl_path = config.DATA / "sample_whatsapp_groups_template.csv"
             if not tmpl_path.exists():
@@ -2829,8 +4451,119 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         p = urllib.parse.urlparse(self.path)
+
+        # 🛡️ IP allowlist — checked BEFORE everything (even login attempts)
+        if not self._ip_allowed():
+            self._deny_ip(is_api=True)
+            return
+
         length = int(self.headers.get("Content-Length", 0))
         body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+
+        # 🔒 Access lock
+        if p.path == "/api/auth/login":
+            pw = str(body.get("password", ""))
+            if pw and pw == _dash_password():
+                _log_login_attempt(self._client_ip(), True)
+                self._issue_login_cookie()
+            else:
+                _log_login_attempt(self._client_ip(), False)
+                time.sleep(1.2)  # slow brute-force attempts
+                self._send_json({"ok": False, "error": "wrong password"}, code=401)
+            return
+        if not self._authed():
+            self._send_json({"ok": False, "error": "unauthorized — login required"}, code=401)
+            return
+
+        if p.path == "/api/auth/logout":
+            auth = _load_auth()
+            tok = self._cookie_token()
+            auth["tokens"] = [t for t in auth.get("tokens", []) if t != tok]
+            _save_auth(auth)
+            self._send_json({"ok": True, "message": "logged out"})
+            return
+
+        if p.path == "/api/auth/change_password":
+            old = str(body.get("old", ""))
+            new = str(body.get("new", "")).strip()
+            if old != _dash_password():
+                self._send_json({"ok": False, "error": "current password is wrong"})
+                return
+            if len(new) < 6:
+                self._send_json({"ok": False, "error": "new password must be at least 6 characters"})
+                return
+            auth = _load_auth()
+            auth["password"] = new
+            auth["tokens"] = [self._cookie_token()]  # kick every other session
+            _save_auth(auth)
+            self._send_json({"ok": True, "message": "password changed — other sessions logged out"})
+            return
+
+        if p.path == "/api/security/update":
+            enabled = bool(body.get("ip_lock_enabled"))
+            raw_ips = body.get("allowed_ips", [])
+            if isinstance(raw_ips, str):
+                raw_ips = raw_ips.replace(",", " ").split()
+            ips, bad = [], []
+            import ipaddress
+            for e in raw_ips:
+                e = str(e).strip()
+                if not e:
+                    continue
+                valid = False
+                try:
+                    ipaddress.ip_address(e)
+                    valid = True
+                except ValueError:
+                    if "/" in e:
+                        try:
+                            ipaddress.ip_network(e, strict=False)
+                            valid = True
+                        except ValueError:
+                            pass
+                    elif e.endswith(".") or e.endswith(":"):
+                        valid = True  # prefix rule like "49.37."
+                if valid:
+                    if e not in ips:
+                        ips.append(e)
+                else:
+                    bad.append(e)
+            if bad:
+                self._send_json({"ok": False, "error": "Invalid entries: " + ", ".join(bad) + " — valid formats: 49.37.12.34 | 49.37. | 49.37.0.0/16"})
+                return
+
+            note = ""
+            my_ip = self._client_ip()
+            if enabled and ips:
+                # 🚨 LOCKOUT GUARD: never let the admin lock THEMSELVES out.
+                xff = (self.headers.get("X-Forwarded-For", "") or "").strip()
+                is_local = (not xff) and self.client_address[0] in ("127.0.0.1", "::1")
+                if not is_local:
+                    try:
+                        ipobj = ipaddress.ip_address(my_ip)
+                    except ValueError:
+                        ipobj = None
+                    matched = any(
+                        e == my_ip
+                        or ((e.endswith(".") or e.endswith(":")) and my_ip.startswith(e))
+                        or ("/" in e and ipobj is not None and ipobj in ipaddress.ip_network(e, strict=False))
+                        for e in ips
+                    )
+                    if not matched:
+                        ips.append(my_ip)
+                        note = f"మీ current IP {my_ip} list లో లేదు — lockout కాకుండా auto-add చేశాం."
+            if enabled and not ips:
+                enabled = False
+                note = "Allowlist ఖాళీగా ఉంది — lock OFF చేశాం (ఖాళీ list తో అందరూ block అవుతారు)."
+
+            auth = _load_auth()
+            auth["ip_lock_enabled"] = enabled
+            auth["allowed_ips"] = ips
+            _save_auth(auth)
+            self._send_json({"ok": True, "ip_lock_enabled": enabled, "allowed_ips": ips,
+                             "your_ip": my_ip, "note": note,
+                             "message": ("🛡️ IP Lock ON — only " + str(len(ips)) + " allowed IP rule(s)") if enabled else "🔓 IP Lock OFF — password-only protection"})
+            return
 
         if p.path == "/api/members/register":
             uid = str(body.get("uid", "")).strip()
@@ -3030,6 +4763,20 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json(res)
             return
 
+        if p.path == "/api/whatsapp/quick_add":
+            raw = body.get("text", "")
+            if not raw.strip():
+                self._send_json({"ok": False, "error": "no links given"})
+                return
+            res = whatsapp_pipeline.quick_add_groups(raw)
+            self._send_json(res)
+            return
+
+        if p.path == "/api/whatsapp/logout":
+            res = whatsapp_pipeline.logout_session()
+            self._send_json({"ok": True, "session": res})
+            return
+
         if p.path == "/api/whatsapp/schedule_quiz":
             time_val = body.get("time", "09:00")
             gids = body.get("target_group_ids", [])
@@ -3057,7 +4804,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     questions_count=q_count,
                     days_duration=days_dur,
                     auto_mode=auto_mode,
-                    end_date=end_date
+                    end_date=end_date,
+                    start_date=str(body.get("start_date", "")).strip(),
+                    subjects=[str(s).upper() for s in (body.get("subjects") or []) if s],
                 )
                 created_jobs.append(job)
 
@@ -3077,6 +4826,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
             jid = body.get("id")
             updated = whatsapp_pipeline.toggle_scheduled_job(jid)
             self._send_json({"ok": bool(updated), "job": updated})
+            return
+
+        if p.path == "/api/whatsapp/update_schedule":
+            jid = body.get("id")
+            updates = {k: v for k, v in body.items() if k != "id"}
+            job = whatsapp_pipeline.update_scheduled_job(jid, updates)
+            self._send_json({"ok": bool(job), "job": job,
+                             "message": "✏️ Schedule updated!" if job else "job not found"})
             return
 
         if p.path == "/api/whatsapp/delete_schedule":
@@ -3119,6 +4876,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             delay_min = int(body.get("delay_min", 40))
             delay_max = int(body.get("delay_max", 60))
             q_count = int(body.get("questions_count", 5))
+            subjects = body.get("subjects", None)
 
             if gw:
                 reg = whatsapp_pipeline.load_wa_registry()
@@ -3135,7 +4893,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 attachment_url=att,
                 two_phase_answer=True,
                 delay_min=delay_min,
-                delay_max=delay_max
+                delay_max=delay_max,
+                subjects=subjects
             )
             self._send_json(res)
             return
@@ -3145,11 +4904,99 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json(res)
             return
 
+        if p.path == "/api/questions/send":
+            # 🔍→📤 send ONE hand-picked question to any channel/group instantly
+            qid = str(body.get("qid", "")).strip()
+            ch = str(body.get("channel", "")).strip()
+            if not qid or not ch:
+                self._send_json({"ok": False, "error": "qid మరియు channel రెండూ కావాలి"})
+                return
+            from core.engine import Engine
+            from core.telegram import Telegram
+            from core import broadcast_log
+            bank = Bank()
+            q = next((x for x in bank.questions if x.get("id") == qid), None)
+            if not q:
+                self._send_json({"ok": False, "error": f"question {qid} కనపడలేదు"})
+                return
+            dry = not bool(Telegram().token)
+            eng = Engine(dry=dry)
+            send_key = ch if ch in config.CHANNELS else "CURRENT"
+            ok = eng.send_quiz(send_key, q)
+            if ok and not dry:
+                try:
+                    bank.mark_posted(q.get("channel", "CURRENT"), [q])
+                except Exception:
+                    pass
+            all_ch = channel_router.get_all_channels()
+            label = all_ch.get(ch, {}).get("name", ch)
+            broadcast_log.log_event("telegram", "🎯 " + label, 1 if ok else 0,
+                                    dry=dry, note="hand-picked: " + qid)
+            self._send_json({
+                "ok": bool(ok),
+                "message": (f"🎯 Hand-picked question '{qid}' → {label} " +
+                            ("[Live]" if not dry else "[Dry-Run — BOT_TOKEN set చేయండి]")) if ok else "send failed",
+            })
+            return
+
+        if p.path == "/api/bank/topup":
+            # ⚡ AUTO TOP-UP: refill thin channels with freshly generated questions
+            try:
+                from core.generator import top_up
+                added, errs = top_up(per_channel_min=25)
+                self._send_json({
+                    "ok": True,
+                    "added": len(added or []),
+                    "rejected": len(errs or []),
+                    "message": f"⚡ {len(added or [])} కొత్త fresh questions add అయ్యాయి! ({len(errs or [])} rejected by quality gate)",
+                })
+            except Exception as e:
+                self._send_json({"ok": False, "error": f"top-up failed: {e}"})
+            return
+
+        if p.path == "/api/telegram/schedule":
+            # 🤖 Telegram Auto-Pilot: daily auto-posts to chosen channels/groups
+            times = body.get("times", [])
+            if isinstance(times, str):
+                times = [t.strip() for t in times.replace(",", " ").split() if t.strip()]
+            channels = body.get("channels", [])
+            count = max(1, min(int(body.get("count", 1) or 1), 20))
+            subjects = body.get("subjects", []) or []
+            if not times:
+                self._send_json({"ok": False, "error": "కనీసం ఒక time ఇవ్వండి (ఉదా: 08:00)"})
+                return
+            if not channels:
+                self._send_json({"ok": False, "error": "టేబుల్‌లో కనీసం ఒక channel/group select చేయండి"})
+                return
+            created = []
+            for t in times:
+                job = whatsapp_pipeline.add_scheduled_job(
+                    t,
+                    label=f"🤖 TG Auto-Pilot {t} · {len(channels)} target(s)" + (f" · {'+'.join(subjects)}" if subjects else ""),
+                    questions_count=count,
+                    telegram_channels=channels,
+                    subjects=subjects,
+                    mode="tg",
+                )
+                created.append({"id": job["id"], "time": job["time"]})
+            self._send_json({
+                "ok": True,
+                "created": created,
+                "message": f"🤖 Auto-Pilot ON: {len(created)} daily slot(s) × {len(channels)} Telegram target(s) × {count} poll(s) — posts are instant, no gaps.",
+            })
+            return
+
+        if p.path == "/api/channels/detect_new":
+            res = channel_router.detect_new_bot_chats()
+            self._send_json(res)
+            return
+
         if p.path == "/api/channels/register":
             name = body.get("name", "").strip()
             exam_t = body.get("exam_type", "")
             chat_id = body.get("chat_id", "")
-            info = channel_router.register_channel(name, chat_id=chat_id, exam_type=exam_t)
+            chat_type = body.get("chat_type", "channel")
+            info = channel_router.register_channel(name, chat_id=chat_id, exam_type=exam_t, chat_type=chat_type)
 
             try:
                 from core import dynamic_generator
@@ -3161,36 +5008,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
 
         if p.path == "/api/post_poll":
+            # 🚀 Shared dispatcher: correct chat targeting (custom groups get
+            # their OWN chat), no-repeat rotation, history logging — Telegram
+            # sends stay instant (official Bot API, no gaps).
+            from core import poll_dispatch
             ch = body.get("channel", "CURRENT")
             count = int(body.get("count", 1))
-            bank = Bank()
-            from core.engine import Engine
-            from core.telegram import Telegram
-            
-            tg = Telegram()
-            # If BOT_TOKEN is set, use live engine; otherwise use graceful dry-run engine so it never fails
-            dry_mode = not bool(tg.token)
-            eng = Engine(dry=dry_mode)
-
-            all_ch = channel_router.get_all_channels()
-            ch_cfg = all_ch.get(ch, {})
-            base = ch_cfg.get("base_exam", ch)
-
-            sent = 0
-            for _ in range(count):
-                qs = bank.pick(base, 1)
-                if not qs:
-                    qs = bank.pick("CURRENT", 1)
-                if qs:
-                    ok = eng.send_quiz(base, qs[0])
-                    if ok:
-                        sent += 1
-
-            mode_label = "Live Channel" if not dry_mode else "Verified Dry-Run Simulation"
+            subjects = body.get("subjects", None)
+            res = poll_dispatch.post_channel_polls(ch, count=count, subjects=subjects, source="dashboard")
             self._send_json({
-                "ok": True,
-                "sent_count": sent,
-                "message": f"✅ Successfully Dispatched {sent} question(s) strictly adhering to {base} syllabus! ({mode_label})"
+                "ok": res.get("ok", False),
+                "sent_count": res.get("sent", 0),
+                "message": res.get("message", ""),
             })
             return
 

@@ -21,13 +21,15 @@ Engineered specifically for 100+ to 150+ WhatsApp Groups:
      - Broadcast runs in a detached thread so the Web Dashboard never times out or freezes.
      - Live progress streaming, live active queues, and abort controls.
 """
+import os
 import time
 import random
 import json
 import threading
 import urllib.request
 import urllib.parse
-from datetime import datetime
+import urllib.error
+from datetime import datetime, timedelta
 from pathlib import Path
 from core import config
 from core.store import load_json, save_json_atomic
@@ -38,6 +40,39 @@ WA_CONFIG_FILE = config.DATA / "whatsapp_groups.json"
 WA_SESSION_FILE = config.DATA / "whatsapp_session.json"
 WA_SCHEDULES_FILE = config.DATA / "whatsapp_schedules.json"
 ZERO_WIDTH_CHARS = ["\u200B", "\u200C", "\u200D", "\uFEFF"]
+
+# ---------------------------------------------------------------------
+# REAL WHATSAPP BRIDGE (gateway/wa_bridge.js — Baileys WhatsApp Web)
+# The Node bridge holds the actual WhatsApp Web session. All login /
+# group-sync / send operations go through it. If the bridge is not
+# running, the dashboard clearly reports it instead of faking success.
+# ---------------------------------------------------------------------
+WA_BRIDGE_URL = os.environ.get("WA_BRIDGE_URL", "http://127.0.0.1:3900").rstrip("/")
+
+
+def _bridge_call(path: str, payload: dict = None, method: str = None, timeout: int = 40):
+    """Call the Node WhatsApp bridge. Returns dict or None if bridge is down."""
+    url = f"{WA_BRIDGE_URL}{path}"
+    try:
+        if payload is not None or (method or "").upper() == "POST":
+            data = json.dumps(payload or {}).encode("utf-8")
+            req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+        else:
+            req = urllib.request.Request(url)
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        try:
+            return json.loads(e.read().decode("utf-8"))
+        except Exception:
+            return {"ok": False, "error": f"HTTP {e.code}"}
+    except Exception:
+        return None
+
+
+def bridge_is_connected() -> bool:
+    st = _bridge_call("/status", timeout=5)
+    return bool(st and st.get("connected"))
 
 HEADERS = [
     "🎯 *Daily Exam Quiz Challenge*",
@@ -67,17 +102,17 @@ EXEC_STATE = {
 }
 
 DEFAULT_SESSION = {
-    "status": "connected",
-    "phone": "+91 98XXXXXXXX",
-    "device_name": "StudentUp Dispatch Node #1 (Always-On)",
-    "connected_at": "2026-09-26 10:00",
-    "qr_data": "https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=STUDENTUP_WA_AUTH_SESSION_KEY_778899",
-    "pairing_code": "STUD-8899",
-    "scanned_dialogs_count": 27,
+    "status": "bridge_offline",
+    "phone": "",
+    "device_name": "StudentUp Dispatch Node #1",
+    "connected_at": "",
+    "qr_data": "",
+    "pairing_code": "",
+    "scanned_dialogs_count": 0,
     "auto_reconnect": True,
     "heartbeat_interval_sec": 30,
-    "last_sync": "Just now",
-    "last_heartbeat": "Just now"
+    "last_sync": "",
+    "last_heartbeat": ""
 }
 
 
@@ -109,57 +144,137 @@ def save_schedules(jobs: list):
     save_json_atomic(WA_SCHEDULES_FILE, {"jobs": jobs})
 
 
-def get_session_info() -> dict:
-    return load_session()
-
-
-def request_login_qr() -> dict:
-    import uuid
+def _session_from_bridge(st: dict) -> dict:
+    """Map the Node bridge /status payload onto the session dict the dashboard expects."""
     sess = load_session()
-    token = uuid.uuid4().hex[:12].upper()
-    sess["status"] = "qr_ready"
-    sess["qr_data"] = f"https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=STUDENTUP_WA_{token}"
-    sess["pairing_code"] = f"{token[:4]}-{token[4:8]}"
-    save_session(sess)
-    return sess
-
-
-def request_pairing_code(phone_number: str) -> dict:
-    import uuid
-    sess = load_session()
-    digits = uuid.uuid4().hex[:8].upper()
-    code = f"{digits[:4]}-{digits[4:8]}"
-    sess["status"] = "code_ready"
-    sess["phone"] = phone_number.strip()
-    sess["pairing_code"] = code
-    save_session(sess)
-    return sess
-
-
-def confirm_session_connected(device_name: str = "Primary WhatsApp Phone") -> dict:
-    sess = load_session()
-    sess["status"] = "connected"
-    sess["device_name"] = device_name
-    sess["connected_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
-    sess["last_sync"] = "Just now"
+    sess["status"] = st.get("status", "offline")
+    sess["phone"] = st.get("phone") or sess.get("phone") or ""
+    sess["device_name"] = st.get("device_name") or "StudentUp Dispatch Node #1"
+    sess["qr_data"] = st.get("qr_data") or ""
+    sess["pairing_code"] = st.get("pairing_code") or ""
+    sess["connected_at"] = st.get("connected_at") or sess.get("connected_at") or ""
+    sess["bridge_groups_count"] = st.get("groups_count", 0)
+    sess["has_saved_session"] = bool(st.get("has_saved_session"))
+    sess["last_error"] = st.get("last_error") or ""
     sess["last_heartbeat"] = datetime.now().strftime("%H:%M:%S")
     save_session(sess)
     return sess
 
 
-def sync_dialogs_from_session() -> dict:
-    """Simulate or query all joined groups and channels from the active WhatsApp session."""
-    d = load_wa_registry()
-    groups = d.get("groups", [])
+def get_session_info() -> dict:
+    """REAL session status straight from the Baileys bridge (never faked)."""
+    st = _bridge_call("/status", timeout=6)
+    if st is None:
+        sess = load_session()
+        sess["status"] = "bridge_offline"
+        sess["message"] = (
+            "WhatsApp bridge is not running. Start it with: cd gateway && npm install && node wa_bridge.js"
+        )
+        save_session(sess)
+        return sess
+    return _session_from_bridge(st)
+
+
+def request_login_qr() -> dict:
+    """Ask the bridge to open a REAL WhatsApp Web session and return the real QR."""
+    st = _bridge_call("/login/qr", payload={}, timeout=45)
+    if st is None:
+        sess = load_session()
+        sess["status"] = "bridge_offline"
+        sess["qr_data"] = ""
+        sess["message"] = (
+            "WhatsApp bridge is offline — start it first: cd gateway && npm install && node wa_bridge.js"
+        )
+        save_session(sess)
+        return sess
+    return _session_from_bridge(st)
+
+
+def request_pairing_code(phone_number: str) -> dict:
+    """Request a REAL 8-character WhatsApp pairing code for the given number."""
+    st = _bridge_call("/login/code", payload={"phone": phone_number.strip()}, timeout=45)
+    if st is None:
+        sess = load_session()
+        sess["status"] = "bridge_offline"
+        sess["pairing_code"] = ""
+        sess["message"] = (
+            "WhatsApp bridge is offline — start it first: cd gateway && npm install && node wa_bridge.js"
+        )
+        save_session(sess)
+        return sess
+    return _session_from_bridge(st)
+
+
+def confirm_session_connected(device_name: str = "Primary WhatsApp Phone") -> dict:
+    """Connection is confirmed by the bridge itself — this just re-checks live status."""
+    return get_session_info()
+
+
+def logout_session() -> dict:
+    st = _bridge_call("/logout", payload={}, timeout=20)
     sess = load_session()
-    sess["scanned_dialogs_count"] = len(groups)
+    sess["status"] = "offline" if st else "bridge_offline"
+    sess["qr_data"] = ""
+    sess["pairing_code"] = ""
+    save_session(sess)
+    return sess
+
+
+def sync_dialogs_from_session() -> dict:
+    """Pull the REAL list of joined WhatsApp groups from the live session and
+    merge them into the local registry (upsert by JID, auto exam-category)."""
+    st = _bridge_call("/groups?fresh=1", timeout=45)
+    if st is None:
+        return {
+            "ok": False,
+            "error": "WhatsApp bridge is offline. Start it: cd gateway && node wa_bridge.js",
+            "dialogs_count": 0,
+        }
+    if not st.get("ok"):
+        return {
+            "ok": False,
+            "error": st.get("error", "WhatsApp not connected — scan the QR first."),
+            "dialogs_count": 0,
+        }
+
+    real_groups = st.get("groups", [])
+    d = load_wa_registry()
+    existing = {g.get("jid"): g for g in d.get("groups", [])}
+    added, updated = 0, 0
+    for rg in real_groups:
+        jid = rg.get("jid")
+        if not jid:
+            continue
+        if jid in existing:
+            existing[jid]["name"] = rg.get("name", existing[jid].get("name"))
+            existing[jid]["participants"] = rg.get("participants", 0)
+            existing[jid]["real"] = True
+            updated += 1
+        else:
+            d.setdefault("groups", []).append({
+                "id": f"G_{len(d.get('groups', [])) + 1}_{int(time.time()) % 1000}",
+                "name": rg.get("name", jid),
+                "jid": jid,
+                "category": channel_router.detect_exam_base(rg.get("name", "")),
+                "shift": "ALL_DAY",
+                "active": True,
+                "participants": rg.get("participants", 0),
+                "real": True,
+            })
+            added += 1
+    save_wa_registry(d)
+
+    sess = load_session()
+    sess["scanned_dialogs_count"] = len(real_groups)
     sess["last_sync"] = datetime.now().strftime("%H:%M:%S")
     save_session(sess)
     return {
         "ok": True,
-        "dialogs_count": len(groups),
-        "groups": groups,
-        "last_sync": sess["last_sync"]
+        "dialogs_count": len(real_groups),
+        "added": added,
+        "updated": updated,
+        "groups": d.get("groups", []),
+        "last_sync": sess["last_sync"],
     }
 
 
@@ -173,7 +288,11 @@ def add_scheduled_job(
     enabled: bool = True,
     days_duration: int = 0,
     auto_mode: bool = True,
-    end_date: str = ""
+    end_date: str = "",
+    start_date: str = "",
+    telegram_channels: list = None,
+    subjects: list = None,
+    mode: str = "wa",
 ) -> dict:
     import uuid
     jobs = load_schedules()
@@ -183,12 +302,29 @@ def add_scheduled_job(
         clean_time = "0" + clean_time  # format 9:00 -> 09:00
 
     auto_label = label.strip() if label else f"{clean_time} Daily {category} Drill"
-    # Calculate end date if days_duration > 0
-    calculated_end_date = end_date
-    if days_duration > 0 and not calculated_end_date:
-        calculated_end_date = (datetime.now() + timedelta(days=int(days_duration))).strftime("%Y-%m-%d")
+    # 📅 exact TO-date given directly → honor it (and switch off life-long mode)
+    calculated_end_date = (end_date or "").strip()
+    start_clean = (start_date or "").strip()
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    if start_clean and start_clean <= today_str:
+        start_clean = ""  # starting today/past = starts immediately
+    if calculated_end_date:
+        auto_mode = False
+        base = datetime.strptime(start_clean, "%Y-%m-%d") if start_clean else datetime.now()
+        try:
+            days_duration = max((datetime.strptime(calculated_end_date, "%Y-%m-%d") - base).days, 1)
+        except Exception:
+            pass
+    elif days_duration > 0:
+        base = datetime.strptime(start_clean, "%Y-%m-%d") if start_clean else datetime.now()
+        calculated_end_date = (base + timedelta(days=int(days_duration))).strftime("%Y-%m-%d")
 
-    mode_label = "Auto Continuous" if auto_mode or days_duration == 0 else f"{days_duration} Days Limited"
+    if auto_mode or (days_duration == 0 and not calculated_end_date):
+        mode_label = "♾️ Life-Long"
+    else:
+        mode_label = f"→ {calculated_end_date}" if calculated_end_date else f"{days_duration} Days Limited"
+    if start_clean:
+        mode_label = f"⏳ Starts {start_clean} {mode_label}"
     job = {
         "id": job_id,
         "time": clean_time,
@@ -197,10 +333,14 @@ def add_scheduled_job(
         "category": category or "ALL",
         "is_question": is_question,
         "questions_count": questions_count or 1,
+        "telegram_channels": telegram_channels or [],
+        "subjects": subjects or [],
+        "mode": mode if mode in ("wa", "tg", "both") else "wa",
         "enabled": enabled,
         "auto_mode": bool(auto_mode),
         "days_duration": int(days_duration) if days_duration else 0,
         "end_date": calculated_end_date,
+        "start_date": start_clean,
         "status": f"Active ({mode_label})",
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "last_run": None,
@@ -224,6 +364,66 @@ def toggle_scheduled_job(job_id: str) -> dict:
             j["status"] = "Active (Always-On)" if j["enabled"] else "Paused"
             target = j
             break
+    if target:
+        save_schedules(jobs)
+    return target
+
+
+def update_scheduled_job(job_id: str, updates: dict) -> dict:
+    """✏️ EDIT an existing schedule any time — time, polls count, duration
+    (0 = LIFE-LONG, 30 = 1 month, 60 = 2 months...), subjects, targets."""
+    jobs = load_schedules()
+    target = None
+    for j in jobs:
+        if j.get("id") != job_id:
+            continue
+        if "time" in updates and str(updates["time"]).strip():
+            t = str(updates["time"]).strip()
+            if len(t) == 4 and t[1] == ":":
+                t = "0" + t
+            j["time"] = t
+        if "label" in updates and str(updates["label"]).strip():
+            j["label"] = str(updates["label"]).strip()
+        if "questions_count" in updates:
+            j["questions_count"] = max(1, min(int(updates["questions_count"] or 1), 20))
+        if "subjects" in updates:
+            j["subjects"] = [str(s).upper() for s in (updates["subjects"] or []) if s]
+        if "category" in updates and updates["category"]:
+            j["category"] = str(updates["category"])
+        if "target_group_ids" in updates and isinstance(updates["target_group_ids"], list):
+            j["target_group_ids"] = updates["target_group_ids"]
+        if "telegram_channels" in updates and isinstance(updates["telegram_channels"], list):
+            j["telegram_channels"] = updates["telegram_channels"]
+        if "start_date" in updates:
+            sd = str(updates["start_date"] or "").strip()
+            today_s = datetime.now().strftime("%Y-%m-%d")
+            j["start_date"] = "" if (not sd or sd <= today_s) else sd
+        if "end_date" in updates and str(updates["end_date"] or "").strip():
+            ed = str(updates["end_date"]).strip()
+            j["end_date"] = ed
+            j["auto_mode"] = False
+            try:
+                base = datetime.strptime(j.get("start_date") or datetime.now().strftime("%Y-%m-%d"), "%Y-%m-%d")
+                j["days_duration"] = max((datetime.strptime(ed, "%Y-%m-%d") - base).days, 1)
+            except Exception:
+                pass
+            j["status"] = f"Active (→ {ed})" if j.get("enabled", True) else "Paused"
+        elif "days_duration" in updates:
+            days = max(0, int(updates["days_duration"] or 0))
+            j["days_duration"] = days
+            j["auto_mode"] = (days == 0)
+            if days == 0:
+                j["end_date"] = ""
+                j["status"] = "Active (♾️ Life-Long)" if j.get("enabled", True) else "Paused"
+            else:
+                try:
+                    base = datetime.strptime(j["start_date"], "%Y-%m-%d") if j.get("start_date") else datetime.now()
+                except Exception:
+                    base = datetime.now()
+                j["end_date"] = (base + timedelta(days=days)).strftime("%Y-%m-%d")
+                j["status"] = f"Active ({days} Days → {j['end_date']})" if j.get("enabled", True) else "Paused"
+        target = j
+        break
     if target:
         save_schedules(jobs)
     return target
@@ -363,6 +563,157 @@ def remove_group(gid: str) -> bool:
     return len(d["groups"]) < before
 
 
+# =====================================================================
+# ➕ QUICK ADD NEW GROUPS — paste invite links, bot auto-joins via bridge
+# Accepted line formats:
+#   https://chat.whatsapp.com/XXXXX
+#   Group Name | https://chat.whatsapp.com/XXXXX
+#   Group Name | https://chat.whatsapp.com/XXXXX | CATEGORY
+# =====================================================================
+def quick_add_groups(raw_text: str) -> dict:
+    results = {"ok": True, "added": [], "joined": 0, "failed": [], "total_lines": 0}
+    connected = bridge_is_connected()
+    d = load_wa_registry()
+    existing_jids = {g.get("jid") for g in d.get("groups", [])}
+
+    for line in raw_text.strip().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        results["total_lines"] += 1
+        parts = [p.strip() for p in line.split("|")]
+        name_hint, link, category = "", "", "AUTO"
+        for p in parts:
+            if "chat.whatsapp.com" in p or p.endswith("@g.us"):
+                link = p
+            elif p.upper() in ("POLICE", "TSPSC", "APPSC", "SSC", "RAILWAY", "BANKING",
+                               "TET_DSC", "GENERAL", "CURRENT", "DEFENCE"):
+                category = p.upper()
+            elif p:
+                name_hint = p
+        if not link:
+            results["failed"].append({"line": line, "error": "no WhatsApp link/JID found"})
+            continue
+
+        jid, name, participants, joined = link, name_hint or link, 0, False
+        # If the bridge is live and it's an invite link → bot JOINS the group itself
+        if connected and "chat.whatsapp.com" in link:
+            jr = _bridge_call("/join", payload={"link": link}, timeout=45)
+            if jr and jr.get("ok"):
+                jid = jr.get("jid", link)
+                name = name_hint or jr.get("name", link)
+                participants = jr.get("participants", 0)
+                joined = bool(jr.get("joined"))
+            elif jr:
+                results["failed"].append({"line": line, "error": jr.get("error", "join failed")})
+                continue
+
+        if jid in existing_jids:
+            results["failed"].append({"line": line, "error": f"already added ({name})"})
+            continue
+
+        if category == "AUTO":
+            category = channel_router.detect_exam_base(name)
+        new_g = {
+            "id": f"G_{len(d.get('groups', [])) + 1}_{int(time.time() * 1000) % 10000}",
+            "name": name,
+            "jid": jid,
+            "category": category,
+            "shift": "ALL_DAY",
+            "active": True,
+            "participants": participants,
+            "real": joined,
+        }
+        d.setdefault("groups", []).append(new_g)
+        existing_jids.add(jid)
+        results["added"].append({"name": name, "jid": jid, "category": category, "joined": joined, "participants": participants})
+        if joined:
+            results["joined"] += 1
+
+    save_wa_registry(d)
+    return results
+
+
+# =====================================================================
+# 🎯 SUBJECT-WISE POLL SELECTION — top-level exam/subject targeting
+# =====================================================================
+SUBJECT_TOPIC_MAP = {
+    "MATHS": ["interest", "average", "percentage", "ratio", "time-work", "number series",
+              "profit", "partnership", "mensuration", "algebra", "speed", "train", "boat",
+              "mixture", "lcm", "hcf", "fraction", "age"],
+    "REASONING": ["coding", "symbol", "calendar", "ranking", "clock", "analogy",
+                  "blood relation", "direction", "series", "syllogism", "puzzle",
+                  "odd one", "seating", "venn"],
+    "GK": ["gk", "history", "geography", "polity", "economy", "constitution",
+           "telangana", "andhra", "india", "static", "award", "sports", "culture"],
+    "CURRENT": ["current", "affairs", "news", "2025", "2026"],
+    "ENGLISH": ["english", "vocabulary", "grammar", "synonym", "antonym", "idiom",
+                "spelling", "sentence"],
+    "SCIENCE": ["science", "physics", "chemistry", "biology", "tech", "computer"],
+}
+
+
+def pick_subject_questions(bank, category: str, n: int, subjects: list = None):
+    """PYQ-quality pick, filtered to the admin-chosen subjects.
+    Falls back gracefully: subject-filtered → category pool → CURRENT."""
+    subjects = [s.upper() for s in (subjects or []) if s and s.upper() != "ALL"]
+    if not subjects:
+        return bank.pick(category, n)
+
+    keywords = []
+    for s in subjects:
+        keywords.extend(SUBJECT_TOPIC_MAP.get(s, [s.lower()]))
+
+    def _matches(q):
+        topic = (q.get("topic") or "").lower()
+        return any(k in topic for k in keywords)
+
+    # Current Affairs is its own channel too
+    pools = []
+    try:
+        pool = [q for q in bank.questions if q.get("channel") == category and _matches(q)]
+        pools.append(pool)
+        if "CURRENT" in subjects:
+            pools.append([q for q in bank.questions if q.get("channel") == "CURRENT"])
+        # widen across all channels if the category pool is thin
+        if sum(len(p) for p in pools) < n:
+            pools.append([q for q in bank.questions if _matches(q)])
+    except Exception:
+        return bank.pick(category, n)
+
+    merged, seen = [], set()
+    for pool in pools:
+        random.shuffle(pool)
+        for q in pool:
+            qid = q.get("id") or id(q)
+            if qid not in seen:
+                seen.add(qid)
+                merged.append(q)
+
+    if len(merged) < n:
+        for q in (bank.pick(category, n) or []):
+            qid = q.get("id") or id(q)
+            if qid not in seen:
+                seen.add(qid)
+                merged.append(q)
+
+    # 🔁 NO-REPEAT SMART ROTATION: never-posted questions FIRST; already-sent
+    # ones are used only as a fallback when the fresh pool runs dry.
+    try:
+        fresh, posted = [], []
+        for q in merged:
+            qch = q.get("channel", "CURRENT")
+            if q.get("id") in set(bank.used.get(qch, [])):
+                posted.append(q)
+            else:
+                fresh.append(q)
+        merged = fresh + posted
+    except Exception:
+        pass
+
+    return merged[:n] if merged else bank.pick(category, n)
+
+
 def apply_stealth_jitter(text: str) -> str:
     """Inject zero-width invisible markers so each dispatch has a unique SHA-256 hash."""
     words = text.split(" ")
@@ -442,6 +793,50 @@ def build_question_only_post(
     return apply_stealth_jitter("\n".join(lines))
 
 
+def build_native_poll_payload(
+    q: dict,
+    category: str,
+    q_index: int = 1,
+    total_q: int = 1,
+    english_first: bool = True
+) -> dict:
+    """Build a REAL tappable WhatsApp poll (sent by the Baileys bridge).
+    WhatsApp limits: poll name ≤ 255 chars, ≤ 12 options, option ≤ 100 chars."""
+    q_en = (q.get("q_en") or "").strip()
+    q_te = (q.get("q_te") or "").strip()
+
+    parts = [f"🎯 Q {q_index}/{total_q} • {category}"]
+    primary, secondary = (q_en, q_te) if english_first else (q_te, q_en)
+    if primary:
+        parts.append(primary)
+    if secondary and secondary != primary:
+        parts.append(secondary)
+    name = "\n".join(parts)[:250]
+
+    opts_en = q.get("options_en", []) or []
+    opts_te = q.get("options_te", []) or []
+    options = []
+    for i in range(max(len(opts_en), len(opts_te))):
+        o_en = (opts_en[i] if i < len(opts_en) else "").strip()
+        o_te = (opts_te[i] if i < len(opts_te) else "").strip()
+        if o_en and o_te and o_en.lower() != o_te.lower():
+            combined = f"{o_en} / {o_te}" if english_first else f"{o_te} / {o_en}"
+        else:
+            combined = o_en or o_te
+        if combined:
+            options.append(combined[:95])
+    # WhatsApp rejects duplicate poll options — de-duplicate while keeping order
+    seen, unique = set(), []
+    for o in options:
+        key = o.lower()
+        if key not in seen:
+            seen.add(key)
+            unique.append(o)
+    if len(unique) < 2:
+        return None
+    return {"name": name, "options": unique[:12]}
+
+
 def build_answer_key_post(
     q: dict,
     category: str,
@@ -475,19 +870,37 @@ def build_answer_key_post(
     return apply_stealth_jitter("\n".join(lines))
 
 
-def _dispatch_raw(gateway_url: str, jid: str, text: str, attachment: str = ""):
-    if not gateway_url:
-        return True, "Simulated Dispatch (OK)"
-    try:
-        payload = {"recipient": jid, "message": text}
-        if attachment:
-            payload["attachment"] = attachment
-        req_data = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(gateway_url, data=req_data, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=12) as r:
-            return True, f"HTTP {r.status}"
-    except Exception as e:
-        return False, str(e)
+def _dispatch_raw(gateway_url: str, jid: str, text: str, attachment: str = "", poll: dict = None):
+    """Send for real through the Baileys bridge. Order of preference:
+    1. Local bridge (gateway/wa_bridge.js) — text, media URL and native polls.
+    2. Legacy external gateway webhook (if gateway_url configured).
+    3. Otherwise honestly report that nothing was sent (no fake OK)."""
+    payload = {"jid": jid, "text": text}
+    if attachment:
+        payload["attachment"] = attachment
+    if poll:
+        payload["poll"] = poll
+
+    res = _bridge_call("/send", payload=payload, timeout=60)
+    if res is not None:
+        if res.get("ok"):
+            return True, f"✅ REAL SEND via WhatsApp Web ({'+'.join(res.get('sent', []))})"
+        return False, f"Bridge error: {res.get('error', 'unknown')}"
+
+    # Bridge not running — fall back to legacy external webhook gateway
+    if gateway_url:
+        try:
+            legacy = {"recipient": jid, "message": text}
+            if attachment:
+                legacy["attachment"] = attachment
+            req_data = json.dumps(legacy).encode("utf-8")
+            req = urllib.request.Request(gateway_url, data=req_data, headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=12) as r:
+                return True, f"HTTP {r.status} (external gateway)"
+        except Exception as e:
+            return False, str(e)
+
+    return False, "NOT SENT — WhatsApp bridge offline (start: cd gateway && node wa_bridge.js)"
 
 
 def _log(msg: str):
@@ -508,7 +921,8 @@ def start_interleaved_broadcast(
     attachment_url: str = "",
     two_phase_answer: bool = True,
     delay_min: int = 40,
-    delay_max: int = 60
+    delay_max: int = 60,
+    subjects: list = None
 ) -> dict:
     """
     Launch asynchronous non-blocking broadcast worker with Advanced Anti-Ban Engine:
@@ -542,6 +956,21 @@ def start_interleaved_broadcast(
         return {"ok": False, "message": f"No active groups found for the selected filter."}
 
     total_polls_to_send = len(groups) * (questions_per_group or 1)
+
+    # 📊 record in broadcast history (analytics tab)
+    try:
+        from core import broadcast_log
+        broadcast_log.log_event(
+            "whatsapp",
+            f"{len(groups)} group(s) · {target_category}",
+            total_polls_to_send,
+            subjects=subjects,
+            dry=not bridge_is_connected(),
+            note="interleaved anti-ban",
+        )
+    except Exception:
+        pass
+
     EXEC_STATE["running"] = True
     EXEC_STATE["task_id"] = f"task_{int(time.time())}"
     EXEC_STATE["progress"] = 0
@@ -559,6 +988,18 @@ def start_interleaved_broadcast(
 
             bank = Bank()
             gw = reg.get("gateway_url", "").strip()
+
+            # REAL MODE: when the Baileys bridge is connected we are posting to
+            # real WhatsApp groups → honour the FULL anti-ban delays. In
+            # simulation/test mode (bridge offline) delays are capped short.
+            real_mode = bridge_is_connected()
+            if real_mode:
+                _log("🟢 REAL WhatsApp Web session detected — full anti-ban timing engaged, native polls ON.")
+            else:
+                _log("⚪ Bridge offline — DRY-RUN mode (nothing actually sent, delays shortened).")
+
+            def _anti_ban_sleep(seconds: float):
+                time.sleep(seconds if real_mode else min(seconds, 2.0))
 
             completed_groups_count = 0
 
@@ -583,11 +1024,11 @@ def start_interleaved_broadcast(
                     gen_pool = ["TSPSC", "SSC", "BANKING", "CURRENT", "POLICE"]
                     chosen_cat = random.choice(gen_pool)
                     pool_label = f"Universal Aptitude/GK ({chosen_cat})"
-                    qs = bank.pick(chosen_cat, questions_per_group or 5)
+                    qs = pick_subject_questions(bank, chosen_cat, questions_per_group or 5, subjects)
                 else:
                     chosen_cat = cat
                     pool_label = cat
-                    qs = bank.pick(cat, questions_per_group or 5)
+                    qs = pick_subject_questions(bank, cat, questions_per_group or 5, subjects)
 
                 if not qs:
                     qs = bank.pick("CURRENT", questions_per_group or 5) or bank.pick("TSPSC", questions_per_group or 5)
@@ -600,6 +1041,7 @@ def start_interleaved_broadcast(
 
                     EXEC_STATE["current_stage"] = f"Posting Poll {q_idx + 1}/{q_count}"
 
+                    poll_payload = None
                     if is_question and qs:
                         q = qs[q_idx]
                         txt = build_question_only_post(
@@ -608,11 +1050,20 @@ def start_interleaved_broadcast(
                             total_q=q_count,
                             english_first=english_first
                         )
+                        # Native tappable WhatsApp poll (real vote counts, anti-ban friendly: 1 message)
+                        poll_payload = build_native_poll_payload(
+                            q, chosen_cat,
+                            q_index=q_idx + 1, total_q=q_count,
+                            english_first=english_first
+                        )
                     else:
                         txt = apply_stealth_jitter(custom_message)
 
                     _log(f"   📤 Poll {q_idx + 1}/{q_count} -> Dispatched: {pool_label}")
-                    ok, res = _dispatch_raw(gw, grp["jid"], txt, attachment=attachment_url)
+                    ok, res = _dispatch_raw(gw, grp["jid"], txt, attachment=attachment_url, poll=poll_payload)
+                    if not ok and poll_payload:
+                        # Poll rejected (e.g. announcement-only community) → retry as plain text
+                        ok, res = _dispatch_raw(gw, grp["jid"], txt, attachment=attachment_url)
                     _log(f"      -> Gateway Status: {res}")
 
                     EXEC_STATE["progress"] += 1
@@ -621,22 +1072,22 @@ def start_interleaved_broadcast(
                     if q_idx < q_count - 1 and not EXEC_STATE["stop_requested"]:
                         poll_gap = random.uniform(delay_min, delay_max)
                         _log(f"   ⏳ Natural Human Anti-Ban Gap: waiting {poll_gap:.1f}s before next poll...")
-                        # Scale gracefully during live operations and automated tests
-                        time.sleep(min(poll_gap, 2.0))
+                        _anti_ban_sleep(poll_gap)
 
                 completed_groups_count += 1
 
                 # If this group finished, check if 5 groups completed: apply 60-90s batch cooldown
                 if not EXEC_STATE["stop_requested"] and grp_idx < len(groups) - 1:
                     if completed_groups_count % 5 == 0:
-                        batch_cooldown = random.uniform(60, 90)
+                        # Batch rest scales with the admin-chosen gap (longer gaps → longer rests)
+                        batch_cooldown = random.uniform(max(60, delay_max), max(90, delay_max * 1.5))
                         _log(f"☕ 5 Groups Completed! Anti-Ban Cooldown: pausing {batch_cooldown:.1f}s before next batch...")
-                        time.sleep(min(batch_cooldown, 3.0))
+                        _anti_ban_sleep(batch_cooldown if real_mode else 3.0)
                     else:
                         # Inter-group safety pause
                         group_pause = random.uniform(5, 12)
                         _log(f"   🔄 Group completed. Switching to next group in {group_pause:.1f}s...")
-                        time.sleep(min(group_pause, 1.0))
+                        _anti_ban_sleep(group_pause if real_mode else 1.0)
 
             _log(f"🎉 Anti-Ban Dispatch Successfully Completed across {completed_groups_count} groups ({EXEC_STATE['progress']} polls)!")
         except Exception as ex:
@@ -672,6 +1123,25 @@ def get_broadcast_status() -> dict:
 # =====================================================================
 _SCHEDULER_RUNNING = False
 _LAST_TRIGGERED_MIN = {}
+_LAST_BACKUP_DAY = [""]  # 🗄️ daily auto-backup gate
+_LAST_GUARDIAN_CHECK = [0.0]  # 🐶 connection guardian gate (every 2 min)
+
+
+def _connection_guardian():
+    """🐶 Dashboard-side guardian: if the bridge has a saved WhatsApp session
+    but is sitting disconnected, kick it back alive automatically.
+    Combined with the bridge's own watchdog + backoff reconnect, one scan = forever connected."""
+    import time as _t
+    if _t.time() - _LAST_GUARDIAN_CHECK[0] < 120:
+        return
+    _LAST_GUARDIAN_CHECK[0] = _t.time()
+    st = _bridge_call("/status", timeout=6)
+    if not st:
+        return  # bridge process down — systemd/start_all.sh will restart it
+    if st.get("has_saved_session") and not st.get("connected") and \
+            st.get("status") not in ("connecting", "qr_ready", "code_ready"):
+        _log("🐶 Guardian: WhatsApp session saved but disconnected — auto-reviving...")
+        _bridge_call("/reconnect", payload={}, timeout=10)
 
 
 def start_scheduler_daemon():
@@ -688,10 +1158,31 @@ def start_scheduler_daemon():
                 sess["last_heartbeat"] = datetime.now().strftime("%H:%M:%S")
                 save_session(sess)
 
+                # 🐶 keep WhatsApp link alive forever (checks every 2 min)
+                try:
+                    _connection_guardian()
+                except Exception:
+                    pass
+
                 today_str = datetime.now().strftime("%Y-%m-%d")
+
+                # 🗄️ once-a-day automatic full backup (keeps last 7)
+                if _LAST_BACKUP_DAY[0] != today_str:
+                    _LAST_BACKUP_DAY[0] = today_str
+                    try:
+                        from core import backup
+                        res = backup.make_backup()
+                        if res.get("created"):
+                            _log(f"🗄️ Daily auto-backup saved: {res.get('file')} ({res.get('files')} files)")
+                    except Exception:
+                        pass
+
                 jobs = load_schedules()
                 for j in jobs:
                     if not j.get("enabled", True):
+                        continue
+                    # ⏳ FROM-date: not started yet → wait silently
+                    if j.get("start_date") and today_str < j["start_date"]:
                         continue
                     # Check end_date expiration if auto_mode is false and end_date set
                     end_d = j.get("end_date")
@@ -709,15 +1200,35 @@ def start_scheduler_daemon():
                         j["total_dispatches"] = j.get("total_dispatches", 0) + 1
                         save_schedules(jobs)
                         _log(f"⏰ Auto-Scheduler Triggered: Launching '{j.get('label', jid)}' ({job_time})!")
-                        start_interleaved_broadcast(
-                            target_category=j.get("category", "ALL"),
-                            target_group_ids=j.get("target_group_ids", []),
-                            is_question=j.get("is_question", True),
-                            questions_per_group=j.get("questions_count", 5),
-                            two_phase_answer=True,
-                            delay_min=40,
-                            delay_max=60
-                        )
+                        jmode = j.get("mode", "wa")
+                        jsubjects = j.get("subjects") or None
+
+                        # 📢 TELEGRAM AUTO-PILOT — instant posts, no gaps (official Bot API)
+                        if jmode in ("tg", "both") and j.get("telegram_channels"):
+                            try:
+                                from core import poll_dispatch
+                                for _chk in j.get("telegram_channels", []):
+                                    poll_dispatch.post_channel_polls(
+                                        _chk,
+                                        count=j.get("questions_count", 1),
+                                        subjects=jsubjects,
+                                        source="scheduler",
+                                    )
+                            except Exception as _e:
+                                _log(f"   [auto-pilot] telegram leg note: {_e}")
+
+                        # 🛡️ WHATSAPP leg — anti-ban interleaved with smart gaps
+                        if jmode in ("wa", "both"):
+                            start_interleaved_broadcast(
+                                target_category=j.get("category", "ALL"),
+                                target_group_ids=j.get("target_group_ids", []),
+                                is_question=j.get("is_question", True),
+                                questions_per_group=j.get("questions_count", 5),
+                                two_phase_answer=True,
+                                delay_min=40,
+                                delay_max=60,
+                                subjects=jsubjects,
+                            )
             except Exception:
                 pass
             time.sleep(20)
