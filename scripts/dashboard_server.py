@@ -616,7 +616,7 @@ HTML_PAGE = """<!DOCTYPE html>
               </p>
             </div>
             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-              <a href="/api/excel/template" download="studentup_sample_whatsapp_groups.csv" class="btn btn-outline" style="font-size:12px; padding:6px 14px; text-decoration:none; color:#38bdf8; border-color:#38bdf8;">📥 Download Sample Excel Template</a>
+              <a href="/api/excel/template_xlsx" class="btn btn-outline" style="font-size:12px; padding:6px 14px; text-decoration:none; color:#34d399; border-color:#34d399;">📥 Sample Excel (.xlsx + Auto-Schedule)</a>
               <input type="file" id="wa-excel-file-input" accept=".csv, .xlsx, .xls, .txt, .tsv" style="display:none;" onchange="handleExcelFileUpload(event)">
               <button class="btn btn-accent" style="font-size:12px; padding:6px 14px;" onclick="document.getElementById('wa-excel-file-input').click()">📁 Choose Excel / CSV File</button>
               <button class="btn btn-purple" style="font-size:12px; padding:6px 14px;" onclick="importInTabExcel()">📥 Import Pasted Rows</button>
@@ -722,8 +722,9 @@ HTML_PAGE = """<!DOCTYPE html>
 
       <div style="background:#0f172a; padding:12px; border-radius:8px; margin-bottom:14px; font-size:12px; color:var(--text-muted); border-left:4px solid #38bdf8;">
         💡 <b>Excel Columns (Tab / Comma separated / .xlsx):</b><br>
-        <code>Group or Channel Name | Link or JID | Category (Optional) | Shift (Optional) | Group Type (Optional: GENERAL or EXAM_SPECIFIC)</code><br>
-        <span style="color:#a7f3d0; font-size:11px;">(Note: 5వ కాలమ్‌లో GENERAL అని రాస్తే జనరల్ గ్రూప్ అని, EXAM_SPECIFIC అని రాస్తే ఆ నిర్దిష్ట పరీక్ష సిలబస్ గ్రూప్ అని సిస్టమ్ రికార్డ్ చేస్తుంది).</span>
+        <code>Group Name | Link or JID | Category | Shift | Group Type | Daily Times | Polls Per Slot | Days (0=Always) | Subjects</code><br>
+        <span style="color:#a7f3d0; font-size:11px;">మొదటి 2 columns చాలు — మిగతావన్నీ optional! ⏰ <b>Daily Times</b> (ఉదా: <code>08:00+20:30</code>) నింపితే ఆ group కి <b>ఆటోమేటిక్ డైలీ schedule</b> create అవుతుంది — ఎన్నిసార్లు (times), ఎన్ని polls (<b>Polls Per Slot</b>), ఎన్ని రోజులు (<b>Days</b>: 0 = Always-On), ఏ subjects (<code>MATHS+GK</code>) అన్నీ Excel లోనే!
+        Invite link ఇస్తే bridge connect అయినప్పుడు <b>auto-join</b> కూడా అవుతుంది. 🛡️ Sends అన్నీ anti-ban engine తోనే.</span>
       </div>
 
       <!-- File Browse Upload with Multi-Sheet Inspector -->
@@ -733,7 +734,7 @@ HTML_PAGE = """<!DOCTYPE html>
           <input type="file" id="excel-tab-file-input" accept=".csv, .xlsx, .xls, .txt, .tsv" style="display:none;" onchange="handleMainExcelFileUpload(event)">
           <button class="btn btn-accent" onclick="document.getElementById('excel-tab-file-input').click()">📂 Choose Excel / CSV File</button>
           <span id="selected-file-label" style="font-size:13px; color:var(--text-muted);">No file selected yet</span>
-          <a href="/api/excel/template" download="studentup_sample_whatsapp_groups.csv" class="btn btn-outline" style="text-decoration:none; color:#38bdf8; border-color:#38bdf8; margin-left:auto;">📥 Download Sample Template</a>
+          <a href="/api/excel/template_xlsx" class="btn btn-outline" style="text-decoration:none; color:#34d399; border-color:#34d399; margin-left:auto;">📥 Sample Excel (.xlsx, Multi-Sheet + Auto-Schedule)</a>
         </div>
 
         <!-- Multi-Sheet Selection Checkbox Panel (Appears when .xlsx uploaded) -->
@@ -2551,7 +2552,11 @@ All candidates must join today before 9:00 PM!"></textarea>
         });
         const d = await res.json();
         if (d.ok) {
-          log.innerHTML = `<span style="color:#10b981; font-weight:700;">✅ Success! Imported ${d.imported_groups_count} WhatsApp Groups and ${d.imported_channels_count} Telegram Channels across ${d.sheets_processed.length} sheets!</span>`;
+          const schedCount = (d.schedules_created || []).length;
+          const schedMsg = schedCount
+            ? ` · ⏰ <b style="color:#a78bfa;">${schedCount} daily auto-schedule(s) created</b> (Daily Times column నుంచి — ఇక రోజూ ఆటోమేటిక్‌గా వెళ్తాయి!)`
+            : '';
+          log.innerHTML = `<span style="color:#10b981; font-weight:700;">✅ Success! Imported ${d.imported_groups_count} WhatsApp Groups and ${d.imported_channels_count} Telegram Channels across ${d.sheets_processed.length} sheets!${schedMsg}</span>`;
           fetchStats();
           loadWAGroups();
           loadChannels();
@@ -3024,7 +3029,9 @@ All candidates must join today before 9:00 PM!"></textarea>
         body: JSON.stringify({raw_text: raw})
       });
       const d = await res.json();
-      log.innerText = '✅ Success! Imported ' + d.imported_groups_count + ' WhatsApp Groups and ' + d.imported_channels_count + ' Telegram Channels.';
+      const sc = (d.schedules_created || []).length;
+      log.innerText = '✅ Success! Imported ' + d.imported_groups_count + ' WhatsApp Groups and ' + d.imported_channels_count + ' Telegram Channels.' +
+        (sc ? ' ⏰ ' + sc + ' daily auto-schedule(s) created!' : '');
       fetchStats();
       loadWAGroups();
     }
@@ -4038,6 +4045,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 "bot": config.BOT_USERNAME or "StudentUpBot",
                 "squads": sq_data.get("squads", {})
             })
+            return
+
+        if p.path == "/api/excel/template_xlsx":
+            # 📥 BEST sample workbook: Instructions + 3 sheets + auto-schedule columns
+            data = bundle_manager.build_groups_template_xlsx()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            self.send_header("Content-Disposition", 'attachment; filename="studentup_groups_template.xlsx"')
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
             return
 
         if p.path == "/api/excel/template":
