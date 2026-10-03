@@ -288,7 +288,10 @@ def add_scheduled_job(
     enabled: bool = True,
     days_duration: int = 0,
     auto_mode: bool = True,
-    end_date: str = ""
+    end_date: str = "",
+    telegram_channels: list = None,
+    subjects: list = None,
+    mode: str = "wa",
 ) -> dict:
     import uuid
     jobs = load_schedules()
@@ -312,6 +315,9 @@ def add_scheduled_job(
         "category": category or "ALL",
         "is_question": is_question,
         "questions_count": questions_count or 1,
+        "telegram_channels": telegram_channels or [],
+        "subjects": subjects or [],
+        "mode": mode if mode in ("wa", "tg", "both") else "wa",
         "enabled": enabled,
         "auto_mode": bool(auto_mode),
         "days_duration": int(days_duration) if days_duration else 0,
@@ -611,6 +617,21 @@ def pick_subject_questions(bank, category: str, n: int, subjects: list = None):
             if qid not in seen:
                 seen.add(qid)
                 merged.append(q)
+
+    # 🔁 NO-REPEAT SMART ROTATION: never-posted questions FIRST; already-sent
+    # ones are used only as a fallback when the fresh pool runs dry.
+    try:
+        fresh, posted = [], []
+        for q in merged:
+            qch = q.get("channel", "CURRENT")
+            if q.get("id") in set(bank.used.get(qch, [])):
+                posted.append(q)
+            else:
+                fresh.append(q)
+        merged = fresh + posted
+    except Exception:
+        pass
+
     return merged[:n] if merged else bank.pick(category, n)
 
 
@@ -856,6 +877,21 @@ def start_interleaved_broadcast(
         return {"ok": False, "message": f"No active groups found for the selected filter."}
 
     total_polls_to_send = len(groups) * (questions_per_group or 1)
+
+    # 📊 record in broadcast history (analytics tab)
+    try:
+        from core import broadcast_log
+        broadcast_log.log_event(
+            "whatsapp",
+            f"{len(groups)} group(s) · {target_category}",
+            total_polls_to_send,
+            subjects=subjects,
+            dry=not bridge_is_connected(),
+            note="interleaved anti-ban",
+        )
+    except Exception:
+        pass
+
     EXEC_STATE["running"] = True
     EXEC_STATE["task_id"] = f"task_{int(time.time())}"
     EXEC_STATE["progress"] = 0
@@ -1045,15 +1081,35 @@ def start_scheduler_daemon():
                         j["total_dispatches"] = j.get("total_dispatches", 0) + 1
                         save_schedules(jobs)
                         _log(f"⏰ Auto-Scheduler Triggered: Launching '{j.get('label', jid)}' ({job_time})!")
-                        start_interleaved_broadcast(
-                            target_category=j.get("category", "ALL"),
-                            target_group_ids=j.get("target_group_ids", []),
-                            is_question=j.get("is_question", True),
-                            questions_per_group=j.get("questions_count", 5),
-                            two_phase_answer=True,
-                            delay_min=40,
-                            delay_max=60
-                        )
+                        jmode = j.get("mode", "wa")
+                        jsubjects = j.get("subjects") or None
+
+                        # 📢 TELEGRAM AUTO-PILOT — instant posts, no gaps (official Bot API)
+                        if jmode in ("tg", "both") and j.get("telegram_channels"):
+                            try:
+                                from core import poll_dispatch
+                                for _chk in j.get("telegram_channels", []):
+                                    poll_dispatch.post_channel_polls(
+                                        _chk,
+                                        count=j.get("questions_count", 1),
+                                        subjects=jsubjects,
+                                        source="scheduler",
+                                    )
+                            except Exception as _e:
+                                _log(f"   [auto-pilot] telegram leg note: {_e}")
+
+                        # 🛡️ WHATSAPP leg — anti-ban interleaved with smart gaps
+                        if jmode in ("wa", "both"):
+                            start_interleaved_broadcast(
+                                target_category=j.get("category", "ALL"),
+                                target_group_ids=j.get("target_group_ids", []),
+                                is_question=j.get("is_question", True),
+                                questions_per_group=j.get("questions_count", 5),
+                                two_phase_answer=True,
+                                delay_min=40,
+                                delay_max=60,
+                                subjects=jsubjects,
+                            )
             except Exception:
                 pass
             time.sleep(20)

@@ -199,6 +199,7 @@ HTML_PAGE = """<!DOCTYPE html>
       #wa-login-number-badge { font-size: 16px !important; padding: 5px 12px !important; }
       .btn { min-height: 38px; }
       input, select, textarea { font-size: 16px !important; } /* stops mobile auto-zoom */
+      .hist-grid { grid-template-columns: 1fr !important; }
     }
     @media (max-width: 520px) {
       .grid-stats { grid-template-columns: repeat(2, 1fr); }
@@ -332,6 +333,7 @@ HTML_PAGE = """<!DOCTYPE html>
     <button class="tab-btn" onclick="switchTab('tab-control')">⚡ Fast Actions & District War</button>
     <button class="tab-btn" onclick="switchTab('tab-squads')">👥 Squad Wars & Arena</button>
     <button class="tab-btn" onclick="switchTab('tab-members')">📋 Registered Members & CRM</button>
+    <button class="tab-btn" onclick="switchTab('tab-history')">📊 History & Analytics</button>
   </div>
 
   <!-- TAB 1: WHATSAPP INTERLEAVED DISPATCHER -->
@@ -1069,6 +1071,38 @@ All candidates must join today before 9:00 PM!"></textarea>
           <tbody></tbody>
         </table>
       </div>
+
+      <!-- 🤖 TELEGRAM AUTO-PILOT: daily hands-free poll posting -->
+      <div style="background:#0b1329; border:1px solid #a78bfa; border-radius:10px; padding:16px; margin-top:16px;">
+        <h3 style="font-size:15px; margin-bottom:4px;">🤖 Telegram Auto-Pilot — రోజూ ఆటోమేటిక్ Polls (Zero Effort)</h3>
+        <p style="color:var(--text-muted); font-size:12px; margin-bottom:10px;">
+          పై table లో channels/groups select చేసి, times పెట్టి ON చేయండి — ప్రతి రోజు ఆ time కి ఆటోమేటిక్‌గా polls post అవుతాయి (instant, no gaps — official Bot API).
+        </p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+          <div>
+            <label style="font-size:11px;">Daily Times (comma sep):</label>
+            <input type="text" id="tg-ap-times" placeholder="08:00, 13:00, 20:30" style="width:180px; margin:0; padding:7px 10px; font-size:13px;">
+          </div>
+          <div>
+            <label style="font-size:11px;">Polls per slot:</label>
+            <select id="tg-ap-count" style="margin:0; padding:7px 10px; width:90px;">
+              <option value="1">1</option><option value="3">3</option><option value="5" selected>5</option><option value="10">10</option>
+            </select>
+          </div>
+          <button class="btn btn-accent" onclick="createTgAutopilot()">🤖 Start Auto-Pilot (Selected Targets)</button>
+        </div>
+        <div style="margin-top:8px; font-size:12px; color:#94a3b8;">
+          Subjects (optional):
+          <label style="display:inline; font-size:12px;"><input type="checkbox" class="tg-ap-subj" value="MATHS"> ➗ Maths</label>
+          <label style="display:inline; font-size:12px;"><input type="checkbox" class="tg-ap-subj" value="REASONING"> 🧠 Reasoning</label>
+          <label style="display:inline; font-size:12px;"><input type="checkbox" class="tg-ap-subj" value="GK"> 🌍 GK</label>
+          <label style="display:inline; font-size:12px;"><input type="checkbox" class="tg-ap-subj" value="CURRENT"> 📰 Current</label>
+          <label style="display:inline; font-size:12px;"><input type="checkbox" class="tg-ap-subj" value="ENGLISH"> 🔤 English</label>
+          <label style="display:inline; font-size:12px;"><input type="checkbox" class="tg-ap-subj" value="SCIENCE"> 🔬 Science</label>
+        </div>
+        <div id="tg-ap-result" style="font-size:12px; margin-top:8px;"></div>
+        <div id="tg-ap-jobs" style="font-size:12px; margin-top:10px;"></div>
+      </div>
     </div>
   </div>
 
@@ -1218,6 +1252,58 @@ All candidates must join today before 9:00 PM!"></textarea>
     </div>
   </div>
 
+  <!-- TAB: 📊 BROADCAST HISTORY & ANALYTICS -->
+  <div id="tab-history" class="tab-pane">
+    <div class="panel-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <div>
+          <h2>📊 Broadcast History & Analytics</h2>
+          <p style="color:var(--text-muted); font-size:13px;">ప్రతి poll dispatch (Telegram instant / WhatsApp anti-ban / Auto-Pilot) ఇక్కడ record అవుతుంది.</p>
+        </div>
+        <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="loadHistory()">🔄 Refresh</button>
+      </div>
+
+      <div class="grid-stats" style="margin-top:14px;">
+        <div class="stat-card">
+          <div class="label">Today's Polls Sent</div>
+          <div class="val" id="hist-today" style="color:#38bdf8;">...</div>
+          <div class="desc"><span id="hist-today-ev">...</span> dispatch events</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Last 7 Days Polls</div>
+          <div class="val" id="hist-week" style="color:#34d399;">...</div>
+          <div class="desc"><span id="hist-week-ev">...</span> dispatch events</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">📢 Telegram vs 💚 WhatsApp (7d)</div>
+          <div class="val" id="hist-split" style="color:#a78bfa; font-size:20px;">...</div>
+          <div class="desc">polls by platform</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">🏆 Top Target (7d)</div>
+          <div class="val" id="hist-top" style="color:#fbbf24; font-size:16px;">...</div>
+          <div class="desc">most polls received</div>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 2fr 1fr; gap:16px; margin-top:16px;" class="hist-grid">
+        <div style="background:#0f172a; border:1px solid var(--border); border-radius:10px; padding:14px;">
+          <h3 style="font-size:14px; margin-bottom:8px;">🕒 Recent Dispatches</h3>
+          <div id="hist-table-wrap" style="max-height:420px; overflow-y:auto;">
+            <table id="table-history">
+              <thead><tr><th>Time</th><th>Platform</th><th>Target</th><th>Polls</th><th>Subjects</th><th>Mode</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+        <div style="background:#0f172a; border:1px solid var(--border); border-radius:10px; padding:14px;">
+          <h3 style="font-size:14px; margin-bottom:8px;">🏆 Top Targets (7 days)</h3>
+          <div id="hist-top-list" style="font-size:12px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     function switchTab(id, btnElem) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -1238,7 +1324,8 @@ All candidates must join today before 9:00 PM!"></textarea>
 
       if (id === 'tab-wa-dispatch') loadWAGroups();
       if (id === 'tab-campus') loadCampusEvents();
-      if (id === 'tab-dynamic-channels') loadChannels();
+      if (id === 'tab-dynamic-channels') { loadChannels(); loadTgAutopilotJobs(); }
+      if (id === 'tab-history') loadHistory();
       if (id === 'tab-bundles') loadBundles();
       if (id === 'tab-bulk-broadcast') loadBulkTargets();
       if (id === 'tab-squads') loadSquads();
@@ -1567,6 +1654,97 @@ All candidates must join today before 9:00 PM!"></textarea>
       if (!confirm('Lock the dashboard? మళ్ళీ open చేయాలంటే password అడుగుతుంది.')) return;
       try { await fetch('/api/auth/logout', {method:'POST'}); } catch (e) {}
       location.href = '/';
+    }
+
+    // ================= 📊 BROADCAST HISTORY & ANALYTICS =================
+    async function loadHistory() {
+      try {
+        const r = await fetch('/api/history');
+        const d = await r.json();
+        const s = d.summary || {};
+        document.getElementById('hist-today').innerText = s.today_polls ?? 0;
+        document.getElementById('hist-today-ev').innerText = s.today_events ?? 0;
+        document.getElementById('hist-week').innerText = s.week_polls ?? 0;
+        document.getElementById('hist-week-ev').innerText = s.week_events ?? 0;
+        const bk = s.by_kind || {};
+        document.getElementById('hist-split').innerText = (bk.telegram || 0) + ' / ' + (bk.whatsapp || 0);
+        const tops = s.top_targets || [];
+        document.getElementById('hist-top').innerText = tops.length ? tops[0].target : '—';
+        document.getElementById('hist-top-list').innerHTML = tops.length
+          ? tops.map((t, i) => `<div style="display:flex; justify-content:space-between; padding:5px 6px; border-radius:6px; background:${i===0?'rgba(251,191,36,0.08)':'transparent'};"><span>${i+1}. ${t.target}</span><b style="color:#38bdf8;">${t.count}</b></div>`).join('')
+          : '<span style="color:#64748b;">No dispatches yet — ఏదైనా poll పంపండి!</span>';
+        const tbody = document.querySelector('#table-history tbody');
+        tbody.innerHTML = '';
+        (d.history || []).forEach(e => {
+          const tr = document.createElement('tr');
+          const kindBadge = e.kind === 'telegram' ? '📢 Telegram' : (e.kind === 'whatsapp' ? '💚 WhatsApp' : '🤖 ' + e.kind);
+          tr.innerHTML = `
+            <td style="font-family:monospace; font-size:11px;">${e.ts}</td>
+            <td>${kindBadge}</td>
+            <td>${e.target}</td>
+            <td style="color:#38bdf8; font-weight:700;">${e.count}</td>
+            <td style="font-size:11px;">${(e.subjects||[]).join(', ') || 'ALL'}</td>
+            <td style="font-size:11px;">${e.dry ? '<span style="color:#f59e0b;">DRY-RUN</span>' : '<span style="color:#34d399;">LIVE</span>'}${e.note ? ' · ' + e.note : ''}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+        if (!(d.history || []).length) {
+          tbody.innerHTML = '<tr><td colspan="6" style="color:#64748b;">ఇంకా dispatches లేవు.</td></tr>';
+        }
+      } catch (e) { console.error('history load:', e); }
+    }
+
+    // ================= 🤖 TELEGRAM AUTO-PILOT =================
+    async function createTgAutopilot() {
+      const box = document.getElementById('tg-ap-result');
+      const times = document.getElementById('tg-ap-times').value.trim();
+      const count = document.getElementById('tg-ap-count').value;
+      const channels = getSelectedChannelKeys();
+      const subjects = Array.from(document.querySelectorAll('.tg-ap-subj:checked')).map(c => c.value);
+      if (!times) return alert('Times ఇవ్వండి — ఉదా: 08:00, 20:30');
+      if (!channels.length) return alert('పై table లో కనీసం ఒక channel/group select చేయండి (checkbox)');
+      box.innerHTML = '<span style="color:#fbbf24;">Creating auto-pilot slots...</span>';
+      try {
+        const r = await fetch('/api/telegram/schedule', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({times, channels, count: parseInt(count), subjects})
+        });
+        const d = await r.json();
+        box.innerHTML = d.ok ? '<span style="color:#34d399;">✅ ' + d.message + '</span>'
+                             : '<span style="color:#f87171;">❌ ' + (d.error || 'Failed') + '</span>';
+        if (d.ok) { document.getElementById('tg-ap-times').value = ''; loadTgAutopilotJobs(); }
+      } catch (e) { box.innerHTML = '<span style="color:#f87171;">❌ ' + e + '</span>'; }
+    }
+
+    async function loadTgAutopilotJobs() {
+      const wrap = document.getElementById('tg-ap-jobs');
+      if (!wrap) return;
+      try {
+        const r = await fetch('/api/whatsapp/schedules');
+        const d = await r.json();
+        const jobs = (d.jobs || d.schedules || []).filter(j => j.mode === 'tg');
+        if (!jobs.length) { wrap.innerHTML = '<span style="color:#64748b;">No Telegram auto-pilot slots yet.</span>'; return; }
+        wrap.innerHTML = '<div style="font-weight:800; color:#a78bfa; margin-bottom:6px;">🤖 Active Auto-Pilot Slots:</div>' + jobs.map(j => `
+          <div style="display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:6px; background:#050811; margin-bottom:5px; flex-wrap:wrap;">
+            <b style="color:#38bdf8;">${j.time}</b>
+            <span style="flex:1;">${j.label}</span>
+            <span style="font-size:11px; color:${j.enabled ? '#34d399' : '#f59e0b'};">${j.enabled ? '● ON' : '○ PAUSED'}</span>
+            <span style="font-size:11px; color:#64748b;">runs: ${j.total_dispatches || 0}${j.last_run ? ' · last: ' + j.last_run : ''}</span>
+            <button class="btn btn-outline" style="font-size:10px; padding:2px 8px;" onclick="toggleTgApJob('${j.id}')">${j.enabled ? '⏸ Pause' : '▶ Resume'}</button>
+            <button class="btn btn-outline" style="font-size:10px; padding:2px 8px; border-color:#ef4444; color:#ef4444;" onclick="deleteTgApJob('${j.id}')">🗑</button>
+          </div>`).join('');
+      } catch (e) { wrap.innerHTML = ''; }
+    }
+
+    async function toggleTgApJob(id) {
+      await fetch('/api/whatsapp/toggle_schedule', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id: id})});
+      loadTgAutopilotJobs();
+    }
+
+    async function deleteTgApJob(id) {
+      if (!confirm('ఈ Auto-Pilot slot ని delete చేయాలా?')) return;
+      await fetch('/api/whatsapp/delete_schedule', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id: id})});
+      loadTgAutopilotJobs();
     }
 
     function toggleIpLockPanel() {
@@ -3470,6 +3648,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_html(HTML_PAGE)
             return
 
+        if p.path == "/api/history":
+            from core import broadcast_log
+            self._send_json({
+                "ok": True,
+                "summary": broadcast_log.get_summary(),
+                "history": broadcast_log.get_history(limit=80),
+            })
+            return
+
         if p.path == "/api/security":
             sec = _load_auth()
             self._send_json({
@@ -4069,6 +4256,38 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json(res)
             return
 
+        if p.path == "/api/telegram/schedule":
+            # 🤖 Telegram Auto-Pilot: daily auto-posts to chosen channels/groups
+            times = body.get("times", [])
+            if isinstance(times, str):
+                times = [t.strip() for t in times.replace(",", " ").split() if t.strip()]
+            channels = body.get("channels", [])
+            count = max(1, min(int(body.get("count", 1) or 1), 20))
+            subjects = body.get("subjects", []) or []
+            if not times:
+                self._send_json({"ok": False, "error": "కనీసం ఒక time ఇవ్వండి (ఉదా: 08:00)"})
+                return
+            if not channels:
+                self._send_json({"ok": False, "error": "టేబుల్‌లో కనీసం ఒక channel/group select చేయండి"})
+                return
+            created = []
+            for t in times:
+                job = whatsapp_pipeline.add_scheduled_job(
+                    t,
+                    label=f"🤖 TG Auto-Pilot {t} · {len(channels)} target(s)" + (f" · {'+'.join(subjects)}" if subjects else ""),
+                    questions_count=count,
+                    telegram_channels=channels,
+                    subjects=subjects,
+                    mode="tg",
+                )
+                created.append({"id": job["id"], "time": job["time"]})
+            self._send_json({
+                "ok": True,
+                "created": created,
+                "message": f"🤖 Auto-Pilot ON: {len(created)} daily slot(s) × {len(channels)} Telegram target(s) × {count} poll(s) — posts are instant, no gaps.",
+            })
+            return
+
         if p.path == "/api/channels/detect_new":
             res = channel_router.detect_new_bot_chats()
             self._send_json(res)
@@ -4091,38 +4310,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
 
         if p.path == "/api/post_poll":
+            # 🚀 Shared dispatcher: correct chat targeting (custom groups get
+            # their OWN chat), no-repeat rotation, history logging — Telegram
+            # sends stay instant (official Bot API, no gaps).
+            from core import poll_dispatch
             ch = body.get("channel", "CURRENT")
             count = int(body.get("count", 1))
-            bank = Bank()
-            from core.engine import Engine
-            from core.telegram import Telegram
-            
-            tg = Telegram()
-            # If BOT_TOKEN is set, use live engine; otherwise use graceful dry-run engine so it never fails
-            dry_mode = not bool(tg.token)
-            eng = Engine(dry=dry_mode)
-
-            all_ch = channel_router.get_all_channels()
-            ch_cfg = all_ch.get(ch, {})
-            base = ch_cfg.get("base_exam", ch)
-
             subjects = body.get("subjects", None)
-            sent = 0
-            # Subject-wise smart pick (same engine as WhatsApp) — Telegram sends instantly, no gaps needed (official Bot API)
-            picked = whatsapp_pipeline.pick_subject_questions(bank, base, count, subjects) or []
-            if len(picked) < count:
-                extra = bank.pick("CURRENT", count - len(picked)) or []
-                picked.extend(extra)
-            for q in picked[:count]:
-                ok = eng.send_quiz(base, q)
-                if ok:
-                    sent += 1
-
-            mode_label = "Live Channel" if not dry_mode else "Verified Dry-Run Simulation"
+            res = poll_dispatch.post_channel_polls(ch, count=count, subjects=subjects, source="dashboard")
             self._send_json({
-                "ok": True,
-                "sent_count": sent,
-                "message": f"✅ Successfully Dispatched {sent} question(s) strictly adhering to {base} syllabus! ({mode_label})"
+                "ok": res.get("ok", False),
+                "sent_count": res.get("sent", 0),
+                "message": res.get("message", ""),
             })
             return
 

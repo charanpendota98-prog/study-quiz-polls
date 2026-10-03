@@ -62,3 +62,4 @@ gateway/auth/
 gateway/package-lock.json
 data/whatsapp_session.json
 data/dashboard_auth.json
+data/broadcast_history.json
