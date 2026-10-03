@@ -333,6 +333,29 @@ const server = http.createServer(async (req, res) => {
 
   try {
     // ---- status
+    if (url.pathname === '/' || url.pathname === '') {
+      const st = statusPayload();
+      const dot = st.connected ? '#10b981' : (st.has_saved_session ? '#fbbf24' : '#64748b');
+      const stTxt = st.connected ? '✅ CONNECTED — ' + (st.phone || '') : (st.has_saved_session ? '🔄 Reconnecting (session saved)...' : '📴 Not linked — Dashboard → WhatsApp tab లో QR scan చేయండి');
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>StudentUp WhatsApp Bridge</title>
+<style>body{font-family:system-ui,sans-serif;background:#0b1220;color:#e2e8f0;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
+.card{background:#101d33;border:1px solid #1e3a5f;border-radius:16px;padding:28px 32px;max-width:420px;text-align:center}
+.dot{display:inline-block;width:12px;height:12px;border-radius:50%;background:${dot};margin-right:8px}
+h1{font-size:18px;margin:0 0 14px}p{font-size:13px;color:#94a3b8;line-height:1.6}
+.row{background:#0b1220;border-radius:8px;padding:8px 12px;margin:6px 0;font-size:12px;display:flex;justify-content:space-between}
+b{color:#38bdf8}</style></head><body><div class="card">
+<h1>🛡️ StudentUp WhatsApp Bridge</h1>
+<p><span class="dot"></span>${stTxt}</p>
+<div class="row"><span>💚 Groups cached</span><b>${st.groups_count}</b></div>
+<div class="row"><span>🔄 Reconnect attempts</span><b>${st.reconnect_attempts}</b></div>
+<div class="row"><span>💓 Heartbeat age</span><b>${st.heartbeat_age_sec === null ? '—' : st.heartbeat_age_sec + 's'}</b></div>
+<div class="row"><span>🐶 Guardian watchdog</span><b>ACTIVE</b></div>
+<p style="margin-top:14px">ఇది backend engine మాత్రమే — అన్ని పనులు <b>Dashboard (port 5000)</b> లోనే చేయండి!</p>
+</div></body></html>`);
+      return;
+    }
+
     if (url.pathname === '/status') return json(res, 200, statusPayload());
 
     // ---- QR login
