@@ -243,12 +243,14 @@ def sync_dialogs_from_session() -> dict:
     added, updated = 0, 0
     for rg in real_groups:
         jid = rg.get("jid")
-        if not jid:
+        # Never add non-admin groups to the managed/exportable registry.
+        if not jid or not rg.get("is_admin", False):
             continue
         if jid in existing:
             existing[jid]["name"] = rg.get("name", existing[jid].get("name"))
             existing[jid]["participants"] = rg.get("participants", 0)
             existing[jid]["real"] = True
+            existing[jid]["admin_verified"] = True
             updated += 1
         else:
             d.setdefault("groups", []).append({
@@ -260,6 +262,7 @@ def sync_dialogs_from_session() -> dict:
                 "active": True,
                 "participants": rg.get("participants", 0),
                 "real": True,
+                "admin_verified": True,
             })
             added += 1
     save_wa_registry(d)
@@ -293,6 +296,8 @@ def add_scheduled_job(
     telegram_channels: list = None,
     subjects: list = None,
     mode: str = "wa",
+    weekdays: list = None,
+    answer_delay_minutes: int = 5,
 ) -> dict:
     import uuid
     jobs = load_schedules()
@@ -335,6 +340,8 @@ def add_scheduled_job(
         "questions_count": questions_count or 1,
         "telegram_channels": telegram_channels or [],
         "subjects": subjects or [],
+        "weekdays": [int(d) for d in (weekdays or []) if str(d).isdigit() and 0 <= int(d) <= 6],
+        "answer_delay_minutes": max(0, min(60, int(answer_delay_minutes or 5))),
         "mode": mode if mode in ("wa", "tg", "both") else "wa",
         "enabled": enabled,
         "auto_mode": bool(auto_mode),

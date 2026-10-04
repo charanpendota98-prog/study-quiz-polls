@@ -24,7 +24,7 @@ sys.path.insert(0, str(ROOT))
 from core import config
 from core.members import Members
 from core.question_bank import Bank
-from core import hooks, districtwar, arena, campus, crm, whatsapp_pipeline, channel_router, bundle_manager
+from core import hooks, districtwar, arena, campus, crm, whatsapp_pipeline, channel_router, bundle_manager, member_queue
 from core.telegram import Telegram
 
 PORT = int(config.env("DASHBOARD_PORT", "5000"))
@@ -180,7 +180,7 @@ HTML_PAGE = """<!DOCTYPE html>
       --text-muted: #94a3b8;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
-    body { background: var(--bg); color: var(--text); padding: 24px; min-height: 100vh; }
+    body { background: radial-gradient(circle at 10% 0%, #111d36 0%, var(--bg) 34%); color: var(--text); padding: 24px; min-height: 100vh; max-width: 1600px; margin: 0 auto; }
     .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 22px; }
     .header h1 { font-size: 24px; font-weight: 800; display: flex; align-items: center; gap: 10px; }
     .badge-live { background: rgba(16, 185, 129, 0.15); color: var(--accent); border: 1px solid var(--accent); padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; }
@@ -190,12 +190,12 @@ HTML_PAGE = """<!DOCTYPE html>
     .stat-card .label { font-size: 12px; color: var(--text-muted); font-weight: 500; }
     .stat-card .val { font-size: 28px; font-weight: 800; margin-top: 5px; }
     .stat-card .desc { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
-    .tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px; overflow-x: auto; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding: 8px 4px 10px; overflow-x: auto; position: sticky; top: 0; z-index: 20; background: rgba(11,15,25,.94); backdrop-filter: blur(14px); }
     .tab-btn { background: transparent; border: none; color: var(--text-muted); font-size: 14px; font-weight: 600; padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
     .tab-btn.active { background: var(--primary); color: #fff; }
     .tab-pane { display: none; }
     .tab-pane.active { display: block; }
-    .panel-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 22px; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.25); }
+    .panel-card { background: linear-gradient(145deg, rgba(19,27,46,.98), rgba(15,23,42,.98)); border: 1px solid var(--border); border-radius: 14px; padding: 22px; margin-bottom: 20px; box-shadow: 0 8px 28px rgba(0,0,0,0.22); }
     .panel-card h2 { font-size: 18px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
     .btn { background: var(--primary); color: #fff; border: none; padding: 9px 15px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
     .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
@@ -222,6 +222,7 @@ HTML_PAGE = """<!DOCTYPE html>
     .shift-tag { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); padding: 3px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; }
     .progress-bar-container { width: 100%; background: #1e293b; border-radius: 9999px; height: 10px; overflow: hidden; margin-top: 10px; margin-bottom: 10px; }
     .progress-bar { height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); width: 0%; transition: width 0.3s; }
+    .planner-hero{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:24px 26px;margin-bottom:16px;border:1px solid #294b78;border-radius:18px;background:linear-gradient(120deg,#13294b,#101827 65%,#18263d);box-shadow:0 12px 30px #0004}.planner-hero h2{font-size:25px;margin:5px 0 7px}.planner-hero p{color:#a9b9d0;font-size:13px}.eyebrow{font-size:10px;letter-spacing:1.5px;font-weight:800;color:#5eead4}.hero-actions{display:flex;gap:8px;flex-wrap:wrap}.planner-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}.planner-card{background:linear-gradient(145deg,#151f34,#111827);border:1px solid #263b5d;border-radius:14px;padding:17px}.planner-card-head{display:flex;gap:10px;align-items:flex-start;margin-bottom:14px}.planner-card-head b{display:block;font-size:14px}.planner-card-head small{display:block;color:#8495ae;font-size:11px;margin-top:4px}.step{display:grid;place-items:center;background:#2563eb;color:white;border-radius:8px;width:29px;height:29px;font-size:11px;font-weight:800}.exam-pills{display:flex;gap:6px;flex-wrap:wrap}.exam-pill{background:#0d1728;border:1px solid #304766;color:#b9c8dc;border-radius:999px;padding:7px 10px;font-size:11px;cursor:pointer}.exam-pill:hover,.exam-pill.active{background:#2563eb;border-color:#60a5fa;color:#fff}.selection-summary{display:flex;justify-content:space-between;gap:8px;align-items:center;background:#0b1322;border-radius:9px;padding:10px;margin-bottom:12px}.selection-summary strong{color:#67e8f9;font-size:13px}.selection-summary span{font-size:10px;color:#8291a7}.mini-stat-row{display:flex;gap:8px;flex-wrap:wrap;color:#9fb2ca;font-size:11px;margin:17px 0}.mini-stat-row span{background:#0b1322;border-radius:6px;padding:6px 8px}
     /* ---------- 📱 MOBILE / TABLET RESPONSIVE (operate from phone) ---------- */
     @media (max-width: 920px) {
       body { padding: 12px; }
@@ -369,6 +370,7 @@ HTML_PAGE = """<!DOCTYPE html>
     <button class="tab-btn active" onclick="switchTab('tab-bulk-broadcast')">🚀 Bulk Messages & Channels Hub</button>
     <button class="tab-btn" onclick="switchTab('tab-wa-dispatch')">🛡️ WhatsApp 100+ Interleaved Dispatcher</button>
     <button class="tab-btn" onclick="switchTab('tab-bundles')">📦 Custom Saved Bundles</button>
+    <button class="tab-btn" onclick="switchTab('tab-member-queue')">👥 Member Queue</button>
     <button class="tab-btn" onclick="switchTab('tab-excel-import')">📊 Multi-Sheet Excel Importer</button>
     <button class="tab-btn" onclick="switchTab('tab-campus')">🏫 College On-Spot Exams & QR</button>
     <button class="tab-btn" onclick="switchTab('tab-dynamic-channels')">📢 Telegram Channels & Poll Counts</button>
@@ -380,8 +382,8 @@ HTML_PAGE = """<!DOCTYPE html>
 
   <!-- TAB 1: WHATSAPP INTERLEAVED DISPATCHER -->
   <div id="tab-wa-dispatch" class="tab-pane">
-    
-
+    <div class="planner-hero"><div><div class="eyebrow">CONTROL CENTER · WHATSAPP AUTOMATION</div><h2>Plan once. Deliver automatically.</h2><p>Pick an exam, choose exact groups, set multiple daily times and let the server run the schedule.</p></div><div class="hero-actions"><button class="btn btn-accent" onclick="toggleScheduleBuilder()">＋ New smart schedule</button><button class="btn btn-outline" onclick="switchTab('tab-excel-import')">Import from Excel</button></div></div>
+    <div class="planner-grid"><div class="planner-card"><div class="planner-card-head"><span class="step">01</span><div><b>Choose exam / poll pack</b><small>Only matching content will be sent</small></div></div><div class="exam-pills"><button onclick="setPlannerCategory('ALL',this)" class="exam-pill active">All exams</button><button onclick="setPlannerCategory('POLICE',this)" class="exam-pill">Police</button><button onclick="setPlannerCategory('TSPSC',this)" class="exam-pill">TSPSC</button><button onclick="setPlannerCategory('APPSC',this)" class="exam-pill">APPSC</button><button onclick="setPlannerCategory('SSC',this)" class="exam-pill">SSC / Railway</button><button onclick="setPlannerCategory('TET_DSC',this)" class="exam-pill">TET / DSC</button><button onclick="setPlannerCategory('CURRENT',this)" class="exam-pill">Current affairs</button></div></div><div class="planner-card"><div class="planner-card-head"><span class="step">02</span><div><b>Choose recipients</b><small>Tick exact groups in the directory below</small></div></div><div class="selection-summary"><strong id="planner-selected-count">0 groups selected</strong><span>Category filters remain available</span></div><button class="btn btn-outline" onclick="document.getElementById('table-wa-groups').scrollIntoView({behavior:'smooth',block:'center'})">Select groups ↓</button></div><div class="planner-card"><div class="planner-card-head"><span class="step">03</span><div><b>Set delivery plan</b><small>Times, frequency, duration and days</small></div></div><div class="mini-stat-row"><span>⏱ Multi-time</span><span>📅 Lifetime / days</span><span>🛡 Safe queue</span></div><button class="btn btn-accent" onclick="toggleScheduleBuilder()">Open scheduler →</button></div></div>
     <div class="panel-card">
       <h2>🛡️ Advanced WhatsApp Anti-Ban Dispatcher (5 Polls/Group, 40-60s Jitter, 60-90s Batch Rest)</h2>
       <p style="color:var(--text-muted); font-size:13px; margin-bottom:16px;">
@@ -466,6 +468,10 @@ HTML_PAGE = """<!DOCTYPE html>
                 <input type="number" id="sb-count" min="1" max="20" value="5">
               </div>
               <div>
+                <label>✅ Answer key delay (minutes)</label>
+                <input type="number" id="sb-answer-delay" min="0" max="60" value="5">
+              </div>
+              <div>
                 <label>🏷️ Slot పేరు (optional)</label>
                 <input type="text" id="sb-label" placeholder="Morning Police Drill">
               </div>
@@ -493,6 +499,10 @@ HTML_PAGE = """<!DOCTYPE html>
               <input type="number" id="sb-custom-days" min="1" max="3650" placeholder="Custom days" style="width:110px; padding:5px 8px; font-size:12px;" oninput="customDurTyped()">
             </div>
             <div id="sb-dur-note" style="font-size:11px; color:#fbbf24; margin-top:5px;">♾️ Life-Long selected — ఎప్పటికీ ఆగదు</div>
+            <label style="margin-top:10px; display:block;">📅 వారంలో ఏ రోజులు? (ఖాళీ = ప్రతిరోజూ)</label>
+            <div style="display:flex; gap:9px; flex-wrap:wrap; margin-top:5px; font-size:12px;">
+              <label><input type="checkbox" class="sb-weekday" value="1"> Mon</label><label><input type="checkbox" class="sb-weekday" value="2"> Tue</label><label><input type="checkbox" class="sb-weekday" value="3"> Wed</label><label><input type="checkbox" class="sb-weekday" value="4"> Thu</label><label><input type="checkbox" class="sb-weekday" value="5"> Fri</label><label><input type="checkbox" class="sb-weekday" value="6"> Sat</label><label><input type="checkbox" class="sb-weekday" value="0"> Sun</label>
+            </div>
             <label style="margin-top:10px; display:block;">📚 Subjects (ఏదీ select చేయకపోతే = ALL subjects mix)</label>
             <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:4px; font-size:12px;">
               <label style="display:flex; align-items:center; gap:4px;"><input type="checkbox" class="sb-subj" value="MATHS">🔢 Maths</label>
@@ -786,6 +796,8 @@ HTML_PAGE = """<!DOCTYPE html>
   </div>
 
   <!-- TAB 3: EXCEL / SHEET IMPORTER & MANAGER -->
+  <div id="tab-member-queue" class="tab-pane"><div class="panel-card"><h2>👥 Consent-first Member Queue</h2><p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">Upload opted-in members, review the queue, and send compliant group invites in controlled daily batches.</p><div class="grid-stats"><div class="stat-card"><div class="label">READY</div><div class="val" id="mq-ready">0</div></div><div class="stat-card"><div class="label">COMPLETED</div><div class="val" id="mq-done">0</div></div><div class="stat-card"><div class="label">PENDING CONSENT</div><div class="val" id="mq-pending">0</div></div><div class="stat-card"><div class="label">INVALID / FAILED</div><div class="val" id="mq-failed">0</div></div></div><label>CSV file (Name, Phone, Consent)</label><input type="file" id="mq-file" accept=".csv" onchange="importMemberQueue(event)"><label>Admin alert numbers</label><input id="mq-alerts" placeholder="9394483300, 7981009598"><label>Daily batch limit (maximum 20)</label><input id="mq-limit" type="number" min="1" max="20" value="20"><button class="btn btn-accent" onclick="saveMemberQueueSettings()">Save Queue Settings</button><div id="mq-log" class="log-box">Queue ready. Only OPTED_IN records are eligible.</div></div></div>
+
   <div id="tab-excel-import" class="tab-pane">
     <div class="panel-card">
       <h2>📊 Advanced Multi-Sheet Excel & Google Sheets Importer (100+ to 250+ Groups & Channels)</h2>
@@ -836,7 +848,8 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
 
       <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-top:10px;">
         <button class="btn btn-accent" onclick="importExcelSheet()">📥 Import Pasted Rows</button>
-        <button class="btn btn-purple" onclick="exportExcelSheet()">📤 Export Current Groups as Excel / TSV</button>
+        <button class="btn btn-purple" onclick="exportExcelSheet()">📤 Export All Groups</button>
+        <button class="btn btn-outline" onclick="downloadGroupsCSV()">⬇️ Download CSV</button>
         <button class="btn btn-outline" onclick="document.getElementById('excel-paste-text').value=''">Clear Box</button>
       </div>
 
@@ -1528,6 +1541,12 @@ All candidates must join today before 9:00 PM!"></textarea>
       }
     }
 
+    function setPlannerCategory(category, button) { const select=document.getElementById('wa-target-category'); if(select) select.value=category; document.querySelectorAll('.exam-pill').forEach(x=>x.classList.remove('active')); if(button) button.classList.add('active'); const table=document.getElementById('table-wa-groups'); if(table) table.scrollIntoView({behavior:'smooth',block:'center'}); }
+    function updatePlannerSelectionCount(){ const n=document.querySelectorAll('#table-wa-groups input[type=checkbox]:checked').length; const el=document.getElementById('planner-selected-count'); if(el) el.textContent=n+' group'+(n===1?'':'s')+' selected'; }
+
+    async function loadMemberQueue(){ try { const d=await (await fetch('/api/member_queue/status')).json(); ['ready','done','pending','failed'].forEach(k=>{const e=document.getElementById('mq-'+k); if(e)e.textContent=d[k==='done'?'completed':k]||0;}); } catch(e){} }
+    async function importMemberQueue(ev){ const f=ev.target.files[0]; if(!f)return; const text=await f.text(); const r=await fetch('/api/member_queue/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,default_consent:'PENDING'})}); const d=await r.json(); document.getElementById('mq-log').textContent=d.ok?'Imported '+d.added+' records. Only OPTED_IN records can enter the invite queue.':'Import failed: '+d.error; loadMemberQueue(); }
+    async function saveMemberQueueSettings(){ const alerts=(document.getElementById('mq-alerts').value||'').split(',').map(x=>x.trim()).filter(Boolean); const limit=Math.min(20,Math.max(1,Number(document.getElementById('mq-limit').value)||20)); const r=await fetch('/api/member_queue/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({alerts,batch_limit:limit})}); document.getElementById('mq-log').textContent='Queue settings saved. Daily limit: '+limit; loadMemberQueue(); }
     async function loadWASession() {
       try {
         const res = await fetch('/api/whatsapp/session');
@@ -2288,7 +2307,7 @@ All candidates must join today before 9:00 PM!"></textarea>
         ).join('');
 
         tr.innerHTML = `
-          <td><input type="checkbox" class="wa-group-select-checkbox" data-gid="${g.id}"></td>
+          <td><input type="checkbox" class="wa-group-select-checkbox" data-gid="${g.id}" onchange="updatePlannerSelectionCount()"></td>
           <td>${g.id}</td>
           <td><b>${g.name}</b></td>
           <td>
@@ -2319,12 +2338,20 @@ All candidates must join today before 9:00 PM!"></textarea>
       });
     }
 
+    async function downloadGroupsCSV() {
+      const res = await fetch('/api/whatsapp/groups'); const d = await res.json();
+      const rows = [['Group Name','WhatsApp JID / Link','Exam','Shift','Group Type','Active','Members','Real Synced']];
+      (d.groups || []).filter(g => g.admin_verified === true).forEach(g => rows.push([g.name || '', g.jid || '', g.category || 'GENERAL', g.shift || 'ALL_DAY', g.group_type || 'EXAM_SPECIFIC', g.active ? 'YES' : 'NO', g.participants || 0, g.real ? 'YES' : 'NO']));
+      const csv = rows.map(r => r.map(v => '"' + String(v).replaceAll('"','""') + '"').join(',')).join('\\r\\n');
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'})); a.download = 'studentup-whatsapp-groups-' + new Date().toISOString().slice(0,10) + '.csv'; a.click(); URL.revokeObjectURL(a.href);
+    }
+
     async function exportExcelSheet() {
       const res = await fetch('/api/whatsapp/groups');
       const d = await res.json();
       const groups = d.groups || [];
       const lines = ['Group Name\\tLink or JID\\tCategory\\tShift\\tGroup Type'];
-      groups.forEach(g => {
+      groups.filter(g => g.admin_verified === true).forEach(g => {
         lines.push(`${g.name}\\t${g.jid}\\t${g.category || 'GENERAL'}\\t${g.shift || 'ALL_DAY'}\\t${g.group_type || 'EXAM_SPECIFIC'}`);
       });
       document.getElementById('excel-paste-text').value = lines.join('\\n');
@@ -2354,6 +2381,7 @@ All candidates must join today before 9:00 PM!"></textarea>
       cbs.forEach(cb => cb.checked = checked);
       const master = document.getElementById('wa-select-all');
       if (master) master.checked = checked;
+      updatePlannerSelectionCount();
     }
 
     function getSelectedGroupIds() {
@@ -2606,6 +2634,7 @@ All candidates must join today before 9:00 PM!"></textarea>
       const qCount = parseInt(document.getElementById('sb-count').value) || 5;
       const label = document.getElementById('sb-label').value.trim();
       const subjects = Array.from(document.querySelectorAll('.sb-subj:checked')).map(c => c.value);
+      const weekdays = Array.from(document.querySelectorAll('.sb-weekday:checked')).map(c => Number(c.value));
       const cat = document.getElementById('wa-target-category').value;
       const gids = getSelectedGroupIds();
       const dateFrom = document.getElementById('sb-date-from').value;
@@ -2628,7 +2657,9 @@ All candidates must join today before 9:00 PM!"></textarea>
             auto_mode: !dateTo && days === 0,
             end_date: dateTo || '',
             start_date: dateFrom || '',
-            subjects: subjects
+            subjects: subjects,
+            weekdays: weekdays,
+            answer_delay_minutes: parseInt(document.getElementById('sb-answer-delay').value || '5')
           })
         });
         const d = await res.json();
@@ -3998,6 +4029,7 @@ All candidates must join today before 9:00 PM!"></textarea>
 
     fetchStats();
     loadWASession();
+    loadMemberQueue();
     loadWAGroups();
     loadSchedules();
     loadChannels();
@@ -4430,6 +4462,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.wfile.write(content)
             return
 
+        if p.path == "/api/member_queue/status":
+            self._send_json(member_queue.snapshot())
+            return
+
         if p.path == "/api/members":
             mb = Members()
             arr = []
@@ -4563,6 +4599,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json({"ok": True, "ip_lock_enabled": enabled, "allowed_ips": ips,
                              "your_ip": my_ip, "note": note,
                              "message": ("🛡️ IP Lock ON — only " + str(len(ips)) + " allowed IP rule(s)") if enabled else "🔓 IP Lock OFF — password-only protection"})
+            return
+
+        if p.path == "/api/member_queue/settings":
+            self._send_json(member_queue.update_settings(body))
+            return
+
+        if p.path == "/api/member_queue/import":
+            text = body.get("text", "")
+            if not text.strip():
+                self._send_json({"ok": False, "error": "CSV content is required"})
+                return
+            self._send_json(member_queue.import_csv(text, body.get("group_id", ""), body.get("default_consent", "PENDING")))
             return
 
         if p.path == "/api/members/register":
@@ -4807,6 +4855,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     end_date=end_date,
                     start_date=str(body.get("start_date", "")).strip(),
                     subjects=[str(s).upper() for s in (body.get("subjects") or []) if s],
+                    weekdays=body.get("weekdays") or [],
+                    answer_delay_minutes=int(body.get("answer_delay_minutes", 5)),
                 )
                 created_jobs.append(job)
 
