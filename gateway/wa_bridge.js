@@ -215,6 +215,8 @@ async function refreshGroups() {
     participants: (g.participants || []).length,
     is_community: !!g.isCommunity,
     announce: !!g.announce,
+    // Only groups where the connected WhatsApp account is an admin are eligible for setup/export.
+    is_admin: !!(state.me && (g.participants || []).some((p) => p.id === state.me.id && (p.admin === 'admin' || p.admin === 'superadmin'))),
   }));
   state.groupsCacheAt = Date.now();
   return state.groupsCache;
