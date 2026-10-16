@@ -24,7 +24,7 @@ sys.path.insert(0, str(ROOT))
 from core import config
 from core.members import Members
 from core.question_bank import Bank
-from core import hooks, districtwar, arena, campus, crm, whatsapp_pipeline, channel_router, bundle_manager, member_queue, planner
+from core import hooks, districtwar, arena, campus, crm, whatsapp_pipeline, channel_router, bundle_manager, member_queue, planner, portal
 from core.telegram import Telegram
 
 
@@ -134,7 +134,8 @@ def _pub_bodies(bot, contact_email):
     <h1>Free Quiz Practice &amp; College Exams for <span>AP &amp; Telangana</span> Students</h1>
     <p>StudentUp helps students prepare for EAMCET, NEET, SSC, RRB and APPSC/TSPSC Group exams with daily quiz polls, previous-year questions and instant results — on Telegram, WhatsApp and right here in your browser.</p>
     <div class="cta">
-      <a class="btn btn-g" href="__BOT__" target="_blank" rel="noopener">🤖 Open Telegram Bot</a>
+      <a class="btn btn-g" href="__PORTAL__">🚀 Start Daily Quiz</a>
+      <a class="btn btn-o" href="__BOT__" target="_blank" rel="noopener">🤖 Telegram Bot</a>
       <a class="btn btn-o" href="/study">📚 Study Guide</a>
     </div>
     <div class="exambox" id="exam-entry">
@@ -283,6 +284,8 @@ __CANONICAL____ADSHEAD__
 </footer>
 </body>
 </html>"""
+    portal_url = config.env("PORTAL_BASE_URL", "").strip() or "/portal"
+    body = body.replace("__PORTAL__", portal_url)
     return (shell.replace("__TITLE__", titles.get(page, titles["home"]))
                  .replace("__CANONICAL__", f'<link rel="canonical" href="{canonical}">' if canonical else "")
                  .replace("__ADSHEAD__", _adsense_head())
@@ -449,6 +452,298 @@ async function doLogin() {
 </script>
 </body>
 </html>"""
+
+PORTAL_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StudentUp Portal — Daily Quiz & Mock Tests</title>
+<style>
+  * { box-sizing: border-box; margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+  body { min-height: 100vh; background: radial-gradient(circle at 30% 10%, #12315e 0%, #050811 70%); color: #e2e8f0; padding: 16px 12px 50px; }
+  .wrap { max-width: 560px; margin: 0 auto; }
+  .brand { text-align: center; font-size: 22px; font-weight: 800; color: #f8fafc; margin: 6px 0 14px; }
+  .brand span { display: block; font-size: 11px; color: #38bdf8; font-weight: 600; letter-spacing: 1.5px; margin-top: 3px; }
+  .card { background: #0b1329; border: 1px solid #1e3a5f; border-radius: 16px; padding: 18px 16px; margin-bottom: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+  h2 { font-size: 17px; margin-bottom: 8px; }
+  h3 { font-size: 13.5px; color: #38bdf8; margin: 4px 0 8px; }
+  .muted { color: #94a3b8; font-size: 12.5px; line-height: 1.6; }
+  label { display: block; font-size: 12.5px; font-weight: 700; margin: 12px 0 5px; }
+  input, select { width: 100%; padding: 12px 14px; font-size: 16px; background: #050811; color: #f8fafc; border: 1px solid #1e3a5f; border-radius: 10px; outline: none; }
+  .btn-main { width: 100%; margin-top: 14px; padding: 14px; font-size: 15.5px; font-weight: 800; border: none; border-radius: 11px; background: linear-gradient(90deg, #10b981, #38bdf8); color: #04121f; cursor: pointer; }
+  .btn-alt { width: 100%; margin-top: 9px; padding: 11px; font-size: 14px; font-weight: 700; border: 1px solid #24466e; border-radius: 11px; background: #12233f; color: #e2e8f0; cursor: pointer; }
+  .err { color: #f87171; font-size: 13px; font-weight: 700; min-height: 18px; margin-top: 8px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .chip { background: #12233f; border: 1px solid #24466e; padding: 5px 11px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .chip.gold { border-color: #a16207; color: #facc15; }
+  .chip.weak { border-color: #7f1d1d; color: #fca5a5; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  .mockbtn { padding: 13px 8px; border-radius: 12px; border: 1.5px solid #24466e; background: #0f1e38; color: #e2e8f0; font-size: 13.5px; font-weight: 700; cursor: pointer; }
+  .mockbtn.mine { border-color: #10b981; }
+  .trow { display: flex; gap: 8px; align-items: center; padding: 7px 10px; background: #0f1e38; border-radius: 10px; margin-top: 6px; font-size: 13px; }
+  .trow b { flex: 1; }
+  .qte { font-size: 16.5px; font-weight: 700; line-height: 1.55; }
+  .qen { font-size: 14px; color: #a5c4e8; line-height: 1.55; margin-top: 5px; }
+  .opt { display: block; width: 100%; text-align: left; margin-top: 9px; padding: 13px 14px; font-size: 14.5px; font-weight: 600; background: #0f1e38; color: #e2e8f0; border: 1.5px solid #24466e; border-radius: 12px; cursor: pointer; }
+  .opt.picked { border-color: #38bdf8; background: #12315e; }
+  .opt.right { border-color: #10b981; }
+  .opt.wrong { border-color: #ef4444; }
+  .opt:disabled { opacity: .8; cursor: default; }
+  .feedback { min-height: 22px; margin-top: 11px; font-size: 13.5px; font-weight: 700; }
+  .score-big { font-size: 42px; font-weight: 800; text-align: center; color: #10b981; }
+  .rrow { padding: 9px 11px; border-radius: 10px; margin-top: 6px; font-size: 12.5px; line-height: 1.55; background: #0f1e38; }
+  .rrow.ok { border-left: 4px solid #10b981; } .rrow.bad { border-left: 4px solid #ef4444; }
+  .timer { color: #facc15; font-weight: 800; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">🎓 StudentUp <span>DAILY QUIZ · MOCK TESTS · LEADERS</span></div>
+
+  <!-- register -->
+  <div id="view-reg" class="card" style="display:none;">
+    <h2>👋 StudentUp loki welcome!</h2>
+    <p class="muted">Okka sari register avandi — Daily Quiz, Mock Tests, mee personal report & leaderboards anni ready. Data mee bot account tho kuda link avthundi.</p>
+    <label>Mee Peru (Full Name)</label>
+    <input id="r-name" placeholder="e.g. Priya Sharma" autocomplete="name">
+    <label>Mobile Number (WhatsApp)</label>
+    <input id="r-phone" inputmode="numeric" maxlength="13" placeholder="10-digit mobile" autocomplete="tel">
+    <label>Mee District</label>
+    <select id="r-district"><option value="">— District select cheyyandi —</option></select>
+    <label>Mee Exam Goal</label>
+    <select id="r-goal"></select>
+    <button class="btn-main" onclick="doRegister()">🚀 Register & Start</button>
+    <div id="reg-err" class="err"></div>
+  </div>
+
+  <!-- home -->
+  <div id="view-home" style="display:none;">
+    <div class="card">
+      <h2 id="hello">👋</h2>
+      <div class="row" id="mychips"></div>
+      <div class="row" style="margin-top:10px;">
+        <button class="btn-alt" style="flex:1;" onclick="logout()">↩️ Logout / Number Change</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>📅 Today's Daily Quiz</h3>
+      <p class="muted" id="daily-info"></p>
+      <button class="btn-main" id="daily-btn" onclick="openQuiz()">▶️ Start Daily Quiz</button>
+    </div>
+
+    <div class="card">
+      <h3>📝 Mock Tests — mee exam select cheskondi</h3>
+      <p class="muted">Real exam pattern practice: 15 questions, timer tho. Ayyaka instant score + full answer review.</p>
+      <div class="grid" id="mock-grid"></div>
+    </div>
+
+    <div class="card">
+      <h3>🎯 Naa Personal Report</h3>
+      <div id="report"></div>
+    </div>
+
+    <div class="card">
+      <h3>🏆 Daily Quiz Leaders (Today)</h3>
+      <div id="board-daily"></div>
+      <h3 style="margin-top:16px;">📝 Mock Test Leaders</h3>
+      <div id="board-mock"></div>
+      <h3 style="margin-top:16px;">👑 Yesterday's Winners</h3>
+      <div id="board-win"></div>
+    </div>
+
+    <div class="card">
+      <h3>🏫 College Exam (Private)</h3>
+      <p class="muted">College exams ikkada list avavu — mee teacher ichhina code/link tho maatrame open avthayi (privacy kosam).</p>
+      <div class="row">
+        <input id="ccode" placeholder="Exam code e.g. CE-K7P2" style="flex:1; text-transform:uppercase;">
+        <button class="btn-main" style="width:auto; margin-top:0; padding:12px 18px;" onclick="var c=document.getElementById('ccode').value.trim().toUpperCase(); if(c) location.href='/exam/'+c;">Open</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- daily quiz -->
+  <div id="view-quiz" class="card" style="display:none;">
+    <div class="row"><span id="q-pos" class="chip"></span><span id="q-topic" class="chip"></span><span id="q-score" class="chip gold"></span></div>
+    <div id="q-te" class="qte" style="margin-top:12px;"></div>
+    <div id="q-en" class="qen"></div>
+    <div id="opts"></div>
+    <div id="q-fb" class="feedback"></div>
+    <button class="btn-main" id="q-next" style="display:none;" onclick="nextQ()">Next ➡️</button>
+  </div>
+
+  <!-- mock -->
+  <div id="view-mock" class="card" style="display:none;">
+    <div class="row"><span id="m-title" class="chip"></span><span class="chip timer" id="m-timer"></span></div>
+    <div id="m-qs"></div>
+    <button class="btn-main" onclick="submitMock()">✅ Submit Mock Test</button>
+    <div id="m-err" class="err"></div>
+  </div>
+
+  <!-- mock result -->
+  <div id="view-result" class="card" style="display:none;">
+    <h2 style="text-align:center;">📝 Mock Result</h2>
+    <div class="score-big" id="res-score"></div>
+    <p class="muted" id="res-sub" style="text-align:center;"></p>
+    <h3>📋 Answer Review</h3>
+    <div id="res-review"></div>
+    <button class="btn-main" onclick="backHome()">🏠 Home ki vellu</button>
+  </div>
+</div>
+
+<script>
+let token = localStorage.getItem('su_portal') || '';
+let GOALS = {}, QUESTIONS = [], cur = 0, score = 0, MOCK = null, mockTimer = null;
+const esc = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+async function api(path, body) {
+  const opt = body ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)} : {};
+  const r = await fetch(path, opt); return await r.json();
+}
+function show(id) {
+  ['view-reg', 'view-home', 'view-quiz', 'view-mock', 'view-result'].forEach(v => {
+    const el = document.getElementById(v); if (el) el.style.display = (v === id ? 'block' : 'none');
+  });
+}
+function rows(list, emptyMsg) {
+  if (!list || !list.length) return '<div class="muted">' + emptyMsg + '</div>';
+  return list.map((t, i) => '<div class="trow"><span>' + (['🥇','🥈','🥉'][i] || (i + 1)) + '</span><b>' + esc(t.name) + '</b><span class="muted">' + esc(t.district || '') + '</span><span>✅ ' + t.correct + '/' + (t.total || 10) + ' · ⭐' + t.pts + '</span></div>').join('');
+}
+async function init() {
+  const meta = await api('/api/portal/meta');
+  GOALS = meta.goals || {};
+  const dg = document.getElementById('r-district');
+  (meta.districts || []).forEach(d => { const o = document.createElement('option'); o.value = d.name; o.textContent = d.name + ' (' + d.state + ')'; dg.appendChild(o); });
+  const gl = document.getElementById('r-goal');
+  Object.entries(GOALS).forEach(([k, v]) => { const o = document.createElement('option'); o.value = k; o.textContent = v; gl.appendChild(o); });
+  if (token) { loadHome(); } else { show('view-reg'); }
+}
+async function doRegister() {
+  const err = document.getElementById('reg-err'); err.textContent = '';
+  const d = await api('/api/portal/register', {
+    name: document.getElementById('r-name').value.trim(),
+    phone: document.getElementById('r-phone').value.trim(),
+    district: document.getElementById('r-district').value,
+    goal: document.getElementById('r-goal').value});
+  if (!d.ok) { err.textContent = '❌ ' + (d.error || 'Register avvaledu'); return; }
+  token = d.token; localStorage.setItem('su_portal', token);
+  loadHome();
+}
+function logout() { localStorage.removeItem('su_portal'); token = ''; show('view-reg'); }
+async function loadHome() {
+  const d = await api('/api/portal/state?token=' + encodeURIComponent(token));
+  if (!d.ok) { logout(); return; }
+  const s = d.student;
+  document.getElementById('hello').textContent = '👋 ' + s.name;
+  document.getElementById('mychips').innerHTML =
+    '<span class="chip">🎯 ' + esc(GOALS[s.goal] || s.goal) + '</span>' +
+    '<span class="chip">📍 ' + esc(s.district) + '</span>' +
+    '<span class="chip gold">⭐ ' + s.points + ' pts</span>' +
+    (d.my_rank_today ? '<span class="chip">🏆 Today Rank #' + d.my_rank_today + '</span>' : '');
+  const di = document.getElementById('daily-info'), db = document.getElementById('daily-btn');
+  if (d.daily.done) { di.textContent = '✅ Ee roju quiz complete! Score: ' + d.daily.correct + '/' + d.daily.n + ' — repu malli randi.'; db.style.display = 'none'; }
+  else { di.textContent = d.daily.n + ' questions · andari ki okkate paper · leaders board lo rank vastundi.'; db.textContent = d.daily.answered ? '▶️ Continue Quiz (' + d.daily.answered + '/' + d.daily.n + ')' : '▶️ Start Daily Quiz'; db.style.display = 'block'; }
+  document.getElementById('mock-grid').innerHTML = Object.entries(GOALS).map(([k, v]) =>
+    '<button class="mockbtn' + (k === s.goal ? ' mine' : '') + '" onclick="startMock(\'' + k + '\')">' + esc(v) + '<br><span class="muted">15 Qs · Mock</span></button>').join('');
+  const weak = (s.weak_topics || []).map(w => '<span class="chip weak">⚠️ ' + esc(w.topic) + ' · ' + w.accuracy + '%</span>').join('');
+  document.getElementById('report').innerHTML =
+    '<div class="row"><span class="chip">✅ Accuracy ' + s.accuracy + '%</span><span class="chip">✍️ ' + s.answered + ' answered</span><span class="chip gold">⭐ ' + s.points + ' pts</span></div>' +
+    (weak ? '<div style="margin-top:9px;"><span class="muted">Mee weak topics — ivvi ekkuva practice cheyyandi:</span><div class="row" style="margin-top:6px;">' + weak + '</div></div>'
+          : '<p class="muted" style="margin-top:8px;">Inka data ledu — Daily Quiz & Mocks raasthe mee weak topics ikkada kanipisthayi, personal ga improve avutharu.</p>');
+  document.getElementById('board-daily').innerHTML = rows(d.daily_board, 'Inka evaru ee roju quiz complete cheyyaledu — meeru first avandi! 🔥');
+  document.getElementById('board-mock').innerHTML = rows(d.mock_board, 'Inka mock leaders leru — okka mock raasi board meeda vacheyyandi!');
+  document.getElementById('board-win').innerHTML = rows(d.yesterday_winners, 'Ninna winners inka leru.');
+  show('view-home');
+}
+function backHome() { clearInterval(mockTimer); loadHome(); }
+async function openQuiz() {
+  const d = await api('/api/portal/quiz?token=' + encodeURIComponent(token));
+  if (!d.ok) { logout(); return; }
+  QUESTIONS = d.questions || []; score = 0;
+  cur = QUESTIONS.findIndex(q => !q.answered);
+  if (cur < 0) { loadHome(); return; }
+  show('view-quiz'); renderQ();
+}
+function renderQ() {
+  const q = QUESTIONS[cur];
+  document.getElementById('q-pos').textContent = 'Q ' + (cur + 1) + '/' + QUESTIONS.length;
+  document.getElementById('q-topic').textContent = '🏷️ ' + (q.topic || '');
+  document.getElementById('q-score').textContent = '✅ ' + score;
+  document.getElementById('q-te').textContent = q.te || '';
+  document.getElementById('q-en').textContent = q.en || '';
+  document.getElementById('q-fb').textContent = '';
+  document.getElementById('q-next').style.display = 'none';
+  const box = document.getElementById('opts'); box.innerHTML = '';
+  q.options.forEach((opt, i) => {
+    const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+    b.onclick = () => ansDaily(i, b); box.appendChild(b);
+  });
+}
+async function ansDaily(i, btn) {
+  document.querySelectorAll('#opts .opt').forEach(b => { b.disabled = true; });
+  btn.classList.add('picked');
+  const d = await api('/api/portal/answer', {token, idx: cur, choice: i});
+  const fb = document.getElementById('q-fb');
+  if (!d.ok) { fb.textContent = d.error || ''; return; }
+  if (d.correct) { score = d.score; fb.innerHTML = '✅ Correct! ' + (d.explanation ? '<span class="muted">' + esc(d.explanation) + '</span>' : ''); }
+  else { fb.innerHTML = '❌ Wrong. Correct: <b>' + esc(d.answer_text) + '</b>' + (d.explanation ? '<br><span class="muted">' + esc(d.explanation) + '</span>' : ''); }
+  document.getElementById('q-score').textContent = '✅ ' + (d.score || score);
+  if (d.done) { fb.innerHTML += '<br>🎉 Daily Quiz complete! Home lo rank chudandi.'; document.getElementById('q-next').textContent = '🏠 Home'; }
+  document.getElementById('q-next').style.display = 'block';
+}
+function nextQ() {
+  if (cur + 1 >= QUESTIONS.length) { loadHome(); return; }
+  cur++; renderQ();
+}
+async function startMock(goal) {
+  const d = await api('/api/portal/mock/start', {token, goal});
+  if (!d.ok) { alert('❌ ' + (d.error || 'Mock start avvaledu')); return; }
+  MOCK = d;
+  document.getElementById('m-title').textContent = '📝 ' + d.label;
+  const box = document.getElementById('m-qs'); box.innerHTML = '';
+  d.questions.forEach((q) => {
+    const div = document.createElement('div'); div.id = 'mq' + q.i;
+    div.innerHTML = '<div class="qte" style="margin-top:14px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
+    q.options.forEach((opt, oi) => {
+      const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+      b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.answers[q.i] = oi; };
+      div.appendChild(b);
+    });
+    box.appendChild(div);
+  });
+  show('view-mock');
+  let left = (d.minutes || 15) * 60;
+  const tEl = document.getElementById('m-timer');
+  clearInterval(mockTimer);
+  mockTimer = setInterval(() => {
+    left--; tEl.textContent = '⏱ ' + Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
+    if (left <= 0) { clearInterval(mockTimer); submitMock(); }
+  }, 1000);
+}
+async function submitMock() {
+  clearInterval(mockTimer);
+  if (!MOCK) return;
+  const answers = {};
+  Object.entries(MOCK.answers || {}).forEach(([k, v]) => { answers[k] = v; });
+  const d = await api('/api/portal/mock/submit', {token, run_id: MOCK.run_id, answers});
+  if (!d.ok) { document.getElementById('m-err').textContent = d.error || ''; return; }
+  document.getElementById('res-score').textContent = d.correct + '/' + d.total;
+  document.getElementById('res-sub').textContent = '🎯 Accuracy ' + d.accuracy + '% · Leaderboard update ayindi!';
+  document.getElementById('res-review').innerHTML = (d.review || []).map(r => {
+    const q = (d.questions || [])[r.i] || {};
+    const opts = q.options || [];
+    return '<div class="rrow ' + (r.right ? 'ok' : 'bad') + '"><b>Q' + (r.i + 1) + '.</b> ' + esc(q.en || q.te || '') +
+      '<br><span class="muted">Meeru: ' + esc(opts[r.given] || '— (attempt cheyyaledu)') + (r.right ? ' ✅' : ' ❌ · Correct: ' + esc(opts[r.answer] || '')) + '</span>' +
+      (q.explanation ? '<br><span class="muted">💡 ' + esc(q.explanation) + '</span>' : '') + '</div>';
+  }).join('');
+  MOCK = null;
+  show('view-result');
+}
+init();
+</script>
+</body>
+</html>
+"""
+
 
 WEB_EXAM_HTML = """<!DOCTYPE html>
 <html lang="en">
@@ -5751,7 +6046,34 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         # 🌍 Public Website + AdSense kit — login akkarledu
         if p.path == "/" and not self._authed():
-            self._send_html(public_page(self, "home"))
+            _host = (self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or "").split(":")[0]
+            if _host.split(".")[0].lower() in ("quiz", "exam", "app", "portal"):
+                self._send_html(PORTAL_HTML)   # 🌐 subdomain = student portal
+            else:
+                self._send_html(public_page(self, "home"))
+            return
+        if p.path == "/portal":
+            self._send_html(PORTAL_HTML)
+            return
+        if p.path == "/api/portal/meta":
+            from core import districts as _D
+            self._send_json({"ok": True,
+                             "districts": ([{"name": x[0], "state": "AP"} for x in _D.AP_DISTRICTS]
+                                           + [{"name": x[0], "state": "TG"} for x in _D.TS_DISTRICTS]),
+                             "goals": {k: v["label"] for k, v in portal.GOALS.items()}})
+            return
+        if p.path == "/api/portal/state":
+            query = urllib.parse.parse_qs(p.query)
+            st = portal.state(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": bool(st), **(st or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/quiz":
+            query = urllib.parse.parse_qs(p.query)
+            qq = portal.daily_questions(Members(), query.get("token", [""])[0])
+            if qq is None:
+                self._send_json({"ok": False, "error": "session expired"})
+            else:
+                self._send_json({"ok": True, **qq})
             return
         if p.path in PUBLIC_PAGE_PATHS:
             self._send_html(public_page(self, PUBLIC_PAGE_PATHS[p.path]))
@@ -6264,6 +6586,32 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "wrong password"}, code=401)
             return
         # 🌐 Student Web Exam APIs — login akkarledu
+        # 🎓 Student Portal APIs — login akkarledu
+        if p.path == "/api/portal/register":
+            ok, info = portal.register_student(
+                Members(), body.get("name", ""), body.get("phone", ""),
+                body.get("district", ""), body.get("goal", "mixed"))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/answer":
+            try:
+                ok, info = portal.daily_answer(
+                    Members(), body.get("token", ""),
+                    int(body.get("idx") or 0),
+                    int(body.get("choice") if body.get("choice") is not None else -1))
+            except Exception as ex:
+                ok, info = False, str(ex)
+            self._send_json({"ok": ok, **(info if ok and isinstance(info, dict) else {"error": info})})
+            return
+        if p.path == "/api/portal/mock/start":
+            ok, info = portal.mock_start(Members(), body.get("token", ""), body.get("goal", "mixed"))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/mock/submit":
+            ok, info = portal.mock_submit(Members(), body.get("token", ""),
+                                          body.get("run_id", ""), body.get("answers") or {})
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
         if p.path == "/api/exam/join":
             ok, info = campus.web_join(
                 Members(), (body.get("code") or "").strip(),

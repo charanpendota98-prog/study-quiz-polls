@@ -14,6 +14,12 @@ data/question_bank_extra.json
 data/shown_signatures.json
 data/ca_digest_curated.json
 data/collector_health.json
+data/metrics.json
+data/feature_flags.json
+data/audit_log.jsonl
+data/pulse_settings.json
+data/exam_events.json
+data/reaction_polls.json
 logs/*.log
 
 # Python
@@ -65,3 +71,7 @@ data/dashboard_auth.json
 data/broadcast_history.json
 data/login_audit.json
 data/backups/
+data/item_stats.json
+gateway/wa_polls_*.json
+data/certificates/
+data/portal.json
