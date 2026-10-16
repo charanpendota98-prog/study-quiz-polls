@@ -1091,6 +1091,18 @@ NEWS_FEEDS = {
 }
 
 
+def _file_extras(built_names: set) -> list:
+    """Registry file lo unna extra candidates (v3/v4 rounds lo add
+    chesinavi) — rebuild chesina kuda avi pokudadhu. Generator list
+    ni file tho merge chestam, file ni shrink cheyyam."""
+    try:
+        current = json.loads(OUT.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    return [row for row in current.get("sources", [])
+            if row.get("name") not in built_names]
+
+
 def build() -> dict:
     return {
         "version": "4.2",
@@ -1117,7 +1129,7 @@ def build() -> dict:
             "auto_pause_after_failures": 3,
         },
         "news_feeds": NEWS_FEEDS,
-        "sources": SOURCES,
+        "sources": SOURCES + _file_extras({row["name"] for row in SOURCES}),
     }
 
 

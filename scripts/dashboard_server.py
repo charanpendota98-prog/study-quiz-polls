@@ -116,7 +116,8 @@ PUBLIC_PAGE_PATHS = {"/site": "home", "/about": "about", "/privacy": "privacy",
                      "/terms": "terms", "/contact": "contact", "/study": "study",
                      "/updates": "updates", "/winners": "winners",
                      "/toppers": "toppers", "/materials": "materials",
-                     "/blog": "blog"}
+                     "/blog": "blog", "/papers": "papers",
+                     "/exams": "exams"}
 
 
 def _adsense_client():
@@ -344,7 +345,20 @@ def _pub_bodies(bot, contact_email):
   __MATERIALS__
   <div class="card" style="margin-top:14px;"><h3>🚀 Ippude Start Cheyyandi</h3><p>Daily Quiz + Topic Practice + Weekly Grand Test — anni free. Portal open chesi, register ayyi, mee goal select cheskondi.</p><p style="margin-top:8px;"><a href="/portal">🎓 Student Portal Open Cheyyandi →</a></p></div>
 """
+    papers = """
+  <h2 class="sec">📜 Previous Year Papers (Real PYQ)</h2>
+  <div class="txt"><p>Nijamaina previous-year exam questions — anni StudentUp bank lo nunche vastayi, counts kuda nijame (unna papers matrame chupistam). Full paper ni timer tho attempt chesi score, answer key, review teeskovachu.</p></div>
+  __PAPERS__
+  <div class="card" style="margin-top:14px;"><h3>🚀 Paper Attempt Cheyyandi</h3><p>Portal lo register ayyi — Previous Papers card lo Start nokkandi. Weekly Grand Test (Sunday 10 AM) kuda PYQ-first papers eh.</p><p style="margin-top:8px;"><a href="/portal">🎓 Student Portal →</a></p></div>
+"""
+    exams = """
+  <h2 class="sec">🎓 Exams Hub — anni goals okka chota</h2>
+  <div class="txt"><p>TSPSC, APPSC, SSC, Banking, Railway, Police, Defence — prathi goal ki daily quiz, mocks, live exams, previous papers. Mee goal select cheskunte paper aa exam pattern lone vasthundi.</p></div>
+  __EXAMS__
+  <div class="card" style="margin-top:14px;"><h3>🧠 Smart ga Start Cheyyandi</h3><p>Exam goal select cheyyandi → Daily Quiz → Smart Practice (mee level ki) → Weekly Grand Test. Brain readiness score mee preparation ni measure chestundi.</p><p style="margin-top:8px;"><a href="/portal">🎓 Portal Open Cheyyandi →</a></p></div>
+"""
     return {"home": home, "study": study, "about": about,
+            "papers": papers, "exams": exams,
             "privacy": privacy, "terms": terms, "contact": contact,
             "updates": updates, "winners": winners, "toppers": toppers_pg,
             "materials": materials}
@@ -366,7 +380,9 @@ def public_page(handler, page):
               "winners": "Hall of Fame — StudentUp Winners",
               "toppers": "Toppers of Week, Month & Year — StudentUp",
               "materials": "Study Materials & Exam Plans — StudentUp",
-              "blog": "Blog — StudentUp Exam Guides & Articles"}
+              "blog": "Blog — StudentUp Exam Guides & Articles",
+              "papers": "Previous Year Papers (PYQ) — StudentUp",
+              "exams": "Exams Hub — StudentUp"}
     bodies = _pub_bodies(bot, email)
     body = bodies.get(page, bodies["home"])
     try:
@@ -415,6 +431,31 @@ def public_page(handler, page):
     except Exception:
         _mhtml = '<div class="card"><p>Materials loading…</p></div>'
     body = body.replace("__MATERIALS__", _mhtml)
+    try:
+        _papers = portal.paper_catalog()
+        _phtml = "".join(
+            f'<div class="card" style="margin-bottom:10px;"><h3>📜 {r["label"]}</h3>'
+            f'<p>{r["count"]} real previous-year questions · {", ".join(r["channels"]) or r["exam"]}</p>'
+            f'<p style="margin-top:6px;"><a href="/portal">Full Paper Attempt Cheyyandi →</a></p></div>'
+            for r in _papers) or '<div class="card"><p>Papers harvest avuthunnayi — prathi roju kottha sets add avuthayi. First sets thondaralo ikkade!</p></div>'
+        _cov = portal.pyq_coverage_public() if hasattr(portal, "pyq_coverage_public") else {}
+        _total_pyq = sum(r["count"] for r in _papers)
+        _phtml = (f'<div class="card" style="margin-bottom:10px;"><h3>📊 Bank lo ippudu {_total_pyq} real PYQ questions · {len(_papers)} full paper sets</h3>'
+                  '<p>Harvest prathi roju (02:15 + 13:45) kottha official papers testhundi — count daily ga peruguthundi.</p></div>') + _phtml
+    except Exception:
+        _phtml = '<div class="card"><p>Papers loading…</p></div>'
+    body = body.replace("__PAPERS__", _phtml)
+    try:
+        _goals = portal.GOALS
+        _stock = portal.exam_stock()
+        _ehtml = "".join(
+            f'<div class="card" style="margin-bottom:10px;"><h3>{v["label"]}</h3>'
+            f'<p>📜 {_stock.get(k, {}).get("pyq", 0)} real PYQ questions in bank · Daily Quiz + Mocks + Live Exams</p>'
+            f'<p style="margin-top:6px;"><a href="/portal">Ee goal tho Start Cheyyandi →</a></p></div>'
+            for k, v in _goals.items())
+    except Exception:
+        _ehtml = '<div class="card"><p>Exams loading…</p></div>'
+    body = body.replace("__EXAMS__", _ehtml)
     body = body.replace("__WINNERS__", _whtml)
     try:
         _nts = portal.list_notices(20)
@@ -446,7 +487,7 @@ __CANONICAL____ADSHEAD__
 <div class="nav">
   <span class="logo">🎓 StudentUp</span>
   <a href="/">🏠 Home</a><a href="/study">📚 Study Guide</a><a href="/about">ℹ️ About</a>
-  <a href="/privacy">🔐 Privacy</a><a href="/blog">📰 Blog</a><a href="/materials">📚 Materials</a><a href="/updates">📢 Updates</a><a href="/winners">🏆 Winners</a><a href="/toppers">👑 Toppers</a><a href="/contact">✉️ Contact</a>
+  <a href="/privacy">🔐 Privacy</a><a href="/blog">📰 Blog</a><a href="/materials">📚 Materials</a><a href="/updates">📢 Updates</a><a href="/winners">🏆 Winners</a><a href="/toppers">👑 Toppers</a><a href="/papers">📜 Papers</a><a href="/exams">🎓 Exams</a><a href="/contact">✉️ Contact</a>
   <a class="login" href="/login">🔑 Organiser Login</a>
   <span>🎨 <button class="tchip" onclick="setSiteTheme('')">🌙</button> <button class="tchip" onclick="setSiteTheme('ocean')">🌊</button> <button class="tchip" onclick="setSiteTheme('sunset')">🌅</button> <button class="tchip" onclick="setSiteTheme('forest')">🌲</button> <button class="tchip" onclick="setSiteTheme('light')">☀️</button></span>
 </div>
@@ -483,7 +524,8 @@ def robots_txt(handler):
 def sitemap_xml(handler):
     base = _public_base(handler)
     urls = ["/", "/study", "/blog", "/materials", "/updates", "/winners",
-            "/toppers", "/about", "/privacy", "/terms", "/contact"]
+            "/toppers", "/papers", "/exams", "/about", "/privacy", "/terms",
+            "/contact"]
     items = "".join(f"<url><loc>{base}{u}</loc></url>" for u in urls)
     return ('<?xml version="1.0" encoding="UTF-8"?>'
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
@@ -807,6 +849,11 @@ PORTAL_HTML = """<!DOCTYPE html>
       <h3>🧠 Student Brain 3.0</h3>
       <div id="brain-card"></div>
     </div>
+    <div class="card">
+      <h3>📜 Previous Papers (Real PYQ)</h3>
+      <div id="plan-card" style="margin-bottom:10px;"></div>
+      <div id="papers-list"><div class="muted">Loading papers…</div></div>
+    </div>
 
     <div class="card">
       <h3>🎯 Naa Personal Report</h3>
@@ -1089,6 +1136,7 @@ async function loadHome() {
   document.getElementById('board-daily').innerHTML = rows(d.daily_board, 'Inka evaru ee roju quiz complete cheyyaledu — meeru first avandi! 🔥');
   document.getElementById('board-mock').innerHTML = rows(d.mock_board, 'Inka mock leaders leru — okka mock raasi board meeda vacheyyandi!');
   document.getElementById('board-win').innerHTML = rows(d.yesterday_winners, 'Ninna winners inka leru.');
+  renderPlan(d.today_plan); renderPapers(d.papers || []);
   renderLiveExams(d.live_exams || []); cdTick();
   document.getElementById('winners-wall').innerHTML = (d.winners_wall || []).map(w =>
     '<div style="margin-top:8px;"><b style="font-size:13px;">' + esc(w.title) + '</b>' + rows(w.winners, '') + '</div>').join('') || '<div class="muted">Inka winners leru — Weekly Grand Test (Sunday 10 AM) first!</div>';
@@ -1133,6 +1181,49 @@ async function ansDaily(i, btn) {
 function nextQ() {
   if (cur + 1 >= QUESTIONS.length) { loadHome(); return; }
   cur++; renderQ();
+}
+function renderPlan(plan) {
+  const el = document.getElementById('plan-card');
+  if (!el) return;
+  if (!plan) { el.innerHTML = ''; return; }
+  const rows = (plan.tasks || []).map(t =>
+    '<div style="display:flex; gap:8px; align-items:center; margin:4px 0;"><span>' + (t.done ? '✅' : '⬜') + '</span><span>' + t.icon + ' <b>' + esc(t.label) + '</b>' + (t.count ? ' (' + t.count + ')' : '') + '</span><span class="muted">' + esc(t.hint || '') + '</span></div>').join('');
+  el.innerHTML = '<b>🧭 Today\'s Smart Plan</b> <span class="chip">' + plan.done_count + '/' + plan.total + ' done</span>' +
+    (plan.readiness != null ? ' <span class="chip gold">Readiness ' + plan.readiness + '%</span>' : '') + rows;
+}
+function renderPapers(papers) {
+  const el = document.getElementById('papers-list');
+  if (!el) return;
+  if (!papers.length) { el.innerHTML = '<div class="muted">Inka real PYQ papers load avuthunnayi — Daily Quiz lo daily ga vastundi, harvest prathi roju papers penchuthundi.</div>'; return; }
+  el.innerHTML = papers.map(pp =>
+    '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin:6px 0; padding:8px 10px; background:rgba(56,189,248,0.07); border-radius:9px;"><span>📜 <b>' + esc(pp.label) + '</b> <span class="muted">' + pp.count + ' questions</span></span>' +
+    '<button class="btn-alt" style="width:auto; margin:0;" onclick="startPaper(\'' + esc(pp.exam) + '\',\'' + esc(pp.year || '') + '\',\'' + esc(pp.paper || '') + '\')">Start ▶</button></div>').join('') +
+    '<div class="muted" style="margin-top:6px;">Full paper = timer test. Submit taruvatha score + answer key + review vastundi.</div>';
+}
+async function startPaper(exam, year, paper) {
+  const d = await api('/api/portal/paper/start', {token, exam, year, paper});
+  if (!d.ok) { alert('❌ ' + (d.error || 'Paper start avvaledu')); return; }
+  MOCK = d;
+  document.getElementById('m-title').textContent = '📜 ' + d.label;
+  const box = document.getElementById('m-qs'); box.innerHTML = '';
+  d.questions.forEach((q) => {
+    const div = document.createElement('div'); div.id = 'mq' + q.i;
+    div.innerHTML = '<div class="qte" style="margin-top:14px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
+    q.options.forEach((opt, oi) => {
+      const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+      b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.answers[q.i] = oi; };
+      div.appendChild(b);
+    });
+    box.appendChild(div);
+  });
+  show('view-mock');
+  let left = (d.minutes || 15) * 60;
+  const tEl = document.getElementById('m-timer');
+  clearInterval(mockTimer);
+  mockTimer = setInterval(() => {
+    left--; tEl.textContent = '⏱ ' + Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
+    if (left <= 0) { clearInterval(mockTimer); submitMock(); }
+  }, 1000);
 }
 async function startMock(goal) {
   const d = await api('/api/portal/mock/start', {token, goal});
@@ -6997,6 +7088,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
             st = portal.state(Members(), query.get("token", [""])[0])
             self._send_json({"ok": bool(st), **(st or {"error": "session expired"})})
             return
+
+        if p.path == "/api/portal/paper/catalog":
+            self._send_json({"ok": True, "papers": portal.paper_catalog()})
+            return
         if p.path == "/api/portal/exam":
             query = urllib.parse.parse_qs(p.query)
             ex = portal.exam_questions(Members(), query.get("token", [""])[0],
@@ -7654,6 +7749,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
             except Exception as ex:
                 ok, info = False, str(ex)
             self._send_json({"ok": ok, **(info if ok and isinstance(info, dict) else {"error": info})})
+            return
+        if p.path == "/api/portal/paper/start":
+            ok, info = portal.paper_start(Members(), body.get("token", ""),
+                                          body.get("exam", ""),
+                                          body.get("year", ""),
+                                          body.get("paper", ""))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/paper/catalog":
+            self._send_json({"ok": True, "papers": portal.paper_catalog()})
             return
         if p.path == "/api/portal/practice/start":
             ok, info = portal.practice_start(Members(), body.get("token", ""),

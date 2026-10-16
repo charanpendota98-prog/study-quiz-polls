@@ -8168,6 +8168,923 @@
     "note": "v3 wave candidate — auto-enable after live content check"
    },
    "feed": "https://www.agniveerprep.in/feed"
+  },
+  {
+   "name": "Biren Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "bpsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://bpsc.bihar.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "UKPSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "ukpsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://psc.uk.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "CGPSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "cgpsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://psc.cg.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "JPSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "jpsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.jpsc.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "OPSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "opsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.opsc.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "APSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "apsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://apsc.nic.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "MPSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "mpsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://mpsc.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "GPSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "gpsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://gpsc.gujarat.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "HPPSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "hppsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.hppsc.hp.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "JKPSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "jkpsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://jkpsc.nic.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "Tripura PSC Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "tpsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://tpsc.tripura.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "Manipur PSC Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "mpsc-mn",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://mpscmanipur.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "Arunachal PSC Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "appsc-ar",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://appsc.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "Sikkim PSC Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "spsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://spsc.sikkim.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "Nagaland PSC Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "npsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://npsc.nagaland.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "Mizoram PSC Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "mzpsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://mpsc.mizoram.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "Goa PSC Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "gpsc-goa",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://gpsc.goa.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "UPSC Official Papers",
+   "enabled": false,
+   "type": "index",
+   "exam": "upsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.upsc.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "SBI Careers Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "banking",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://sbi.co.in/web/careers",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "RBI Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "banking",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.rbi.org.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "RRB CDG Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "railway",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.rrbcdg.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "RRB Secunderabad Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "railway",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://rrbsecunderabad.nic.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "Indian Army Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "defence",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://joinindianarmy.nic.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "Indian Airforce Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "defence",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://indianairforce.nic.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "Indian Navy Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "defence",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.joinindiannavy.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "DRDO Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "defence",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.drdo.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "ISRO Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "science",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.isro.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "CTET Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "teaching",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://ctet.nic.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "UGC NET Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "teaching",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://ugcnet.nta.ac.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "CSIR NET Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "science",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://csirnet.nta.ac.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "NEET Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "medical",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://neet.nta.nic.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "JEE Main Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "engineering",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://jeemain.nta.ac.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "GATE Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "engineering",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://gate2026.iitg.ac.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "ICAR Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "agriculture",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://icar.org.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "India Post GDS Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "postal",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://indiapostgdsonline.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "EPFO Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "ssc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.epfindia.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "ESIC Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "ssc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.esic.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "FCI Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "ssc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://fci.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "SEBI Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "banking",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.sebi.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "NABARD Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "banking",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.nabard.org/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "LIC Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "insurance",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://licindia.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "NIACL Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "insurance",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.newindia.co.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "TS Police Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "police",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.tslprb.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "AP Police Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "police",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://slprb.ap.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "TG DSC TRT Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "teaching",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://tgdsc.apcfss.aptonline.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "EAMCET TS Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "engineering",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://eapcet.tgche.ac.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "AP EAPCET Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "engineering",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://cets.apsche.ap.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "POLYCET TS Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "polytechnic",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://polycet.sbtet.telangana.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "SBTET TS Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "polytechnic",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.sbtet.telangana.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "SBTET AP Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "polytechnic",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://sbtet.ap.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "Examrace RSS",
+   "enabled": false,
+   "type": "rss",
+   "exam": "upsc",
+   "feed": "https://www.examrace.com/feed/",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 coverage candidate-only; auditor content-gates"
+   }
+  },
+  {
+   "name": "BYJU'S Exam Prep RSS",
+   "enabled": false,
+   "type": "rss",
+   "exam": "banking",
+   "feed": "https://byjus.com/govt-exams/feed/",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 coverage candidate-only; auditor content-gates"
+   }
+  },
+  {
+   "name": "JagranJosh RSS",
+   "enabled": false,
+   "type": "rss",
+   "exam": "gk",
+   "feed": "https://www.jagranjosh.com/rss-feeds",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 coverage candidate-only; auditor content-gates"
+   }
+  },
+  {
+   "name": "Freshersworld RSS",
+   "enabled": false,
+   "type": "rss",
+   "exam": "jobs",
+   "feed": "https://www.freshersworld.com/rss",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 coverage candidate-only; auditor content-gates"
+   }
+  },
+  {
+   "name": "ExamsDaily RSS",
+   "enabled": false,
+   "type": "rss",
+   "exam": "gk",
+   "feed": "https://examsdaily.in/feed/",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 coverage candidate-only; auditor content-gates"
+   }
+  },
+  {
+   "name": "Aglasem RSS",
+   "enabled": false,
+   "type": "rss",
+   "exam": "education",
+   "feed": "https://aglasem.com/feed/",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 coverage candidate-only; auditor content-gates"
+   }
+  },
+  {
+   "name": "Collegedunia RSS",
+   "enabled": false,
+   "type": "rss",
+   "exam": "education",
+   "feed": "https://collegedunia.com/feed/",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 coverage candidate-only; auditor content-gates"
+   }
+  },
+  {
+   "name": "Careers360 RSS",
+   "enabled": false,
+   "type": "rss",
+   "exam": "education",
+   "feed": "https://www.careers360.com/rss",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 coverage candidate-only; auditor content-gates"
+   }
+  },
+  {
+   "name": "Shiksha RSS",
+   "enabled": false,
+   "type": "rss",
+   "exam": "education",
+   "feed": "https://www.shiksha.com/rss",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 coverage candidate-only; auditor content-gates"
+   }
   }
  ],
  "last_expansion": "2026-09-11"

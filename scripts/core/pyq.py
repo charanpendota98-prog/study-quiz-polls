@@ -347,6 +347,43 @@ def harvest(dry=False, only=None, limit=None, llm=None):
     return stats
 
 
+def papers_index(min_q: int = 5) -> list:
+    """📜 Real PYQ paper index: bank loni previous-year questions ni
+    exam (+ year + paper) batti group chesi FULL-paper sets ga
+    isthundi. Year unna papers first, tarvatha pedda sets.
+    Honest counts — bank lo unna questions matrame count avuthayi."""
+    import collections
+    try:
+        from .question_bank import load_bank
+        qs = load_bank()
+    except Exception:
+        return []
+    groups = collections.defaultdict(list)
+    for q in qs:
+        if q.get("source") != "pyq":
+            continue
+        exam = (q.get("exam") or "").strip()
+        if not exam:
+            continue
+        year = q.get("year")
+        paper = (q.get("paper") or "").strip()
+        groups[(exam, str(year) if year else "", paper)].append(q)
+    out = []
+    for (exam, year, paper), items in groups.items():
+        if len(items) < int(min_q or 5):
+            continue
+        label = exam + (f" {year}" if year else "") + (f" · {paper}" if paper else "")
+        out.append({
+            "exam": exam, "year": year, "paper": paper, "label": label,
+            "count": len(items),
+            "ids": [q.get("id") for q in items],
+            "channels": sorted({q.get("channel", "") for q in items
+                                if q.get("channel")}),
+        })
+    out.sort(key=lambda r: (0 if r["year"] else 1, -r["count"], r["exam"]))
+    return out
+
+
 def by_channel():
     """Exam-wise real-PYQ coverage — prati channel ki enni previous-year
     questions bank lo unnayo (harvest priority + admin visibility)."""

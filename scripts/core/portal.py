@@ -481,7 +481,15 @@ def state(members, token):
         _brain_card = _brain.profile_for(_member(members, uid), uid)
     except Exception:
         _brain_card = None
-    return {"student": prof, "brain": _brain_card,
+    _plan = None
+    try:
+        _plan = today_plan(members, token)
+    except Exception:
+        _plan = None
+    return {"student": prof, "brain": _brain_card, "today_plan": _plan,
+            "papers": [{"label": r["label"], "exam": r["exam"],
+                        "year": r["year"], "paper": r["paper"],
+                        "count": r["count"]} for r in paper_catalog()],
             "goals": {k: v["label"] for k, v in GOALS.items()},
             "notices": list_notices(3),
             "toppers": toppers_all(members),
@@ -628,7 +636,8 @@ def mock_submit(members, token, run_id, answers):
     run["finished"] = _now().isoformat()
     d.setdefault("mock_board", []).append(
         {"uid": uid, "name": prof["name"], "district": prof["district"],
-         "goal": run["goal"], "run_id": run_id, "correct": correct, "total": len(run["qs"]),
+         "goal": run.get("paper_label") or run["goal"], "run_id": run_id,
+         "correct": correct, "total": len(run["qs"]),
          "pts": correct * PTS_MOCK, "date": _today()})
     d["mock_board"] = d["mock_board"][-300:]
     _save(d, flush=True)
@@ -1272,6 +1281,97 @@ def practice_answer(members, token, run_id, idx, choice):
                   "answered": len(run["answers"]), "total_q": len(run["qs"]),
                   "score": run["correct"],
                   "done": len(run["answers"]) >= len(run["qs"])}
+
+
+# ------------------------------------------------- previous papers (PYQ)
+def paper_catalog() -> list:
+    """📜 Attempt cheyyadaniki ready ga unna real PYQ paper sets."""
+    try:
+        from . import pyq as _pyq
+        return _pyq.papers_index(min_q=5)
+    except Exception:
+        return []
+
+
+@_locked
+def paper_start(members, token, exam, year="", paper=""):
+    """📜 FULL previous-paper attempt: aa paper questions anni okka
+    timer run la — score + review mock-submit tho ne (kind='paper')."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return False, "Session expired — malli login avandi."
+    cat = None
+    for row in paper_catalog():
+        if (row["exam"] == exam and str(row.get("year") or "") == str(year or "")
+                and str(row.get("paper") or "") == str(paper or "")):
+            cat = row
+            break
+    if not cat:
+        return False, "Aa paper bank lo dorakaledu — vere paper try cheyyandi."
+    try:
+        from .question_bank import Bank
+        bank = Bank()
+        picked = [bank.by_id(qid) for qid in cat["ids"]]
+        picked = [q for q in picked if q]
+    except Exception:
+        picked = []
+    if len(picked) < 3:
+        return False, "Paper questions ready ga levu."
+    run_id = "PP-" + secrets.token_hex(4)
+    d.setdefault("mocks", {})[run_id] = {
+        "uid": uid, "goal": "paper", "kind": "paper",
+        "paper_label": cat["label"],
+        "qs": [_snap(q) for q in picked], "answers": {}, "done": False,
+        "started": _now().isoformat()}
+    for k in list(d["mocks"])[:-120]:
+        d["mocks"].pop(k, None)
+    _save(d)
+    mins = max(5, round(len(picked) * 1.2))
+    return True, {"run_id": run_id, "goal": "paper",
+                  "label": f"📜 {cat['label']} — Full Paper",
+                  "minutes": mins, "paper_label": cat["label"],
+                  "questions": _serve(d["mocks"][run_id]["qs"], run_id, {})}
+
+
+def today_plan(members, token):
+    """🧭 TODAY'S SMART PLAN: student ki ee roju emi cheyyalo okka
+    checklist (daily quiz, revision due, weak-topic practice, mock,
+    brain readiness) — advanced lopala, easy bayata."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return None
+    d = _load()
+    day = _daily_paper(d)
+    prof = _profile(members, uid)
+    m = _member(members, uid)
+    run = (day.get("runs") or {}).get(uid)
+    try:
+        from . import brain as _brain
+        bp = _brain.profile_for(m, uid)
+    except Exception:
+        bp = None
+    tasks = [
+        {"key": "daily", "icon": "📝", "label": "Daily Quiz",
+         "done": bool(run and run.get("done")),
+         "hint": "10 questions · points + streak"},
+        {"key": "review", "icon": "🔁", "label": "Revision Due",
+         "done": (bp or {}).get("reviews_due", 0) == 0,
+         "count": (bp or {}).get("reviews_due", 0),
+         "hint": "tappu chesina questions malli practice"},
+        {"key": "smart", "icon": "🧠", "label": "Smart Practice",
+         "done": False, "hint": "mee level + weak topics adaptive round"},
+        {"key": "mock", "icon": "📄", "label": f"{prof['goal'].upper()} Mock Test",
+         "done": any(r.get("uid") == uid and r.get("date") == _today()
+                     for r in (d.get("mock_board") or [])),
+         "hint": "15 Qs · timer · leaderboard"},
+    ]
+    return {"date": _today(), "readiness": (bp or {}).get("score"),
+            "band": (bp or {}).get("band", ""),
+            "tasks": tasks,
+            "done_count": sum(1 for t in tasks if t["done"]),
+            "total": len(tasks)}
 
 
 # ------------------------------------------------- referrals + my report
