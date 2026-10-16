@@ -33,6 +33,7 @@ _BOT_USERNAME_CACHE = {"name": "", "ts": 0}
 
 
 _PYQ_JOB = {"running": False, "last": ""}
+_REPORT_JOB = {"running": False, "sent": 0, "failed": 0, "total": 0, "last": ""}
 
 
 def _public_base(handler=None):
@@ -288,6 +289,8 @@ def public_page(handler, page):
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>__TITLE__</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0b1329">
 <meta name="description" content="StudentUp: free quiz polls, previous-year questions and browser-based college exams for AP & Telangana students (EAMCET, NEET, SSC, RRB, APPSC/TSPSC).">
 __CANONICAL____ADSHEAD__
 <style>__CSS__</style>
@@ -300,6 +303,7 @@ __CANONICAL____ADSHEAD__
   <a class="login" href="/login">🔑 Organiser Login</a>
 </div>
 <div class="wrap">__BODY__</div>
+<script>if ('serviceWorker' in navigator) { try { navigator.serviceWorker.register('/sw.js'); } catch (e) {} }</script>
 <footer>
   © StudentUp · Free study practice for AP &amp; Telangana students<br>
   <a href="/about">About</a><a href="/privacy">Privacy Policy</a><a href="/terms">Terms</a><a href="/contact">Contact</a>
@@ -480,6 +484,7 @@ PORTAL_HTML = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>StudentUp Portal — Daily Quiz & Mock Tests</title>
+<link rel="manifest" href="/manifest.json">
 <style>
   * { box-sizing: border-box; margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
   body { min-height: 100vh; background: radial-gradient(circle at 30% 10%, #12315e 0%, #050811 70%); color: #e2e8f0; padding: 16px 12px 50px; }
@@ -516,6 +521,7 @@ PORTAL_HTML = """<!DOCTYPE html>
   .rrow { padding: 9px 11px; border-radius: 10px; margin-top: 6px; font-size: 12.5px; line-height: 1.55; background: #0f1e38; }
   .rrow.ok { border-left: 4px solid #10b981; } .rrow.bad { border-left: 4px solid #ef4444; }
   .timer { color: #facc15; font-weight: 800; }
+  .tbar { height: 8px; background: #12233f; border-radius: 99px; overflow: hidden; }
 </style>
 </head>
 <body>
@@ -590,6 +596,24 @@ PORTAL_HTML = """<!DOCTYPE html>
     <div class="card">
       <h3>🎯 Naa Personal Report</h3>
       <div id="report"></div>
+      <div id="report-full" style="margin-top:10px;"></div>
+      <div class="row">
+        <button class="btn-alt" style="flex:1;" onclick="loadReport()">📊 Full Report Chudu</button>
+        <button class="btn-alt" style="flex:1;" id="wa-share">📲 Report WhatsApp ki</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🤝 Friends ni Invite Cheyyi — Points Pondi</h3>
+      <p class="muted">Mee link tho join ayina prati friend ki meeru <b>+50 points</b> bonus! Rank ki help avthundi.</p>
+      <div class="row" style="margin-top:8px;">
+        <input id="ref-link" readonly style="flex:1; font-size:13px;">
+        <button class="btn-main" style="width:auto; margin-top:0; padding:11px 14px;" onclick="copyRef()">📋 Copy</button>
+        <button class="btn-alt" style="width:auto; margin-top:0;" id="ref-share">📲 Share</button>
+      </div>
+      <div id="my-invites" class="muted" style="margin-top:8px;"></div>
+      <h3 style="margin-top:12px;">👥 Top Referrers</h3>
+      <div id="board-ref"></div>
     </div>
 
     <div class="card">
@@ -676,6 +700,8 @@ function rows(list, emptyMsg) {
   return list.map((t, i) => '<div class="trow"><span>' + (['🥇','🥈','🥉'][i] || (i + 1)) + '</span><b>' + esc(t.name) + '</b><span class="muted">' + esc(t.district || '') + '</span><span>✅ ' + t.correct + '/' + (t.total || 10) + ' · ⭐' + t.pts + '</span></div>').join('');
 }
 async function init() {
+  const _ref = new URLSearchParams(location.search).get('ref');
+  if (_ref) localStorage.setItem('su_ref', _ref.toUpperCase());
   const meta = await api('/api/portal/meta');
   GOALS = meta.goals || {};
   const dg = document.getElementById('r-district');
@@ -686,13 +712,31 @@ async function init() {
   Object.entries(GOALS).forEach(([k, v]) => { const o = document.createElement('option'); o.value = k; o.textContent = v; gl.appendChild(o); });
   if (token) { loadHome(); } else { show('view-reg'); }
 }
+function copyRef() {
+  const el = document.getElementById('ref-link');
+  el.select(); navigator.clipboard.writeText(el.value).then(() => alert('✅ Link copied!'));
+}
+async function loadReport() {
+  const d = await api('/api/portal/report?token=' + encodeURIComponent(token));
+  const box = document.getElementById('report-full');
+  if (!d.ok) { box.innerHTML = '<div class="muted">Report load avvaledu.</div>'; return; }
+  const bars = (d.topics || []).map(t =>
+    '<div style="margin-top:7px;"><div class="row"><span style="flex:1; font-size:12.5px;">' + esc(t.topic) + '</span><span class="chip">' + t.correct + '/' + t.total + ' · ' + t.accuracy + '%</span></div>' +
+    '<div class="tbar" style="margin:4px 0 0;"><div style="height:100%; width:' + t.accuracy + '%; background:' + (t.accuracy >= 60 ? '#10b981' : (t.accuracy >= 40 ? '#facc15' : '#ef4444')) + ';"></div></div></div>').join('');
+  const mocks = (d.mocks || []).map(m => '<div class="trow"><span>📝</span><b>' + esc(GOALS[m.goal] || m.goal) + '</b><span class="muted">' + esc(m.date) + '</span><span>✅ ' + m.correct + '/' + m.total + '</span></div>').join('');
+  const exams = (d.exams || []).map(e => '<div class="trow"><span>🔴</span><b>' + esc(e.title) + '</b><span>✅ ' + e.correct + '/' + e.total + '</span></div>').join('');
+  box.innerHTML = '<h3>📚 Topic-wise Performance</h3>' + (bars || '<div class="muted">Inka topic data ledu.</div>') +
+    (mocks ? '<h3 style="margin-top:12px;">📝 Recent Mocks</h3>' + mocks : '') +
+    (exams ? '<h3 style="margin-top:12px;">🔴 My Live Exams</h3>' + exams : '');
+}
 async function doRegister() {
   const err = document.getElementById('reg-err'); err.textContent = '';
   const d = await api('/api/portal/register', {
     name: document.getElementById('r-name').value.trim(),
     phone: document.getElementById('r-phone').value.trim(),
     district: document.getElementById('r-district').value,
-    goal: document.getElementById('r-goal').value});
+    goal: document.getElementById('r-goal').value,
+    ref: localStorage.getItem('su_ref') || ''});
   if (!d.ok) { err.textContent = '❌ ' + (d.error || 'Register avvaledu'); return; }
   token = d.token; localStorage.setItem('su_portal', token);
   loadHome();
@@ -725,6 +769,15 @@ async function loadHome() {
     '<div class="row"><span class="chip">✅ Accuracy ' + s.accuracy + '%</span><span class="chip">✍️ ' + s.answered + ' answered</span><span class="chip gold">⭐ ' + s.points + ' pts</span></div>' +
     (weak ? '<div style="margin-top:9px;"><span class="muted">Mee weak topics — ivvi ekkuva practice cheyyandi:</span><div class="row" style="margin-top:6px;">' + weak + '</div></div>'
           : '<p class="muted" style="margin-top:8px;">Inka data ledu — Daily Quiz & Mocks raasthe mee weak topics ikkada kanipisthayi, personal ga improve avutharu.</p>');
+  const rl = location.origin + '/portal?ref=' + (s.ref_code || '');
+  document.getElementById('ref-link').value = rl;
+  document.getElementById('my-invites').textContent = '👥 Meeru invite chesina friends: ' + (s.referrals || 0) + ' · Bonus earned: ⭐ ' + ((s.referrals || 0) * 50);
+  document.getElementById('ref-share').onclick = () => window.open('https://wa.me/?text=' + encodeURIComponent('🎓 StudentUp lo Daily Quiz + Mocks FREE! Na link tho join avvu: ' + rl), '_blank');
+  document.getElementById('board-ref').innerHTML = rows(d.top_referrers, 'Inka referrals levu — first invite meere cheyyandi!');
+  const rtext = '🎓 ' + s.name + ' — naa StudentUp Report\n⭐ Points: ' + s.points + ' · 🔥 Streak: ' + (s.streak || 0) + ' days\n🎯 Accuracy: ' + s.accuracy + '%\n' +
+    ((s.weak_topics || []).length ? '⚠️ Weak topics: ' + s.weak_topics.map(w => w.topic + ' ' + w.accuracy + '%').join(', ') + '\n' : '') +
+    '📝 Daily Quiz ikkade: ' + location.origin + '/portal';
+  document.getElementById('wa-share').onclick = () => window.open('https://wa.me/?text=' + encodeURIComponent(rtext), '_blank');
   document.getElementById('board-daily').innerHTML = rows(d.daily_board, 'Inka evaru ee roju quiz complete cheyyaledu — meeru first avandi! 🔥');
   document.getElementById('board-mock').innerHTML = rows(d.mock_board, 'Inka mock leaders leru — okka mock raasi board meeda vacheyyandi!');
   document.getElementById('board-win').innerHTML = rows(d.yesterday_winners, 'Ninna winners inka leru.');
@@ -936,6 +989,7 @@ async function showExamResult(id) {
   }).join('') || '<div class="muted">Mee review ledu (answers ivvaledu).</div>';
   show('view-result');
 }
+if ('serviceWorker' in navigator) { try { navigator.serviceWorker.register('/sw.js'); } catch (e) {} }
 init();
 </script>
 </body>
@@ -1946,6 +2000,16 @@ HTML_PAGE = """<!DOCTYPE html>
           <span id="ntc-msg" style="font-size:12px;"></span>
         </div>
         <div id="ntc-list" style="font-size:12.5px; margin-top:8px; color:var(--text-muted);">Loading…</div>
+      </div>
+
+      <div class="panel-card" style="margin-top:16px;">
+        <h3 style="font-size:14px; color:#10b981;">📩 Personal Coach — okko student ki valla report personal ga</h3>
+        <p class="muted" style="font-size:12px; margin-top:6px;">Telegram students andari ki valla <b>points, streak, accuracy, weak topics, revision due</b> personal DM ga velthundi (okkokariki valla report matrame). Web (portal) students ki report portal lone untundi + valla deggara WhatsApp share button undi.</p>
+        <div style="display:flex; gap:8px; margin-top:10px; align-items:center; flex-wrap:wrap;">
+          <button class="btn btn-accent" onclick="sendPersonalReports()">📩 Personal Reports Pampu</button>
+          <button class="btn btn-outline" onclick="reportStatus()">🔄 Status</button>
+          <span id="rep-msg" style="font-size:12px;"></span>
+        </div>
       </div>
 
       <div class="panel-card" style="margin-top:16px;">
@@ -5196,6 +5260,20 @@ All candidates must join today before 9:00 PM!"></textarea>
       if (d.ok) { document.getElementById('ntc-title').value = ''; document.getElementById('ntc-body').value = ''; loadNotices(); }
     }
 
+    async function sendPersonalReports() {
+      const msg = document.getElementById('rep-msg');
+      if (!confirm('Telegram students andari ki personal report DM cheyyala? (okkokariki valla report matrame velthundi)')) return;
+      const d = await (await fetch('/api/portal/admin/send_reports', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'})).json();
+      msg.textContent = d.ok ? '📩 Sending start ayindi — Status chudandi…' : ('❌ ' + d.error);
+      setTimeout(reportStatus, 4000);
+    }
+    async function reportStatus() {
+      const msg = document.getElementById('rep-msg');
+      const d = await (await fetch('/api/portal/admin/reports/status')).json();
+      msg.textContent = d.running ? ('⏳ Sending… ' + d.sent + '/' + d.total + ' (fail ' + d.failed + ')')
+        : ('✅ Last: sent ' + d.sent + ' · fail ' + d.failed + ' · total ' + d.total + (d.last ? ' · ' + d.last : ''));
+    }
+
     async function createPortalExam() {
       const msg = document.getElementById('pex-msg');
       const body = {
@@ -6351,14 +6429,30 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
 
         # 📱 PWA assets — login అవసరం లేదు (browser install కోసం), IP lock apply అవుతుంది
+        if p.path == "/sw.js":
+            self._send_text(
+                "const C='studentup-v3';"
+                "self.addEventListener('install',e=>{self.skipWaiting();"
+                "e.waitUntil(caches.open(C).then(c=>c.addAll(['/portal','/','/icon.svg'])))});"
+                "self.addEventListener('activate',e=>{e.waitUntil(self.clients.claim())});"
+                "self.addEventListener('fetch',e=>{const u=new URL(e.request.url);"
+                "if(e.request.method!=='GET'||u.pathname.startsWith('/api/'))return;"
+                "e.respondWith(fetch(e.request).then(r=>{const cp=r.clone();"
+                "caches.open(C).then(c=>c.put(e.request,cp));return r;})"
+                ".catch(()=>caches.match(e.request)))})",
+                ctype="application/javascript; charset=utf-8")
+            return
+
         if p.path == "/manifest.json":
             body = json.dumps({
-                "name": "StudentUp Control Hub",
+                "name": "StudentUp — Daily Quiz, Mock Tests & Live Exams",
                 "short_name": "StudentUp",
-                "start_url": "/",
+                "description": "Free quiz practice, PYQs, college exams and leaderboards for AP & Telangana students.",
+                "start_url": "/portal",
+                "scope": "/",
                 "display": "standalone",
-                "background_color": "#0b1220",
-                "theme_color": "#0b1220",
+                "background_color": "#050811",
+                "theme_color": "#0b1329",
                 "icons": [{"src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}],
             }).encode("utf-8")
             self.send_response(200)
@@ -6432,6 +6526,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
                                            + [{"name": x[0], "state": "TG"} for x in _D.TS_DISTRICTS]),
                              "goals": {k: v["label"] for k, v in portal.GOALS.items()},
                              "topics": portal.topics_list()})
+            return
+        if p.path == "/api/portal/report":
+            query = urllib.parse.parse_qs(p.query)
+            rp = portal.my_report(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": rp is not None, **(rp or {"error": "session expired"})})
             return
         if p.path == "/api/portal/state":
             query = urllib.parse.parse_qs(p.query)
@@ -6779,6 +6878,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
                                       "generated": _src.get("offline-gen", 0) + _src.get("llm-gen", 0)}})
             return
 
+        if p.path == "/api/portal/admin/reports/status":
+            self._send_json({"ok": True, **_REPORT_JOB})
+            return
+
         if p.path == "/api/portal/admin/notices":
             self._send_json({"ok": True, "notices": portal.list_notices(10)})
             return
@@ -7027,7 +7130,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if p.path == "/api/portal/register":
             ok, info = portal.register_student(
                 Members(), body.get("name", ""), body.get("phone", ""),
-                body.get("district", ""), body.get("goal", "mixed"))
+                body.get("district", ""), body.get("goal", "mixed"),
+                body.get("ref", ""))
             self._send_json({"ok": ok, **(info if ok else {"error": info})})
             return
         if p.path == "/api/portal/answer":
@@ -7279,6 +7383,39 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if p.path == "/api/pyq/import":
             res = pyq.import_csv(body.get("csv", ""), rebuild=True)
             self._send_json({"ok": res.get("added", 0) >= 0, **res})
+            return
+
+        if p.path == "/api/portal/admin/send_reports":
+            if _REPORT_JOB["running"]:
+                self._send_json({"ok": False, "error": "Reports already send avthunnayi."})
+                return
+            if not config.BOT_TOKEN:
+                self._send_json({"ok": False, "error": "BOT_TOKEN .env lo ledu — Telegram reports ki bot kavali."})
+                return
+            _portal_url = config.env("PORTAL_BASE_URL", "").strip() or (_public_base(self) + "/portal")
+
+            def _run_reports():
+                _REPORT_JOB.update({"running": True, "sent": 0, "failed": 0, "total": 0})
+                try:
+                    mb = Members()
+                    tg = Telegram()
+                    targets = [u for u, mm in (mb.members or {}).items()
+                               if str(u).isdigit() and (mm.get("registered") or mm.get("name"))]
+                    _REPORT_JOB["total"] = len(targets)
+                    for u in targets:
+                        try:
+                            tg.send_message(str(u), portal.report_text(mb, u, _portal_url))
+                            _REPORT_JOB["sent"] += 1
+                        except Exception:
+                            _REPORT_JOB["failed"] += 1
+                        time.sleep(0.12)
+                    _REPORT_JOB["last"] = datetime.now().isoformat(timespec="seconds")
+                except Exception as ex:
+                    _REPORT_JOB["last"] = f"error: {ex}"
+                _REPORT_JOB["running"] = False
+
+            _threading.Thread(target=_run_reports, daemon=True).start()
+            self._send_json({"ok": True, "started": True})
             return
 
         if p.path == "/api/portal/admin/notices/create":

@@ -128,7 +128,14 @@ def _serve(qs, seed_prefix, answers):
 
 
 # ---------------------------------------------------------------- register
-def register_student(members, name, phone, district, goal):
+REF_BONUS = 50
+
+
+def _ref_code(uid):
+    return "SU" + str(uid)[-6:]
+
+
+def register_student(members, name, phone, district, goal, ref=""):
     """One-time smart registration: name + mobile + district + exam goal.
     Data lands in the members CRM sheet (same as bot registrations)."""
     from . import districts as D
@@ -145,6 +152,7 @@ def register_student(members, name, phone, district, goal):
         goal = "mixed"
     uid = "w" + digits
     m = members._get(uid)
+    _was_new = not m.get("via") and not m.get("registered")
     m.update({"name": name, "mobile": digits, "phone": digits,
               "district": district, "state_code": D.state_of(district) or "",
               "exam_goal": goal, "goal": goal, "registered": True,
@@ -153,9 +161,33 @@ def register_student(members, name, phone, district, goal):
     token = secrets.token_urlsafe(18)
     d = _load()
     d["sessions"][token] = uid
+    d.setdefault("refcodes", {})[_ref_code(uid)] = uid
+    # 🤝 Referral: kottha student vere student link tho vaste, aa student ki
+    # bonus points (okko sari maatrame, thana code thane vadithe invalid).
+    is_new = _was_new
+    ref_by = ""
+    ref_code = str(ref or "").strip().upper()
+    if is_new and ref_code and ref_code != _ref_code(uid):
+        ref_uid = (d.get("refcodes") or {}).get(ref_code)
+        if not ref_uid:
+            for _cand in (getattr(members, "members", None) or {}):
+                if _ref_code(_cand) == ref_code:
+                    ref_uid = _cand
+                    d.setdefault("refcodes", {})[ref_code] = _cand
+                    break
+        if ref_uid and ref_uid != uid:
+            rm = members._get(ref_uid)
+            rm["points"] = rm.get("points", 0) + REF_BONUS
+            rm["referrals"] = rm.get("referrals", 0) + 1
+            members.kv.save()
+            ref_by = rm.get("name", "")
+            d.setdefault("referral_log", []).append(
+                {"from": ref_uid, "to": uid, "date": _today()})
+            d["referral_log"] = d["referral_log"][-300:]
     _save(d)
     return True, {"token": token, "uid": uid, "name": name,
-                  "district": district, "goal": goal}
+                  "district": district, "goal": goal,
+                  "ref_code": _ref_code(uid), "referred_by": ref_by}
 
 
 def _sess(d, token):
@@ -195,6 +227,7 @@ def _profile(members, uid):
             "goal": m.get("exam_goal") or m.get("goal") or "mixed",
             "points": m.get("points", 0),
             "streak": m.get("streak", 0), "best_streak": m.get("best_streak", 0),
+            "ref_code": _ref_code(uid), "referrals": m.get("referrals", 0),
             "review_due": due,
             "answered": tot, "correct": cor,
             "accuracy": round(cor / tot * 100) if tot else 0,
@@ -244,6 +277,7 @@ def state(members, token):
                            for e in sorted((d.get("exams") or {}).values(),
                                            key=lambda x: x["starts_at"],
                                            reverse=True)[:6]],
+            "top_referrers": top_referrers(members),
             "winners_wall": [{"title": e["title"], "kind": e["kind"],
                               "winners": e.get("winners") or []}
                              for e in sorted((d.get("exams") or {}).values(),
@@ -744,3 +778,67 @@ def practice_answer(members, token, run_id, idx, choice):
                   "answered": len(run["answers"]), "total_q": len(run["qs"]),
                   "score": run["correct"],
                   "done": len(run["answers"]) >= len(run["qs"])}
+
+
+# ------------------------------------------------- referrals + my report
+def top_referrers(members, limit=5):
+    import collections
+    d = _load()
+    c = collections.Counter(r.get("from") for r in (d.get("referral_log") or []))
+    out = []
+    for uid, n in c.most_common(limit):
+        m = _member(members, uid)
+        out.append({"name": m.get("name", "Student"),
+                    "district": m.get("district", ""),
+                    "correct": n, "total": n, "pts": n * REF_BONUS, "invites": n})
+    return out
+
+
+def my_report(members, token):
+    """📊 Detailed personal report: topic bars, mock/exam history, referral."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return None
+    prof = _profile(members, uid)
+    m = _member(members, uid)
+    topics = []
+    for t, v in (m.get("topics") or {}).items():
+        tot = v.get("total", 0)
+        if tot:
+            topics.append({"topic": t, "total": tot, "correct": v.get("correct", 0),
+                           "accuracy": round(v.get("correct", 0) / tot * 100)})
+    topics.sort(key=lambda r: (r["accuracy"], -r["total"]))
+    mocks = [r for r in (d.get("mock_board") or []) if r.get("uid") == uid][-5:]
+    exams = []
+    for e in (d.get("exams") or {}).values():
+        ent = (e.get("entries") or {}).get(uid)
+        if ent:
+            exams.append({"title": e["title"], "status": exam_status(e, _now()),
+                          "correct": ent.get("correct", 0), "total": len(e["qs"]),
+                          "answered": len(ent.get("answers") or {})})
+    return {"student": prof, "topics": topics[:10],
+            "strong": [t for t in topics if t["accuracy"] >= 75][-3:],
+            "mocks": [{"goal": r.get("goal", ""), "correct": r.get("correct", 0),
+                       "total": r.get("total", 0), "date": r.get("date", "")}
+                      for r in reversed(mocks)],
+            "exams": exams[-5:],
+            "top_referrers": top_referrers(members)}
+
+
+def report_text(members, uid, portal_url=""):
+    """Telegram DM kosam personal report text (organiser dashboard nunchi
+    one-click ga anni bot students ki personal ga pamputham)."""
+    prof = _profile(members, uid)
+    weak = ", ".join(f"{w['topic']} ({w['accuracy']}%)"
+                     for w in prof["weak_topics"]) or "— (data inka ledu, quiz raayandi!)"
+    lines = [f"🎓 {prof['name']} — mee Personal Report",
+             f"⭐ Points: {prof['points']} · 🔥 Streak: {prof['streak']} days",
+             f"🎯 Accuracy: {prof['accuracy']}% ({prof['correct']}/{prof['answered']} correct)"]
+    lines.append(f"⚠️ Weak topics: {weak}")
+    if prof["review_due"]:
+        lines.append(f"🔁 Revision due: {prof['review_due']} questions — ivvala revise cheyyandi!")
+    if portal_url:
+        lines.append(f"📝 Daily Quiz + Mocks ikkade raayandi: {portal_url}")
+    lines.append("💪 Roju konchem practice = pedha rank. All the best!")
+    return "\n".join(lines)
