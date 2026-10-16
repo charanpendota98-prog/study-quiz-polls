@@ -535,6 +535,16 @@ def _refresh(d, now):
                             for r in rows[:3]]
             e["final"] = True
             changed = True
+            if e["winners"]:
+                _med = ["🥇", "🥈", "🥉"]
+                _txt = " · ".join(
+                    f"{_med[i]} {w['name']} ({w['district']}) {w['correct']}/{w['total']}"
+                    for i, w in enumerate(e["winners"]))
+                d.setdefault("notices", []).insert(0, {
+                    "id": "win-" + e["id"], "title": f"🏆 {e['title']} — Winners!",
+                    "body": _txt + " · Winners portal lo certificate download cheyyandi!",
+                    "link": "", "date": _today()})
+                d["notices"] = d["notices"][:30]
     finals = sorted([e for e in (d.get("exams") or {}).values() if e.get("final")],
                     key=lambda e: e["starts_at"])
     for e in finals[:-12]:
@@ -836,7 +846,15 @@ def my_report(members, token):
             exams.append({"title": e["title"], "status": exam_status(e, _now()),
                           "correct": ent.get("correct", 0), "total": len(e["qs"]),
                           "answered": len(ent.get("answers") or {})})
-    return {"student": prof, "topics": topics[:10],
+    _led = {}
+    for r in (d.get("ledger") or []):
+        if r.get("uid") == uid:
+            _led[r["date"]] = _led.get(r["date"], 0) + int(r.get("pts") or 0)
+    _act = []
+    for _i in range(27, -1, -1):
+        _dt = (_now() - timedelta(days=_i)).strftime("%Y-%m-%d")
+        _act.append({"date": _dt, "pts": _led.get(_dt, 0)})
+    return {"student": prof, "topics": topics[:10], "activity": _act,
             "strong": [t for t in topics if t["accuracy"] >= 75][-3:],
             "mocks": [{"goal": r.get("goal", ""), "correct": r.get("correct", 0),
                        "total": r.get("total", 0), "date": r.get("date", "")}
@@ -977,3 +995,19 @@ def toppers_all(members):
     return {"week": toppers(members, "week"),
             "month": toppers(members, "month"),
             "year": toppers(members, "year")}
+
+
+def winners_text(exam_id):
+    """📣 Winners announcement text (Telegram/WhatsApp share kosam)."""
+    d = _load()
+    e = (d.get("exams") or {}).get(str(exam_id or ""))
+    if not e or not e.get("winners"):
+        return ""
+    med = ["🥇", "🥈", "🥉"]
+    lines = [f"🏆 {e['title']} — WINNERS! 🏆", ""]
+    for i, w in enumerate(e["winners"]):
+        lines.append(f"{med[i] if i < 3 else ''} {w['name']} ({w['district']}) — "
+                     f"✅ {w['correct']}/{w['total']} · ⭐ {w['pts']} pts")
+    lines += ["", "🎉 Congratulations winners! Certificate portal lo ready undi.",
+              "📝 Meeru kuda Daily Quiz + Weekly Grand Test lo participate cheyyandi!"]
+    return "\n".join(lines)

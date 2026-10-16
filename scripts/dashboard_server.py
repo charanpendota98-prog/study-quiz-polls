@@ -60,7 +60,7 @@ def _public_base(handler=None):
 PUBLIC_PAGE_PATHS = {"/site": "home", "/about": "about", "/privacy": "privacy",
                      "/terms": "terms", "/contact": "contact", "/study": "study",
                      "/updates": "updates", "/winners": "winners",
-                     "/toppers": "toppers"}
+                     "/toppers": "toppers", "/materials": "materials"}
 
 
 def _adsense_client():
@@ -276,9 +276,16 @@ def _pub_bodies(bot, contact_email):
   <h3 style="margin:18px 0 8px;">👑 Toppers of the Year</h3>
   __TOP_YEAR__
 """
+    materials = """
+  <h2 class="sec">📚 Study Materials &amp; Exam Plans</h2>
+  <div class="txt"><p>StudentUp lo practice chese topics mariyu stream-wise study plans. Prati plan kinda unna topics ni portal lo Topic Practice tho daily revise cheyyandi.</p></div>
+  __MATERIALS__
+  <div class="card" style="margin-top:14px;"><h3>🚀 Ippude Start Cheyyandi</h3><p>Daily Quiz + Topic Practice + Weekly Grand Test — anni free. Portal open chesi, register ayyi, mee goal select cheskondi.</p><p style="margin-top:8px;"><a href="/portal">🎓 Student Portal Open Cheyyandi →</a></p></div>
+"""
     return {"home": home, "study": study, "about": about,
             "privacy": privacy, "terms": terms, "contact": contact,
-            "updates": updates, "winners": winners, "toppers": toppers_pg}
+            "updates": updates, "winners": winners, "toppers": toppers_pg,
+            "materials": materials}
 
 
 def public_page(handler, page):
@@ -295,7 +302,8 @@ def public_page(handler, page):
               "contact": "Contact — StudentUp",
               "updates": "Exam Updates & Notifications — StudentUp",
               "winners": "Hall of Fame — StudentUp Winners",
-              "toppers": "Toppers of Week, Month & Year — StudentUp"}
+              "toppers": "Toppers of Week, Month & Year — StudentUp",
+              "materials": "Study Materials & Exam Plans — StudentUp"}
     bodies = _pub_bodies(bot, email)
     body = bodies.get(page, bodies["home"])
     try:
@@ -323,6 +331,18 @@ def public_page(handler, page):
     except Exception:
         body = (body.replace("__TOP_WEEK__", '<div class="card"><p>Loading…</p></div>')
                     .replace("__TOP_MONTH__", "").replace("__TOP_YEAR__", ""))
+    try:
+        _topics = portal.topics_list(24)
+        _plans = [("🏛️ Groups (APPSC/TSPSC)", "Polity articles, AP/TG History, Geography maps, Economy basics, Current Affairs — daily 20 questions chalu."),
+                  ("📄 SSC", "Reasoning speed, Maths shortcuts, English vocab, GK — mock tests tho time management nerchukondi."),
+                  ("🏦 Banking", "Quant + Reasoning daily practice, English, Banking awareness — topic-wise ga strong avvandi."),
+                  ("🚆 Railway (RRB)", "Maths, Reasoning, General Science — PYQs repeat avthayi, previous papers must."),
+                  ("👮 Police & Defence", "GK, Maths, Reasoning + physical preparation parallel ga plan cheskondi.")]
+        _mhtml = "".join(f'<div class="card" style="margin-bottom:10px;"><h3>{t}</h3><p>{dsc}</p></div>' for t, dsc in _plans)
+        _mhtml += '<h3 style="margin:16px 0 8px;">🏷️ Portal lo Practice Cheyyagalige Topics</h3><div class="chips">' + "".join(f'<a class="chip" href="/portal">{t}</a>' for t in _topics) + '</div>'
+    except Exception:
+        _mhtml = '<div class="card"><p>Materials loading…</p></div>'
+    body = body.replace("__MATERIALS__", _mhtml)
     body = body.replace("__WINNERS__", _whtml)
     try:
         _nts = portal.list_notices(20)
@@ -354,7 +374,7 @@ __CANONICAL____ADSHEAD__
 <div class="nav">
   <span class="logo">🎓 StudentUp</span>
   <a href="/">🏠 Home</a><a href="/study">📚 Study Guide</a><a href="/about">ℹ️ About</a>
-  <a href="/privacy">🔐 Privacy</a><a href="/updates">📢 Updates</a><a href="/winners">🏆 Winners</a><a href="/toppers">👑 Toppers</a><a href="/contact">✉️ Contact</a>
+  <a href="/privacy">🔐 Privacy</a><a href="/materials">📚 Materials</a><a href="/updates">📢 Updates</a><a href="/winners">🏆 Winners</a><a href="/toppers">👑 Toppers</a><a href="/contact">✉️ Contact</a>
   <a class="login" href="/login">🔑 Organiser Login</a>
   <span>🎨 <button class="tchip" onclick="setSiteTheme('')">🌙</button> <button class="tchip" onclick="setSiteTheme('ocean')">🌊</button> <button class="tchip" onclick="setSiteTheme('sunset')">🌅</button> <button class="tchip" onclick="setSiteTheme('forest')">🌲</button> <button class="tchip" onclick="setSiteTheme('light')">☀️</button></span>
 </div>
@@ -638,6 +658,13 @@ PORTAL_HTML = """<!DOCTYPE html>
       </div>
     </div>
 
+    <div class="card" id="install-card" style="display:none; border-color:#10b981;">
+      <h3>📲 StudentUp App Install Cheyyandi</h3>
+      <p class="muted">Home screen meeda app laaga untundi — Daily Quiz ki okka tap lo vellachu!</p>
+      <button class="btn-main" id="install-btn">📲 Install App</button>
+      <p class="muted" id="install-hint" style="margin-top:8px;"></p>
+    </div>
+
     <div class="card" id="notice-card" style="display:none; border-color:#a16207;">
       <h3>📢 Exam Updates</h3>
       <div id="notices"></div>
@@ -816,6 +843,11 @@ function copyRef() {
   const el = document.getElementById('ref-link');
   el.select(); navigator.clipboard.writeText(el.value).then(() => alert('✅ Link copied!'));
 }
+let _deferredInstall = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault(); _deferredInstall = e;
+  document.getElementById('install-card').style.display = 'block';
+});
 async function loadReport() {
   const d = await api('/api/portal/report?token=' + encodeURIComponent(token));
   const box = document.getElementById('report-full');
@@ -824,8 +856,12 @@ async function loadReport() {
     '<div style="margin-top:7px;"><div class="row"><span style="flex:1; font-size:12.5px;">' + esc(t.topic) + '</span><span class="chip">' + t.correct + '/' + t.total + ' · ' + t.accuracy + '%</span></div>' +
     '<div class="tbar" style="margin:4px 0 0;"><div style="height:100%; width:' + t.accuracy + '%; background:' + (t.accuracy >= 60 ? '#10b981' : (t.accuracy >= 40 ? '#facc15' : '#ef4444')) + ';"></div></div></div>').join('');
   const mocks = (d.mocks || []).map(m => '<div class="trow"><span>📝</span><b>' + esc(GOALS[m.goal] || m.goal) + '</b><span class="muted">' + esc(m.date) + '</span><span>✅ ' + m.correct + '/' + m.total + '</span></div>').join('');
+  const heat = (d.activity || []).map(a =>
+    '<span title="' + a.date + ' · ' + a.pts + ' pts" style="display:inline-block; width:15px; height:15px; margin:2px; border-radius:4px; background:' +
+    (a.pts >= 50 ? '#10b981' : (a.pts >= 20 ? '#34d399' : (a.pts > 0 ? '#065f46' : '#12233f'))) + '; border:1px solid #1e3a5f;"></span>').join('');
   const exams = (d.exams || []).map(e => '<div class="trow"><span>🔴</span><b>' + esc(e.title) + '</b><span>✅ ' + e.correct + '/' + e.total + '</span></div>').join('');
-  box.innerHTML = '<h3>📚 Topic-wise Performance</h3>' + (bars || '<div class="muted">Inka topic data ledu.</div>') +
+  box.innerHTML = (heat ? '<h3>📅 Last 28 Days Activity</h3><div style="margin:8px 0 4px;">' + heat + '</div><div class="muted" style="margin-bottom:10px;">Prati roju color square = aa roju earn chesina points. Gap leni streak = topper sign!</div>' : '') +
+    '<h3>📚 Topic-wise Performance</h3>' + (bars || '<div class="muted">Inka topic data ledu.</div>') +
     (mocks ? '<h3 style="margin-top:12px;">📝 Recent Mocks</h3>' + mocks : '') +
     (exams ? '<h3 style="margin-top:12px;">🔴 My Live Exams</h3>' + exams : '');
 }
@@ -886,6 +922,15 @@ async function loadHome() {
     '<div class="row"><span class="chip">✅ Accuracy ' + s.accuracy + '%</span><span class="chip">✍️ ' + s.answered + ' answered</span><span class="chip gold">⭐ ' + s.points + ' pts</span></div>' +
     (weak ? '<div style="margin-top:9px;"><span class="muted">Mee weak topics — ivvi ekkuva practice cheyyandi:</span><div class="row" style="margin-top:6px;">' + weak + '</div></div>'
           : '<p class="muted" style="margin-top:8px;">Inka data ledu — Daily Quiz & Mocks raasthe mee weak topics ikkada kanipisthayi, personal ga improve avutharu.</p>');
+  const ib = document.getElementById('install-btn');
+  if (ib) ib.onclick = async () => {
+    if (_deferredInstall) { _deferredInstall.prompt(); await _deferredInstall.userChoice; _deferredInstall = null; document.getElementById('install-card').style.display = 'none'; }
+  };
+  if (/iphone|ipad/i.test(navigator.userAgent) && !window.navigator.standalone) {
+    document.getElementById('install-card').style.display = 'block';
+    document.getElementById('install-hint').textContent = 'iPhone: Share button ⬆️ → "Add to Home Screen" nokkandi.';
+    ib.style.display = 'none';
+  }
   const rl = location.origin + '/portal?ref=' + (s.ref_code || '');
   document.getElementById('ref-link').value = rl;
   document.getElementById('my-invites').textContent = '👥 Meeru invite chesina friends: ' + (s.referrals || 0) + ' · Bonus earned: ⭐ ' + ((s.referrals || 0) * 50);
@@ -1114,6 +1159,14 @@ async function showExamResult(id) {
   if (d.my_winner) {
     document.getElementById('res-sub').insertAdjacentHTML('beforeend',
       '<br><a href="/api/portal/exam/certificate?id=' + encodeURIComponent(id) + '&token=' + encodeURIComponent(token) + '" style="display:inline-block; margin-top:10px; padding:11px 18px; background:linear-gradient(90deg,#a16207,#facc15); color:#1a1000; font-weight:800; border-radius:10px;">🏆 Naa Winners Certificate Download</a>');
+    for (let i = 0; i < 40; i++) {
+      const c = document.createElement('div');
+      c.textContent = ['🎉', '⭐', '🏆', '✨'][i % 4];
+      c.style.cssText = 'position:fixed; top:-30px; left:' + (Math.random() * 100) + '%; font-size:' + (14 + Math.random() * 16) + 'px; z-index:99; pointer-events:none; transition: transform ' + (1.6 + Math.random()) + 's ease-in, opacity 2.4s;';
+      document.body.appendChild(c);
+      requestAnimationFrame(() => { c.style.transform = 'translateY(105vh) rotate(' + (Math.random() * 360) + 'deg)'; c.style.opacity = '0'; });
+      setTimeout(() => c.remove(), 2800);
+    }
   }
   show('view-result');
 }
@@ -5402,6 +5455,13 @@ All candidates must join today before 9:00 PM!"></textarea>
         : ('✅ Last: sent ' + d.sent + ' · fail ' + d.failed + ' · total ' + d.total + (d.last ? ' · ' + d.last : ''));
     }
 
+    async function announceWinners(id) {
+      const d = await (await fetch('/api/portal/admin/announce', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({exam_id: id})})).json();
+      if (!d.ok) { alert('❌ ' + d.error); return; }
+      try { await navigator.clipboard.writeText(d.text); } catch (e) {}
+      alert((d.sent_to_admin ? '📩 Telegram admin ki vellindi + ' : '') + '📋 Announcement text copy ayindi — WhatsApp groups lo paste cheyyandi!\n\n' + d.text);
+    }
+
     async function createPortalExam() {
       const msg = document.getElementById('pex-msg');
       const body = {
@@ -5434,6 +5494,7 @@ All candidates must join today before 9:00 PM!"></textarea>
           ' · <span style="color:' + (e.status === 'live' ? '#10b981' : (e.status === 'done' ? '#94a3b8' : '#facc15')) + ';">' +
           (e.status === 'live' ? '🔴 LIVE' : e.status) + '</span> · ⏰ ' + (e.starts_at || '').replace('T', ' ').slice(0, 16) +
           (e.winners && e.winners.length ? ' · 🏆 ' + e.winners.map(w => w.name + ' (' + w.correct + '/' + w.total + ')').join(', ') : '') +
+          (e.status === 'done' && e.winners && e.winners.length ? ' <button class="btn btn-outline" style="padding:2px 8px; font-size:11px;" onclick="announceWinners(\'' + e.id + '\')">📣 Announce</button>' : '') +
           '</div>').join('') || 'Inka exams levu — paina schedule cheyyandi.';
       } catch (e) { /* tab not ready */ }
     }
@@ -7526,6 +7587,21 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if p.path == "/api/pyq/import":
             res = pyq.import_csv(body.get("csv", ""), rebuild=True)
             self._send_json({"ok": res.get("added", 0) >= 0, **res})
+            return
+
+        if p.path == "/api/portal/admin/announce":
+            txt = portal.winners_text(body.get("exam_id", ""))
+            if not txt:
+                self._send_json({"ok": False, "error": "Winners inka leru (exam done avvagane vastundi)."})
+                return
+            sent = False
+            if config.BOT_TOKEN and config.ADMIN_ID:
+                try:
+                    Telegram().send_message(str(config.ADMIN_ID), txt)
+                    sent = True
+                except Exception:
+                    sent = False
+            self._send_json({"ok": True, "text": txt, "sent_to_admin": sent})
             return
 
         if p.path == "/api/portal/admin/send_reports":
