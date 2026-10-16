@@ -347,6 +347,25 @@ def harvest(dry=False, only=None, limit=None, llm=None):
     return stats
 
 
+def by_channel():
+    """Exam-wise real-PYQ coverage — prati channel ki enni previous-year
+    questions bank lo unnayo (harvest priority + admin visibility)."""
+    import collections
+    try:
+        from .question_bank import load_bank
+        qs = load_bank()
+    except Exception:
+        return {}
+    c = collections.Counter()
+    t = collections.Counter()
+    for q in qs:
+        ch = q.get("channel") or "OTHER"
+        t[ch] += 1
+        if q.get("source") == "pyq":
+            c[ch] += 1
+    return {ch: {"pyq": c.get(ch, 0), "total": t[ch]} for ch in sorted(t)}
+
+
 def status_text():
     st = _state()
     papers = _papers()

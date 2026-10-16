@@ -709,14 +709,14 @@ PORTAL_HTML = """<!DOCTYPE html>
   <div id="view-reg" class="card" style="display:none;">
     <h2>👋 StudentUp loki welcome!</h2>
     <p class="muted">Okka sari register avandi — Daily Quiz, Mock Tests, mee personal report & leaderboards anni ready. Data mee bot account tho kuda link avthundi.</p>
+    <label>🏆 Meeru Ae Exam Kosam Prepare Avthunnaru?</label>
+    <select id="r-goal"></select>
     <label>Mee Peru (Full Name)</label>
     <input id="r-name" placeholder="e.g. Priya Sharma" autocomplete="name">
-    <label>Mobile Number (WhatsApp)</label>
-    <input id="r-phone" inputmode="numeric" maxlength="13" placeholder="10-digit mobile" autocomplete="tel">
     <label>Mee District</label>
     <select id="r-district"><option value="">— District select cheyyandi —</option></select>
-    <label>Mee Exam Goal</label>
-    <select id="r-goal"></select>
+    <label>Mobile Number (WhatsApp)</label>
+    <input id="r-phone" inputmode="numeric" maxlength="13" placeholder="10-digit mobile" autocomplete="tel">
     <button class="btn-main" onclick="doRegister()">🚀 Register & Start</button>
     <div id="reg-err" class="err"></div>
   </div>
@@ -726,9 +726,19 @@ PORTAL_HTML = """<!DOCTYPE html>
     <div class="card">
       <h2 id="hello">👋</h2>
       <div class="row" id="mychips"></div>
+      <div class="row" id="goal-chips" style="margin-top:9px;"></div>
+      <p class="muted" id="goal-stock" style="margin-top:6px;"></p>
       <div class="row" style="margin-top:10px;">
         <button class="btn-alt" style="flex:1;" onclick="logout()">↩️ Logout / Number Change</button>
       </div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <button class="btn-main" style="flex:1; font-size:17px; padding:16px;" onclick="scrollDoor('sec-exams')">🎓 Exams</button>
+        <button class="btn-main" style="flex:1; font-size:17px; padding:16px; background:linear-gradient(90deg,#0e7490,#06b6d4);" onclick="scrollDoor('sec-quiz')">📝 Quiz</button>
+      </div>
+      <p class="muted" style="margin-top:8px; text-align:center;">🎓 Exams = Live Exams · Weekly Test · Mock Tests &nbsp;|&nbsp; 📝 Quiz = Daily Quiz (anni exams PYQ-first!)</p>
     </div>
 
     <div class="card" id="install-card" style="display:none; border-color:#10b981;">
@@ -743,13 +753,13 @@ PORTAL_HTML = """<!DOCTYPE html>
       <div id="notices"></div>
     </div>
 
-    <div class="card">
+    <div class="card" id="sec-quiz">
       <h3>📅 Today's Daily Quiz</h3>
       <p class="muted" id="daily-info"></p>
       <button class="btn-main" id="daily-btn" onclick="openQuiz()">▶️ Start Daily Quiz</button>
     </div>
 
-    <div class="card">
+    <div class="card" id="sec-exams">
       <h3>🔴 Live &amp; Upcoming Exams</h3>
       <div id="live-exams"></div>
       <p class="muted">📚 Paper PYQ-first (real previous-year questions). Start time ki mundhe Join nokki ready ga undandi — Live avvagane rank board update avthune untundi!</p>
@@ -822,6 +832,12 @@ PORTAL_HTML = """<!DOCTYPE html>
       <div id="board-mock"></div>
       <h3 style="margin-top:16px;">👑 Yesterday's Winners</h3>
       <div id="board-win"></div>
+    </div>
+
+    <div class="card">
+      <h3>📋 Naa Exams &amp; Answer Keys</h3>
+      <div id="history-list"></div>
+      <p class="muted" style="margin-top:8px;">📄 Key Paper = anni questions + mee answers (right ✅/wrong ❌) + correct answer + 💡 explanation. Okka saari download cheste phone lo save avthundi — History lo nunchi <b>eppudaina malli</b> download chesukovachu!</p>
     </div>
 
     <div class="card">
@@ -921,6 +937,28 @@ window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault(); _deferredInstall = e;
   document.getElementById('install-card').style.display = 'block';
 });
+function scrollDoor(id) {
+  const el = document.getElementById(id);
+  if (el) { el.scrollIntoView({behavior: 'smooth', block: 'start'}); el.style.borderColor = '#facc15'; setTimeout(() => el.style.borderColor = '', 1600); }
+}
+async function setGoal(k) {
+  const d = await api('/api/portal/goal', {token, goal: k});
+  if (d.ok) loadHome(); else alert('❌ ' + (d.error || ''));
+}
+async function downloadKey(kind, ref) {
+  const d = await api('/api/portal/key?kind=' + encodeURIComponent(kind) + '&ref=' + encodeURIComponent(ref) + '&token=' + encodeURIComponent(token));
+  if (!d.ok) { alert('❌ ' + (d.error || 'Key dorakaledu')); return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([d.text], {type: 'text/plain;charset=utf-8'}));
+  a.download = d.filename || 'StudentUp-Key.txt'; a.click();
+}
+function renderHistory(list) {
+  document.getElementById('history-list').innerHTML = (list || []).length ? list.map(h =>
+    '<div class="trow"><span>' + (h.kind === 'exam' ? '🔴' : (h.kind === 'mock' ? '📝' : '📅')) + '</span><b style="flex:1;">' + esc(h.title) + '</b><span class="muted">' + esc(h.date || '') + '</span><span>✅ ' + h.correct + '/' + h.total + '</span>' +
+    (h.key ? '<button class="btn-alt" style="width:auto; margin-top:0; padding:6px 10px;" onclick="downloadKey(\'' + h.kind + '\',\'' + esc(h.ref) + '\')">⬇️ Key</button>'
+           : '<span class="chip">⏳ ' + esc(h.status || '') + '</span>') + '</div>').join('')
+    : '<div class="muted">Inka meeru exams rayaledu — Daily Quiz tho start cheyyandi, ikkada key papers ready avthayi!</div>';
+}
 async function loadReport() {
   const d = await api('/api/portal/report?token=' + encodeURIComponent(token));
   const box = document.getElementById('report-full');
@@ -979,6 +1017,11 @@ async function loadHome() {
     (d.my_rank_today ? '<span class="chip">🏆 Today Rank #' + d.my_rank_today + '</span>' : '') +
     (s.streak ? '<span class="chip">🔥 ' + s.streak + '-day streak</span>' : '') +
     (s.badges || []).map(b => '<span class="chip gold">🏅 ' + esc(b) + '</span>').join('');
+  document.getElementById('goal-chips').innerHTML = '<span class="muted" style="font-size:12px;">🏆 Mee Exam:</span>' + Object.entries(d.goals || {}).map(([k, v]) =>
+    '<button class="tchip' + (k === s.goal ? ' on' : '') + '" onclick="setGoal(\'' + k + '\')">' + esc(v) + '</button>').join('');
+  const st = (d.stock || {})[s.goal] || {};
+  document.getElementById('goal-stock').textContent = '📚 Mee exam bank lo ' + (st.pyq || 0) + ' real previous-year (PYQ) questions + ' + (st.total || 0) + ' practice questions ready ga unnayi — backend lo scraping continue avthundi!';
+  renderHistory(d.history || []);
   const nts = d.notices || [];
   document.getElementById('notice-card').style.display = nts.length ? 'block' : 'none';
   document.getElementById('notices').innerHTML = nts.map(n =>
@@ -988,8 +1031,10 @@ async function loadHome() {
   const di = document.getElementById('daily-info'), db = document.getElementById('daily-btn');
   if (d.daily.done) { di.textContent = '✅ Ee roju quiz complete! Score: ' + d.daily.correct + '/' + d.daily.n + ' — repu malli randi.'; db.style.display = 'none'; }
   else { di.textContent = d.daily.n + ' questions · 📜 ' + (d.daily.pyq_count || 0) + ' real PYQ (previous-year) questions ee paper lo · andari ki okkate paper.'; db.textContent = d.daily.answered ? '▶️ Continue Quiz (' + d.daily.answered + '/' + d.daily.n + ')' : '▶️ Start Daily Quiz'; db.style.display = 'block'; }
-  document.getElementById('mock-grid').innerHTML = Object.entries(GOALS).map(([k, v]) =>
-    '<button class="mockbtn' + (k === s.goal ? ' mine' : '') + '" onclick="startMock(\'' + k + '\')">' + esc(v) + '<br><span class="muted">15 Qs · Mock</span></button>').join('');
+  document.getElementById('mock-grid').innerHTML = Object.entries(GOALS).map(([k, v]) => {
+    const gst = (d.stock || {})[k] || {};
+    return '<button class="mockbtn' + (k === s.goal ? ' mine' : '') + '" onclick="startMock(\'' + k + '\')">' + esc(v) + '<br><span class="muted">15 Qs · Mock · 📜 ' + (gst.pyq || 0) + ' PYQ bank lo</span></button>';
+  }).join('');
   const weak = (s.weak_topics || []).map(w => '<span class="chip weak">⚠️ ' + esc(w.topic) + ' · ' + w.accuracy + '%</span>').join('');
   document.getElementById('report').innerHTML =
     '<div class="row"><span class="chip">✅ Accuracy ' + s.accuracy + '%</span><span class="chip">✍️ ' + s.answered + ' answered</span><span class="chip gold">⭐ ' + s.points + ' pts</span></div>' +
@@ -1108,8 +1153,11 @@ async function submitMock() {
       '<br><span class="muted">Meeru: ' + esc(opts[r.given] || '— (attempt cheyyaledu)') + (r.right ? ' ✅' : ' ❌ · Correct: ' + esc(opts[r.answer] || '')) + '</span>' +
       (q.explanation ? '<br><span class="muted">💡 ' + esc(q.explanation) + '</span>' : '') + '</div>';
   }).join('');
+  const _mrun = MOCK.run_id;
   MOCK = null;
   show('view-result');
+  document.getElementById('res-sub').insertAdjacentHTML('beforeend',
+    '<br><button class="btn-alt" style="width:auto; margin-top:10px;" onclick="downloadKey(\'mock\',\'' + _mrun + '\')">⬇️ Answer Key Paper Download 📄</button>');
 }
 let PR = null;
 async function startPractice(mode) {
@@ -1229,6 +1277,8 @@ async function showExamResult(id) {
       '<br><span class="muted">Meeru: ' + esc(opts[r.given] || '— attempt cheyyaledu') + (r.right ? ' ✅' : ' ❌ · Correct: ' + esc(opts[r.answer] || '')) + '</span>' +
       (q.explanation ? '<br><span class="muted">💡 ' + esc(q.explanation) + '</span>' : '') + '</div>';
   }).join('') || '<div class="muted">Mee review ledu (answers ivvaledu).</div>';
+  document.getElementById('res-sub').insertAdjacentHTML('beforeend',
+    '<br><button class="btn-alt" style="width:auto; margin-top:10px;" onclick="downloadKey(\'exam\',\'' + id + '\')">⬇️ Answer Key Paper Download 📄</button>');
   if (d.my_winner) {
     document.getElementById('res-sub').insertAdjacentHTML('beforeend',
       '<br><a href="/api/portal/exam/certificate?id=' + encodeURIComponent(id) + '&token=' + encodeURIComponent(token) + '" style="display:inline-block; margin-top:10px; padding:11px 18px; background:linear-gradient(90deg,#a16207,#facc15); color:#1a1000; font-weight:800; border-radius:10px;">🏆 Naa Winners Certificate Download</a>');
@@ -5462,7 +5512,8 @@ All candidates must join today before 9:00 PM!"></textarea>
     async function loadPyqStatus() {
       try {
         const d = await fetch('/api/pyq/status').then(r => r.json());
-        document.getElementById('pyq-status').textContent =
+        const _bc = Object.entries(d.by_channel || {}).map(([c, v]) => c + ': ' + v.pyq + ' PYQ').join(' · ');
+        document.getElementById('pyq-status').textContent = (_bc ? '📊 Exam-wise PYQ: ' + _bc + '\n' : '') +
           '🏦 Bank: ' + d.bank.total + ' questions · 📜 Real PYQ: ' + d.bank.pyq + ' · ✍️ Curated: ' + d.bank.curated +
           ' · 🌐 Scraped: ' + d.bank.scraped + ' · 🤖 Generated: ' + d.bank.generated + '\n' + (d.text || '') +
           (d.running ? '\n⏳ Harvest running…' : '') + (d.last ? '\nLast run: ' + d.last : '');
@@ -6863,6 +6914,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
                                     query.get("id", [""])[0])
             self._send_json({"ok": ex is not None, **(ex or {"error": "not found"})})
             return
+        if p.path == "/api/portal/key":
+            query = urllib.parse.parse_qs(p.query)
+            ok, info = portal.key_paper(Members(), query.get("token", [""])[0],
+                                        query.get("kind", [""])[0],
+                                        query.get("ref", [""])[0])
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
         if p.path == "/api/portal/quiz":
             query = urllib.parse.parse_qs(p.query)
             qq = portal.daily_questions(Members(), query.get("token", [""])[0])
@@ -7203,6 +7261,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             except Exception:
                 _src = {}
             self._send_json({"ok": True, "text": pyq.status_text(),
+                             "by_channel": pyq.by_channel(),
                              "running": _PYQ_JOB["running"], "last": _PYQ_JOB["last"],
                              "bank": {"total": sum(_src.values()),
                                       "pyq": _src.get("pyq", 0), "curated": _src.get("curated", 0),
@@ -7458,6 +7517,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
             except Exception as ex:
                 ok, info = False, str(ex)
             self._send_json({"ok": ok, **(info if ok and isinstance(info, dict) else {"error": info})})
+            return
+        if p.path == "/api/portal/goal":
+            ok, info = portal.set_goal(Members(), body.get("token", ""),
+                                       body.get("goal", ""))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
             return
         if p.path == "/api/portal/register":
             ok, info = portal.register_student(

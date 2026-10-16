@@ -10,6 +10,7 @@ College exams are NEVER listed here — they stay private via code/link.
 """
 import random
 import secrets
+import threading
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -61,6 +62,19 @@ def _save(d):
     tmp.replace(PATH)
 
 
+# 🔒 ThreadingHTTPServer — chala mandi students okesari answer chesthe
+# load→modify→save races raakunda prati mutation ni lock chestham.
+_LOCK = threading.RLock()
+
+
+def _locked(fn):
+    def _w(*a, **k):
+        with _LOCK:
+            return fn(*a, **k)
+    _w.__name__ = fn.__name__
+    return _w
+
+
 def _bank_pool(channels=None):
     """Postable questions (optionally channel-filtered). Lazy bank load."""
     from .question_bank import Bank
@@ -93,6 +107,7 @@ def _snap(q):
             "explanation": q.get("explanation") or q.get("exp") or ""}
 
 
+@_locked
 def _daily_paper(d):
     """Today's quiz — one paper for ALL students (seeded by date)."""
     day = _today()
@@ -135,6 +150,7 @@ def _ref_code(uid):
     return "SU" + str(uid)[-6:]
 
 
+@_locked
 def register_student(members, name, phone, district, goal, ref=""):
     """One-time smart registration: name + mobile + district + exam goal.
     Data lands in the members CRM sheet (same as bot registrations)."""
@@ -288,10 +304,13 @@ def state(members, token):
             "mock_board": _board(mock_rows, members),
             "my_rank_today": next((i + 1 for i, r in enumerate(t_rows)
                                     if r.get("uid") == uid), None),
+            "stock": exam_stock(),
+            "history": _attempts(d, members, uid),
             "live_exams": [_exam_view(e, members, uid, _now())
-                           for e in sorted((d.get("exams") or {}).values(),
-                                           key=lambda x: x["starts_at"],
-                                           reverse=True)[:6]],
+                           for e in sorted(
+                               sorted((d.get("exams") or {}).values(),
+                                      key=lambda x: x["starts_at"], reverse=True),
+                               key=lambda x: 0 if x.get("goal") == prof["goal"] else 1)[:6]],
             "top_referrers": top_referrers(members),
             "district_league": district_league(members, prof["district"]),
             "winners_wall": [{"title": e["title"], "kind": e["kind"],
@@ -315,6 +334,7 @@ def daily_questions(members, token):
             "done": bool(run and run.get("done"))}
 
 
+@_locked
 def daily_answer(members, token, idx, choice):
     d = _load()
     uid = _sess(d, token)
@@ -353,6 +373,7 @@ def daily_answer(members, token, idx, choice):
 
 
 # ---------------------------------------------------------------- mock tests
+@_locked
 def mock_start(members, token, goal):
     d = _load()
     uid = _sess(d, token)
@@ -373,8 +394,8 @@ def mock_start(members, token, goal):
                           "qs": [_snap(q) for q in picked],
                           "answers": {}, "done": False,
                           "started": _now().isoformat()}
-    # prune old unfinished mocks
-    for k in list(d["mocks"])[:-50]:
+    # prune old mocks (finished vi key-paper kosam kontha kaalam unchutham)
+    for k in list(d["mocks"])[:-120]:
         d["mocks"].pop(k, None)
     _save(d)
     return True, {"run_id": run_id, "goal": goal,
@@ -383,6 +404,7 @@ def mock_start(members, token, goal):
                   "questions": _serve(d["mocks"][run_id]["qs"], run_id, {})}
 
 
+@_locked
 def mock_submit(members, token, run_id, answers):
     d = _load()
     uid = _sess(d, token)
@@ -413,7 +435,7 @@ def mock_submit(members, token, run_id, answers):
     run["finished"] = _now().isoformat()
     d.setdefault("mock_board", []).append(
         {"uid": uid, "name": prof["name"], "district": prof["district"],
-         "goal": run["goal"], "correct": correct, "total": len(run["qs"]),
+         "goal": run["goal"], "run_id": run_id, "correct": correct, "total": len(run["qs"]),
          "pts": correct * PTS_MOCK, "date": _today()})
     d["mock_board"] = d["mock_board"][-300:]
     _save(d)
@@ -517,6 +539,7 @@ def _weekly_exam(d, now):
     return e
 
 
+@_locked
 def _refresh(d, now):
     """Weekly exam ensure + aipoina exams ki winners finalize."""
     before = len(d.get("exams") or {})
@@ -602,6 +625,7 @@ def admin_list():
     return out
 
 
+@_locked
 def exam_join(members, token, exam_id):
     d = _load()
     uid = _sess(d, token)
@@ -641,6 +665,7 @@ def exam_questions(members, token, exam_id):
                                 ent.get("answers") or {})}
 
 
+@_locked
 def exam_answer(members, token, exam_id, idx, choice):
     """Live exam answer — result ayye varaku correct/wrong cheppamu
     (real exam feel). Live board kosam points matrame update avthayi."""
@@ -700,7 +725,149 @@ def exam_result(members, token, exam_id):
     return view
 
 
+# ------------------------------------------------- goal, stock, key paper
+@_locked
+def set_goal(members, token, goal):
+    """Registration tarvatha kuda eppudaina exam marchukovachu (chips nunchi)."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid or goal not in GOALS:
+        return False, "Invalid exam selection."
+    m = members._get(uid)
+    m["exam_goal"] = goal
+    m["goal"] = goal
+    try:
+        members.kv.save()
+    except Exception:
+        pass
+    return True, _profile(members, uid)
+
+
+def exam_stock():
+    """Exam-wise bank stock — prati goal ki enni real PYQ / total questions."""
+    pool = _bank_pool()
+    out = {}
+    for key, g in GOALS.items():
+        chans = g["channels"]
+        sel = [q for q in pool if not chans or q.get("channel") in chans]
+        out[key] = {"pyq": sum(1 for q in sel if q.get("source") == "pyq"),
+                    "total": len(sel)}
+    return out
+
+
+def _attempts(d, members, uid):
+    """Student rasina exams list — key paper download status tho."""
+    out = []
+    now = _now()
+    for e in sorted((d.get("exams") or {}).values(),
+                    key=lambda x: x["starts_at"], reverse=True):
+        ent = (e.get("entries") or {}).get(uid)
+        if not ent:
+            continue
+        st = exam_status(e, now)
+        out.append({"kind": "exam", "ref": e["id"], "title": e["title"],
+                    "date": (e.get("starts_at") or "")[:10],
+                    "correct": ent.get("correct", 0), "total": len(e["qs"]),
+                    "key": st == "done", "status": st})
+    for r in reversed(d.get("mock_board") or []):
+        if r.get("uid") == uid:
+            out.append({"kind": "mock", "ref": r.get("run_id", ""),
+                        "title": (GOALS.get(r.get("goal") or "") or {}).get("label", "Mock Test"),
+                        "date": r.get("date", ""), "correct": r.get("correct", 0),
+                        "total": r.get("total", 0), "key": bool(r.get("run_id")),
+                        "status": "done"})
+    for day_key in sorted((d.get("days") or {}), reverse=True):
+        run = ((d["days"][day_key].get("runs") or {}).get(uid) or {})
+        if run.get("done"):
+            out.append({"kind": "daily", "ref": day_key,
+                        "title": "📅 Daily Quiz", "date": day_key,
+                        "correct": run.get("correct", 0),
+                        "total": len(d["days"][day_key].get("qs") or []),
+                        "key": True, "status": "done"})
+    return out[:15]
+
+
+def _key_text(title, date_s, prof, qs, answers):
+    letters = "ABCD"
+    correct = sum(1 for i, q in enumerate(qs)
+                  if (answers or {}).get(str(i), -1) == q["answer_index"])
+    total = len(qs)
+    pct = round(correct / max(1, total) * 100)
+    lines = ["🎓 StudentUp — Answer Key Paper", "=" * 44,
+             f"Exam: {title}",
+             f"Date: {date_s}",
+             f"Student: {prof.get('name', '')} ({prof.get('district', '')})",
+             f"Score: {correct}/{total} · {pct}%", "=" * 44, ""]
+    for i, q in enumerate(qs):
+        given = (answers or {}).get(str(i), -1)
+        ans = q["answer_index"]
+        opts = q.get("options_en") or []
+        ok = given == ans
+        lines.append(f"Q{i + 1}. [{q.get('topic', 'general')}] {q.get('q_en', '')}")
+        if q.get("q_te"):
+            lines.append(f"    {q['q_te']}")
+        for j, o in enumerate(opts[:4]):
+            mark = "✅" if j == ans else ("❌" if j == given else "▫️")
+            lines.append(f"    {letters[j]}) {o} {mark if j in (ans, given) else ''}".rstrip())
+        g_txt = (f"{letters[given]}) {opts[given]}" if 0 <= given < len(opts)
+                 else "— (answer cheyyaledu)")
+        a_txt = (f"{letters[ans]}) {opts[ans]}" if 0 <= ans < len(opts) else "")
+        lines.append(("✅ Meeru: " if ok else "❌ Meeru: ") + g_txt
+                     + ("" if ok else f"  → Correct: {a_txt}"))
+        if q.get("explanation"):
+            lines.append(f"💡 {q['explanation']}")
+        lines.append("")
+    lines += ["-" * 44,
+              "Weak topics meeda Practice cheyyandi — next exam ki rank periguthundi! 🔥",
+              "StudentUp · Ee key paper mee personal record kosam."]
+    return "\n".join(lines), correct, total
+
+
+def key_paper(members, token, kind, ref):
+    """📄 Rasina exam ki full Answer Key — questions + mee right/wrong +
+    correct answer + explanation. Stored attempt nunchi regenerate
+    avthundi kabatti eppudaina download chesukovachu (one-time kaadu)."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return False, "Session expired — malli login avandi."
+    prof = _profile(members, uid)
+    if kind == "exam":
+        _refresh(d, _now())
+        e = (d.get("exams") or {}).get(str(ref or ""))
+        ent = (e or {}).get("entries", {}).get(uid) if e else None
+        if not e or not ent:
+            return False, "Ee exam meeru rayaledu."
+        if exam_status(e, _now()) != "done":
+            return False, "Exam ayyaka key paper vasthundi (result time ki)."
+        text, c, t = _key_text(e["title"], (e.get("starts_at") or "")[:10],
+                               prof, e["qs"], ent.get("answers") or {})
+        slug = "".join(ch if ch.isalnum() else "-" for ch in e["title"])[:32]
+        return True, {"filename": f"StudentUp-Key-{slug}.txt", "text": text,
+                      "correct": c, "total": t}
+    if kind == "mock":
+        run = (d.get("mocks") or {}).get(str(ref or ""))
+        if not run or run.get("uid") != uid or not run.get("done"):
+            return False, "Mock key dorakaledu."
+        label = (GOALS.get(run.get("goal") or "") or {}).get("label", "Mock Test")
+        text, c, t = _key_text(label, (run.get("finished") or "")[:10],
+                               prof, run["qs"], run.get("answers") or {})
+        return True, {"filename": "StudentUp-Key-Mock.txt", "text": text,
+                      "correct": c, "total": t}
+    if kind == "daily":
+        day = (d.get("days") or {}).get(str(ref or ""))
+        run = ((day or {}).get("runs") or {}).get(uid) if day else None
+        if not day or not run or not run.get("done"):
+            return False, "Daily quiz key dorakaledu."
+        text, c, t = _key_text("📅 Daily Quiz", str(ref), prof,
+                               day["qs"], run.get("answers") or {})
+        return True, {"filename": f"StudentUp-Key-Daily-{ref}.txt", "text": text,
+                      "correct": c, "total": t}
+    return False, "Unknown key type."
+
+
 # ------------------------------------------------------------- notices
+@_locked
 def add_notice(title, body, link=""):
     """📢 Exam updates/notifications (admin dashboard nunchi) — portal home
     lo + public /updates page lo kanipisthayi."""
@@ -732,6 +899,7 @@ def topics_list(limit=16):
     return [t for t, _n in c.most_common(limit)]
 
 
+@_locked
 def practice_start(members, token, mode="smart", topic=""):
     """🎯 Practice: 'smart' = mee weak topics + revision nunchi; 'topic' =
     select chesina topic; 'review' = ee roju due revision questions.
@@ -780,6 +948,7 @@ def practice_start(members, token, mode="smart", topic=""):
                   "questions": _serve(d["practice"][run_id]["qs"], run_id, {})}
 
 
+@_locked
 def practice_answer(members, token, run_id, idx, choice):
     d = _load()
     uid = _sess(d, token)
