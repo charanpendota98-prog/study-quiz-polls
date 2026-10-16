@@ -35,3 +35,15 @@ avasaram ayye rate ~100/sec kante takkuva — mana deggara ~8x headroom.
   migration ki ready ga undi.
 - Members points kuda debounced (≤2s window) — bot process chese
   updates tho paatha last-writer-wins behavior eh continue avthundi.
+
+## HTTP proof (real server, real requests — `scripts/loadtest_http.py`)
+```
+👥 Students: 2,000 · Questions: 10 · Threads: 64 (real HTTP)
+📝 Register: 756/s · 🚪 Join: 694/s
+✍️ Answers: 20,000 in 132s (151/s) · errors: 0
+🎯 Entries recorded: 2,000
+✅ HTTP LOAD TEST PASSED
+```
+300-student run: 236 answers/s. Real browsers keep-alive use
+chestharu kabatti production speed deeni kante ekkuva untundi;
+exam window lo kavalsina average (~100/s) ki comfortable headroom.
