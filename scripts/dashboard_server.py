@@ -34,6 +34,61 @@ _BOT_USERNAME_CACHE = {"name": "", "ts": 0}
 
 _PYQ_JOB = {"running": False, "last": ""}
 _REPORT_JOB = {"running": False, "sent": 0, "failed": 0, "total": 0, "last": ""}
+_WP_CACHE = {"ts": 0, "posts": []}
+
+
+def _wp_base():
+    return config.env("WP_SITE_URL", "https://studentup.in").strip().rstrip("/")
+
+
+def _fetch_wp_posts(limit=12, force=False):
+    """📰 WordPress (studentup.in) nunchi published blog posts — 10 min
+    cache. Drafts REST lo public ga ravu (publish ayye varaku safe).
+    Site reach avakapothe [] (site eppudu crash avadu)."""
+    import html as _html
+    import re as _re
+    if not force and time.time() - _WP_CACHE["ts"] < 600 and _WP_CACHE["posts"]:
+        return _WP_CACHE["posts"][:limit]
+
+    def _clean(t):
+        return _html.unescape(_re.sub(r"<[^>]+>", "", str(t or ""))).strip()
+
+    try:
+        req = urllib.request.Request(
+            f"{_wp_base()}/wp-json/wp/v2/posts?per_page={int(limit)}&_fields=title,excerpt,link,date,slug",
+            headers={"User-Agent": "StudentUp-Bridge/1.0"})
+        with urllib.request.urlopen(req, timeout=6) as r:
+            raw = json.loads(r.read().decode("utf-8", "ignore"))
+        posts = [{"title": _clean(p.get("title", {}).get("rendered", "")),
+                  "excerpt": _clean(p.get("excerpt", {}).get("rendered", ""))[:240],
+                  "url": p.get("link", ""), "date": (p.get("date") or "")[:10],
+                  "slug": p.get("slug", "")} for p in raw if p.get("link")]
+        if posts:
+            _WP_CACHE.update({"ts": time.time(), "posts": posts})
+        return posts
+    except Exception:
+        return _WP_CACHE["posts"][:limit]
+
+
+_WP_EXAM_TAGS = {"APPSC": "appsc", "TSPSC": "tspsc", "SSC": "ssc",
+                 "BANKING": "banking", "RAILWAY": "rrb", "POLICE": "police",
+                 "DEFENCE": "defence", "CURRENT": "all"}
+
+
+def _wp_quiz_item(q):
+    """Mana bank question → WordPress quiz.php format (q, a[4], c, why, cat, src, exam)."""
+    return {"q": q.get("q_en", ""), "a": list(q.get("options_en") or []),
+            "c": int(q.get("answer_index") or 0),
+            "why": q.get("explanation") or "", "cat": q.get("topic") or "General",
+            "src": "StudentUp PYQ" if q.get("source") == "pyq" else "StudentUp",
+            "exam": _WP_EXAM_TAGS.get(q.get("channel") or "", "all")}
+
+
+def _wp_quiz_export():
+    d = portal._load()
+    day = portal._daily_paper(d)
+    return {"date": portal._today(), "source": "StudentUp Quiz Portal",
+            "questions": [_wp_quiz_item(q) for q in day["qs"]]}
 
 
 def _public_base(handler=None):
@@ -60,7 +115,8 @@ def _public_base(handler=None):
 PUBLIC_PAGE_PATHS = {"/site": "home", "/about": "about", "/privacy": "privacy",
                      "/terms": "terms", "/contact": "contact", "/study": "study",
                      "/updates": "updates", "/winners": "winners",
-                     "/toppers": "toppers", "/materials": "materials"}
+                     "/toppers": "toppers", "/materials": "materials",
+                     "/blog": "blog"}
 
 
 def _adsense_client():
@@ -276,6 +332,12 @@ def _pub_bodies(bot, contact_email):
   <h3 style="margin:18px 0 8px;">👑 Toppers of the Year</h3>
   __TOP_YEAR__
 """
+    blog = """
+  <h2 class="sec">📰 StudentUp Blog</h2>
+  <div class="txt"><p>Exam guides, notifications mariyu study articles — mana main site <a href="__WPBASE__" target="_blank" rel="noopener">studentup.in</a> nunchi fresh ga ikkada kuda kanipisthayi.</p></div>
+  __BLOG__
+  <div class="card" style="margin-top:12px;"><p>Anni articles kosam: <a href="__WPBASE__" target="_blank" rel="noopener">studentup.in → Blog</a></p></div>
+"""
     materials = """
   <h2 class="sec">📚 Study Materials &amp; Exam Plans</h2>
   <div class="txt"><p>StudentUp lo practice chese topics mariyu stream-wise study plans. Prati plan kinda unna topics ni portal lo Topic Practice tho daily revise cheyyandi.</p></div>
@@ -303,7 +365,8 @@ def public_page(handler, page):
               "updates": "Exam Updates & Notifications — StudentUp",
               "winners": "Hall of Fame — StudentUp Winners",
               "toppers": "Toppers of Week, Month & Year — StudentUp",
-              "materials": "Study Materials & Exam Plans — StudentUp"}
+              "materials": "Study Materials & Exam Plans — StudentUp",
+              "blog": "Blog — StudentUp Exam Guides & Articles"}
     bodies = _pub_bodies(bot, email)
     body = bodies.get(page, bodies["home"])
     try:
@@ -331,6 +394,15 @@ def public_page(handler, page):
     except Exception:
         body = (body.replace("__TOP_WEEK__", '<div class="card"><p>Loading…</p></div>')
                     .replace("__TOP_MONTH__", "").replace("__TOP_YEAR__", ""))
+    try:
+        _posts = _fetch_wp_posts(12)
+        _bhtml = "".join(
+            f'<div class="card" style="margin-bottom:10px;"><h3><a href="{_p["url"]}" target="_blank" rel="noopener">{_p["title"]}</a></h3>'
+            f'<p>{_p["excerpt"]}…</p><p class="muted" style="margin-top:6px;">{_p["date"]} · studentup.in lo chadavandi ↗</p></div>'
+            for _p in _posts) or '<div class="card"><p>Articles loading… main site lo chudandi: <a href="' + _wp_base() + '">studentup.in</a></p></div>'
+    except Exception:
+        _bhtml = '<div class="card"><p>Articles loading…</p></div>'
+    body = body.replace("__BLOG__", _bhtml).replace("__WPBASE__", _wp_base())
     try:
         _topics = portal.topics_list(24)
         _plans = [("🏛️ Groups (APPSC/TSPSC)", "Polity articles, AP/TG History, Geography maps, Economy basics, Current Affairs — daily 20 questions chalu."),
@@ -374,7 +446,7 @@ __CANONICAL____ADSHEAD__
 <div class="nav">
   <span class="logo">🎓 StudentUp</span>
   <a href="/">🏠 Home</a><a href="/study">📚 Study Guide</a><a href="/about">ℹ️ About</a>
-  <a href="/privacy">🔐 Privacy</a><a href="/materials">📚 Materials</a><a href="/updates">📢 Updates</a><a href="/winners">🏆 Winners</a><a href="/toppers">👑 Toppers</a><a href="/contact">✉️ Contact</a>
+  <a href="/privacy">🔐 Privacy</a><a href="/blog">📰 Blog</a><a href="/materials">📚 Materials</a><a href="/updates">📢 Updates</a><a href="/winners">🏆 Winners</a><a href="/toppers">👑 Toppers</a><a href="/contact">✉️ Contact</a>
   <a class="login" href="/login">🔑 Organiser Login</a>
   <span>🎨 <button class="tchip" onclick="setSiteTheme('')">🌙</button> <button class="tchip" onclick="setSiteTheme('ocean')">🌊</button> <button class="tchip" onclick="setSiteTheme('sunset')">🌅</button> <button class="tchip" onclick="setSiteTheme('forest')">🌲</button> <button class="tchip" onclick="setSiteTheme('light')">☀️</button></span>
 </div>
@@ -409,7 +481,8 @@ def robots_txt(handler):
 
 def sitemap_xml(handler):
     base = _public_base(handler)
-    urls = ["/", "/study", "/about", "/privacy", "/terms", "/contact"]
+    urls = ["/", "/study", "/blog", "/materials", "/updates", "/winners",
+            "/toppers", "/about", "/privacy", "/terms", "/contact"]
     items = "".join(f"<url><loc>{base}{u}</loc></url>" for u in urls)
     return ('<?xml version="1.0" encoding="UTF-8"?>'
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
@@ -2166,6 +2239,18 @@ HTML_PAGE = """<!DOCTYPE html>
             <span id="pyq-import-msg" style="font-size:12px;"></span>
           </div>
         </details>
+      </div>
+
+      <div class="panel-card" style="margin-top:16px;">
+        <h3 style="font-size:14px; color:#38bdf8;">🌉 WordPress Bridge — studentup.in (blog) ↔ mana platform (quiz)</h3>
+        <p class="muted" style="font-size:12px; margin-top:6px;">Smart rule: <b>Blog ki WordPress master</b> (publish chesthe automatic mana <a href="/blog" target="_blank">/blog</a> lo kanipisthundi) · <b>Quiz ki mana bank master</b> (ikkada prepare chesina daily quiz ni WP format lo export chestham). Sync details: <code>docs/BRIDGE_PLAN.md</code> + WP snippet: <code>integrations/wordpress/</code>.</p>
+        <div id="wp-status" style="font-size:12.5px; margin-top:8px; color:var(--text-muted);">Status inka check cheyyaledu.</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+          <button class="btn btn-outline" onclick="wpStatus()">🔍 WordPress Connection Test</button>
+          <button class="btn btn-accent" onclick="wpExportQuiz()">📤 Today's Quiz → WP Format Export</button>
+          <a class="btn btn-outline" href="/blog" target="_blank" style="text-decoration:none;">📰 /blog Chudu</a>
+        </div>
+        <div id="wp-msg" style="font-size:12px; margin-top:8px;"></div>
       </div>
 
       <div class="panel-card" style="margin-top:16px;">
@@ -5462,6 +5547,27 @@ All candidates must join today before 9:00 PM!"></textarea>
       alert((d.sent_to_admin ? '📩 Telegram admin ki vellindi + ' : '') + '📋 Announcement text copy ayindi — WhatsApp groups lo paste cheyyandi!\n\n' + d.text);
     }
 
+    async function wpStatus() {
+      const el = document.getElementById('wp-status');
+      el.textContent = '⏳ Checking…';
+      try {
+        const d = await fetch('/api/wp/status').then(r => r.json());
+        el.textContent = d.ok ? ('✅ Connected: ' + d.name + ' (' + d.url + ') · cached posts: ' + d.posts_cached)
+          : ('❌ ' + d.error + ' · Base: ' + (d.base || ''));
+      } catch (e) { el.textContent = '❌ ' + e; }
+    }
+    async function wpExportQuiz() {
+      const msg = document.getElementById('wp-msg');
+      try {
+        const d = await fetch('/api/wp/export').then(r => r.json());
+        const blob = new Blob([JSON.stringify(d, null, 2)], {type: 'application/json'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'studentup_daily_quiz_' + d.date + '.json'; a.click();
+        msg.textContent = '📤 ' + d.date + ' quiz export ayindi (' + d.questions.length + ' questions, WP quiz.php format) — WP snippet dwara sync avthundi.';
+      } catch (e) { msg.textContent = '❌ ' + e; }
+    }
+
     async function createPortalExam() {
       const msg = document.getElementById('pex-msg');
       const body = {
@@ -6708,6 +6814,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if p.path == "/portal":
             self._send_html(PORTAL_HTML)
             return
+        if p.path == "/api/blog/posts":
+            self._send_json({"ok": True, "posts": _fetch_wp_posts(12),
+                             "site": _wp_base()})
+            return
         if p.path == "/api/portal/meta":
             from core import districts as _D
             self._send_json({"ok": True,
@@ -7065,6 +7175,24 @@ class DashboardHandler(BaseHTTPRequestHandler):
             grps = [g for g in reg.get("groups", []) if g.get("active")]
             pf = whatsapp_pipeline.preflight_whatsapp(groups=grps, category="ALL", questions_per_group=5)
             self._send_json({"ok": pf["ok"], "preflight": pf})
+            return
+
+        if p.path == "/api/wp/status":
+            try:
+                req = urllib.request.Request(_wp_base() + "/wp-json/",
+                                             headers={"User-Agent": "StudentUp-Bridge/1.0"})
+                with urllib.request.urlopen(req, timeout=6) as r:
+                    info = json.loads(r.read().decode("utf-8", "ignore"))
+                self._send_json({"ok": True, "name": info.get("name", ""),
+                                 "url": info.get("url", _wp_base()),
+                                 "posts_cached": len(_WP_CACHE["posts"])})
+            except Exception as ex:
+                self._send_json({"ok": False, "error": f"WP reach avvaledu: {ex}",
+                                 "base": _wp_base()})
+            return
+
+        if p.path == "/api/wp/export":
+            self._send_json({"ok": True, **_wp_quiz_export()})
             return
 
         if p.path == "/api/pyq/status":
