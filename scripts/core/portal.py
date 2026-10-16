@@ -83,7 +83,8 @@ def _bank_pool(channels=None):
 
 
 def _snap(q):
-    return {"id": q.get("id"), "topic": (q.get("topic") or "general"),
+    return {"id": q.get("id"), "source": q.get("source") or "",
+            "topic": (q.get("topic") or "general"),
             "channel": q.get("channel") or "",
             "q_en": q.get("q_en", ""), "q_te": q.get("q_te", ""),
             "options_en": list(q.get("options_en") or []),
@@ -213,6 +214,7 @@ def state(members, token):
     uid = _sess(d, token)
     if not uid:
         return None
+    _refresh(d, _now())
     day = _daily_paper(d)
     run = (day.get("runs") or {}).get(uid)
     yday = (_now() - timedelta(days=1)).strftime("%Y-%m-%d")
@@ -232,7 +234,17 @@ def state(members, token):
             "yesterday_winners": _board(y_rows, members, limit=3),
             "mock_board": _board(mock_rows, members),
             "my_rank_today": next((i + 1 for i, r in enumerate(t_rows)
-                                    if r.get("uid") == uid), None)}
+                                    if r.get("uid") == uid), None),
+            "live_exams": [_exam_view(e, members, uid, _now())
+                           for e in sorted((d.get("exams") or {}).values(),
+                                           key=lambda x: x["starts_at"],
+                                           reverse=True)[:6]],
+            "winners_wall": [{"title": e["title"], "kind": e["kind"],
+                              "winners": e.get("winners") or []}
+                             for e in sorted((d.get("exams") or {}).values(),
+                                             key=lambda x: x["starts_at"],
+                                             reverse=True)
+                             if e.get("final")][:4]}
 
 
 # ---------------------------------------------------------------- daily quiz
@@ -357,3 +369,264 @@ def mock_submit(members, token, run_id, answers):
                                   "options": q.get("options_en") or [],
                                   "explanation": q.get("explanation", "")})
                                 for q in run["qs"]]}
+
+
+# ------------------------------------------------------------- live exams
+def _paper(channels, n, seed, pyq_first=True):
+    """Real-exam paper: PYQ questions FIRST (real previous-year questions),
+    filled with curated ones. Same paper for every student in the exam."""
+    pool = _bank_pool(channels or None)
+    if not pool:
+        return []
+    rng = random.Random(seed)
+    if pyq_first:
+        pyq = [q for q in pool if q.get("source") == "pyq"]
+        rest = [q for q in pool if q.get("source") != "pyq"]
+        rng.shuffle(pyq)
+        rng.shuffle(rest)
+        picked = (pyq + rest)[:n]
+    else:
+        picked = rng.sample(pool, min(n, len(pool)))
+    return [_snap(q) for q in picked]
+
+
+def _ist():
+    return getattr(config, "IST", None)
+
+
+def _aware(dt):
+    if dt.tzinfo is None and _ist() is not None:
+        return dt.replace(tzinfo=_ist())
+    return dt
+
+
+def _exam_times(e):
+    st = _aware(datetime.fromisoformat(e["starts_at"]))
+    return st, st + timedelta(minutes=int(e.get("duration_min", 30)))
+
+
+def exam_status(e, now):
+    if e.get("final"):
+        return "done"
+    st, en = _exam_times(e)
+    if now < st:
+        return "scheduled"
+    return "live" if now < en else "done"
+
+
+def create_exam(title, goal, starts_at, duration_min=30, n_q=20, kind="live"):
+    """Admin (dashboard) nunchi scheduled live exam. Paper ready ga untundi
+    kaani start time varaku students ki kanipinchadu."""
+    d = _load()
+    if goal not in GOALS:
+        goal = "mixed"
+    try:
+        st = _aware(datetime.fromisoformat(str(starts_at)))
+        starts_at = st.isoformat()
+    except Exception:
+        return None
+    exam_id = "EX-" + secrets.token_hex(3).upper()
+    e = {"id": exam_id, "title": str(title or "Live Exam")[:60], "goal": goal,
+         "kind": kind, "starts_at": starts_at,
+         "duration_min": max(5, min(180, int(duration_min or 30))),
+         "qs": _paper(GOALS[goal]["channels"] or None,
+                      max(5, min(100, int(n_q or 20))), "portal-exam-" + exam_id),
+         "entries": {}, "final": False, "winners": [],
+         "created": _now().isoformat()}
+    if not e["qs"]:
+        return None
+    d.setdefault("exams", {})[exam_id] = e
+    _save(d)
+    return e
+
+
+def _weekly_exam(d, now):
+    """🏆 Weekly Grand Test — prati Sunday 10:00 AM, automatic ga create."""
+    days_ahead = (6 - now.weekday()) % 7
+    start = (now + timedelta(days=days_ahead)).replace(
+        hour=10, minute=0, second=0, microsecond=0)
+    if start <= now:
+        start += timedelta(days=7)
+    key = start.strftime("%Y-%m-%d")
+    for e in (d.get("exams") or {}).values():
+        if e.get("kind") == "weekly" and e["starts_at"].startswith(key):
+            return e
+    e = {"id": "WK-" + start.strftime("%Y%m%d"),
+         "title": "🏆 Weekly Grand Test — " + start.strftime("%d %b %Y"),
+         "goal": "mixed", "kind": "weekly", "starts_at": start.isoformat(),
+         "duration_min": 60,
+         "qs": _paper(None, 40, "weekly-" + key),
+         "entries": {}, "final": False, "winners": [],
+         "created": now.isoformat()}
+    d.setdefault("exams", {})[e["id"]] = e
+    return e
+
+
+def _refresh(d, now):
+    """Weekly exam ensure + aipoina exams ki winners finalize."""
+    before = len(d.get("exams") or {})
+    _weekly_exam(d, now)
+    changed = len(d.get("exams") or {}) != before
+    for e in (d.get("exams") or {}).values():
+        if not e.get("final") and exam_status(e, now) == "done":
+            rows = sorted(e.get("entries", {}).values(),
+                          key=lambda r: (-r.get("correct", 0), -r.get("pts", 0),
+                                         r.get("joined_at", "")))
+            e["winners"] = [{"name": r.get("name", ""),
+                             "district": r.get("district", ""),
+                             "correct": r.get("correct", 0),
+                             "total": len(e["qs"]), "pts": r.get("pts", 0)}
+                            for r in rows[:3]]
+            e["final"] = True
+            changed = True
+    finals = sorted([e for e in (d.get("exams") or {}).values() if e.get("final")],
+                    key=lambda e: e["starts_at"])
+    for e in finals[:-12]:
+        d["exams"].pop(e["id"], None)
+        changed = True
+    if changed:
+        _save(d)
+
+
+def _exam_view(e, members, uid, now):
+    status = exam_status(e, now)
+    _st, en = _exam_times(e)
+    entries = e.get("entries") or {}
+    rows = sorted(entries.values(),
+                  key=lambda r: (-r.get("correct", 0), -r.get("pts", 0)))
+    ent = entries.get(uid or "")
+    view = {"id": e["id"], "title": e["title"], "goal": e["goal"],
+            "goal_label": (GOALS.get(e["goal"]) or {}).get("label", e["goal"]),
+            "kind": e["kind"], "starts_at": e["starts_at"],
+            "ends_at": en.isoformat(), "duration_min": e["duration_min"],
+            "n_q": len(e["qs"]), "status": status, "joined": len(entries),
+            "pyq_count": sum(1 for q in e["qs"] if q.get("source") == "pyq"),
+            "my": {"joined": bool(ent),
+                   "answered": len((ent or {}).get("answers") or {}),
+                   "correct": (ent or {}).get("correct", 0),
+                   "rank": next((i + 1 for i, r in enumerate(rows)
+                                 if r.get("uid") == uid), None)}}
+    if status in ("live", "done"):
+        view["board"] = _board(
+            [{"uid": r.get("uid", ""), "name": r.get("name", ""),
+              "district": r.get("district", ""), "correct": r.get("correct", 0),
+              "total": len(e["qs"]), "pts": r.get("pts", 0)} for r in rows],
+            members)
+    if status == "done":
+        view["winners"] = e.get("winners") or []
+    return view
+
+
+def admin_list():
+    d = _load()
+    now = _now()
+    _refresh(d, now)
+    out = []
+    for e in sorted((d.get("exams") or {}).values(),
+                    key=lambda x: x["starts_at"], reverse=True):
+        _st, en = _exam_times(e)
+        out.append({"id": e["id"], "title": e["title"], "goal": e["goal"],
+                    "kind": e["kind"], "starts_at": e["starts_at"],
+                    "ends_at": en.isoformat(), "n_q": len(e["qs"]),
+                    "status": exam_status(e, now),
+                    "joined": len(e.get("entries") or {}),
+                    "winners": e.get("winners") or []})
+    return out
+
+
+def exam_join(members, token, exam_id):
+    d = _load()
+    uid = _sess(d, token)
+    e = (d.get("exams") or {}).get(str(exam_id or ""))
+    if not uid or not e:
+        return False, "Session/exam dorakaledu — malli try cheyyandi."
+    _refresh(d, _now())
+    e = d["exams"][e["id"]]
+    if exam_status(e, _now()) == "done":
+        return False, "Ee exam ayipoyindi — winners chudandi!"
+    prof = _profile(members, uid)
+    e.setdefault("entries", {}).setdefault(
+        uid, {"uid": uid, "answers": {}, "correct": 0, "pts": 0,
+              "joined_at": _now().isoformat(),
+              "name": prof["name"], "district": prof["district"]})
+    _save(d)
+    return True, {"joined": True, "status": exam_status(e, _now()),
+                  "title": e["title"]}
+
+
+def exam_questions(members, token, exam_id):
+    d = _load()
+    uid = _sess(d, token)
+    e = (d.get("exams") or {}).get(str(exam_id or ""))
+    if not uid or not e:
+        return None
+    _refresh(d, _now())
+    e = d["exams"][e["id"]]
+    if exam_status(e, _now()) != "live":
+        return {"status": exam_status(e, _now())}
+    ent = (e.get("entries") or {}).get(uid)
+    if not ent:
+        return {"status": "not_joined"}
+    _st, en = _exam_times(e)
+    return {"status": "live", "title": e["title"], "ends_at": en.isoformat(),
+            "questions": _serve(e["qs"], f"{e['id']}:{uid}",
+                                ent.get("answers") or {})}
+
+
+def exam_answer(members, token, exam_id, idx, choice):
+    """Live exam answer — result ayye varaku correct/wrong cheppamu
+    (real exam feel). Live board kosam points matrame update avthayi."""
+    d = _load()
+    uid = _sess(d, token)
+    e = (d.get("exams") or {}).get(str(exam_id or ""))
+    if not uid or not e:
+        return False, "Session/exam dorakaledu."
+    _refresh(d, _now())
+    e = d["exams"][e["id"]]
+    if exam_status(e, _now()) != "live":
+        return False, "Exam live lo ledu (start/ayipoindi chudandi)."
+    ent = (e.get("entries") or {}).get(uid)
+    if not ent:
+        return False, "Mundhu exam join avvandi."
+    if not (0 <= int(idx) < len(e["qs"])):
+        return False, "Invalid question."
+    if str(idx) in ent.get("answers", {}):
+        return True, {"already": True, "answered": len(ent["answers"])}
+    q = e["qs"][int(idx)]
+    _opts, perm = _display(q, f"{e['id']}:{uid}:{int(idx)}")
+    ch = int(choice)
+    orig = perm[ch] if 0 <= ch < len(perm) else ch
+    ent.setdefault("answers", {})[str(idx)] = orig
+    if orig == q["answer_index"]:
+        ent["correct"] += 1
+        ent["pts"] += PTS_MOCK
+    _save(d)
+    prof = _profile(members, uid)
+    _award(members, uid, prof["name"], orig == q["answer_index"], q)
+    return True, {"answered": len(ent["answers"]), "total_q": len(e["qs"])}
+
+
+def exam_result(members, token, exam_id):
+    d = _load()
+    uid = _sess(d, token)
+    e = (d.get("exams") or {}).get(str(exam_id or ""))
+    if not uid or not e:
+        return None
+    _refresh(d, _now())
+    e = d["exams"][e["id"]]
+    view = _exam_view(e, members, uid, _now())
+    if view["status"] != "done":
+        return view
+    ent = (e.get("entries") or {}).get(uid)
+    if ent:
+        review = []
+        for i, q in enumerate(e["qs"]):
+            g = (ent.get("answers") or {}).get(str(i), -1)
+            review.append({"i": i, "right": g == q["answer_index"],
+                           "given": g, "answer": q["answer_index"]})
+        view["review"] = review
+        view["questions"] = [{"te": q.get("q_te", ""), "en": q.get("q_en", ""),
+                              "options": q.get("options_en") or [],
+                              "explanation": q.get("explanation", "")}
+                             for q in e["qs"]]
+    return view

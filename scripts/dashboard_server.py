@@ -533,6 +533,17 @@ PORTAL_HTML = """<!DOCTYPE html>
     </div>
 
     <div class="card">
+      <h3>🔴 Live &amp; Upcoming Exams</h3>
+      <div id="live-exams"></div>
+      <p class="muted">📚 Paper PYQ-first (real previous-year questions). Start time ki mundhe Join nokki ready ga undandi — Live avvagane rank board update avthune untundi!</p>
+    </div>
+
+    <div class="card">
+      <h3>🏆 Winners Wall</h3>
+      <div id="winners-wall"></div>
+    </div>
+
+    <div class="card">
       <h3>📝 Mock Tests — mee exam select cheskondi</h3>
       <p class="muted">Real exam pattern practice: 15 questions, timer tho. Ayyaka instant score + full answer review.</p>
       <div class="grid" id="mock-grid"></div>
@@ -580,6 +591,14 @@ PORTAL_HTML = """<!DOCTYPE html>
     <div id="m-err" class="err"></div>
   </div>
 
+  <!-- live exam runner -->
+  <div id="view-exam" class="card" style="display:none;">
+    <div class="row"><span id="x-title" class="chip"></span><span class="chip timer" id="x-timer"></span><span id="x-prog" class="chip gold"></span></div>
+    <p class="muted" style="margin-top:8px;">⚠️ Live exam lo answers save avthayi kaani correct/wrong result ayye varaku teliyadu — real exam feel! Back vellina, refresh chesina answers safe.</p>
+    <div id="x-qs"></div>
+    <button class="btn-main" onclick="backHome()">✔️ Finish (Result exam ayyaka ikkade)</button>
+  </div>
+
   <!-- mock result -->
   <div id="view-result" class="card" style="display:none;">
     <h2 style="text-align:center;">📝 Mock Result</h2>
@@ -600,7 +619,7 @@ async function api(path, body) {
   const r = await fetch(path, opt); return await r.json();
 }
 function show(id) {
-  ['view-reg', 'view-home', 'view-quiz', 'view-mock', 'view-result'].forEach(v => {
+  ['view-reg', 'view-home', 'view-quiz', 'view-mock', 'view-result', 'view-exam'].forEach(v => {
     const el = document.getElementById(v); if (el) el.style.display = (v === id ? 'block' : 'none');
   });
 }
@@ -652,6 +671,9 @@ async function loadHome() {
   document.getElementById('board-daily').innerHTML = rows(d.daily_board, 'Inka evaru ee roju quiz complete cheyyaledu — meeru first avandi! 🔥');
   document.getElementById('board-mock').innerHTML = rows(d.mock_board, 'Inka mock leaders leru — okka mock raasi board meeda vacheyyandi!');
   document.getElementById('board-win').innerHTML = rows(d.yesterday_winners, 'Ninna winners inka leru.');
+  renderLiveExams(d.live_exams || []);
+  document.getElementById('winners-wall').innerHTML = (d.winners_wall || []).map(w =>
+    '<div style="margin-top:8px;"><b style="font-size:13px;">' + esc(w.title) + '</b>' + rows(w.winners, '') + '</div>').join('') || '<div class="muted">Inka winners leru — Weekly Grand Test (Sunday 10 AM) first!</div>';
   show('view-home');
 }
 function backHome() { clearInterval(mockTimer); loadHome(); }
@@ -736,6 +758,84 @@ async function submitMock() {
       (q.explanation ? '<br><span class="muted">💡 ' + esc(q.explanation) + '</span>' : '') + '</div>';
   }).join('');
   MOCK = null;
+  show('view-result');
+}
+let EX = null, exTimer = null;
+function examBtn(e) {
+  if (e.status === 'scheduled') return e.my.joined ? '<span class="chip">✅ Joined — wait for start</span>' : '<button class="btn-main" style="margin-top:8px;" onclick="joinExam(\'' + e.id + '\')">🔔 Join Exam</button>';
+  if (e.status === 'live') return e.my.joined ? '<button class="btn-main" style="margin-top:8px;" onclick="enterExam(\'' + e.id + '\')">▶️ Enter Live Exam</button>' : '<button class="btn-main" style="margin-top:8px;" onclick="joinExam(\'' + e.id + '\', true)">🚪 Join &amp; Enter</button>';
+  return '<button class="btn-alt" onclick="showExamResult(\'' + e.id + '\')">📊 Result &amp; Winners</button>';
+}
+function renderLiveExams(list) {
+  const box = document.getElementById('live-exams');
+  if (!list.length) { box.innerHTML = '<div class="muted">Upcoming exams ikkade kanipisthayi.</div>'; return; }
+  box.innerHTML = list.map(e => {
+    const when = (e.starts_at || '').replace('T', ' ').slice(0, 16);
+    const st = e.status === 'live' ? '<span style="color:#f87171; font-weight:800;">🔴 LIVE NOW</span>'
+      : e.status === 'done' ? '<span class="muted">✅ Completed</span>'
+      : '<span style="color:#facc15; font-weight:700;">⏰ ' + when + ' ki start</span>';
+    return '<div style="padding:11px; background:#0f1e38; border:1px solid #24466e; border-radius:12px; margin-top:9px;">' +
+      '<b>' + esc(e.title) + '</b> ' + (e.kind === 'weekly' ? '<span class="chip gold">WEEKLY</span>' : '') + '<br>' +
+      '<span class="muted">' + esc(e.goal_label) + ' · ' + e.n_q + ' Qs (' + e.pyq_count + ' real PYQs) · ' + e.duration_min + ' min · 👥 ' + e.joined + ' joined</span><br>' + st +
+      (e.my && e.my.joined ? '<br><span class="muted">Mee progress: ' + e.my.answered + '/' + e.n_q + ' answered' + (e.my.rank ? ' · Rank #' + e.my.rank : '') + '</span>' : '') +
+      (e.board ? rows(e.board.slice(0, 5), '') : '') +
+      examBtn(e) + '</div>';
+  }).join('');
+}
+async function joinExam(id, enter) {
+  const d = await api('/api/portal/exam/join', {token, exam_id: id});
+  if (!d.ok) { alert('❌ ' + (d.error || 'Join avvaledu')); return; }
+  if (enter) { enterExam(id); } else { loadHome(); }
+}
+async function enterExam(id) {
+  const d = await api('/api/portal/exam?id=' + encodeURIComponent(id) + '&token=' + encodeURIComponent(token));
+  if (!d.ok) { alert('❌ Session expired'); logout(); return; }
+  if (d.status !== 'live') { alert(d.status === 'scheduled' ? '⏰ Exam inka start avvaledu!' : 'Exam ayipoyindi / join avvaledu.'); loadHome(); return; }
+  EX = {id, answers: {}};
+  document.getElementById('x-title').textContent = '🔴 ' + d.title;
+  const box = document.getElementById('x-qs'); box.innerHTML = '';
+  (d.questions || []).forEach(q => {
+    const div = document.createElement('div');
+    div.innerHTML = '<div class="qte" style="margin-top:14px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
+    q.options.forEach((opt, oi) => {
+      const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+      if (q.answered) { b.disabled = true; }
+      else b.onclick = async () => {
+        div.querySelectorAll('.opt').forEach(x => { x.disabled = true; });
+        b.classList.add('picked');
+        const r = await api('/api/portal/exam/answer', {token, exam_id: EX.id, idx: q.i, choice: oi});
+        if (r.ok) document.getElementById('x-prog').textContent = '✍️ ' + r.answered + '/' + r.total_q;
+      };
+      div.appendChild(b);
+    });
+    box.appendChild(div);
+  });
+  show('view-exam');
+  const prog = document.getElementById('x-prog');
+  const ans = (d.questions || []).filter(q => q.answered).length;
+  prog.textContent = '✍️ ' + ans + '/' + (d.questions || []).length;
+  let left = Math.max(0, Math.round((new Date(d.ends_at) - Date.now()) / 1000));
+  const tEl = document.getElementById('x-timer');
+  clearInterval(exTimer);
+  exTimer = setInterval(() => {
+    left--;
+    tEl.textContent = '⏱ ' + Math.floor(left / 60) + ':' + String(Math.max(0, left) % 60).padStart(2, '0');
+    if (left <= 0) { clearInterval(exTimer); alert('⏰ Time ayipoyindi! Result ikkade chudandi.'); backHome(); }
+  }, 1000);
+}
+async function showExamResult(id) {
+  const d = await api('/api/portal/exam/result?id=' + encodeURIComponent(id) + '&token=' + encodeURIComponent(token));
+  if (!d.ok) { alert('❌ Result dorakaledu'); return; }
+  if (d.status !== 'done') { alert('⏳ Result exam complete ayyaka vastundi.'); return; }
+  document.getElementById('res-score').textContent = (d.my ? d.my.correct : 0) + '/' + d.n_q;
+  document.getElementById('res-sub').innerHTML = esc(d.title) + (d.my && d.my.rank ? ' · 🏆 Mee Rank #' + d.my.rank : '') +
+    '<br>🏆 Winners: ' + (d.winners || []).map(w => esc(w.name) + ' (' + w.correct + '/' + w.total + ')').join(' · ');
+  document.getElementById('res-review').innerHTML = (d.review || []).map(r => {
+    const q = (d.questions || [])[r.i] || {}; const opts = q.options || [];
+    return '<div class="rrow ' + (r.right ? 'ok' : 'bad') + '"><b>Q' + (r.i + 1) + '.</b> ' + esc(q.en || q.te || '') +
+      '<br><span class="muted">Meeru: ' + esc(opts[r.given] || '— attempt cheyyaledu') + (r.right ? ' ✅' : ' ❌ · Correct: ' + esc(opts[r.answer] || '')) + '</span>' +
+      (q.explanation ? '<br><span class="muted">💡 ' + esc(q.explanation) + '</span>' : '') + '</div>';
+  }).join('') || '<div class="muted">Mee review ledu (answers ivvaledu).</div>';
   show('view-result');
 }
 init();
@@ -1686,6 +1786,21 @@ HTML_PAGE = """<!DOCTYPE html>
           </thead>
           <tbody></tbody>
         </table>
+      <div class="panel-card" style="margin-top:16px;">
+        <h3 style="font-size:14px; color:#38bdf8;">🌐 Portal Live Exams (quiz.studentup.in) — అందరి students kosam public live exams</h3>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; align-items:center;">
+          <input type="text" id="pex-title" placeholder="Exam title e.g. Sunday Mega Test" style="flex:2; min-width:160px;">
+          <select id="pex-goal" style="flex:1; min-width:130px;"></select>
+          <input type="datetime-local" id="pex-start" style="flex:1; min-width:170px;">
+          <select id="pex-dur"><option value="20">20 min</option><option value="30" selected>30 min</option><option value="45">45 min</option><option value="60">60 min</option></select>
+          <select id="pex-nq"><option value="15">15 Qs</option><option value="20" selected>20 Qs</option><option value="30">30 Qs</option><option value="50">50 Qs</option></select>
+          <button class="btn btn-accent" onclick="createPortalExam()">➕ Schedule Live Exam</button>
+          <button class="btn btn-outline" onclick="loadPortalExams()">🔄 Refresh</button>
+        </div>
+        <div id="pex-msg" style="font-size:12px; margin-top:8px;"></div>
+        <div id="pex-list" style="font-size:12.5px; margin-top:8px; color:var(--text-muted);">Loading… (🏆 Weekly Grand Test prati Sunday 10 AM automatic ga create avthundi)</div>
+      </div>
+
       <div class="panel-card" style="margin-top:16px;">
         <h3 style="font-size:14px; color:#facc15;">🏆 College League — అన్ని exams kalipi Inter-College Standings</h3>
         <div id="campus-league-box" style="font-size:12px; margin-top:8px; color:var(--text-muted);">League data loading…</div>
@@ -4860,6 +4975,44 @@ All candidates must join today before 9:00 PM!"></textarea>
         tbody.appendChild(tr);
       });
       loadCampusLeague();
+      loadPortalExams();
+    }
+
+
+    async function createPortalExam() {
+      const msg = document.getElementById('pex-msg');
+      const body = {
+        title: document.getElementById('pex-title').value.trim(),
+        goal: document.getElementById('pex-goal').value,
+        starts_at: document.getElementById('pex-start').value,
+        duration_min: parseInt(document.getElementById('pex-dur').value),
+        n_q: parseInt(document.getElementById('pex-nq').value)
+      };
+      if (!body.title || !body.starts_at) { msg.textContent = '⚠️ Title + Start time ivvandi.'; return; }
+      try {
+        const r = await fetch('/api/portal/admin/exams/create', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+        const d = await r.json();
+        msg.textContent = d.ok ? ('✅ Scheduled: ' + d.title + ' · ' + d.n_q + ' Qs · ' + d.starts_at.replace('T', ' ')) : ('❌ ' + d.error);
+        if (d.ok) loadPortalExams();
+      } catch (e) { msg.textContent = '❌ ' + e; }
+    }
+
+    async function loadPortalExams() {
+      try {
+        const d = await fetch('/api/portal/admin/exams').then(r => r.json());
+        const sel = document.getElementById('pex-goal');
+        if (sel && !sel.options.length) Object.entries(d.goals || {}).forEach(([k, v]) => {
+          const o = document.createElement('option'); o.value = k; o.textContent = v; sel.appendChild(o);
+        });
+        const box = document.getElementById('pex-list');
+        box.innerHTML = (d.exams || []).map(e =>
+          '<div style="padding:7px 10px; background:#050811; border:1px solid var(--border); border-radius:8px; margin-top:6px;">' +
+          '<b style="color:#e2e8f0;">' + e.title + '</b> · ' + e.id + ' · ' + e.n_q + ' Qs · 👥 ' + e.joined +
+          ' · <span style="color:' + (e.status === 'live' ? '#10b981' : (e.status === 'done' ? '#94a3b8' : '#facc15')) + ';">' +
+          (e.status === 'live' ? '🔴 LIVE' : e.status) + '</span> · ⏰ ' + (e.starts_at || '').replace('T', ' ').slice(0, 16) +
+          (e.winners && e.winners.length ? ' · 🏆 ' + e.winners.map(w => w.name + ' (' + w.correct + '/' + w.total + ')').join(', ') : '') +
+          '</div>').join('') || 'Inka exams levu — paina schedule cheyyandi.';
+      } catch (e) { /* tab not ready */ }
     }
 
     async function loadBundles() {
@@ -6067,6 +6220,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
             st = portal.state(Members(), query.get("token", [""])[0])
             self._send_json({"ok": bool(st), **(st or {"error": "session expired"})})
             return
+        if p.path == "/api/portal/exam":
+            query = urllib.parse.parse_qs(p.query)
+            ex = portal.exam_questions(Members(), query.get("token", [""])[0],
+                                       query.get("id", [""])[0])
+            self._send_json({"ok": ex is not None, **(ex or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/exam/result":
+            query = urllib.parse.parse_qs(p.query)
+            ex = portal.exam_result(Members(), query.get("token", [""])[0],
+                                    query.get("id", [""])[0])
+            self._send_json({"ok": ex is not None, **(ex or {"error": "not found"})})
+            return
         if p.path == "/api/portal/quiz":
             query = urllib.parse.parse_qs(p.query)
             qq = portal.daily_questions(Members(), query.get("token", [""])[0])
@@ -6381,6 +6546,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json({"ok": pf["ok"], "preflight": pf})
             return
 
+        if p.path == "/api/portal/admin/exams":
+            self._send_json({"ok": True, "exams": portal.admin_list(),
+                             "goals": {k: v["label"] for k, v in portal.GOALS.items()}})
+            return
+
         if p.path == "/api/campus/list":
             d = campus._load()
             events = []
@@ -6587,6 +6757,20 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         # 🌐 Student Web Exam APIs — login akkarledu
         # 🎓 Student Portal APIs — login akkarledu
+        if p.path == "/api/portal/exam/join":
+            ok, info = portal.exam_join(Members(), body.get("token", ""), body.get("exam_id", ""))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/exam/answer":
+            try:
+                ok, info = portal.exam_answer(
+                    Members(), body.get("token", ""), body.get("exam_id", ""),
+                    int(body.get("idx") or 0),
+                    int(body.get("choice") if body.get("choice") is not None else -1))
+            except Exception as ex:
+                ok, info = False, str(ex)
+            self._send_json({"ok": ok, **(info if ok and isinstance(info, dict) else {"error": info})})
+            return
         if p.path == "/api/portal/register":
             ok, info = portal.register_student(
                 Members(), body.get("name", ""), body.get("phone", ""),
@@ -6808,6 +6992,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": True, "code": code, "info": info})
             else:
                 self._send_json({"ok": False, "code": code, "message": str(info)})
+            return
+
+        if p.path == "/api/portal/admin/exams/create":
+            e = portal.create_exam(
+                body.get("title", ""), body.get("goal", "mixed"),
+                body.get("starts_at", ""), body.get("duration_min", 30),
+                body.get("n_q", 20))
+            if e:
+                self._send_json({"ok": True, "id": e["id"], "title": e["title"],
+                                 "n_q": len(e["qs"]), "starts_at": e["starts_at"]})
+            else:
+                self._send_json({"ok": False, "error": "Exam create avvaledu — time/questions check cheyyandi."})
             return
 
         if p.path == "/api/campus/create":

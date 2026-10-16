@@ -139,3 +139,89 @@ class TestPortal(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+from datetime import timedelta  # noqa: E402
+
+
+class TestPortalLiveExams(unittest.TestCase):
+    def setUp(self):
+        self._old = portal.PATH
+        self._tmp = tempfile.mkdtemp()
+        portal.PATH = Path(self._tmp) / "portal.json"
+        self.mem = FakeMembers()
+
+    def tearDown(self):
+        portal.PATH = self._old
+
+    def _live_exam(self, mins_ago=5, dur=30, n=10):
+        st = (portal._now() - timedelta(minutes=mins_ago)).isoformat()
+        e = portal.create_exam("Mega Live", "mixed", st, dur, n)
+        assert e, "exam create failed"
+        return e
+
+    def test_live_exam_full_cycle_and_winners(self):
+        e = self._live_exam()
+        tokA = _reg(self.mem)
+        tokB = _reg(self.mem, "Ravi", "9812345602")
+        # paper is PYQ-first (real exam questions)
+        d = portal._load()
+        srcs = [q.get("source") for q in d["exams"][e["id"]]["qs"]]
+        self.assertGreaterEqual(srcs.count("pyq"), 5)
+        ok, inf = portal.exam_join(self.mem, tokA, e["id"])
+        self.assertTrue(ok, inf)
+        portal.exam_join(self.mem, tokB, e["id"])
+        qd = portal.exam_questions(self.mem, tokA, e["id"])
+        self.assertEqual(qd["status"], "live")
+        self.assertEqual(len(qd["questions"]), 10)
+        # Anitha answers Q0 with the CORRECT display index; Ravi none
+        paper = d["exams"][e["id"]]["qs"]
+        q0 = paper[0]
+        uidA = "w9812345601"
+        opts, perm = portal._display(q0, f"{e['id']}:{uidA}:0")
+        ok, res = portal.exam_answer(self.mem, tokA, e["id"], 0,
+                                     perm.index(q0["answer_index"]))
+        self.assertTrue(ok, res)
+        self.assertNotIn("correct", res)          # result ayye varaku secret
+        self.assertEqual(res["answered"], 1)
+        # push exam into the past → finalize + winners
+        d = portal._load()
+        d["exams"][e["id"]]["starts_at"] = (
+            portal._now() - timedelta(hours=2)).isoformat()
+        portal._save(d)
+        st = portal.state(self.mem, tokB)
+        wall = {w["title"]: w for w in st["winners_wall"]}
+        self.assertIn("Mega Live", wall)
+        self.assertEqual(wall["Mega Live"]["winners"][0]["name"], "Anitha")
+        resA = portal.exam_result(self.mem, tokA, e["id"])
+        self.assertEqual(resA["status"], "done")
+        self.assertEqual(resA["my"]["rank"], 1)
+        self.assertEqual(len(resA["review"]), 10)
+        # late join blocked
+        tokC = _reg(self.mem, "Late", "9812345603")
+        ok, err = portal.exam_join(self.mem, tokC, e["id"])
+        self.assertFalse(ok)
+
+    def test_scheduled_exam_not_open_early_and_weekly_auto(self):
+        st_time = (portal._now() + timedelta(days=1)).isoformat()
+        e = portal.create_exam("Future Test", "groups", st_time, 30, 10)
+        tok = _reg(self.mem)
+        ok, inf = portal.exam_join(self.mem, tok, e["id"])   # join early OK
+        self.assertTrue(ok, inf)
+        qd = portal.exam_questions(self.mem, tok, e["id"])
+        self.assertEqual(qd["status"], "scheduled")          # paper locked
+        lst = portal.admin_list()
+        kinds = {x["kind"] for x in lst}
+        self.assertIn("weekly", kinds)                       # 🏆 auto weekly
+        wk = [x for x in lst if x["kind"] == "weekly"][0]
+        self.assertEqual(wk["n_q"], 40)
+
+    def test_dashboard_live_exam_wiring(self):
+        src = (Path(__file__).resolve().parent.parent
+               / "scripts" / "dashboard_server.py").read_text(encoding="utf-8")
+        for needle in ('"/api/portal/exam"', '"/api/portal/exam/result"',
+                       '"/api/portal/exam/join"', '"/api/portal/exam/answer"',
+                       '"/api/portal/admin/exams"', "portal.create_exam",
+                       "portal.admin_list", 'id="pex-title"', "createPortalExam",
+                       "renderLiveExams", " Winners Wall"):
+            self.assertIn(needle.strip(), src)
