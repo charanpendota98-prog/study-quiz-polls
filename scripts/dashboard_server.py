@@ -1072,7 +1072,7 @@ async function loadHome() {
     '<div style="margin-top:8px;"><b style="font-size:13px;">' + esc(w.title) + '</b>' + rows(w.winners, '') + '</div>').join('') || '<div class="muted">Inka winners leru — Weekly Grand Test (Sunday 10 AM) first!</div>';
   show('view-home');
 }
-function backHome() { clearInterval(mockTimer); loadHome(); }
+function backHome() { clearInterval(mockTimer); clearInterval(rankTimer); clearInterval(exTimer); loadHome(); }
 async function openQuiz() {
   const d = await api('/api/portal/quiz?token=' + encodeURIComponent(token));
   if (!d.ok) { logout(); return; }
@@ -1200,7 +1200,22 @@ function nextPr() {
   if (PR.cur + 1 >= PR.questions.length) { backHome(); return; }
   PR.cur++; renderPr();
 }
-let EX = null, exTimer = null;
+let EX = null, exTimer = null, rankTimer = null;
+async function pollRank() {
+  if (!EX) return;
+  try {
+    const d = await api('/api/portal/exam/result?id=' + encodeURIComponent(EX.id) + '&token=' + encodeURIComponent(token));
+    if (!d.ok) return;
+    if (d.status === 'done') {
+      clearInterval(rankTimer);
+      document.getElementById('x-prog').textContent = '✅ Exam done!';
+      showExamResult(EX.id);
+      return;
+    }
+    if (d.my) document.getElementById('x-prog').textContent =
+      '✍️ ' + (d.my.answered || 0) + '/' + d.n_q + (d.my.rank ? ' · 🏆 Live Rank #' + d.my.rank + ' / ' + (d.joined || '') : '');
+  } catch (e) {}
+}
 function examBtn(e) {
   if (e.status === 'scheduled') return e.my.joined ? '<span class="chip">✅ Joined — wait for start</span>' : '<button class="btn-main" style="margin-top:8px;" onclick="joinExam(\'' + e.id + '\')">🔔 Join Exam</button>';
   if (e.status === 'live') return e.my.joined ? '<button class="btn-main" style="margin-top:8px;" onclick="enterExam(\'' + e.id + '\')">▶️ Enter Live Exam</button>' : '<button class="btn-main" style="margin-top:8px;" onclick="joinExam(\'' + e.id + '\', true)">🚪 Join &amp; Enter</button>';
@@ -1232,6 +1247,8 @@ async function enterExam(id) {
   if (!d.ok) { alert('❌ Session expired'); logout(); return; }
   if (d.status !== 'live') { alert(d.status === 'scheduled' ? '⏰ Exam inka start avvaledu!' : 'Exam ayipoyindi / join avvaledu.'); loadHome(); return; }
   EX = {id, answers: {}};
+  clearInterval(rankTimer);
+  rankTimer = setInterval(pollRank, 20000);
   document.getElementById('x-title').textContent = '🔴 ' + d.title;
   const box = document.getElementById('x-qs'); box.innerHTML = '';
   (d.questions || []).forEach(q => {
@@ -1269,7 +1286,7 @@ async function showExamResult(id) {
   if (d.status !== 'done') { alert('⏳ Result exam complete ayyaka vastundi.'); return; }
   document.getElementById('res-score').textContent = (d.my ? d.my.correct : 0) + '/' + d.n_q;
 
-  document.getElementById('res-sub').innerHTML = esc(d.title) + (d.my && d.my.rank ? ' · 🏆 Mee Rank #' + d.my.rank : '') +
+  document.getElementById('res-sub').innerHTML = esc(d.title) + (d.my && d.my.rank ? ' · 🏆 Mee Rank #' + d.my.rank : '') + (d.my && d.my.top_pct ? ' · 🏅 Top ' + d.my.top_pct + '%' : '') +
     '<br>🏆 Winners: ' + (d.winners || []).map(w => esc(w.name) + ' (' + w.correct + '/' + w.total + ')').join(' · ');
   document.getElementById('res-review').innerHTML = (d.review || []).map(r => {
     const q = (d.questions || [])[r.i] || {}; const opts = q.options || [];
@@ -6635,6 +6652,7 @@ All candidates must join today before 9:00 PM!"></textarea>
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"  # 🚀 keep-alive — anni responses Content-Length disciplined
     # ---------------- 🔒 access lock helpers ----------------
     def _cookie_token(self) -> str:
         raw = self.headers.get("Cookie", "") or ""
@@ -6736,28 +6754,47 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _gz(self, body):
+        """🚀 gzip — mobile students ki bandwidth save (pedda pages/JSON)."""
+        try:
+            if len(body) > 800 and "gzip" in (self.headers.get("Accept-Encoding") or ""):
+                import gzip as _gzip
+                return _gzip.compress(body, compresslevel=6), "gzip"
+        except Exception:
+            pass
+        return body, None
+
     def _send_text(self, body_text, code=200, ctype="text/plain; charset=utf-8"):
-        body = body_text.encode("utf-8")
+        body, enc = self._gz(body_text.encode("utf-8"))
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
+        if enc:
+            self.send_header("Content-Encoding", enc)
+            self.send_header("Vary", "Accept-Encoding")
         self.end_headers()
         self.wfile.write(body)
 
     def _send_json(self, data, code=200):
-        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        body, enc = self._gz(json.dumps(data, ensure_ascii=False).encode("utf-8"))
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        if enc:
+            self.send_header("Content-Encoding", enc)
+            self.send_header("Vary", "Accept-Encoding")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(body)
 
     def _send_html(self, html):
-        body = html.encode("utf-8")
+        body, enc = self._gz(html.encode("utf-8"))
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        if enc:
+            self.send_header("Content-Encoding", enc)
+            self.send_header("Vary", "Accept-Encoding")
         self.end_headers()
         self.wfile.write(body)
 

@@ -77,6 +77,15 @@ def _flush_store():
             return
         target = Path(_STORE["path"])
         target.parent.mkdir(parents=True, exist_ok=True)
+        try:  # 🛡️ roju ki okka backup, last 3 matrame (corrupt ayina recovery)
+            bak = target.with_name(target.name + ".bak-" + _today())
+            if target.exists() and not bak.exists():
+                bak.write_bytes(target.read_bytes())
+            baks = sorted(target.parent.glob(target.name + ".bak-*"))
+            for old_bak in baks[:-3]:
+                old_bak.unlink(missing_ok=True)
+        except Exception:
+            pass
         tmp = target.with_suffix(".tmp")
         tmp.write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
         tmp.replace(target)
@@ -189,6 +198,16 @@ def _load():
         d = json.loads(PATH.read_text(encoding="utf-8"))
     except Exception:
         d = {}
+        # 🛡️ corrupt main file → latest daily backup nunchi recover
+        try:
+            for bak in sorted(PATH.parent.glob(PATH.name + ".bak-*"), reverse=True):
+                try:
+                    d = json.loads(bak.read_text(encoding="utf-8"))
+                    break
+                except Exception:
+                    continue
+        except Exception:
+            d = {}
     d.setdefault("sessions", {})
     d.setdefault("days", {})
     d.setdefault("mocks", {})
@@ -763,7 +782,11 @@ def _exam_view(e, members, uid, now):
                    "answered": len((ent or {}).get("answers") or {}),
                    "correct": (ent or {}).get("correct", 0),
                    "rank": next((i + 1 for i, r in enumerate(rows)
-                                 if r.get("uid") == uid), None)}}
+                                 if r.get("uid") == uid), None),
+                   "top_pct": None}}
+    _rk = view["my"]["rank"]
+    if _rk and rows:
+        view["my"]["top_pct"] = max(1, (100 * _rk + len(rows) - 1) // len(rows))
     if status in ("live", "done"):
         view["board"] = _board(
             [{"uid": r.get("uid", ""), "name": r.get("name", ""),
