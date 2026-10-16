@@ -590,8 +590,12 @@ def build_groups_template_xlsx() -> bytes:
     })
 
 
-def import_from_csv_or_excel_text(raw_text: str) -> dict:
-    """Parses comma-separated, tab-separated or pipe-separated lines."""
+def import_from_csv_or_excel_text(raw_text: str,
+                                  dry_run: bool = False) -> dict:
+    """Parses comma-separated, tab-separated or pipe-separated lines.
+    dry_run=True aithe calculate chestundi kani EM write cheyyadu
+    (multisheet import tho parity — bulk_setup CLI rendu paths ki
+    okkela behave cheyyali)."""
     lines = [l.strip() for l in raw_text.splitlines() if l.strip()]
     rows = []
     for line in lines:
@@ -608,8 +612,40 @@ def import_from_csv_or_excel_text(raw_text: str) -> dict:
         else:
             parts = [line]
         rows.append(parts)
+    if dry_run:
+        from core import config as _cfg
+        files = [whatsapp_pipeline.WA_CONFIG_FILE,
+                 whatsapp_pipeline.WA_SCHEDULES_FILE,
+                 channel_router.CUSTOM_CHANNELS_FILE]
+        snap_files = [(f, f.read_bytes() if f.exists() else None)
+                      for f in files]
+        snap_channels = set(_cfg.CHANNELS.keys())
+        snap_public = list(_cfg.PUBLIC_CHANNELS)
+        try:
+            res = import_rows_list(rows)
+            res["schedules_created"] = create_schedules_for_imports(
+                res.pop("schedules_wanted", []), "📥 Paste")
+            res["tg_schedules_created"] = create_tg_schedules_for_imports(
+                res.pop("tg_schedules_wanted", []), "📥 Paste")
+            res["dry_run"] = True
+            return res
+        finally:
+            for f, blob in snap_files:
+                try:
+                    if blob is None:
+                        f.unlink(missing_ok=True)
+                    else:
+                        f.write_bytes(blob)
+                except Exception:
+                    pass
+            for k in list(_cfg.CHANNELS.keys()):
+                if k not in snap_channels:
+                    _cfg.CHANNELS.pop(k, None)
+            _cfg.PUBLIC_CHANNELS[:] = snap_public
     res = import_rows_list(rows)
     res["schedules_created"] = create_schedules_for_imports(res.pop("schedules_wanted", []), "📥 Paste")
+    res["tg_schedules_created"] = create_tg_schedules_for_imports(
+        res.pop("tg_schedules_wanted", []), "📥 Paste")
     return res
 
 

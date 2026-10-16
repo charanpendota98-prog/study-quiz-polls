@@ -7598,8 +7598,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json({"members": arr})
             return
 
-        self.send_response(404)
-        self.end_headers()
+        # unknown route -> JSON 404 (browser ki empty page padakudadhu)
+        if p.path.startswith("/api/"):
+            self._send_json({"ok": False,
+                             "error": f"unknown endpoint: {p.path}"}, code=404)
+        else:
+            self.send_response(404)
+            self.end_headers()
 
     def do_POST(self):
         try:
@@ -8662,8 +8667,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": True, "message": f"Flushed {q} queued items to Google Sheet."})
             return
 
-        self.send_response(404)
-        self.end_headers()
+        # unknown route -> JSON 404 (browser ki empty page padakudadhu)
+        if p.path.startswith("/api/"):
+            self._send_json({"ok": False,
+                             "error": f"unknown endpoint: {p.path}"}, code=404)
+        else:
+            self.send_response(404)
+            self.end_headers()
 
 
 def start_server(port=PORT):

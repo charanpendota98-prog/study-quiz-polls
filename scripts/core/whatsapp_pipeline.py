@@ -1468,10 +1468,12 @@ def _js_weekday(dt):
     return (dt.weekday() + 1) % 7
 
 
-def _weekday_ok(job, dt):
+def _weekday_ok(job, dt=None):
     days = (job or {}).get("weekdays")
     if not days:
         return True
+    if dt is None:
+        dt = datetime.now()
     return _js_weekday(dt) in [int(x) for x in days]
 
 
