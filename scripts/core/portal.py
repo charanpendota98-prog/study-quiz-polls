@@ -189,9 +189,13 @@ def _profile(members, uid):
           if v.get("total") else 0, "total": v.get("total", 0)}
          for t, v in topics.items() if v.get("total", 0) >= 2),
         key=lambda r: (r["accuracy"], -r["total"]))[:3]
+    due = sum(1 for r in (m.get("review") or [])
+              if str(r.get("due", "")) <= _today())
     return {"name": m.get("name", ""), "district": m.get("district", ""),
             "goal": m.get("exam_goal") or m.get("goal") or "mixed",
             "points": m.get("points", 0),
+            "streak": m.get("streak", 0), "best_streak": m.get("best_streak", 0),
+            "review_due": due,
             "answered": tot, "correct": cor,
             "accuracy": round(cor / tot * 100) if tot else 0,
             "weak_topics": weak}
@@ -227,6 +231,7 @@ def state(members, token):
     prof = _profile(members, uid)
     return {"student": prof,
             "goals": {k: v["label"] for k, v in GOALS.items()},
+            "notices": list_notices(3),
             "daily": {"n": len(day["qs"]), "done": bool(run and run.get("done")),
                       "correct": (run or {}).get("correct", 0),
                       "answered": len((run or {}).get("answers") or {})},
@@ -630,3 +635,112 @@ def exam_result(members, token, exam_id):
                               "explanation": q.get("explanation", "")}
                              for q in e["qs"]]
     return view
+
+
+# ------------------------------------------------------------- notices
+def add_notice(title, body, link=""):
+    """📢 Exam updates/notifications (admin dashboard nunchi) — portal home
+    lo + public /updates page lo kanipisthayi."""
+    d = _load()
+    n = {"id": secrets.token_hex(4),
+         "title": str(title or "")[:120], "body": str(body or "")[:600],
+         "link": str(link or "")[:300], "date": _today()}
+    if not n["title"]:
+        return None
+    d.setdefault("notices", []).insert(0, n)
+    d["notices"] = d["notices"][:30]
+    _save(d)
+    return n
+
+
+def list_notices(limit=10):
+    return (_load().get("notices") or [])[:limit]
+
+
+# ------------------------------------------------------------- practice 2.0
+def topics_list(limit=16):
+    """Practice kosam bank lo unna top topics."""
+    import collections
+    try:
+        pool = _bank_pool()
+    except Exception:
+        return []
+    c = collections.Counter((q.get("topic") or "general") for q in pool)
+    return [t for t, _n in c.most_common(limit)]
+
+
+def practice_start(members, token, mode="smart", topic=""):
+    """🎯 Practice: 'smart' = mee weak topics + revision nunchi; 'topic' =
+    select chesina topic; 'review' = ee roju due revision questions.
+    Instant feedback tho — leaderboard pressure ledu."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return False, "Session expired — malli login avandi."
+    m = _member(members, uid)
+    pool, picked = [], []
+    if mode == "review":
+        try:
+            from .question_bank import Bank
+            bank = Bank()
+            for r in (m.get("review") or []):
+                if str(r.get("due", "")) <= _today():
+                    q = bank.by_id(r.get("qid"))
+                    if q:
+                        picked.append(q)
+        except Exception:
+            picked = []
+        picked = picked[:10]
+    if not picked:
+        pool = _bank_pool()
+        if mode == "topic" and topic:
+            tp = [q for q in pool if (q.get("topic") or "").lower() == topic.lower()]
+            pool = tp or pool
+        elif mode == "smart":
+            weak = [w["topic"] for w in _profile(members, uid)["weak_topics"]]
+            wp = [q for q in pool if (q.get("topic") or "").lower() in
+                  [w.lower() for w in weak]]
+            if len(wp) >= 5:
+                pool = wp
+        picked = random.Random(secrets.token_hex(4)).sample(
+            pool, min(10, len(pool))) if pool else []
+    if not picked:
+        return False, "Practice questions ready ga levu."
+    run_id = "PR-" + secrets.token_hex(4)
+    d.setdefault("practice", {})[run_id] = {
+        "uid": uid, "mode": mode, "qs": [_snap(q) for q in picked],
+        "answers": {}, "correct": 0, "created": _now().isoformat()}
+    for k in list(d["practice"])[:-60]:
+        d["practice"].pop(k, None)
+    _save(d)
+    return True, {"run_id": run_id, "mode": mode,
+                  "questions": _serve(d["practice"][run_id]["qs"], run_id, {})}
+
+
+def practice_answer(members, token, run_id, idx, choice):
+    d = _load()
+    uid = _sess(d, token)
+    run = (d.get("practice") or {}).get(str(run_id or ""))
+    if not uid or not run or run.get("uid") != uid:
+        return False, "Practice session dorakaledu."
+    if not (0 <= int(idx) < len(run["qs"])):
+        return False, "Invalid question."
+    if str(idx) in run.get("answers", {}):
+        return True, {"already": True}
+    q = run["qs"][int(idx)]
+    _opts, perm = _display(q, f"{run_id}:{int(idx)}")
+    ch = int(choice)
+    orig = perm[ch] if 0 <= ch < len(perm) else ch
+    correct = orig == q["answer_index"]
+    run.setdefault("answers", {})[str(idx)] = orig
+    run["correct"] = run.get("correct", 0) + int(correct)
+    _save(d)
+    prof = _profile(members, uid)
+    _award(members, uid, prof["name"], correct, q)
+    opts = q.get("options_en") or []
+    return True, {"correct": correct,
+                  "answer_text": opts[q["answer_index"]] if 0 <= q["answer_index"] < len(opts) else "",
+                  "explanation": q.get("explanation", ""),
+                  "answered": len(run["answers"]), "total_q": len(run["qs"]),
+                  "score": run["correct"],
+                  "done": len(run["answers"]) >= len(run["qs"])}

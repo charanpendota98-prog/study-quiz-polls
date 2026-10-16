@@ -24,11 +24,15 @@ sys.path.insert(0, str(ROOT))
 from core import config
 from core.members import Members
 from core.question_bank import Bank
-from core import hooks, districtwar, arena, campus, crm, whatsapp_pipeline, channel_router, bundle_manager, member_queue, planner, portal
+from core import hooks, districtwar, arena, campus, crm, whatsapp_pipeline, channel_router, bundle_manager, member_queue, planner, portal, pyq
+import threading as _threading
 from core.telegram import Telegram
 
 
 _BOT_USERNAME_CACHE = {"name": "", "ts": 0}
+
+
+_PYQ_JOB = {"running": False, "last": ""}
 
 
 def _public_base(handler=None):
@@ -53,7 +57,8 @@ def _public_base(handler=None):
 # Admin dashboard ilaage untundi — login leni vallaki "/" public site kanipisthundi.
 # ⚠️ Ads kevalam PUBLIC pages lone (exam/session pages lo bao — policy + focus).
 PUBLIC_PAGE_PATHS = {"/site": "home", "/about": "about", "/privacy": "privacy",
-                     "/terms": "terms", "/contact": "contact", "/study": "study"}
+                     "/terms": "terms", "/contact": "contact", "/study": "study",
+                     "/updates": "updates"}
 
 
 def _adsense_client():
@@ -238,8 +243,14 @@ def _pub_bodies(bot, contact_email):
     <p><a href="__BOT__" target="_blank" rel="noopener">🤖 Open the Telegram Bot</a></p>
   </div>
 """
+    updates = """
+  <h2 class="sec">📢 Exam Updates &amp; Notifications</h2>
+  <div class="txt"><p>Official exam announcements, application dates and StudentUp news. Always verify dates on the official board website linked in each notice.</p></div>
+  __NOTICES__
+"""
     return {"home": home, "study": study, "about": about,
-            "privacy": privacy, "terms": terms, "contact": contact}
+            "privacy": privacy, "terms": terms, "contact": contact,
+            "updates": updates}
 
 
 def public_page(handler, page):
@@ -253,10 +264,21 @@ def public_page(handler, page):
               "about": "About — StudentUp",
               "privacy": "Privacy Policy — StudentUp",
               "terms": "Terms of Use — StudentUp",
-              "contact": "Contact — StudentUp"}
+              "contact": "Contact — StudentUp",
+              "updates": "Exam Updates & Notifications — StudentUp"}
     bodies = _pub_bodies(bot, email)
     body = bodies.get(page, bodies["home"])
-    body = (body.replace("__BOT__", bot).replace("__CONTACT__", contact_line)
+    try:
+        _nts = portal.list_notices(20)
+        _nhtml = "".join(
+            f'<div class="card" style="margin-bottom:10px;"><h3>📢 {_nt["title"]}</h3>'
+            f'<p>{_nt["body"]}</p><p style="margin-top:6px;"><span class="muted">{_nt["date"]}</span>'
+            + (f' · <a href="{_nt["link"]}" target="_blank" rel="noopener">Official link \u2197</a>' if _nt.get("link") else "") + "</p></div>"
+            for _nt in _nts) or '<div class="card"><p>No updates yet.</p></div>'
+    except Exception:
+        _nhtml = '<div class="card"><p>No updates yet.</p></div>'
+    body = (body.replace("__NOTICES__", _nhtml)
+            .replace("__BOT__", bot).replace("__CONTACT__", contact_line)
                 .replace("__AD_HOME__", _ad_slot("HOME"))
                 .replace("__AD_STUDY__", _ad_slot("STUDY")))
     base = _public_base(handler)
@@ -274,7 +296,7 @@ __CANONICAL____ADSHEAD__
 <div class="nav">
   <span class="logo">🎓 StudentUp</span>
   <a href="/">🏠 Home</a><a href="/study">📚 Study Guide</a><a href="/about">ℹ️ About</a>
-  <a href="/privacy">🔐 Privacy</a><a href="/contact">✉️ Contact</a>
+  <a href="/privacy">🔐 Privacy</a><a href="/updates">📢 Updates</a><a href="/contact">✉️ Contact</a>
   <a class="login" href="/login">🔑 Organiser Login</a>
 </div>
 <div class="wrap">__BODY__</div>
@@ -526,6 +548,11 @@ PORTAL_HTML = """<!DOCTYPE html>
       </div>
     </div>
 
+    <div class="card" id="notice-card" style="display:none; border-color:#a16207;">
+      <h3>📢 Exam Updates</h3>
+      <div id="notices"></div>
+    </div>
+
     <div class="card">
       <h3>📅 Today's Daily Quiz</h3>
       <p class="muted" id="daily-info"></p>
@@ -547,6 +574,17 @@ PORTAL_HTML = """<!DOCTYPE html>
       <h3>📝 Mock Tests — mee exam select cheskondi</h3>
       <p class="muted">Real exam pattern practice: 15 questions, timer tho. Ayyaka instant score + full answer review.</p>
       <div class="grid" id="mock-grid"></div>
+    </div>
+
+    <div class="card">
+      <h3>🎯 Practice — weak topics meeda focus, pressure ledu</h3>
+      <p class="muted">Instant answers tho nerchukondi. Smart Practice mee weak topics + revision nunchi questions testhundi.</p>
+      <button class="btn-main" onclick="startPractice('smart')">🧠 Smart Practice</button>
+      <button class="btn-alt" id="rev-btn" onclick="startPractice('review')">🔁 Revision</button>
+      <div class="row" style="margin-top:9px;">
+        <select id="topic-sel" style="flex:1;"></select>
+        <button class="btn-alt" style="width:auto; margin-top:0;" onclick="startPractice('topic')">Topic ▶</button>
+      </div>
     </div>
 
     <div class="card">
@@ -581,6 +619,16 @@ PORTAL_HTML = """<!DOCTYPE html>
     <div id="opts"></div>
     <div id="q-fb" class="feedback"></div>
     <button class="btn-main" id="q-next" style="display:none;" onclick="nextQ()">Next ➡️</button>
+  </div>
+
+  <!-- practice -->
+  <div id="view-prc" class="card" style="display:none;">
+    <div class="row"><span id="p-pos" class="chip"></span><span id="p-topic" class="chip"></span><span id="p-score" class="chip gold"></span><button class="btn-alt" style="width:auto; margin-top:0; padding:5px 12px;" onclick="backHome()">🏠 Exit</button></div>
+    <div id="p-te" class="qte" style="margin-top:12px;"></div>
+    <div id="p-en" class="qen"></div>
+    <div id="p-opts"></div>
+    <div id="p-fb" class="feedback"></div>
+    <button class="btn-main" id="p-next" style="display:none;" onclick="nextPr()">Next ➡️</button>
   </div>
 
   <!-- mock -->
@@ -619,7 +667,7 @@ async function api(path, body) {
   const r = await fetch(path, opt); return await r.json();
 }
 function show(id) {
-  ['view-reg', 'view-home', 'view-quiz', 'view-mock', 'view-result', 'view-exam'].forEach(v => {
+  ['view-reg', 'view-home', 'view-quiz', 'view-mock', 'view-result', 'view-exam', 'view-prc'].forEach(v => {
     const el = document.getElementById(v); if (el) el.style.display = (v === id ? 'block' : 'none');
   });
 }
@@ -632,6 +680,8 @@ async function init() {
   GOALS = meta.goals || {};
   const dg = document.getElementById('r-district');
   (meta.districts || []).forEach(d => { const o = document.createElement('option'); o.value = d.name; o.textContent = d.name + ' (' + d.state + ')'; dg.appendChild(o); });
+  const ts = document.getElementById('topic-sel');
+  (meta.topics || []).forEach(t => { const o = document.createElement('option'); o.value = t; o.textContent = t; ts.appendChild(o); });
   const gl = document.getElementById('r-goal');
   Object.entries(GOALS).forEach(([k, v]) => { const o = document.createElement('option'); o.value = k; o.textContent = v; gl.appendChild(o); });
   if (token) { loadHome(); } else { show('view-reg'); }
@@ -657,7 +707,14 @@ async function loadHome() {
     '<span class="chip">🎯 ' + esc(GOALS[s.goal] || s.goal) + '</span>' +
     '<span class="chip">📍 ' + esc(s.district) + '</span>' +
     '<span class="chip gold">⭐ ' + s.points + ' pts</span>' +
-    (d.my_rank_today ? '<span class="chip">🏆 Today Rank #' + d.my_rank_today + '</span>' : '');
+    (d.my_rank_today ? '<span class="chip">🏆 Today Rank #' + d.my_rank_today + '</span>' : '') +
+    (s.streak ? '<span class="chip">🔥 ' + s.streak + '-day streak</span>' : '');
+  const nts = d.notices || [];
+  document.getElementById('notice-card').style.display = nts.length ? 'block' : 'none';
+  document.getElementById('notices').innerHTML = nts.map(n =>
+    '<div style="margin-bottom:9px;"><b>' + esc(n.title) + '</b><div class="muted">' + esc(n.body) + '</div>' +
+    (n.link ? '<a href="' + esc(n.link) + '" target="_blank" rel="noopener" style="font-size:12.5px;">Official link ↗</a>' : '') + '</div>').join('');
+  document.getElementById('rev-btn').textContent = '🔁 Revision' + (s.review_due ? ' (' + s.review_due + ' due)' : '');
   const di = document.getElementById('daily-info'), db = document.getElementById('daily-btn');
   if (d.daily.done) { di.textContent = '✅ Ee roju quiz complete! Score: ' + d.daily.correct + '/' + d.daily.n + ' — repu malli randi.'; db.style.display = 'none'; }
   else { di.textContent = d.daily.n + ' questions · andari ki okkate paper · leaders board lo rank vastundi.'; db.textContent = d.daily.answered ? '▶️ Continue Quiz (' + d.daily.answered + '/' + d.daily.n + ')' : '▶️ Start Daily Quiz'; db.style.display = 'block'; }
@@ -759,6 +816,47 @@ async function submitMock() {
   }).join('');
   MOCK = null;
   show('view-result');
+}
+let PR = null;
+async function startPractice(mode) {
+  const topic = document.getElementById('topic-sel').value || '';
+  const d = await api('/api/portal/practice/start', {token, mode, topic});
+  if (!d.ok) { alert('❌ ' + (d.error || 'Practice start avvaledu')); return; }
+  PR = {run_id: d.run_id, questions: d.questions || [], cur: 0, score: 0};
+  show('view-prc'); renderPr();
+}
+function renderPr() {
+  const q = PR.questions[PR.cur];
+  document.getElementById('p-pos').textContent = 'Q ' + (PR.cur + 1) + '/' + PR.questions.length;
+  document.getElementById('p-topic').textContent = '🏷️ ' + (q.topic || '');
+  document.getElementById('p-score').textContent = '✅ ' + PR.score;
+  document.getElementById('p-te').textContent = q.te || '';
+  document.getElementById('p-en').textContent = q.en || '';
+  document.getElementById('p-fb').textContent = '';
+  document.getElementById('p-next').style.display = 'none';
+  const box = document.getElementById('p-opts'); box.innerHTML = '';
+  q.options.forEach((opt, i) => {
+    const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+    b.onclick = () => ansPr(i, b); box.appendChild(b);
+  });
+}
+async function ansPr(i, btn) {
+  document.querySelectorAll('#p-opts .opt').forEach(b => { b.disabled = true; });
+  btn.classList.add('picked');
+  const d = await api('/api/portal/practice/answer', {token, run_id: PR.run_id, idx: PR.cur, choice: i});
+  const fb = document.getElementById('p-fb');
+  if (!d.ok) { fb.textContent = d.error || ''; return; }
+  PR.score = d.score || PR.score;
+  fb.innerHTML = d.correct ? '✅ Correct! ' + (d.explanation ? '<span class="muted">' + esc(d.explanation) + '</span>' : '')
+    : '❌ Wrong. Correct: <b>' + esc(d.answer_text) + '</b>' + (d.explanation ? '<br><span class="muted">' + esc(d.explanation) + '</span>' : '');
+  document.getElementById('p-score').textContent = '✅ ' + PR.score;
+  const nb = document.getElementById('p-next');
+  nb.textContent = d.done ? '🏠 Finish' : 'Next ➡️';
+  nb.style.display = 'block';
+}
+function nextPr() {
+  if (PR.cur + 1 >= PR.questions.length) { backHome(); return; }
+  PR.cur++; renderPr();
 }
 let EX = null, exTimer = null;
 function examBtn(e) {
@@ -1799,6 +1897,55 @@ HTML_PAGE = """<!DOCTYPE html>
         </div>
         <div id="pex-msg" style="font-size:12px; margin-top:8px;"></div>
         <div id="pex-list" style="font-size:12.5px; margin-top:8px; color:var(--text-muted);">Loading… (🏆 Weekly Grand Test prati Sunday 10 AM automatic ga create avthundi)</div>
+      </div>
+
+      <div class="panel-card" style="margin-top:16px;">
+        <h3 style="font-size:14px; color:#facc15;">📜 PYQ Harvest &amp; Import Center — real previous-year questions penchane engine</h3>
+        <div id="pyq-status" style="font-size:12.5px; color:var(--text-muted); white-space:pre-line; margin-top:8px;">Loading…</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+          <button class="btn btn-accent" onclick="runPyqHarvest(false)">🌾 Run Harvest (Official Papers Download)</button>
+          <button class="btn btn-outline" onclick="runPyqHarvest(true)">🧪 Dry Run</button>
+          <button class="btn btn-outline" onclick="loadPyqStatus()">🔄 Status</button>
+          <button class="btn btn-outline" onclick="downloadPyqTemplate()">📥 CSV Template</button>
+        </div>
+        <div id="pyq-msg" style="font-size:12px; margin-top:8px;"></div>
+        <details style="margin-top:10px;">
+          <summary style="cursor:pointer; font-size:13px; font-weight:700;">➕ Official Paper URL add cheyyandi (board site PDF/index link)</summary>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+            <select id="pyq-channel" style="min-width:110px;"><option>CURRENT</option><option>APPSC</option><option>TSPSC</option><option>SSC</option><option>BANKING</option><option>RAILWAY</option><option>POLICE</option><option>DEFENCE</option></select>
+            <input id="pyq-exam" placeholder="Exam e.g. TSPSC Group-2" style="flex:1; min-width:140px;">
+            <input id="pyq-year" placeholder="Year" style="width:80px;">
+            <input id="pyq-paper" placeholder="Paper-1" style="width:90px;">
+            <input id="pyq-url" placeholder="https://official-site…/paper.pdf" style="flex:2; min-width:220px;">
+            <button class="btn btn-outline" onclick="addPyqPaper()">➕ Add Paper</button>
+          </div>
+          <div class="muted" style="font-size:11px; margin-top:6px;">Add chesina papers ni 🌾 Harvest download chesi, questions ga marchi, "📜 Exam Year" label tho bank loki vesthundi.</div>
+        </details>
+        <details style="margin-top:10px;">
+          <summary style="cursor:pointer; font-size:13px; font-weight:700;">📥 CSV Import — mee deggara unna PYQ banks (Excel → CSV) direct ga add cheyyandi</summary>
+          <div class="muted" style="font-size:11px; margin-top:6px;">Columns: question, option1, option2, option3, option4, answer (1-4 / A-D), explanation, exam, year, channel, topic · Duplicates automatic skip avthayi · Import avvagane Live Exams/Mocks lo use avthayi.</div>
+          <textarea id="pyq-csv" rows="5" placeholder="CSV rows ikkada paste cheyyandi…" style="width:100%; margin-top:8px; background:#050811; color:#e2e8f0; border:1px solid var(--border); border-radius:8px; padding:10px;"></textarea>
+          <div style="display:flex; gap:8px; margin-top:8px; align-items:center;">
+            <input type="file" id="pyq-file" accept=".csv" onchange="readPyqFile(event)">
+            <button class="btn btn-accent" onclick="importPyqCsv()">📥 Import PYQs</button>
+            <span id="pyq-import-msg" style="font-size:12px;"></span>
+          </div>
+        </details>
+      </div>
+
+      <div class="panel-card" style="margin-top:16px;">
+        <h3 style="font-size:14px; color:#38bdf8;">📢 Exam Updates / Notices — students ki portal lo + public site lo kanipisthayi</h3>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+          <input id="ntc-title" placeholder="Notice title e.g. SSC CGL 2026 Notification Out!" style="flex:2; min-width:200px;">
+          <input id="ntc-link" placeholder="Official link (optional)" style="flex:1; min-width:180px;">
+        </div>
+        <textarea id="ntc-body" rows="2" placeholder="Details… (dates, eligibility, apply dates)" style="width:100%; margin-top:8px; background:#050811; color:#e2e8f0; border:1px solid var(--border); border-radius:8px; padding:10px;"></textarea>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <button class="btn btn-accent" onclick="postNotice()">📢 Post Notice</button>
+          <button class="btn btn-outline" onclick="loadNotices()">🔄 Refresh</button>
+          <span id="ntc-msg" style="font-size:12px;"></span>
+        </div>
+        <div id="ntc-list" style="font-size:12.5px; margin-top:8px; color:var(--text-muted);">Loading…</div>
       </div>
 
       <div class="panel-card" style="margin-top:16px;">
@@ -4976,8 +5123,78 @@ All candidates must join today before 9:00 PM!"></textarea>
       });
       loadCampusLeague();
       loadPortalExams();
+      loadPyqStatus();
+      loadNotices();
     }
 
+
+
+    async function loadPyqStatus() {
+      try {
+        const d = await fetch('/api/pyq/status').then(r => r.json());
+        document.getElementById('pyq-status').textContent =
+          '🏦 Bank: ' + d.bank.total + ' questions · 📜 Real PYQ: ' + d.bank.pyq + ' · ✍️ Curated: ' + d.bank.curated +
+          ' · 🌐 Scraped: ' + d.bank.scraped + ' · 🤖 Generated: ' + d.bank.generated + '\n' + (d.text || '') +
+          (d.running ? '\n⏳ Harvest running…' : '') + (d.last ? '\nLast run: ' + d.last : '');
+      } catch (e) { /* tab not ready */ }
+    }
+    async function runPyqHarvest(dry) {
+      const msg = document.getElementById('pyq-msg');
+      try {
+        const r = await fetch('/api/pyq/harvest', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({dry})});
+        const d = await r.json();
+        msg.textContent = d.ok ? ('🌾 Harvest start ayindi' + (dry ? ' (dry run)' : '') + ' — Status refresh chesthu undandi…') : ('❌ ' + d.error);
+        setTimeout(loadPyqStatus, 3000);
+      } catch (e) { msg.textContent = '❌ ' + e; }
+    }
+    async function addPyqPaper() {
+      const msg = document.getElementById('pyq-msg');
+      const body = {channel: document.getElementById('pyq-channel').value,
+        exam: document.getElementById('pyq-exam').value.trim(),
+        year: parseInt(document.getElementById('pyq-year').value || '0'),
+        paper: document.getElementById('pyq-paper').value.trim(),
+        url: document.getElementById('pyq-url').value.trim()};
+      if (!body.exam || !body.url) { msg.textContent = '⚠️ Exam + URL ivvandi.'; return; }
+      const d = await (await fetch('/api/pyq/add_paper', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)})).json();
+      msg.textContent = d.ok ? '✅ Paper add ayindi — 🌾 Harvest run cheyyandi.' : ('❌ ' + d.error);
+      loadPyqStatus();
+    }
+    function downloadPyqTemplate() {
+      const csv = 'question,option1,option2,option3,option4,answer,explanation,exam,year,channel,topic\n"The Finance Commission is constituted under which Article?","Article 280","Article 263","Article 312","Article 368",1,"Article 280 provides for a Finance Commission.","UPSC CSE Prelims",2023,CURRENT,polity\n';
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv'}));
+      a.download = 'pyq_import_template.csv'; a.click();
+    }
+    function readPyqFile(ev) {
+      const f = ev.target.files[0]; if (!f) return;
+      f.text().then(t => { document.getElementById('pyq-csv').value = t; });
+    }
+    async function importPyqCsv() {
+      const msg = document.getElementById('pyq-import-msg');
+      const csv = document.getElementById('pyq-csv').value.trim();
+      if (!csv) { msg.textContent = '⚠️ CSV paste cheyyandi / file select cheyyandi.'; return; }
+      const d = await (await fetch('/api/pyq/import', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({csv})})).json();
+      msg.textContent = '✅ Added ' + (d.added || 0) + ' PYQs · ⏭️ duplicates ' + (d.skipped_dup || 0) + ' · 🌐 Telugu kosam pending ' + (d.pending_translation || 0) +
+        ((d.errors || []).length ? ' · ⚠️ ' + d.errors.slice(0, 3).join(' | ') : '');
+      loadPyqStatus();
+    }
+    async function loadNotices() {
+      try {
+        const d = await fetch('/api/portal/admin/notices').then(r => r.json());
+        document.getElementById('ntc-list').innerHTML = (d.notices || []).map(n =>
+          '<div style="padding:7px 10px; background:#050811; border:1px solid var(--border); border-radius:8px; margin-top:6px;">📢 <b style="color:#e2e8f0;">' + n.title + '</b> <span style="color:var(--text-muted);">' + n.date + '</span><br>' + n.body + '</div>').join('') || 'Notices levu.';
+      } catch (e) { /* tab not ready */ }
+    }
+    async function postNotice() {
+      const msg = document.getElementById('ntc-msg');
+      const body = {title: document.getElementById('ntc-title').value.trim(),
+        body: document.getElementById('ntc-body').value.trim(),
+        link: document.getElementById('ntc-link').value.trim()};
+      if (!body.title) { msg.textContent = '⚠️ Title ivvandi.'; return; }
+      const d = await (await fetch('/api/portal/admin/notices/create', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)})).json();
+      msg.textContent = d.ok ? '✅ Notice post ayindi — Portal + /updates lo live!' : '❌ Failed';
+      if (d.ok) { document.getElementById('ntc-title').value = ''; document.getElementById('ntc-body').value = ''; loadNotices(); }
+    }
 
     async function createPortalExam() {
       const msg = document.getElementById('pex-msg');
@@ -6213,7 +6430,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json({"ok": True,
                              "districts": ([{"name": x[0], "state": "AP"} for x in _D.AP_DISTRICTS]
                                            + [{"name": x[0], "state": "TG"} for x in _D.TS_DISTRICTS]),
-                             "goals": {k: v["label"] for k, v in portal.GOALS.items()}})
+                             "goals": {k: v["label"] for k, v in portal.GOALS.items()},
+                             "topics": portal.topics_list()})
             return
         if p.path == "/api/portal/state":
             query = urllib.parse.parse_qs(p.query)
@@ -6546,6 +6764,25 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json({"ok": pf["ok"], "preflight": pf})
             return
 
+        if p.path == "/api/pyq/status":
+            import collections as _c
+            try:
+                _bank = json.loads(config.BANK_JSON.read_text(encoding="utf-8"))
+                _src = _c.Counter(q.get("source") or "" for q in _bank.get("questions", []))
+            except Exception:
+                _src = {}
+            self._send_json({"ok": True, "text": pyq.status_text(),
+                             "running": _PYQ_JOB["running"], "last": _PYQ_JOB["last"],
+                             "bank": {"total": sum(_src.values()),
+                                      "pyq": _src.get("pyq", 0), "curated": _src.get("curated", 0),
+                                      "scraped": _src.get("scraped", 0),
+                                      "generated": _src.get("offline-gen", 0) + _src.get("llm-gen", 0)}})
+            return
+
+        if p.path == "/api/portal/admin/notices":
+            self._send_json({"ok": True, "notices": portal.list_notices(10)})
+            return
+
         if p.path == "/api/portal/admin/exams":
             self._send_json({"ok": True, "exams": portal.admin_list(),
                              "goals": {k: v["label"] for k, v in portal.GOALS.items()}})
@@ -6765,6 +7002,22 @@ class DashboardHandler(BaseHTTPRequestHandler):
             try:
                 ok, info = portal.exam_answer(
                     Members(), body.get("token", ""), body.get("exam_id", ""),
+                    int(body.get("idx") or 0),
+                    int(body.get("choice") if body.get("choice") is not None else -1))
+            except Exception as ex:
+                ok, info = False, str(ex)
+            self._send_json({"ok": ok, **(info if ok and isinstance(info, dict) else {"error": info})})
+            return
+        if p.path == "/api/portal/practice/start":
+            ok, info = portal.practice_start(Members(), body.get("token", ""),
+                                             body.get("mode", "smart"),
+                                             body.get("topic", ""))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/practice/answer":
+            try:
+                ok, info = portal.practice_answer(
+                    Members(), body.get("token", ""), body.get("run_id", ""),
                     int(body.get("idx") or 0),
                     int(body.get("choice") if body.get("choice") is not None else -1))
             except Exception as ex:
@@ -6992,6 +7245,46 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": True, "code": code, "info": info})
             else:
                 self._send_json({"ok": False, "code": code, "message": str(info)})
+            return
+
+        if p.path == "/api/pyq/harvest":
+            dry = bool(body.get("dry"))
+            if _PYQ_JOB["running"]:
+                self._send_json({"ok": False, "error": "Harvest already running undi — wait cheyyandi."})
+                return
+
+            def _run_pyq():
+                _PYQ_JOB["running"] = True
+                try:
+                    st = pyq.harvest(dry=dry, limit=body.get("limit") or None)
+                    _PYQ_JOB["last"] = str(st)
+                except Exception as ex:
+                    _PYQ_JOB["last"] = f"error: {ex}"
+                _PYQ_JOB["running"] = False
+
+            _threading.Thread(target=_run_pyq, daemon=True).start()
+            self._send_json({"ok": True, "started": True, "dry": dry})
+            return
+
+        if p.path == "/api/pyq/add_paper":
+            try:
+                e = pyq.add_paper(body.get("channel", ""), body.get("exam", ""),
+                                  int(body.get("year") or 0), body.get("paper", ""),
+                                  body.get("url", ""))
+                self._send_json({"ok": True, "entry": e})
+            except Exception as ex:
+                self._send_json({"ok": False, "error": str(ex)})
+            return
+
+        if p.path == "/api/pyq/import":
+            res = pyq.import_csv(body.get("csv", ""), rebuild=True)
+            self._send_json({"ok": res.get("added", 0) >= 0, **res})
+            return
+
+        if p.path == "/api/portal/admin/notices/create":
+            n = portal.add_notice(body.get("title", ""), body.get("body", ""),
+                                  body.get("link", ""))
+            self._send_json({"ok": bool(n), "notice": n})
             return
 
         if p.path == "/api/portal/admin/exams/create":
