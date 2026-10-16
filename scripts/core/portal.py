@@ -162,6 +162,11 @@ def _replay_journal(d):
                     if ev.get("c"):
                         ent["correct"] = ent.get("correct", 0) + 1
                         ent["pts"] = ent.get("pts", 0) + PTS_MOCK
+                    else:
+                        ent["wrong"] = ent.get("wrong", 0) + 1
+                        _neg = float((e or {}).get("neg") or 0)
+                        if _neg:
+                            ent["pts"] = round(ent.get("pts", 0) - PTS_MOCK * _neg, 1)
                     applied = True
             elif t == "da":
                 day = (d.get("days") or {}).get(ev.get("day") or "")
@@ -679,7 +684,8 @@ def exam_status(e, now):
     return "live" if now < en else "done"
 
 
-def create_exam(title, goal, starts_at, duration_min=30, n_q=20, kind="live"):
+def create_exam(title, goal, starts_at, duration_min=30, n_q=20, kind="live",
+                neg=0.0):
     """Admin (dashboard) nunchi scheduled live exam. Paper ready ga untundi
     kaani start time varaku students ki kanipinchadu."""
     d = _load()
@@ -693,6 +699,7 @@ def create_exam(title, goal, starts_at, duration_min=30, n_q=20, kind="live"):
     exam_id = "EX-" + secrets.token_hex(3).upper()
     e = {"id": exam_id, "title": str(title or "Live Exam")[:60], "goal": goal,
          "kind": kind, "starts_at": starts_at,
+         "neg": max(0.0, min(1.0, float(neg or 0))),
          "duration_min": max(5, min(180, int(duration_min or 30))),
          "qs": _paper(GOALS[goal]["channels"] or None,
                       max(5, min(100, int(n_q or 20))), "portal-exam-" + exam_id),
@@ -777,6 +784,7 @@ def _exam_view(e, members, uid, now):
             "kind": e["kind"], "starts_at": e["starts_at"],
             "ends_at": en.isoformat(), "duration_min": e["duration_min"],
             "n_q": len(e["qs"]), "status": status, "joined": len(entries),
+            "neg": float(e.get("neg") or 0),
             "pyq_count": sum(1 for q in e["qs"] if q.get("source") == "pyq"),
             "my": {"joined": bool(ent),
                    "answered": len((ent or {}).get("answers") or {}),
@@ -884,9 +892,14 @@ def exam_answer(members, token, exam_id, idx, choice):
     ch = int(choice)
     orig = perm[ch] if 0 <= ch < len(perm) else ch
     ent.setdefault("answers", {})[str(idx)] = orig
+    ent.setdefault("wrong", 0)
     if orig == q["answer_index"]:
         ent["correct"] += 1
         ent["pts"] += PTS_MOCK
+    else:
+        ent["wrong"] += 1
+        if e.get("neg"):
+            ent["pts"] = round(ent.get("pts", 0) - PTS_MOCK * float(e["neg"]), 1)
     _journal({"t": "xa", "e": e["id"], "u": uid, "i": int(idx), "o": orig,
               "c": orig == q["answer_index"]})
     _save(d)
@@ -914,6 +927,14 @@ def exam_result(members, token, exam_id):
             review.append({"i": i, "right": g == q["answer_index"],
                            "given": g, "answer": q["answer_index"]})
         view["review"] = review
+        # 👥 prati question entha mandi correct pettaru (tough/easy telusthundi)
+        _all = list((e.get("entries") or {}).values())
+        qstats = []
+        for i, q in enumerate(e["qs"]):
+            _ans = [x for x in _all if str(i) in (x.get("answers") or {})]
+            _ok = sum(1 for x in _ans if x["answers"][str(i)] == q["answer_index"])
+            qstats.append(round(100 * _ok / len(_ans)) if _ans else None)
+        view["qstats"] = qstats
         view["questions"] = [{"te": q.get("q_te", ""), "en": q.get("q_en", ""),
                               "options": q.get("options_en") or [],
                               "explanation": q.get("explanation", "")}
@@ -1038,6 +1059,11 @@ def key_paper(members, token, kind, ref):
             return False, "Exam ayyaka key paper vasthundi (result time ki)."
         text, c, t = _key_text(e["title"], (e.get("starts_at") or "")[:10],
                                prof, e["qs"], ent.get("answers") or {})
+        if e.get("neg"):
+            _ln = text.split("\n")
+            _ln.insert(6, f"Negative marking: -{float(e['neg']):g} × per wrong · "
+                          f"Wrong: {ent.get('wrong', 0)} · Final points: {ent.get('pts', 0)}")
+            text = "\n".join(_ln)
         slug = "".join(ch if ch.isalnum() else "-" for ch in e["title"])[:32]
         return True, {"filename": f"StudentUp-Key-{slug}.txt", "text": text,
                       "correct": c, "total": t}
@@ -1060,6 +1086,40 @@ def key_paper(members, token, kind, ref):
         return True, {"filename": f"StudentUp-Key-Daily-{ref}.txt", "text": text,
                       "correct": c, "total": t}
     return False, "Unknown key type."
+
+
+def exam_scorecard(members, token, exam_id):
+    """📸 Personal Score Card PNG — exam finish chesina prati student ki
+    (share cheyyadaniki). Winners certificate vere; idi andariki."""
+    d = _load()
+    uid = _sess(d, token)
+    e = (d.get("exams") or {}).get(str(exam_id or ""))
+    if not uid or not e:
+        return None
+    _refresh(d, _now())
+    e = d["exams"][e["id"]]
+    if exam_status(e, _now()) != "done":
+        return None
+    ent = (e.get("entries") or {}).get(uid)
+    if not ent:
+        return None
+    view = _exam_view(e, members, uid, _now())
+    prof = _profile(members, uid)
+    total = len(e["qs"])
+    pct = round(100 * ent.get("correct", 0) / max(1, total))
+    try:
+        from . import certcard
+        return certcard.render_certificate(
+            "🎓 " + e["title"],
+            f"{prof.get('name', '')} · {prof.get('district', '')} · StudentUp",
+            [{"rank": int(view["my"]["rank"] or 0),
+              "name": prof.get("name", ""),
+              "score": f"{ent.get('correct', 0)}/{total}",
+              "pct": pct}],
+            "StudentUp Score Card · Points: " + str(ent.get("pts", 0))
+            + (f" · Top {view['my']['top_pct']}%" if view["my"].get("top_pct") else ""))
+    except Exception:
+        return None
 
 
 # ------------------------------------------------------------- notices

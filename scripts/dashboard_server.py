@@ -454,6 +454,7 @@ __CANONICAL____ADSHEAD__
 <script>
 function setSiteTheme(t) { document.body.className = t ? ('theme-' + t) : ''; localStorage.setItem('su_theme', t); }
 (function () { var t = localStorage.getItem('su_theme'); if (t) document.body.className = 'theme-' + t; })();
+setInterval(cdTick, 30000);
 if ('serviceWorker' in navigator) { try { navigator.serviceWorker.register('/sw.js'); } catch (e) {} }
 </script>
 <footer>
@@ -1067,7 +1068,7 @@ async function loadHome() {
   document.getElementById('board-daily').innerHTML = rows(d.daily_board, 'Inka evaru ee roju quiz complete cheyyaledu — meeru first avandi! 🔥');
   document.getElementById('board-mock').innerHTML = rows(d.mock_board, 'Inka mock leaders leru — okka mock raasi board meeda vacheyyandi!');
   document.getElementById('board-win').innerHTML = rows(d.yesterday_winners, 'Ninna winners inka leru.');
-  renderLiveExams(d.live_exams || []);
+  renderLiveExams(d.live_exams || []); cdTick();
   document.getElementById('winners-wall').innerHTML = (d.winners_wall || []).map(w =>
     '<div style="margin-top:8px;"><b style="font-size:13px;">' + esc(w.title) + '</b>' + rows(w.winners, '') + '</div>').join('') || '<div class="muted">Inka winners leru — Weekly Grand Test (Sunday 10 AM) first!</div>';
   show('view-home');
@@ -1221,6 +1222,15 @@ function examBtn(e) {
   if (e.status === 'live') return e.my.joined ? '<button class="btn-main" style="margin-top:8px;" onclick="enterExam(\'' + e.id + '\')">▶️ Enter Live Exam</button>' : '<button class="btn-main" style="margin-top:8px;" onclick="joinExam(\'' + e.id + '\', true)">🚪 Join &amp; Enter</button>';
   return '<button class="btn-alt" onclick="showExamResult(\'' + e.id + '\')">📊 Result &amp; Winners</button>';
 }
+function cdTick() {
+  document.querySelectorAll('.cd').forEach(el => {
+    const t = new Date(el.dataset.ts) - new Date();
+    if (isNaN(t)) return;
+    if (t < 0) { el.textContent = '🔴 LIVE NOW!'; return; }
+    const h = Math.floor(t / 36e5), m = Math.floor(t % 36e5 / 6e4);
+    el.textContent = '⏰ ' + (h >= 24 ? Math.floor(h / 24) + 'd ' + (h % 24) + 'h' : h + 'h ' + m + 'm') + ' lo start avthundi';
+  });
+}
 function renderLiveExams(list) {
   const box = document.getElementById('live-exams');
   if (!list.length) { box.innerHTML = '<div class="muted">Upcoming exams ikkade kanipisthayi.</div>'; return; }
@@ -1228,7 +1238,7 @@ function renderLiveExams(list) {
     const when = (e.starts_at || '').replace('T', ' ').slice(0, 16);
     const st = e.status === 'live' ? '<span style="color:#f87171; font-weight:800;">🔴 LIVE NOW</span>'
       : e.status === 'done' ? '<span class="muted">✅ Completed</span>'
-      : '<span style="color:#facc15; font-weight:700;">⏰ ' + when + ' ki start</span>';
+      : '<span class="cd" data-ts="' + e.starts_at + '" style="color:#facc15; font-weight:700;">⏰ ' + when + ' ki start</span>';
     return '<div style="padding:11px; background:#0f1e38; border:1px solid #24466e; border-radius:12px; margin-top:9px;">' +
       '<b>' + esc(e.title) + '</b> ' + (e.kind === 'weekly' ? '<span class="chip gold">WEEKLY</span>' : '') + '<br>' +
       '<span class="muted">' + esc(e.goal_label) + ' · ' + e.n_q + ' Qs (' + e.pyq_count + ' real PYQs) · ' + e.duration_min + ' min · 👥 ' + e.joined + ' joined</span><br>' + st +
@@ -1294,8 +1304,15 @@ async function showExamResult(id) {
       '<br><span class="muted">Meeru: ' + esc(opts[r.given] || '— attempt cheyyaledu') + (r.right ? ' ✅' : ' ❌ · Correct: ' + esc(opts[r.answer] || '')) + '</span>' +
       (q.explanation ? '<br><span class="muted">💡 ' + esc(q.explanation) + '</span>' : '') + '</div>';
   }).join('') || '<div class="muted">Mee review ledu (answers ivvaledu).</div>';
+  if ((d.qstats || []).length) {
+    document.querySelectorAll('#res-review .rrow').forEach((el, i) => {
+      const pc = (d.qstats || [])[i];
+      if (pc != null) el.insertAdjacentHTML('beforeend', '<br><span class="muted">👥 ' + pc + '% students ee question correct pettaru' + (pc < 40 ? ' — 🔥 tough question!' : (pc > 85 ? ' — easy one' : '')) + '</span>');
+    });
+  }
   document.getElementById('res-sub').insertAdjacentHTML('beforeend',
-    '<br><button class="btn-alt" style="width:auto; margin-top:10px;" onclick="downloadKey(\'exam\',\'' + id + '\')">⬇️ Answer Key Paper Download 📄</button>');
+    '<br><button class="btn-alt" style="width:auto; margin-top:10px;" onclick="downloadKey(\'exam\',\'' + id + '\')">⬇️ Answer Key Paper Download 📄</button>' +
+    ' <a class="btn-alt" style="display:inline-block; width:auto; margin-top:10px; padding:8px 14px; text-decoration:none;" href="/api/portal/exam/scorecard?id=' + encodeURIComponent(id) + '&token=' + encodeURIComponent(token) + '">📸 Score Card</a>');
   if (d.my_winner) {
     document.getElementById('res-sub').insertAdjacentHTML('beforeend',
       '<br><a href="/api/portal/exam/certificate?id=' + encodeURIComponent(id) + '&token=' + encodeURIComponent(token) + '" style="display:inline-block; margin-top:10px; padding:11px 18px; background:linear-gradient(90deg,#a16207,#facc15); color:#1a1000; font-weight:800; border-radius:10px;">🏆 Naa Winners Certificate Download</a>');
@@ -2267,6 +2284,7 @@ HTML_PAGE = """<!DOCTYPE html>
           <input type="datetime-local" id="pex-start" style="flex:1; min-width:170px;">
           <select id="pex-dur"><option value="20">20 min</option><option value="30" selected>30 min</option><option value="45">45 min</option><option value="60">60 min</option></select>
           <select id="pex-nq"><option value="15">15 Qs</option><option value="20" selected>20 Qs</option><option value="30">30 Qs</option><option value="50">50 Qs</option></select>
+          <select id="pex-neg" title="Negative marking (real exam pattern)"><option value="0">No negative</option><option value="0.25">−0.25 / wrong</option><option value="0.5">−0.5 / wrong</option><option value="1">−1 / wrong</option></select>
           <button class="btn btn-accent" onclick="createPortalExam()">➕ Schedule Live Exam</button>
           <button class="btn btn-outline" onclick="loadPortalExams()">🔄 Refresh</button>
         </div>
@@ -5643,7 +5661,8 @@ All candidates must join today before 9:00 PM!"></textarea>
         goal: document.getElementById('pex-goal').value,
         starts_at: document.getElementById('pex-start').value,
         duration_min: parseInt(document.getElementById('pex-dur').value),
-        n_q: parseInt(document.getElementById('pex-nq').value)
+        n_q: parseInt(document.getElementById('pex-nq').value),
+        neg: parseFloat(document.getElementById('pex-neg').value || '0')
       };
       if (!body.title || !body.starts_at) { msg.textContent = '⚠️ Title + Start time ivvandi.'; return; }
       try {
@@ -6945,6 +6964,21 @@ class DashboardHandler(BaseHTTPRequestHandler):
             else:
                 self._send_json({"ok": False, "error": "Certificate kevalam Top-3 winners ke!"}, code=403)
             return
+        if p.path == "/api/portal/exam/scorecard":
+            query = urllib.parse.parse_qs(p.query)
+            png = portal.exam_scorecard(Members(), query.get("token", [""])[0],
+                                         query.get("id", [""])[0])
+            if png:
+                self.send_response(200)
+                self.send_header("Content-Type", "image/png")
+                self.send_header("Content-Disposition",
+                                 'attachment; filename="studentup-scorecard.png"')
+                self.send_header("Content-Length", str(len(png)))
+                self.end_headers()
+                self.wfile.write(png)
+            else:
+                self._send_json({"ok": False, "error": "Score card exam ayyaka vastundi!"}, code=403)
+            return
         if p.path == "/api/portal/exam/result":
             query = urllib.parse.parse_qs(p.query)
             ex = portal.exam_result(Members(), query.get("token", [""])[0],
@@ -7876,7 +7910,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             e = portal.create_exam(
                 body.get("title", ""), body.get("goal", "mixed"),
                 body.get("starts_at", ""), body.get("duration_min", 30),
-                body.get("n_q", 20))
+                body.get("n_q", 20), neg=float(body.get("neg") or 0))
             if e:
                 self._send_json({"ok": True, "id": e["id"], "title": e["title"],
                                  "n_q": len(e["qs"]), "starts_at": e["starts_at"]})
