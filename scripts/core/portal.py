@@ -8,9 +8,12 @@ web college exams). Daily quiz is the SAME paper for everyone each day
 Police) with instant scores. Personal report = accuracy + weak topics.
 College exams are NEVER listed here — they stay private via code/link.
 """
+import atexit
+import json
 import random
 import secrets
 import threading
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -41,9 +44,148 @@ def _today():
     return _now().strftime("%Y-%m-%d")
 
 
-def _load():
+# 🚀 10K SCALE ENGINE -------------------------------------------------------
+# Mundu: prati request ki motham portal.json load + save (10k students
+# exam lo idi seconds teeskuntundi). Ippudu:
+#   • Store memory lone untundi (load okkasari) — prati answer O(1).
+#   • Prati exam/daily answer oka chinna JOURNAL line ga append avthundi
+#     (crash ayina kuda answers povu — restart lo replay avthayi).
+#   • Disk snapshot background flusher prati ~2s ki (atomic write).
+_STORE = {"path": None, "d": None, "dirty": False, "last": 0.0, "jfh": None}
+_FLUSHER_ON = False
+
+
+def _journal_file(path_str):
+    pp = Path(path_str)
+    return pp.with_name(pp.stem + "_events.jsonl")
+
+
+def _close_journal():
+    fh = _STORE.get("jfh")
+    if fh is not None:
+        try:
+            fh.close()
+        except Exception:
+            pass
+        _STORE["jfh"] = None
+
+
+def _flush_store():
+    with _LOCK:
+        d = _STORE.get("d")
+        if d is None or not _STORE.get("dirty"):
+            return
+        target = Path(_STORE["path"])
+        target.parent.mkdir(parents=True, exist_ok=True)
+        tmp = target.with_suffix(".tmp")
+        tmp.write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
+        tmp.replace(target)
+        _STORE["dirty"] = False
+        _STORE["last"] = time.time()
+        _close_journal()
+        try:
+            _journal_file(_STORE["path"]).unlink(missing_ok=True)
+        except Exception:
+            pass
+
+
+def _ensure_flusher():
+    global _FLUSHER_ON
+    if _FLUSHER_ON:
+        return
+    _FLUSHER_ON = True
+
+    def _loop():
+        while True:
+            time.sleep(1)
+            try:
+                if _STORE.get("dirty") and time.time() - _STORE.get("last", 0) >= 2:
+                    _flush_store()
+            except Exception:
+                pass
+
+    threading.Thread(target=_loop, daemon=True).start()
     try:
-        import json
+        atexit.register(_flush_store)
+    except Exception:
+        pass
+
+
+def _journal(ev):
+    """Answer event ni append-only journal loki — O(1), crash-safe."""
+    try:
+        with _LOCK:
+            fh = _STORE.get("jfh")
+            if fh is None:
+                fh = open(_journal_file(_STORE["path"]), "a", encoding="utf-8")
+                _STORE["jfh"] = fh
+            fh.write(json.dumps(ev, ensure_ascii=False) + "\n")
+            fh.flush()
+    except Exception:
+        pass
+
+
+def _replay_journal(d):
+    try:
+        jp = _journal_file(_STORE["path"])
+        if not jp.exists():
+            return
+        applied = False
+        for line in jp.read_text(encoding="utf-8").splitlines():
+            try:
+                ev = json.loads(line)
+            except Exception:
+                continue
+            t = ev.get("t")
+            if t == "xj":
+                e = (d.get("exams") or {}).get(ev.get("e") or "")
+                if e:
+                    e.setdefault("entries", {}).setdefault(ev["u"], {
+                        "uid": ev["u"], "answers": {}, "correct": 0, "pts": 0,
+                        "joined_at": ev.get("j", ""), "name": ev.get("n", ""),
+                        "district": ev.get("d", "")})
+                    applied = True
+            elif t == "xa":
+                e = (d.get("exams") or {}).get(ev.get("e") or "")
+                ent = ((e or {}).get("entries") or {}).get(ev.get("u") or "")
+                if ent is not None and str(ev["i"]) not in ent.setdefault("answers", {}):
+                    ent["answers"][str(ev["i"])] = ev["o"]
+                    if ev.get("c"):
+                        ent["correct"] = ent.get("correct", 0) + 1
+                        ent["pts"] = ent.get("pts", 0) + PTS_MOCK
+                    applied = True
+            elif t == "da":
+                day = (d.get("days") or {}).get(ev.get("day") or "")
+                if day:
+                    run = day.setdefault("runs", {}).setdefault(ev["u"], {
+                        "uid": ev["u"], "answers": {}, "done": False,
+                        "correct": 0, "pts": 0})
+                    if str(ev["i"]) not in run.setdefault("answers", {}):
+                        run["answers"][str(ev["i"])] = ev["o"]
+                        run["name"], run["district"] = ev.get("n", ""), ev.get("d", "")
+                        if ev.get("c"):
+                            run["correct"] = run.get("correct", 0) + 1
+                            run["pts"] = run.get("pts", 0) + PTS_DAILY
+                        if len(run["answers"]) >= len(day.get("qs") or []):
+                            run["done"] = True
+                        applied = True
+        if applied:
+            _STORE["dirty"] = True
+    except Exception:
+        pass
+
+
+def _load():
+    p = str(PATH)
+    if _STORE["path"] == p and _STORE["d"] is not None:
+        return _STORE["d"]
+    if _STORE["d"] is not None and _STORE.get("dirty"):
+        try:
+            _flush_store()
+        except Exception:
+            pass
+    _close_journal()
+    try:
         d = json.loads(PATH.read_text(encoding="utf-8"))
     except Exception:
         d = {}
@@ -51,15 +193,17 @@ def _load():
     d.setdefault("days", {})
     d.setdefault("mocks", {})
     d.setdefault("mock_board", [])
+    _STORE.update({"path": p, "d": d, "dirty": False, "last": time.time()})
+    _replay_journal(d)
+    _ensure_flusher()
     return d
 
 
-def _save(d):
-    import json
-    PATH.parent.mkdir(parents=True, exist_ok=True)
-    tmp = PATH.with_suffix(".tmp")
-    tmp.write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
-    tmp.replace(PATH)
+def _save(d, flush=False):
+    _STORE["d"] = d
+    _STORE["dirty"] = True
+    if flush:
+        _flush_store()
 
 
 # 🔒 ThreadingHTTPServer — chala mandi students okesari answer chesthe
@@ -146,6 +290,16 @@ def _serve(qs, seed_prefix, answers):
 REF_BONUS = 50
 
 
+def _kv_save(members):
+    """Members file save — 10k bursts lo debounced (ledante prati answer/
+    register ki full-file write avthundi)."""
+    try:
+        sv = getattr(members.kv, "save_debounced", None)
+        (sv or members.kv.save)()
+    except Exception:
+        pass
+
+
 def _ref_code(uid):
     return "SU" + str(uid)[-6:]
 
@@ -173,7 +327,7 @@ def register_student(members, name, phone, district, goal, ref=""):
               "district": district, "state_code": D.state_of(district) or "",
               "exam_goal": goal, "goal": goal, "registered": True,
               "via": "portal"})
-    members.kv.save()
+    _kv_save(members)
     token = secrets.token_urlsafe(18)
     d = _load()
     d["sessions"][token] = uid
@@ -195,7 +349,7 @@ def register_student(members, name, phone, district, goal, ref=""):
             rm = members._get(ref_uid)
             rm["points"] = rm.get("points", 0) + REF_BONUS
             rm["referrals"] = rm.get("referrals", 0) + 1
-            members.kv.save()
+            _kv_save(members)
             ref_by = rm.get("name", "")
             d.setdefault("referral_log", []).append(
                 {"from": ref_uid, "to": uid, "date": _today()})
@@ -222,7 +376,8 @@ def _award(members, uid, name, correct, q):
         m = _member(members, uid)
         m["points"] = m.get("points", 0) + (PTS_DAILY if correct else 0)
     try:
-        members.kv.save()
+        _sv = getattr(members.kv, "save_debounced", None)
+        (_sv or members.kv.save)()
     except Exception:
         pass
     if correct:
@@ -362,7 +517,9 @@ def daily_answer(members, token, idx, choice):
     if len(run["answers"]) >= len(qs):
         run["done"] = True
         run["finished"] = _now().isoformat()
-    _save(d)
+    _journal({"t": "da", "day": _today(), "u": uid, "i": int(idx), "o": orig,
+              "c": correct, "n": prof["name"], "d": prof["district"]})
+    _save(d, flush=bool(run.get("done")))
     _award(members, uid, prof["name"], correct, q)
     opts = q.get("options_en") or []
     return True, {"correct": correct,
@@ -438,7 +595,7 @@ def mock_submit(members, token, run_id, answers):
          "goal": run["goal"], "run_id": run_id, "correct": correct, "total": len(run["qs"]),
          "pts": correct * PTS_MOCK, "date": _today()})
     d["mock_board"] = d["mock_board"][-300:]
-    _save(d)
+    _save(d, flush=True)
     return True, {"correct": correct, "total": len(run["qs"]),
                   "accuracy": round(correct / max(1, len(run["qs"])) * 100),
                   "review": review,
@@ -477,9 +634,21 @@ def _aware(dt):
     return dt
 
 
+_TIMES_CACHE = {}
+
+
 def _exam_times(e):
+    # 🚀 10k hot path: prati answer ki ISO parse cheyyakunda cache
+    key = (e.get("id"), e.get("starts_at"), e.get("duration_min"))
+    hit = _TIMES_CACHE.get(key)
+    if hit:
+        return hit
     st = _aware(datetime.fromisoformat(e["starts_at"]))
-    return st, st + timedelta(minutes=int(e.get("duration_min", 30)))
+    en = st + timedelta(minutes=int(e.get("duration_min", 30)))
+    if len(_TIMES_CACHE) > 64:
+        _TIMES_CACHE.clear()
+    _TIMES_CACHE[key] = (st, en)
+    return st, en
 
 
 def exam_status(e, now):
@@ -574,7 +743,7 @@ def _refresh(d, now):
         d["exams"].pop(e["id"], None)
         changed = True
     if changed:
-        _save(d)
+        _save(d, flush=True)
 
 
 def _exam_view(e, members, uid, now):
@@ -641,6 +810,8 @@ def exam_join(members, token, exam_id):
         uid, {"uid": uid, "answers": {}, "correct": 0, "pts": 0,
               "joined_at": _now().isoformat(),
               "name": prof["name"], "district": prof["district"]})
+    _journal({"t": "xj", "e": e["id"], "u": uid, "n": prof["name"],
+              "d": prof["district"], "j": _now().isoformat()})
     _save(d)
     return True, {"joined": True, "status": exam_status(e, _now()),
                   "title": e["title"]}
@@ -693,6 +864,8 @@ def exam_answer(members, token, exam_id, idx, choice):
     if orig == q["answer_index"]:
         ent["correct"] += 1
         ent["pts"] += PTS_MOCK
+    _journal({"t": "xa", "e": e["id"], "u": uid, "i": int(idx), "o": orig,
+              "c": orig == q["answer_index"]})
     _save(d)
     prof = _profile(members, uid)
     _award(members, uid, prof["name"], orig == q["answer_index"], q)
@@ -737,7 +910,7 @@ def set_goal(members, token, goal):
     m["exam_goal"] = goal
     m["goal"] = goal
     try:
-        members.kv.save()
+        _kv_save(members)
     except Exception:
         pass
     return True, _profile(members, uid)

@@ -8519,7 +8519,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
 
 def start_server(port=PORT):
-    srv = ThreadingHTTPServer(("0.0.0.0", port), DashboardHandler)
+    class _Srv(ThreadingHTTPServer):
+        daemon_threads = True
+        request_queue_size = 256  # 🚀 10k students burst ki pedda queue
+
+    srv = _Srv(("0.0.0.0", port), DashboardHandler)
     print(f"🚀 StudentUp Control Dashboard running at http://0.0.0.0:{port}")
     try:
         srv.serve_forever()

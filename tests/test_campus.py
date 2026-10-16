@@ -23,6 +23,8 @@ class _TG:
     def send_message(self, chat, text, **kw): self.msgs.append((str(chat), text))
     def _call(self, m, payload, **kw):
         self.pid += 1; return {"result": {"poll": {"id": f"c{self.pid}"}}}
+    def send_quiz(self, chat, question, options, correct=0, **kw):
+        return self._call("sendPoll", {})
 
 
 class TestCampus(unittest.TestCase):

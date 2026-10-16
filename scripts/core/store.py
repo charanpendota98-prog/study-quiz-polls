@@ -164,10 +164,38 @@ class Dedup:
 # ---------------------------------------------------------------------------
 # Generic JSON KV (leaderboard, stats, used-questions)
 # ---------------------------------------------------------------------------
+# 🚀 Scale: process-atti parsed-JSON cache — Members() prati request
+# construct ayina kuda file malli parse cheyyadu (stamp marchithe matrame).
+_PARSE_CACHE = {}
+
+
+def _stamp(path):
+    try:
+        st = path.stat()
+        return (st.st_mtime_ns, st.st_size)
+    except OSError:
+        return None
+
+
+def _cached_load(path, default):
+    stamp = _stamp(path)
+    if stamp is None:
+        return load_json(path, default)
+    hit = _PARSE_CACHE.get(str(path))
+    if hit and hit[0] == stamp:
+        return hit[1]
+    data = load_json(path, default)
+    _PARSE_CACHE[str(path)] = (stamp, data)
+    return data
+
+
 class KV:
     def __init__(self, path: Path, default=None):
         self.path = path
-        self.data = load_json(path, default if default is not None else {})
+        self.data = _cached_load(path, default if default is not None else {})
+        self._dirty = False
+        self._last_write = time.time()
+        self._timer = None
 
     def get(self, k, default=None):
         return self.data.get(k, default)
@@ -177,3 +205,34 @@ class KV:
 
     def save(self):
         save_json_atomic(self.path, self.data)
+        self._dirty = False
+        self._last_write = time.time()
+        stamp = _stamp(self.path)
+        if stamp is not None:
+            _PARSE_CACHE[str(self.path)] = (stamp, self.data)
+
+    def save_debounced(self, min_interval: float = 2.0):
+        """🚀 10k-scale save: prati answer ki full-file write cheyyakunda,
+        garijalo okka write / min_interval — migathadi background timer."""
+        self._dirty = True
+        if time.time() - self._last_write >= min_interval:
+            self.save()
+            return
+        if self._timer is None:
+            import threading
+
+            def _later():
+                self._timer = None
+                if self._dirty:
+                    try:
+                        self.save()
+                    except Exception:
+                        pass
+
+            self._timer = threading.Timer(min_interval, _later)
+            self._timer.daemon = True
+            self._timer.start()
+
+    def flush_pending(self):
+        if self._dirty:
+            self.save()
