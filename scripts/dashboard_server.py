@@ -59,7 +59,8 @@ def _public_base(handler=None):
 # ⚠️ Ads kevalam PUBLIC pages lone (exam/session pages lo bao — policy + focus).
 PUBLIC_PAGE_PATHS = {"/site": "home", "/about": "about", "/privacy": "privacy",
                      "/terms": "terms", "/contact": "contact", "/study": "study",
-                     "/updates": "updates", "/winners": "winners"}
+                     "/updates": "updates", "/winners": "winners",
+                     "/toppers": "toppers"}
 
 
 def _adsense_client():
@@ -131,6 +132,17 @@ _PUB_CSS = """
   .adbox { margin: 26px auto; max-width: 970px; min-height: 90px; }
   footer { border-top: 1px solid #1e3a5f; padding: 22px; text-align: center; color: #64748b; font-size: 12.5px; }
   footer a { margin: 0 8px; }
+  .tchip { padding: 4px 10px; border-radius: 999px; border: 1px solid #24466e; background: #12233f; color: #e2e8f0; font-size: 12px; cursor: pointer; font-weight: 700; }
+  body.theme-ocean { background: #02141a; }
+  body.theme-ocean .card, body.theme-ocean .nav { background: #06222b; border-color: #0e4a56; }
+  body.theme-sunset { background: #170a1e; }
+  body.theme-sunset .card, body.theme-sunset .nav { background: #22102e; border-color: #572a63; }
+  body.theme-forest { background: #04150a; }
+  body.theme-forest .card, body.theme-forest .nav { background: #0a2013; border-color: #1d4d2e; }
+  body.theme-light { background: #eef2f7; color: #16233a; }
+  body.theme-light .card, body.theme-light .nav { background: #ffffff; border-color: #c9d6e8; }
+  body.theme-light .nav .logo, body.theme-light h1, body.theme-light h2.sec { color: #12233f; }
+  body.theme-light .card p, body.theme-light .txt p { color: #5a6b84; }
 """
 
 
@@ -254,9 +266,19 @@ def _pub_bodies(bot, contact_email):
   <div class="txt"><p>Top scorers of our Weekly Grand Tests and Live Exams. Practice daily, rank daily — your name could be here next week.</p></div>
   __WINNERS__
 """
+    toppers_pg = """
+  <h2 class="sec">🏆 Toppers — Week · Month · Year</h2>
+  <div class="txt"><p>StudentUp lo daily quiz, mock tests mariyu live exams raasi earn chesina points tho ee rankings vasthayi. Meeru kuda practice chesi ee list loki randi!</p></div>
+  <h3 style="margin:18px 0 8px;">📅 Toppers of the Week</h3>
+  __TOP_WEEK__
+  <h3 style="margin:18px 0 8px;">🗓️ Toppers of the Month</h3>
+  __TOP_MONTH__
+  <h3 style="margin:18px 0 8px;">👑 Toppers of the Year</h3>
+  __TOP_YEAR__
+"""
     return {"home": home, "study": study, "about": about,
             "privacy": privacy, "terms": terms, "contact": contact,
-            "updates": updates, "winners": winners}
+            "updates": updates, "winners": winners, "toppers": toppers_pg}
 
 
 def public_page(handler, page):
@@ -272,7 +294,8 @@ def public_page(handler, page):
               "terms": "Terms of Use — StudentUp",
               "contact": "Contact — StudentUp",
               "updates": "Exam Updates & Notifications — StudentUp",
-              "winners": "Hall of Fame — StudentUp Winners"}
+              "winners": "Hall of Fame — StudentUp Winners",
+              "toppers": "Toppers of Week, Month & Year — StudentUp"}
     bodies = _pub_bodies(bot, email)
     body = bodies.get(page, bodies["home"])
     try:
@@ -285,6 +308,21 @@ def public_page(handler, page):
             for _w in _wf) or '<div class="card"><p>First Weekly Grand Test winners ikkade vastaru — Sunday 10 AM ready ga undandi!</p></div>'
     except Exception:
         _whtml = '<div class="card"><p>Winners coming soon.</p></div>'
+    try:
+        _tops = portal.toppers_all(Members())
+
+        def _trows(rows):
+            if not rows:
+                return '<div class="card"><p>Inka ee period lo points levu — first topper meeru avvandi!</p></div>'
+            return "".join(
+                f'<div class="card" style="margin-bottom:8px;"><p>{["🥇", "🥈", "🥉"][i] if i < 3 else "#" + str(i + 1)} <b>{r["name"]}</b> · {r["district"]} · ⭐ {r["pts"]} points · ✍️ {r["answers"]} correct</p></div>'
+                for i, r in enumerate(rows))
+        body = (body.replace("__TOP_WEEK__", _trows(_tops["week"]))
+                    .replace("__TOP_MONTH__", _trows(_tops["month"]))
+                    .replace("__TOP_YEAR__", _trows(_tops["year"])))
+    except Exception:
+        body = (body.replace("__TOP_WEEK__", '<div class="card"><p>Loading…</p></div>')
+                    .replace("__TOP_MONTH__", "").replace("__TOP_YEAR__", ""))
     body = body.replace("__WINNERS__", _whtml)
     try:
         _nts = portal.list_notices(20)
@@ -316,11 +354,16 @@ __CANONICAL____ADSHEAD__
 <div class="nav">
   <span class="logo">🎓 StudentUp</span>
   <a href="/">🏠 Home</a><a href="/study">📚 Study Guide</a><a href="/about">ℹ️ About</a>
-  <a href="/privacy">🔐 Privacy</a><a href="/updates">📢 Updates</a><a href="/winners">🏆 Winners</a><a href="/contact">✉️ Contact</a>
+  <a href="/privacy">🔐 Privacy</a><a href="/updates">📢 Updates</a><a href="/winners">🏆 Winners</a><a href="/toppers">👑 Toppers</a><a href="/contact">✉️ Contact</a>
   <a class="login" href="/login">🔑 Organiser Login</a>
+  <span>🎨 <button class="tchip" onclick="setSiteTheme('')">🌙</button> <button class="tchip" onclick="setSiteTheme('ocean')">🌊</button> <button class="tchip" onclick="setSiteTheme('sunset')">🌅</button> <button class="tchip" onclick="setSiteTheme('forest')">🌲</button> <button class="tchip" onclick="setSiteTheme('light')">☀️</button></span>
 </div>
 <div class="wrap">__BODY__</div>
-<script>if ('serviceWorker' in navigator) { try { navigator.serviceWorker.register('/sw.js'); } catch (e) {} }</script>
+<script>
+function setSiteTheme(t) { document.body.className = t ? ('theme-' + t) : ''; localStorage.setItem('su_theme', t); }
+(function () { var t = localStorage.getItem('su_theme'); if (t) document.body.className = 'theme-' + t; })();
+if ('serviceWorker' in navigator) { try { navigator.serviceWorker.register('/sw.js'); } catch (e) {} }
+</script>
 <footer>
   © StudentUp · Free study practice for AP &amp; Telangana students<br>
   <a href="/about">About</a><a href="/privacy">Privacy Policy</a><a href="/terms">Terms</a><a href="/contact">Contact</a>
@@ -538,12 +581,36 @@ PORTAL_HTML = """<!DOCTYPE html>
   .rrow { padding: 9px 11px; border-radius: 10px; margin-top: 6px; font-size: 12.5px; line-height: 1.55; background: #0f1e38; }
   .rrow.ok { border-left: 4px solid #10b981; } .rrow.bad { border-left: 4px solid #ef4444; }
   .timer { color: #facc15; font-weight: 800; }
+  .tchip { padding: 6px 11px; border-radius: 999px; border: 1px solid #24466e; background: #12233f; color: #e2e8f0; font-size: 13px; cursor: pointer; }
+  .tchip.on { border-color: #10b981; color: #10b981; }
+  body.theme-ocean { background: radial-gradient(circle at 30% 10%, #065a60 0%, #02141a 70%); }
+  body.theme-ocean .card { background: #06222b; border-color: #0e4a56; }
+  body.theme-sunset { background: radial-gradient(circle at 30% 10%, #7c2d12 0%, #170a1e 70%); }
+  body.theme-sunset .card { background: #22102e; border-color: #572a63; }
+  body.theme-forest { background: radial-gradient(circle at 30% 10%, #14532d 0%, #04150a 70%); }
+  body.theme-forest .card { background: #0a2013; border-color: #1d4d2e; }
+  body.theme-light { background: #eef2f7; color: #16233a; }
+  body.theme-light .card { background: #ffffff; border-color: #c9d6e8; }
+  body.theme-light .brand, body.theme-light h2, body.theme-light .qte { color: #12233f; }
+  body.theme-light .muted { color: #5a6b84; }
+  body.theme-light input, body.theme-light select { background: #ffffff; color: #16233a; border-color: #b9c9de; }
+  body.theme-light .opt, body.theme-light .trow, body.theme-light .rrow { background: #f2f6fc; color: #16233a; border-color: #b9c9de; }
+  body.theme-light .chip { background: #e4edf8; border-color: #b9c9de; color: #26436b; }
+  body.theme-light .qen { color: #3c5a80; }
   .tbar { height: 8px; background: #12233f; border-radius: 99px; overflow: hidden; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="brand">🎓 StudentUp <span>DAILY QUIZ · MOCK TESTS · LEADERS</span></div>
+  <div class="row" style="justify-content:center; margin-bottom:12px;">
+    <span class="muted">🎨 Theme:</span>
+    <button class="tchip" data-th="" onclick="setTheme('')">🌙 Midnight</button>
+    <button class="tchip" data-th="ocean" onclick="setTheme('ocean')">🌊 Ocean</button>
+    <button class="tchip" data-th="sunset" onclick="setTheme('sunset')">🌅 Sunset</button>
+    <button class="tchip" data-th="forest" onclick="setTheme('forest')">🌲 Forest</button>
+    <button class="tchip" data-th="light" onclick="setTheme('light')">☀️ Light</button>
+  </div>
 
   <!-- register -->
   <div id="view-reg" class="card" style="display:none;">
@@ -591,6 +658,16 @@ PORTAL_HTML = """<!DOCTYPE html>
     <div class="card">
       <h3>🏆 Winners Wall</h3>
       <div id="winners-wall"></div>
+    </div>
+
+    <div class="card">
+      <h3>👑 Toppers — Week · Month · Year</h3>
+      <div class="row">
+        <button class="tchip" id="tt-week" onclick="showToppers('week')">📅 Week</button>
+        <button class="tchip" id="tt-month" onclick="showToppers('month')">🗓️ Month</button>
+        <button class="tchip" id="tt-year" onclick="showToppers('year')">👑 Year</button>
+      </div>
+      <div id="toppers-list" style="margin-top:6px;"></div>
     </div>
 
     <div class="card">
@@ -722,6 +799,7 @@ function rows(list, emptyMsg) {
   return list.map((t, i) => '<div class="trow"><span>' + (['🥇','🥈','🥉'][i] || (i + 1)) + '</span><b>' + esc(t.name) + '</b><span class="muted">' + esc(t.district || '') + '</span><span>✅ ' + t.correct + '/' + (t.total || 10) + ' · ⭐' + t.pts + '</span></div>').join('');
 }
 async function init() {
+  setTheme(localStorage.getItem('su_theme') || '');
   const _ref = new URLSearchParams(location.search).get('ref');
   if (_ref) localStorage.setItem('su_ref', _ref.toUpperCase());
   const meta = await api('/api/portal/meta');
@@ -764,6 +842,22 @@ async function doRegister() {
   loadHome();
 }
 function logout() { localStorage.removeItem('su_portal'); token = ''; show('view-reg'); }
+function setTheme(t) {
+  document.body.className = t ? ('theme-' + t) : '';
+  localStorage.setItem('su_theme', t);
+  document.querySelectorAll('.tchip[data-th]').forEach(b => b.classList.toggle('on', (b.dataset.th || '') === t));
+}
+let TOPP = {};
+function showToppers(period) {
+  ['week', 'month', 'year'].forEach(k => {
+    const el = document.getElementById('tt-' + k);
+    if (el) el.classList.toggle('on', k === period);
+  });
+  const list = (TOPP || {})[period] || [];
+  document.getElementById('toppers-list').innerHTML = list.length ? list.map((t, i) =>
+    '<div class="trow"><span>' + (['🥇','🥈','🥉'][i] || (i + 1)) + '</span><b>' + esc(t.name) + '</b><span class="muted">📍 ' + esc(t.district || '') + '</span><span>⭐ ' + t.pts + ' pts</span></div>').join('')
+    : '<div class="muted">Ee period lo inka points levu — practice chesi first topper avvandi! 🔥</div>';
+}
 async function loadHome() {
   const d = await api('/api/portal/state?token=' + encodeURIComponent(token));
   if (!d.ok) { logout(); return; }
@@ -784,7 +878,7 @@ async function loadHome() {
   document.getElementById('rev-btn').textContent = '🔁 Revision' + (s.review_due ? ' (' + s.review_due + ' due)' : '');
   const di = document.getElementById('daily-info'), db = document.getElementById('daily-btn');
   if (d.daily.done) { di.textContent = '✅ Ee roju quiz complete! Score: ' + d.daily.correct + '/' + d.daily.n + ' — repu malli randi.'; db.style.display = 'none'; }
-  else { di.textContent = d.daily.n + ' questions · andari ki okkate paper · leaders board lo rank vastundi.'; db.textContent = d.daily.answered ? '▶️ Continue Quiz (' + d.daily.answered + '/' + d.daily.n + ')' : '▶️ Start Daily Quiz'; db.style.display = 'block'; }
+  else { di.textContent = d.daily.n + ' questions · 📜 ' + (d.daily.pyq_count || 0) + ' real PYQ (previous-year) questions ee paper lo · andari ki okkate paper.'; db.textContent = d.daily.answered ? '▶️ Continue Quiz (' + d.daily.answered + '/' + d.daily.n + ')' : '▶️ Start Daily Quiz'; db.style.display = 'block'; }
   document.getElementById('mock-grid').innerHTML = Object.entries(GOALS).map(([k, v]) =>
     '<button class="mockbtn' + (k === s.goal ? ' mine' : '') + '" onclick="startMock(\'' + k + '\')">' + esc(v) + '<br><span class="muted">15 Qs · Mock</span></button>').join('');
   const weak = (s.weak_topics || []).map(w => '<span class="chip weak">⚠️ ' + esc(w.topic) + ' · ' + w.accuracy + '%</span>').join('');
@@ -805,6 +899,8 @@ async function loadHome() {
   document.getElementById('district-league').innerHTML =
     (dl.my_rank ? '<div class="muted" style="margin-bottom:6px;">Mee district <b>' + esc(dl.my_district) + '</b> rank <b>#' + dl.my_rank + '</b> / ' + dl.districts + ' districts 🏙️</div>' : '') +
     (dl.rows || []).map((t, i) => '<div class="trow"><span>' + (['🥇','🥈','🥉'][i] || (i + 1)) + '</span><b>' + esc(t.name) + '</b><span class="muted">👥 ' + t.students + ' students</span><span>⭐ ' + t.pts + ' pts</span></div>').join('') || '<div class="muted">Inka district data ledu — points earn cheste league start avthundi!</div>';
+  TOPP = d.toppers || {};
+  showToppers('week');
   document.getElementById('board-daily').innerHTML = rows(d.daily_board, 'Inka evaru ee roju quiz complete cheyyaledu — meeru first avandi! 🔥');
   document.getElementById('board-mock').innerHTML = rows(d.mock_board, 'Inka mock leaders leru — okka mock raasi board meeda vacheyyandi!');
   document.getElementById('board-win').innerHTML = rows(d.yesterday_winners, 'Ninna winners inka leru.');

@@ -209,6 +209,17 @@ def _award(members, uid, name, correct, q):
         members.kv.save()
     except Exception:
         pass
+    if correct:
+        # 🏆 Toppers (week/month/year) kosam dated points ledger
+        try:
+            d = _load()
+            led = d.setdefault("ledger", [])
+            led.append({"uid": str(uid), "pts": PTS_DAILY, "date": _today()})
+            cutoff = (_now() - timedelta(days=400)).strftime("%Y-%m-%d")
+            d["ledger"] = [r for r in led if r.get("date", "") >= cutoff][-8000:]
+            _save(d)
+        except Exception:
+            pass
 
 
 def _profile(members, uid):
@@ -266,7 +277,10 @@ def state(members, token):
     return {"student": prof,
             "goals": {k: v["label"] for k, v in GOALS.items()},
             "notices": list_notices(3),
-            "daily": {"n": len(day["qs"]), "done": bool(run and run.get("done")),
+            "toppers": toppers_all(members),
+            "daily": {"n": len(day["qs"]),
+                      "pyq_count": sum(1 for q in day["qs"] if q.get("source") == "pyq"),
+                      "done": bool(run and run.get("done")),
                       "correct": (run or {}).get("correct", 0),
                       "answered": len((run or {}).get("answers") or {})},
             "daily_board": _board(t_rows, members),
@@ -925,3 +939,41 @@ def exam_certificate(members, token, exam_id):
             rows, footer=f"{prof['name']} — Rank #{rank} · studentup.in")
     except Exception:
         return None
+
+
+# ------------------------------------------------------------- toppers
+def _period_start(period, now):
+    if period == "week":
+        return (now - timedelta(days=now.weekday())).strftime("%Y-%m-%d")
+    if period == "month":
+        return now.strftime("%Y-%m-01")
+    return now.strftime("%Y-01-01")
+
+
+def toppers(members, period="week", limit=10):
+    """🏆 Toppers of the Week/Month/Year — portal lo earn chesina points
+    (daily quiz, mocks, live exams, practice) dated ledger nunchi.
+    Names + district tho public ga chupistham (bot winners laage)."""
+    d = _load()
+    start = _period_start(period, _now())
+    import collections
+    agg = {}
+    for r in (d.get("ledger") or []):
+        if r.get("date", "") >= start:
+            a = agg.setdefault(r["uid"], {"uid": r["uid"], "pts": 0, "answers": 0})
+            a["pts"] += int(r.get("pts") or 0)
+            a["answers"] += 1
+    rows = sorted(agg.values(), key=lambda a: (-a["pts"], a["uid"]))[:limit]
+    out = []
+    for r in rows:
+        m = _member(members, r["uid"])
+        out.append({"name": m.get("name", "Student"),
+                    "district": m.get("district", ""), "pts": r["pts"],
+                    "answers": r["answers"]})
+    return out
+
+
+def toppers_all(members):
+    return {"week": toppers(members, "week"),
+            "month": toppers(members, "month"),
+            "year": toppers(members, "year")}
