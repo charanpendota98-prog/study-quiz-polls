@@ -399,6 +399,13 @@ def _award(members, uid, name, correct, q):
     except Exception:
         m = _member(members, uid)
         m["points"] = m.get("points", 0) + (PTS_DAILY if correct else 0)
+    try:      # 🧠 Brain 3.0: difficulty-aware ability update
+        from . import brain as _brain
+        _brain.record(uid, q.get("id", ""), bool(correct),
+                      topic=q.get("topic", ""),
+                      level=str(q.get("difficulty") or q.get("level") or ""))
+    except Exception:
+        pass
     try:
         _sv = getattr(members.kv, "save_debounced", None)
         (_sv or members.kv.save)()
@@ -469,7 +476,12 @@ def state(members, token):
     mock_rows = sorted(d.get("mock_board") or [],
                        key=lambda r: (-r.get("correct", 0), -r.get("pts", 0)))
     prof = _profile(members, uid)
-    return {"student": prof,
+    try:
+        from . import brain as _brain
+        _brain_card = _brain.profile_for(_member(members, uid), uid)
+    except Exception:
+        _brain_card = None
+    return {"student": prof, "brain": _brain_card,
             "goals": {k: v["label"] for k, v in GOALS.items()},
             "notices": list_notices(3),
             "toppers": toppers_all(members),
@@ -892,6 +904,7 @@ def exam_answer(members, token, exam_id, idx, choice):
     ch = int(choice)
     orig = perm[ch] if 0 <= ch < len(perm) else ch
     ent.setdefault("answers", {})[str(idx)] = orig
+    ent["last_answer_at"] = _now().isoformat()
     ent.setdefault("wrong", 0)
     if orig == q["answer_index"]:
         ent["correct"] += 1
@@ -1184,13 +1197,33 @@ def practice_start(members, token, mode="smart", topic=""):
             tp = [q for q in pool if (q.get("topic") or "").lower() == topic.lower()]
             pool = tp or pool
         elif mode == "smart":
-            weak = [w["topic"] for w in _profile(members, uid)["weak_topics"]]
-            wp = [q for q in pool if (q.get("topic") or "").lower() in
-                  [w.lower() for w in weak]]
-            if len(wp) >= 5:
-                pool = wp
-        picked = random.Random(secrets.token_hex(4)).sample(
-            pool, min(10, len(pool))) if pool else []
+            # 🧠 Brain 3.0 adaptive: due revision + weak topics + level zone
+            try:
+                from . import brain as _brain
+                from .question_bank import Bank as _Bank
+                _rev = []
+                try:
+                    _bk = _Bank()
+                    for r in (m.get("review") or []):
+                        if str(r.get("due", "")) <= _today():
+                            _q = _bk.by_id(r.get("qid"))
+                            if _q:
+                                _rev.append(_q)
+                except Exception:
+                    _rev = []
+                picked = _brain.compose(pool, m, uid, n=10, review_qs=_rev)
+            except Exception:
+                picked = []
+            if not picked:
+                weak = [w["topic"] for w in
+                        _profile(members, uid)["weak_topics"]]
+                wp = [q for q in pool if (q.get("topic") or "").lower() in
+                      [w.lower() for w in weak]]
+                if len(wp) >= 5:
+                    pool = wp
+        if not picked:
+            picked = random.Random(secrets.token_hex(4)).sample(
+                pool, min(10, len(pool))) if pool else []
     if not picked:
         return False, "Practice questions ready ga levu."
     run_id = "PR-" + secrets.token_hex(4)
@@ -1200,7 +1233,14 @@ def practice_start(members, token, mode="smart", topic=""):
     for k in list(d["practice"])[:-60]:
         d["practice"].pop(k, None)
     _save(d)
-    return True, {"run_id": run_id, "mode": mode,
+    _brain_info = None
+    if mode == "smart":
+        try:
+            from . import brain as _brain
+            _brain_info = _brain.profile_for(m, uid)
+        except Exception:
+            _brain_info = None
+    return True, {"run_id": run_id, "mode": mode, "brain": _brain_info,
                   "questions": _serve(d["practice"][run_id]["qs"], run_id, {})}
 
 

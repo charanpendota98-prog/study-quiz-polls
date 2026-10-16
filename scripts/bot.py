@@ -1483,6 +1483,27 @@ class Bot:
                     _m, _bank, exam_channel(_m.get("exam", ""))))
             except Exception as e:
                 self.tg.send_message(chat_id, f"Plan ippudu ready ga ledu: {e}")
+        elif low.startswith("/brain"):
+            # 🧠 Student Brain 3.0: ability (θ) + exam readiness + focus
+            if uid and not self.members.is_registered(uid):
+                self.members.auto_register_from_poll(uid, who)
+            try:
+                from core import brain
+                _m = self.members._get(uid)
+                _pf = brain.profile_for(_m, uid)
+                _ab = brain.ability(uid)
+                _lines = [f"🧠 *Student Brain* — {_pf['band']}",
+                          f"🎯 Ability θ: *{_pf['theta']}* · ✍️ {_pf['answers']} answers",
+                          f"📊 *Exam Readiness: {_pf['score']}%*",
+                          f"🏋️ Target level: {_pf['target_level']}"]
+                if _pf.get("weak_topics"):
+                    _lines.append("⚠️ Focus: " + ", ".join(_pf["weak_topics"]))
+                if _pf.get("reviews_due"):
+                    _lines.append(f"🔁 Revision due: {_pf['reviews_due']} — /review")
+                _lines.append("🧠 Smart practice mee level ke vasthundi — /quiz")
+                self.tg.send_message(chat_id, "\n".join(_lines))
+            except Exception as e:
+                self.tg.send_message(chat_id, f"Brain ippudu ready ga ledu: {e}")
         elif low.startswith("/quiz"):
             # Registration-first: the form (name → state → district → exam →
             # language) must be completed once before playing.

@@ -804,6 +804,11 @@ PORTAL_HTML = """<!DOCTYPE html>
     </div>
 
     <div class="card">
+      <h3>🧠 Student Brain 3.0</h3>
+      <div id="brain-card"></div>
+    </div>
+
+    <div class="card">
       <h3>🎯 Naa Personal Report</h3>
       <div id="report"></div>
       <div id="report-full" style="margin-top:10px;"></div>
@@ -1041,6 +1046,22 @@ async function loadHome() {
     '<div class="row"><span class="chip">✅ Accuracy ' + s.accuracy + '%</span><span class="chip">✍️ ' + s.answered + ' answered</span><span class="chip gold">⭐ ' + s.points + ' pts</span></div>' +
     (weak ? '<div style="margin-top:9px;"><span class="muted">Mee weak topics — ivvi ekkuva practice cheyyandi:</span><div class="row" style="margin-top:6px;">' + weak + '</div></div>'
           : '<p class="muted" style="margin-top:8px;">Inka data ledu — Daily Quiz & Mocks raasthe mee weak topics ikkada kanipisthayi, personal ga improve avutharu.</p>');
+  const BN = d.brain;
+  const brainEl = document.getElementById('brain-card');
+  if (brainEl) {
+    if (BN && BN.answers > 0) {
+      const comp = BN.components || {};
+      const bar = (label, v) => '<div style="margin:3px 0;"><span class="muted">' + label + '</span><div style="background:rgba(255,255,255,.08); border-radius:6px; height:8px;"><div style="width:' + Math.min(100, v * 4) + '%; height:8px; border-radius:6px; background:linear-gradient(90deg,#38bdf8,#a78bfa);"></div></div></div>';
+      brainEl.innerHTML = '<b>' + esc(BN.band) + '</b> · Ability θ ' + BN.theta + ' · Target level: ' + esc(BN.target_level || '') +
+        '<div style="margin-top:6px;"><span style="font-size:27px; font-weight:800;">' + BN.score + '%</span> <span class="muted">Exam Readiness</span></div>' +
+        bar('Ability', comp.ability || 0) + bar('Coverage', comp.coverage || 0) + bar('Practice', comp.volume || 0) + bar('Streak', comp.streak || 0) +
+        (BN.weak_topics && BN.weak_topics.length ? '<div style="margin-top:6px;" class="muted">Focus topics: ' + BN.weak_topics.map(esc).join(', ') + '</div>' : '') +
+        '<button class="btn-alt" style="width:auto; margin-top:9px;" onclick="startPractice(\'smart\')">🧠 Smart Practice (mee level)</button>' +
+        (BN.reviews_due ? ' <span class="chip">🔁 ' + BN.reviews_due + ' revision due</span>' : '');
+    } else {
+      brainEl.innerHTML = '<div class="muted">Daily Quiz / Practice start cheyyandi — mee ability (θ), exam readiness, level-wise smart practice ikkada kanipistundi.</div><button class="btn-alt" style="width:auto; margin-top:8px;" onclick="startPractice(\'smart\')">🧠 Smart Practice Start</button>';
+    }
+  }
   const ib = document.getElementById('install-btn');
   if (ib) ib.onclick = async () => {
     if (_deferredInstall) { _deferredInstall.prompt(); await _deferredInstall.userChoice; _deferredInstall = null; document.getElementById('install-card').style.display = 'none'; }
@@ -3162,6 +3183,7 @@ All candidates must join today before 9:00 PM!"></textarea>
           <h3 style="font-size:14px; margin:0;">🧠 Item Intelligence — Question Quality (Real Answers)</h3>
           <button class="btn btn-outline" style="padding:4px 10px; font-size:11px;" onclick="loadItemIntel()">🔄 Refresh</button>
         </div>
+        <div id="brain-overview" style="font-size:12.5px; margin-bottom:8px; padding:8px 10px; background:rgba(56,189,248,0.07); border-radius:8px;"></div>
         <div id="item-intel-body" style="font-size:12px; margin-top:9px; color:var(--text-muted);">Loading...</div>
       </div>
 
@@ -6397,6 +6419,19 @@ All candidates must join today before 9:00 PM!"></textarea>
         if (!d.suspect_count && !d.too_easy_count) html += '<div style="margin-top:6px; color:#34d399;">✅ Quality issues levu — answers vache koddi ikkada kanipisthayi.</div>';
         box.innerHTML = html;
       } catch (e) { box.innerHTML = '❌ ' + e; }
+      loadBrain();
+    }
+    async function loadBrain() {
+      const box = document.getElementById('brain-overview');
+      if (!box) return;
+      try {
+        const r = await fetch('/api/brain/overview');
+        const d = await r.json();
+        const bands = Object.entries(d.bands || {}).map(([k, v]) => k + ': ' + v).join(' · ');
+        box.innerHTML = '<b>🧠 Student Brain 3.0</b> — 👥 ' + (d.students || 0) + ' students tracked · ✍️ ' + (d.answers || 0) +
+          ' answers · Avg ability θ ' + (d.avg_theta || 0) + (bands ? '<br><span style="color:var(--text-muted);">' + bands + '</span>' : '') +
+          '<br><span style="color:var(--text-muted);">Ability (Elo) + Exam Readiness + level-wise Smart Practice — portal & bot rendu vaipu live.</span>';
+      } catch (e) { box.innerHTML = ''; }
     }
     async function resetItemStats(qid) {
       if (!confirm(qid + ' stats reset cheyyala? (key fix ayyindi anukunte matrame)')) return;
@@ -7220,6 +7255,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if p.path == "/api/item_intel":
             from core import item_intel as _ii
             self._send_json({"ok": True, **_ii.report()})
+            return
+
+        if p.path == "/api/brain/overview":
+            from core import brain as _br
+            self._send_json({"ok": True, **_br.overview()})
+            return
+
+        if p.path == "/api/portal/exam/integrity":
+            from core import integrity as _ig
+            _iq = urllib.parse.parse_qs(p.query)
+            self._send_json({"ok": True, **_ig.report_for_exam(
+                (_iq.get("id") or [""])[0])})
             return
 
         if p.path == "/api/syllabus":

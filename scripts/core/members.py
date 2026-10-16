@@ -255,6 +255,13 @@ class Members:
             t = m["topics"].setdefault(topic.lower(), {"correct": 0, "total": 0})
             t["total"] += 1
 
+        # 🧠 Brain 3.0: difficulty-aware Elo ability (never breaks scoring)
+        try:
+            from . import brain as _brain
+            _brain.record(uid, qid, bool(correct), topic=topic)
+        except Exception:
+            pass
+
         # ---- spaced-repetition review queue
         if qid:
             m["review"] = [r for r in m.get("review", []) if r.get("qid") != qid]
