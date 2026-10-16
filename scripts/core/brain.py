@@ -193,7 +193,16 @@ def readiness(member: dict, uid) -> dict:
 def profile_for(member: dict, uid) -> dict:
     """Portal/bot card: ability + readiness + revision count okkate."""
     rd = readiness(member, uid)
-    due = len([r for r in (member or {}).get("review") or []])
+    # 🛠️ FIX: reviews_due = ONLY due cards (mundhu anni cards count
+    # ayyevi — future-dated vi kuda "due" ani kanipinchevi).
+    try:
+        from datetime import datetime as _dt
+        from . import config as _cfg
+        _today = _dt.now(_cfg.IST).strftime("%Y-%m-%d")
+    except Exception:
+        _today = "9999-12-31"
+    due = len([r for r in (member or {}).get("review") or []
+               if str(r.get("due", "")) <= _today])
     return {**rd, "answers": ability(uid)["answers"],
             "reviews_due": due, "target_level": target_level(uid)}
 

@@ -51,6 +51,21 @@ DEFAULTS = {
         "label": "🔁 WhatsApp retry queue",
         "desc": "Fail ayina WhatsApp sends ni persistent queue lo vesi backoff tho malli try chesthundi.",
     },
+    "syllabus_tracker": {
+        "default": True,
+        "label": "🗺️ Syllabus Tracker (portal)",
+        "desc": "Portal lo student ki subject-wise syllabus coverage + mastery map chupisthundi (kill switch).",
+    },
+    "negative_mocks": {
+        "default": True,
+        "label": "🏁 Negative-marking mocks",
+        "desc": "Portal mocks lo real-exam negative marking simulator (0/-0.25/-0.5/-1) allow chesthundi.",
+    },
+    "revenge_mode": {
+        "default": True,
+        "label": "😤 Revenge Mode practice",
+        "desc": "Last attempt lo tappu chesina questions ne malli practice cheyyinche mode.",
+    },
 }
 
 

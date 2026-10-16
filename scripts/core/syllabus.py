@@ -76,7 +76,15 @@ def plan(member: dict, bank, channel: str) -> dict:
               "fresh_available": any(w["topic"].lower() in (u or "").lower()
                                      for u in un)}
              for w in weak]
-    due = len([r for r in (member or {}).get("review", [])])
+    # 🛠️ FIX: reviews_due = due-only (mundhu anni cards count ayyevi)
+    try:
+        from datetime import datetime as _dt
+        from . import config as _cfg
+        _today = _dt.now(_cfg.IST).strftime("%Y-%m-%d")
+    except Exception:
+        _today = "9999-12-31"
+    due = len([r for r in (member or {}).get("review", [])
+               if str(r.get("due", "")) <= _today])
     return {"channel": channel, "exam": g["exam"], "subjects": subj_rows,
             "weak_topics": focus, "reviews_due": due,
             "overall_mastery": (

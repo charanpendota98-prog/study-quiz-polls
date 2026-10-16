@@ -263,29 +263,28 @@ class Members:
             pass
 
         # ---- spaced-repetition review queue
+        # 🛠️ FIX (bug hunt): card ni mundhu remove chesi tarvatha advance
+        # cheyyadam valla 3d->7d ladder eppudu jaragaledu (okka correct ke
+        # card delete ayyedi). Ippudu card ni capture chesi correct ga
+        # advance chestham: wrong -> interval 0 (due today), correct ->
+        # 0->3d -> 7d -> mastered (drop).
         if qid:
-            m["review"] = [r for r in m.get("review", []) if r.get("qid") != qid]
+            cards = [r for r in (m.get("review") or []) if r.get("qid") != qid]
+            old = next((r for r in (m.get("review") or [])
+                        if r.get("qid") == qid), None)
             if not correct:
-                # missed question -> due immediately (same-day /review), then
-                # spaced: 3d -> 7d as they answer it correctly.
-                m["review"].append({"qid": qid, "due": _day(),
-                                    "interval": 0, "topic": topic})
-            else:
-                # correct -> advance this spaced-repetition card
-                #   interval 0 (same-day) -> 3 days -> 7 days -> mastered (drop)
-                kept = []
-                for r in m.get("review", []):
-                    if r.get("qid") == qid:
-                        nxt = {0: 3, 3: 7}.get(r["interval"])
-                        if nxt:
-                            r["interval"] = nxt
-                            r["due"] = (datetime.now(config.IST) +
-                                       timedelta(days=nxt)).strftime("%Y-%m-%d")
-                            kept.append(r)
-                        # interval 7 correct -> mastered, drop
-                    else:
-                        kept.append(r)
-                m["review"] = kept
+                cards.append({"qid": qid, "due": _day(),
+                              "interval": 0, "topic": topic})
+            elif old is not None:
+                nxt = {0: 3, 3: 7}.get(int(old.get("interval") or 0))
+                if nxt:
+                    old = dict(old)
+                    old["interval"] = nxt
+                    old["due"] = (datetime.now(config.IST) +
+                                  timedelta(days=nxt)).strftime("%Y-%m-%d")
+                    cards.append(old)
+                # interval 7 correct -> mastered, drop
+            m["review"] = cards[-200:]
 
         if m["last_active"] != today:
             earned += P_DAILY_FIRST            # daily participation bonus

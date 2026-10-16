@@ -435,13 +435,16 @@ def public_page(handler, page):
         _papers = portal.paper_catalog()
         _phtml = "".join(
             f'<div class="card" style="margin-bottom:10px;"><h3>📜 {r["label"]}</h3>'
-            f'<p>{r["count"]} real previous-year questions · {", ".join(r["channels"]) or r["exam"]}</p>'
+            f'<p>{r["count"]} real previous-year questions · {", ".join(r["channels"]) or r["exam"]}'
+            + (f'<br>🏷️ {", ".join(r.get("topics") or [])}' if r.get("topics") else "")
+            + (' · <b>Mini set</b>' if r.get("size") == "mini" else "")
+            + '</p>'
             f'<p style="margin-top:6px;"><a href="/portal">Full Paper Attempt Cheyyandi →</a></p></div>'
             for r in _papers) or '<div class="card"><p>Papers harvest avuthunnayi — prathi roju kottha sets add avuthayi. First sets thondaralo ikkade!</p></div>'
         _cov = portal.pyq_coverage_public() if hasattr(portal, "pyq_coverage_public") else {}
         _total_pyq = sum(r["count"] for r in _papers)
-        _phtml = (f'<div class="card" style="margin-bottom:10px;"><h3>📊 Bank lo ippudu {_total_pyq} real PYQ questions · {len(_papers)} full paper sets</h3>'
-                  '<p>Harvest prathi roju (02:15 + 13:45) kottha official papers testhundi — count daily ga peruguthundi.</p></div>') + _phtml
+        _phtml = (f'<div class="card" style="margin-bottom:10px;"><h3>📊 Bank lo ippudu {_total_pyq} real PYQ questions · {len(_papers)} paper sets</h3>'
+                  '<p>Harvest prathi roju (02:15 + 13:45) kottha official papers testhundi — count daily ga peruguthundi. Portal lo Syllabus Tracker, Personal Coach, Negative-marking mocks kuda unnayi!</p></div>') + _phtml
     except Exception:
         _phtml = '<div class="card"><p>Papers loading…</p></div>'
     body = body.replace("__PAPERS__", _phtml)
@@ -839,10 +842,39 @@ PORTAL_HTML = """<!DOCTYPE html>
       <p class="muted">Instant answers tho nerchukondi. Smart Practice mee weak topics + revision nunchi questions testhundi.</p>
       <button class="btn-main" onclick="startPractice('smart')">🧠 Smart Practice</button>
       <button class="btn-alt" id="rev-btn" onclick="startPractice('review')">🔁 Revision</button>
+      <div class="row" style="margin-top:9px; flex-wrap:wrap; gap:6px;">
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="startPractice('weak')">🎯 Weak Drill</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="startPractice('revenge')">😤 Revenge</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="startPractice('speed')">⚡ Speed 45s</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="startPractice('marathon')">🏃 Marathon 25</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="startPractice('bookmarks')">🔖 Saved</button>
+      </div>
       <div class="row" style="margin-top:9px;">
         <select id="topic-sel" style="flex:1;"></select>
         <button class="btn-alt" style="width:auto; margin-top:0;" onclick="startPractice('topic')">Topic ▶</button>
       </div>
+      <div class="row" style="margin-top:9px;">
+        <span class="muted">🏁 Real-exam negative marking tho mock:</span>
+        <select id="neg-sel" style="width:auto;">
+          <option value="0">No negative</option>
+          <option value="0.25">−0.25</option>
+          <option value="0.5">−0.5</option>
+          <option value="1">−1</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🚀 Advanced Study Tools</h3>
+      <div id="countdown-card" style="margin-bottom:8px;"></div>
+      <div id="coach-card" style="margin-bottom:8px;"></div>
+      <div class="row" style="flex-wrap:wrap; gap:6px;">
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadSyllabus()">🗺️ Syllabus Tracker</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadPercentile()">📈 Naa Percentile</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadBookmarks()">🔖 Saved Questions</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="downloadWorksheet()">🖨️ Worksheet</button>
+      </div>
+      <div id="adv-out" style="margin-top:9px;"></div>
     </div>
 
     <div class="card">
@@ -920,6 +952,7 @@ PORTAL_HTML = """<!DOCTYPE html>
     <div id="p-en" class="qen"></div>
     <div id="p-opts"></div>
     <div id="p-fb" class="feedback"></div>
+    <div class="row"><button class="btn-alt" style="width:auto; margin:0;" id="p-bm" onclick="bmCurrent()">🔖 Save Question</button><span id="p-timer" class="chip" style="display:none;"></span></div>
     <button class="btn-main" id="p-next" style="display:none;" onclick="nextPr()">Next ➡️</button>
   </div>
 
@@ -1136,7 +1169,8 @@ async function loadHome() {
   document.getElementById('board-daily').innerHTML = rows(d.daily_board, 'Inka evaru ee roju quiz complete cheyyaledu — meeru first avandi! 🔥');
   document.getElementById('board-mock').innerHTML = rows(d.mock_board, 'Inka mock leaders leru — okka mock raasi board meeda vacheyyandi!');
   document.getElementById('board-win').innerHTML = rows(d.yesterday_winners, 'Ninna winners inka leru.');
-  renderPlan(d.today_plan); renderPapers(d.papers || []);
+  renderPlan(d.today_plan); renderPapers(d.papers || [], d.paper_progress || {});
+  renderCountdown(d.countdown); loadCoach();
   renderLiveExams(d.live_exams || []); cdTick();
   document.getElementById('winners-wall').innerHTML = (d.winners_wall || []).map(w =>
     '<div style="margin-top:8px;"><b style="font-size:13px;">' + esc(w.title) + '</b>' + rows(w.winners, '') + '</div>').join('') || '<div class="muted">Inka winners leru — Weekly Grand Test (Sunday 10 AM) first!</div>';
@@ -1191,14 +1225,73 @@ function renderPlan(plan) {
   el.innerHTML = '<b>🧭 Today\'s Smart Plan</b> <span class="chip">' + plan.done_count + '/' + plan.total + ' done</span>' +
     (plan.readiness != null ? ' <span class="chip gold">Readiness ' + plan.readiness + '%</span>' : '') + rows;
 }
-function renderPapers(papers) {
+let PAPER_PROG = {};
+function renderPapers(papers, progress) {
   const el = document.getElementById('papers-list');
   if (!el) return;
+  PAPER_PROG = progress || PAPER_PROG || {};
   if (!papers.length) { el.innerHTML = '<div class="muted">Inka real PYQ papers load avuthunnayi — Daily Quiz lo daily ga vastundi, harvest prathi roju papers penchuthundi.</div>'; return; }
-  el.innerHTML = papers.map(pp =>
-    '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin:6px 0; padding:8px 10px; background:rgba(56,189,248,0.07); border-radius:9px;"><span>📜 <b>' + esc(pp.label) + '</b> <span class="muted">' + pp.count + ' questions</span></span>' +
-    '<button class="btn-alt" style="width:auto; margin:0;" onclick="startPaper(\'' + esc(pp.exam) + '\',\'' + esc(pp.year || '') + '\',\'' + esc(pp.paper || '') + '\')">Start ▶</button></div>').join('') +
+  el.innerHTML = papers.map(pp => {
+    const pg = PAPER_PROG[pp.label] || {};
+    const badge = pg.attempts ? ' <span class="chip gold">Best ' + pg.best + '/' + (pg.total || pp.count) + ' · ' + pg.attempts + '× rayaru</span>' : '';
+    const topics = (pp.topics || []).length ? '<br><span class="muted">🏷️ ' + esc(pp.topics.join(', ')) + '</span>' : '';
+    const size = pp.size === 'mini' ? ' <span class="chip">Mini set</span>' : '';
+    return '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin:6px 0; padding:8px 10px; background:rgba(56,189,248,0.07); border-radius:9px;"><span>📜 <b>' + esc(pp.label) + '</b> <span class="muted">' + pp.count + ' questions</span>' + size + badge + topics + '</span>' +
+    '<button class="btn-alt" style="width:auto; margin:0;" onclick="startPaper(\'' + esc(pp.exam) + '\',\'' + esc(pp.year || '') + '\',\'' + esc(pp.paper || '') + '\')">' + (pg.attempts ? '↻ Malli' : 'Start ▶') + '</button></div>';
+  }).join('') +
     '<div class="muted" style="margin-top:6px;">Full paper = timer test. Submit taruvatha score + answer key + review vastundi.</div>';
+}
+function renderCountdown(cd) {
+  const el = document.getElementById('countdown-card');
+  if (!el) return;
+  if (!cd || !cd.mine) { el.innerHTML = ''; return; }
+  const m = cd.mine;
+  el.innerHTML = '<b>⏳ Exam Countdown</b> <span class="chip gold">' + esc(m.label) + '</span> ' +
+    '<span style="font-size:15px;"><b>' + m.days + ' rojulu</b> unnayi · ' + esc(m.date) + ' · ' + esc(m.phase) + '</span>';
+}
+async function loadCoach() {
+  const el = document.getElementById('coach-card');
+  if (!el) return;
+  const d = await api('/api/portal/coach?token=' + encodeURIComponent(token));
+  if (!d.ok) { el.innerHTML = ''; return; }
+  el.innerHTML = '<b>🧑‍🏫 Personal Coach — Today</b>' +
+    (d.readiness != null ? ' <span class="chip gold">Readiness ' + d.readiness + '%</span>' : '') +
+    (d.steps || []).map(s => '<div style="margin:4px 0;">' + s.icon + ' ' + esc(s.text) + '</div>').join('');
+}
+async function loadSyllabus() {
+  const out = document.getElementById('adv-out');
+  out.innerHTML = '<div class="muted">Loading syllabus…</div>';
+  const d = await api('/api/portal/syllabus?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || 'Syllabus ready ledu') + '</div>'; return; }
+  out.innerHTML = '<b>🗺️ ' + esc(d.exam || 'Syllabus') + '</b> <span class="chip gold">Coverage ' + d.coverage + '%</span> <span class="muted">' + d.topics_done + '/' + d.topics_total + ' topics</span>' +
+    (d.subjects || []).map(s => '<div style="display:flex; justify-content:space-between; margin:4px 0;"><span>' + esc(s.subject) + ' <span class="muted">(' + s.done_topics + '/' + s.topics + ' topics)</span></span><span>' + esc(s.status) + (s.mastery != null ? ' · ' + Math.round(s.mastery * 100) + '%' : '') + '</span></div>').join('');
+}
+async function loadPercentile() {
+  const out = document.getElementById('adv-out');
+  const d = await api('/api/portal/percentile?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  out.innerHTML = d.percentile == null
+    ? '<div class="muted">📈 ' + esc(d.note || 'Inka data ledu') + '</div>'
+    : '<b>📈 Goal Percentile</b> <span class="chip gold">Top ' + (100 - d.percentile) + '%</span><div class="muted">Rank #' + d.rank + ' / ' + d.students + ' students · Mee best: ' + d.my_best + ' · Top score: ' + d.top + ' (honest estimate — mock scores nunchi)</div>';
+}
+async function loadBookmarks() {
+  const out = document.getElementById('adv-out');
+  const d = await api('/api/portal/bookmarks?token=' + encodeURIComponent(token));
+  const bm = d.bookmarks || [];
+  out.innerHTML = '<b>🔖 Saved Questions (' + bm.length + ')</b>' + (bm.length ? '' : '<div class="muted">Inka em save cheyyaledu — practice lo 🔖 nokkandi.</div>') +
+    bm.slice(0, 10).map(q => '<div class="rrow"><b>' + esc(q.topic || '') + '</b> ' + esc(q.q_en || q.q_te || '') + '<br><button class="btn-alt" style="width:auto; margin-top:4px;" onclick="toggleBookmark(\'' + esc(q.id) + '\')">✖ Remove</button></div>').join('');
+}
+async function toggleBookmark(qid) {
+  const d = await api('/api/portal/bookmark', {token, qid});
+  if (d.ok) loadBookmarks();
+}
+async function downloadWorksheet() {
+  const d = await api('/api/portal/worksheet?token=' + encodeURIComponent(token));
+  if (!d.ok || !d.text) { alert('❌ ' + (d.error || 'Worksheet avvaledu')); return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([d.text], {type: 'text/plain;charset=utf-8'}));
+  a.download = d.filename || 'StudentUp-Worksheet.txt'; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
 async function startPaper(exam, year, paper) {
   const d = await api('/api/portal/paper/start', {token, exam, year, paper});
@@ -1226,7 +1319,9 @@ async function startPaper(exam, year, paper) {
   }, 1000);
 }
 async function startMock(goal) {
-  const d = await api('/api/portal/mock/start', {token, goal});
+  const negEl = document.getElementById('neg-sel');
+  const neg = negEl ? parseFloat(negEl.value || '0') : 0;
+  const d = await api('/api/portal/mock/start', {token, goal, neg});
   if (!d.ok) { alert('❌ ' + (d.error || 'Mock start avvaledu')); return; }
   MOCK = d;
   document.getElementById('m-title').textContent = '📝 ' + d.label;
@@ -1258,7 +1353,8 @@ async function submitMock() {
   const d = await api('/api/portal/mock/submit', {token, run_id: MOCK.run_id, answers});
   if (!d.ok) { document.getElementById('m-err').textContent = d.error || ''; return; }
   document.getElementById('res-score').textContent = d.correct + '/' + d.total;
-  document.getElementById('res-sub').textContent = '🎯 Accuracy ' + d.accuracy + '% · Leaderboard update ayindi!';
+  document.getElementById('res-sub').textContent = '🎯 Accuracy ' + d.accuracy + '% · Leaderboard update ayindi!' +
+    (d.neg ? ' 🏁 Negative −' + d.neg + ' apply ayyindi: Points ' + d.pts + ' (correct ' + d.correct + ', wrong ' + (d.wrong || 0) + ')' : '');
   document.getElementById('res-review').innerHTML = (d.review || []).map(r => {
     const q = (d.questions || [])[r.i] || {};
     const opts = q.options || [];
@@ -1273,15 +1369,53 @@ async function submitMock() {
     '<br><button class="btn-alt" style="width:auto; margin-top:10px;" onclick="downloadKey(\'mock\',\'' + _mrun + '\')">⬇️ Answer Key Paper Download 📄</button>');
 }
 let PR = null;
+let prTimer = null;
 async function startPractice(mode) {
   const topic = document.getElementById('topic-sel').value || '';
   const d = await api('/api/portal/practice/start', {token, mode, topic});
   if (!d.ok) { alert('❌ ' + (d.error || 'Practice start avvaledu')); return; }
-  PR = {run_id: d.run_id, questions: d.questions || [], cur: 0, score: 0};
+  PR = {run_id: d.run_id, questions: d.questions || [], cur: 0, score: 0, per_q: d.per_q || 0};
   show('view-prc'); renderPr();
+}
+function bmCurrent() {
+  const q = PR && PR.questions[PR.cur];
+  if (!q || !q.qid) return;
+  toggleBookmark(q.qid);
+  const b = document.getElementById('p-bm');
+  if (b) b.textContent = '🔖 Saved ✓';
+}
+function startPrTimer() {
+  clearInterval(prTimer);
+  const el = document.getElementById('p-timer');
+  if (!PR || !PR.per_q) { if (el) el.style.display = 'none'; return; }
+  let left = PR.per_q;
+  el.style.display = 'inline-block'; el.textContent = '⚡ ' + left + 's';
+  prTimer = setInterval(() => {
+    left--;
+    el.textContent = '⚡ ' + left + 's';
+    if (left <= 0) {
+      clearInterval(prTimer);
+      // time ayipoyindi — correct answer chupinchi next ki ready
+      const q = PR.questions[PR.cur];
+      document.querySelectorAll('#p-opts .opt').forEach(b => { b.disabled = true; });
+      api('/api/portal/practice/answer', {token, run_id: PR.run_id, idx: PR.cur, choice: -1}).then(d => {
+        const fb = document.getElementById('p-fb');
+        if (d && d.ok) {
+          fb.innerHTML = '⏰ Time over! Correct: <b>' + esc(d.answer_text || '') + '</b>' + (d.explanation ? '<br><span class="muted">' + esc(d.explanation) + '</span>' : '');
+          document.getElementById('p-score').textContent = '✅ ' + (d.score || PR.score);
+        }
+        const nb = document.getElementById('p-next');
+        nb.textContent = (d && d.done) ? '🏠 Finish' : 'Next ➡️';
+        nb.style.display = 'block';
+      });
+    }
+  }, 1000);
 }
 function renderPr() {
   const q = PR.questions[PR.cur];
+  const bmB = document.getElementById('p-bm');
+  if (bmB) bmB.textContent = '🔖 Save Question';
+  startPrTimer();
   document.getElementById('p-pos').textContent = 'Q ' + (PR.cur + 1) + '/' + PR.questions.length;
   document.getElementById('p-topic').textContent = '🏷️ ' + (q.topic || '');
   document.getElementById('p-score').textContent = '✅ ' + PR.score;
@@ -1296,6 +1430,7 @@ function renderPr() {
   });
 }
 async function ansPr(i, btn) {
+  clearInterval(prTimer);
   document.querySelectorAll('#p-opts .opt').forEach(b => { b.disabled = true; });
   btn.classList.add('picked');
   const d = await api('/api/portal/practice/answer', {token, run_id: PR.run_id, idx: PR.cur, choice: i});
@@ -1310,6 +1445,7 @@ async function ansPr(i, btn) {
   nb.style.display = 'block';
 }
 function nextPr() {
+  clearInterval(prTimer);
   if (PR.cur + 1 >= PR.questions.length) { backHome(); return; }
   PR.cur++; renderPr();
 }
@@ -7092,6 +7228,39 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if p.path == "/api/portal/paper/catalog":
             self._send_json({"ok": True, "papers": portal.paper_catalog()})
             return
+        if p.path == "/api/portal/syllabus":
+            query = urllib.parse.parse_qs(p.query)
+            sy = portal.my_syllabus(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": sy is not None, **(sy or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/coach":
+            query = urllib.parse.parse_qs(p.query)
+            co = portal.coach_today(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": co is not None, **(co or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/percentile":
+            query = urllib.parse.parse_qs(p.query)
+            pc = portal.goal_percentile(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": pc is not None, **(pc or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/bookmarks":
+            query = urllib.parse.parse_qs(p.query)
+            bm = portal.my_bookmarks(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": True, "bookmarks": bm})
+            return
+        if p.path == "/api/portal/archive":
+            query = urllib.parse.parse_qs(p.query)
+            ar = portal.my_archive(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": True, "archive": ar})
+            return
+        if p.path == "/api/portal/worksheet":
+            query = urllib.parse.parse_qs(p.query)
+            ok, info = portal.worksheet_text(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/daily_mix":
+            self._send_json({"ok": True, **portal.daily_mix()})
+            return
         if p.path == "/api/portal/exam":
             query = urllib.parse.parse_qs(p.query)
             ex = portal.exam_questions(Members(), query.get("token", [""])[0],
@@ -7799,7 +7968,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json({"ok": ok, **(info if ok and isinstance(info, dict) else {"error": info})})
             return
         if p.path == "/api/portal/mock/start":
-            ok, info = portal.mock_start(Members(), body.get("token", ""), body.get("goal", "mixed"))
+            ok, info = portal.mock_start(Members(), body.get("token", ""), body.get("goal", "mixed"),
+                                         neg=float(body.get("neg") or 0))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/bookmark":
+            ok, info = portal.bookmark_toggle(Members(), body.get("token", ""),
+                                              body.get("qid", ""))
             self._send_json({"ok": ok, **(info if ok else {"error": info})})
             return
         if p.path == "/api/portal/mock/submit":

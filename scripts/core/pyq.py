@@ -373,12 +373,14 @@ def papers_index(min_q: int = 5) -> list:
         if len(items) < int(min_q or 5):
             continue
         label = exam + (f" {year}" if year else "") + (f" · {paper}" if paper else "")
+        _tc = collections.Counter((q.get("topic") or "general") for q in items)
         out.append({
             "exam": exam, "year": year, "paper": paper, "label": label,
             "count": len(items),
             "ids": [q.get("id") for q in items],
             "channels": sorted({q.get("channel", "") for q in items
                                 if q.get("channel")}),
+            "topics": [t for t, _n in _tc.most_common(4)],
         })
     out.sort(key=lambda r: (0 if r["year"] else 1, -r["count"], r["exam"]))
     return out
