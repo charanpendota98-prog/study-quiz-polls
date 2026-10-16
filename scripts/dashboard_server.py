@@ -48,6 +48,265 @@ def _public_base(handler=None):
     return ""
 
 
+# ================================================================== public site
+# 🌍 Public brand website (students/visitors + Google AdSense review కోసం).
+# Admin dashboard ilaage untundi — login leni vallaki "/" public site kanipisthundi.
+# ⚠️ Ads kevalam PUBLIC pages lone (exam/session pages lo bao — policy + focus).
+PUBLIC_PAGE_PATHS = {"/site": "home", "/about": "about", "/privacy": "privacy",
+                     "/terms": "terms", "/contact": "contact", "/study": "study"}
+
+
+def _adsense_client():
+    return config.env("ADSENSE_CLIENT_ID", "").strip()
+
+
+def ads_txt_content():
+    """ads.txt — AdSense seller verification (root domain lo undali,
+    subdomains ki kuda ide valid). Env lekapothe empty (route 404)."""
+    pub = config.env("ADSENSE_PUBLISHER_ID", "").strip()
+    if not pub:
+        cid = _adsense_client()
+        pub = cid[3:] if cid.startswith("ca-pub-") else cid
+    if not pub.startswith("pub-"):
+        return ""
+    return f"google.com, {pub}, DIRECT, f08c47fec0942fa0\n"
+
+
+def _adsense_head():
+    cid = _adsense_client()
+    if not cid.startswith("ca-pub-"):
+        return ""
+    return (f'<script async src="https://pagead2.googlesyndication.com/pagead/js/'
+            f'adsbygoogle.js?client={cid}" crossorigin="anonymous"></script>')
+
+
+def _ad_slot(name):
+    cid = _adsense_client()
+    slot = config.env(f"ADSENSE_SLOT_{name}", "").strip()
+    if not cid.startswith("ca-pub-") or not slot:
+        return ""
+    return ('<div class="adbox"><ins class="adsbygoogle" style="display:block" '
+            f'data-ad-client="{cid}" data-ad-slot="{slot}" data-ad-format="auto" '
+            'data-full-width-responsive="true"></ins>'
+            '<script>(adsbygoogle = window.adsbygoogle || []).push({});</script></div>')
+
+
+_PUB_CSS = """
+  * { box-sizing: border-box; margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+  body { background: #050811; color: #e2e8f0; line-height: 1.65; }
+  a { color: #38bdf8; text-decoration: none; }
+  .nav { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; padding: 14px 20px; background: #0b1329; border-bottom: 1px solid #1e3a5f; position: sticky; top: 0; z-index: 9; }
+  .nav .logo { font-size: 19px; font-weight: 800; color: #f8fafc; margin-right: auto; }
+  .nav a { font-size: 13.5px; font-weight: 600; }
+  .nav .login { background: #12233f; border: 1px solid #24466e; padding: 6px 12px; border-radius: 999px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 26px 18px 60px; }
+  .hero { text-align: center; padding: 42px 14px 26px; }
+  .hero h1 { font-size: 32px; line-height: 1.25; color: #f8fafc; }
+  .hero h1 span { color: #10b981; }
+  .hero p { color: #94a3b8; max-width: 640px; margin: 12px auto 0; font-size: 15px; }
+  .cta { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 20px; }
+  .btn { padding: 12px 20px; border-radius: 11px; font-weight: 800; font-size: 14px; border: none; cursor: pointer; }
+  .btn-g { background: linear-gradient(90deg, #10b981, #38bdf8); color: #04121f; }
+  .btn-o { background: #12233f; color: #e2e8f0; border: 1px solid #24466e; }
+  .exambox { max-width: 460px; margin: 22px auto 0; background: #0b1329; border: 1px solid #1e3a5f; border-radius: 14px; padding: 16px; }
+  .exambox input { width: 100%; padding: 11px 13px; font-size: 16px; background: #050811; color: #fff; border: 1px solid #24466e; border-radius: 9px; text-transform: uppercase; margin: 8px 0; }
+  h2.sec { font-size: 21px; margin: 38px 0 14px; color: #f8fafc; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+  .card { background: #0b1329; border: 1px solid #1e3a5f; border-radius: 13px; padding: 16px; }
+  .card h3 { font-size: 15px; margin-bottom: 6px; }
+  .card p, .txt p { color: #94a3b8; font-size: 13.5px; }
+  .txt p { margin-bottom: 12px; }
+  .txt h3 { margin: 20px 0 8px; font-size: 16px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { background: #12233f; border: 1px solid #24466e; padding: 6px 13px; border-radius: 999px; font-size: 13px; font-weight: 700; }
+  .steps { counter-reset: st; }
+  .steps .card b { color: #10b981; }
+  .faq .card { margin-bottom: 10px; }
+  .adbox { margin: 26px auto; max-width: 970px; min-height: 90px; }
+  footer { border-top: 1px solid #1e3a5f; padding: 22px; text-align: center; color: #64748b; font-size: 12.5px; }
+  footer a { margin: 0 8px; }
+"""
+
+
+def _pub_bodies(bot, contact_email):
+    home = """
+  <div class="hero">
+    <h1>Free Quiz Practice &amp; College Exams for <span>AP &amp; Telangana</span> Students</h1>
+    <p>StudentUp helps students prepare for EAMCET, NEET, SSC, RRB and APPSC/TSPSC Group exams with daily quiz polls, previous-year questions and instant results — on Telegram, WhatsApp and right here in your browser.</p>
+    <div class="cta">
+      <a class="btn btn-g" href="__BOT__" target="_blank" rel="noopener">🤖 Open Telegram Bot</a>
+      <a class="btn btn-o" href="/study">📚 Study Guide</a>
+    </div>
+    <div class="exambox" id="exam-entry">
+      <b>🏫 College Exam?</b>
+      <div style="color:#94a3b8;font-size:13px;">Your teacher/organiser gave you an exam code? Enter it here — no app download needed.</div>
+      <input id="exam-code" placeholder="e.g. CE-K7P2" maxlength="12">
+      <button class="btn btn-g" style="width:100%;" onclick="var c=document.getElementById('exam-code').value.trim().toUpperCase(); if(c) location.href='/exam/'+c;">🚀 Open My Exam</button>
+    </div>
+  </div>
+  __AD_HOME__
+  <h2 class="sec">✨ What you get</h2>
+  <div class="grid">
+    <div class="card"><h3>📊 Daily Quiz Polls</h3><p>Fresh practice questions every day on Telegram and WhatsApp channels — answer the poll, see the explanation, earn points.</p></div>
+    <div class="card"><h3>📚 Previous-Year Questions</h3><p>A growing bank of 1,400+ previous-year and curated questions with sujet-wise and topic-wise practice.</p></div>
+    <div class="card"><h3>🏫 College Exams in Browser</h3><p>Teachers create an exam, share one link or QR — students join with name + mobile and write the exam in the browser. No app needed.</p></div>
+    <div class="card"><h3>🏆 Winners &amp; Certificates</h3><p>Daily winners, top-scorer certificates and district rankings keep practice fun and competitive.</p></div>
+    <div class="card"><h3>🎯 Know Your Weak Topics</h3><p>Your profile shows accuracy and weak topics so you revise exactly what costs you marks.</p></div>
+    <div class="card"><h3>⚡ Instant Results</h3><p>Speed points, negative-marking practice and instant answer review after every round and exam.</p></div>
+  </div>
+  <h2 class="sec">🚀 How it works</h2>
+  <div class="grid steps">
+    <div class="card"><b>Step 1</b><h3>Join free</h3><p>Open the Telegram bot or join a WhatsApp group through your college/class group link. Answering a quiz poll registers you automatically.</p></div>
+    <div class="card"><b>Step 2</b><h3>Practice daily</h3><p>Attempt the daily polls and quizzes. Every correct answer earns points; fast correct answers earn bonus speed points.</p></div>
+    <div class="card"><b>Step 3</b><h3>Write college exams</h3><p>Scan the QR your teacher shares, enter your name and mobile, and write the exam live in your browser.</p></div>
+    <div class="card"><b>Step 4</b><h3>Track &amp; improve</h3><p>Check your rank, review every answer, and focus revision on your weak topics.</p></div>
+  </div>
+  <h2 class="sec">📖 Subjects we cover</h2>
+  <div class="chips">
+    <span class="chip">Mathematics</span><span class="chip">Physics</span><span class="chip">Chemistry</span>
+    <span class="chip">Biology / Botany / Zoology</span><span class="chip">Indian Polity</span><span class="chip">History</span>
+    <span class="chip">Geography</span><span class="chip">Economy</span><span class="chip">English</span>
+    <span class="chip">Reasoning &amp; Aptitude</span><span class="chip">Current Affairs</span><span class="chip">General Science</span>
+  </div>
+  <h2 class="sec">❓ Frequently asked questions</h2>
+  <div class="faq">
+    <div class="card"><h3>Is StudentUp free?</h3><p>Yes. Daily practice, quizzes and college practice exams on StudentUp are free for students.</p></div>
+    <div class="card"><h3>Do I need to install Telegram for college exams?</h3><p>No. College exams open directly in your mobile browser from the link or QR your organiser shares. Telegram is only an optional alternative.</p></div>
+    <div class="card"><h3>Which exams does it help with?</h3><p>EAMCET (Engineering &amp; Medical streams), NEET basics, SSC, RRB and APPSC/TSPSC Group services — with subject-wise and topic-wise PYQs.</p></div>
+    <div class="card"><h3>How do winners and points work?</h3><p>Correct answers earn points, faster correct answers earn bonus points, and toppers of each round are announced with certificates. Practice exams may include negative marking when the organiser enables it.</p></div>
+  </div>
+"""
+    study = """
+  <h2 class="sec">📚 Study Guide — how to prepare smart</h2>
+  <div class="txt">
+    <h3>🎓 EAMCET (AP &amp; TS)</h3>
+    <p>EAMCET rewards speed with accuracy. Mathematics carries the highest weight in the engineering stream, so daily problem practice matters more than re-reading theory. Solve previous-year questions topic by topic, note the formulas you miss, and revise them weekly. StudentUp's topic-wise PYQ polls are built exactly for this routine.</p>
+    <h3>🩺 NEET basics</h3>
+    <p>Biology is half the paper. Read NCERT line by line, then test yourself with factual one-liners — Botany and Zoology diagrams included. Physics and Chemistry need formula + concept clarity; short daily quizzes beat one long weekly session.</p>
+    <h3>🏛️ SSC, RRB &amp; APPSC/TSPSC Groups</h3>
+    <p>Polity, History, Geography, Economy and Current Affairs decide these papers. Learn Polity article by article, keep a one-page timeline for History, and revise maps for Geography. Attempt mocks under time pressure — our polls simulate exactly that.</p>
+    <h3>⏱️ Five habits that raise scores</h3>
+    <p>1) Attempt questions daily, even if only ten. 2) Review every wrong answer the same day. 3) Track your weak topics and attack one per week. 4) Practise with negative marking so guessing becomes disciplined. 5) Sleep before the exam — memory consolidates at night.</p>
+  </div>
+  __AD_STUDY__
+"""
+    about = """
+  <h2 class="sec">ℹ️ About StudentUp</h2>
+  <div class="txt">
+    <p>StudentUp is a free learning companion for students of Andhra Pradesh and Telangana preparing for competitive and entrance examinations. It began as a simple idea: students already spend time on Telegram and WhatsApp — why not turn those same apps into a daily study habit?</p>
+    <p>Today StudentUp runs daily quiz polls, previous-year-question practice, district competitions, and full college exams that students can write in a mobile browser without installing any app. Teachers and colleges use it to conduct quick tests and get instant marks reports.</p>
+    <p>Our question bank is built from previous-year papers and carefully curated items, organised by subject and topic, with explanations. We keep the experience simple: advanced preparation tools, presented in a way any student can use in the first minute.</p>
+    <p>Questions about StudentUp? See the <a href="/contact">Contact</a> page.</p>
+  </div>
+"""
+    privacy = """
+  <h2 class="sec">🔐 Privacy Policy</h2>
+  <div class="txt">
+    <p><i>Last updated: 2026. This page explains what data StudentUp collects and why.</i></p>
+    <h3>What we collect</h3>
+    <p>When you use the Telegram bot, we receive your Telegram user id, display name and username. When you register or write a college web exam, you provide your name, mobile number and college. We record your quiz answers, scores and ranks to run competitions and exams.</p>
+    <h3>How we use it</h3>
+    <p>Data is used only to operate the service: registering you, delivering questions, computing scores, announcing winners, and giving organisers their marks reports. We do not sell personal data.</p>
+    <h3>Cookies &amp; local storage</h3>
+    <p>The web exam stores a session token in your browser's local storage so you can rejoin after a refresh. The organiser dashboard uses a login cookie. When advertising is enabled on our public pages, Google AdSense may set cookies to serve and measure ads; you can control this in your browser settings and via Google's ad settings.</p>
+    <h3>Third parties</h3>
+    <p>Messages are delivered through Telegram and WhatsApp, whose own privacy policies apply. Advertising on public pages (when enabled) is provided by Google AdSense.</p>
+    <h3>Your choices</h3>
+    <p>You may ask for your registration data to be corrected or deleted through the <a href="/contact">Contact</a> page or your college organiser.</p>
+  </div>
+"""
+    terms = """
+  <h2 class="sec">📜 Terms of Use</h2>
+  <div class="txt">
+    <p>By using StudentUp you agree to these simple terms.</p>
+    <h3>Service</h3>
+    <p>StudentUp provides free practice questions, quizzes and college practice exams for educational purposes. Scores on StudentUp are practice indicators only and are not official results of any examination board.</p>
+    <h3>Fair use</h3>
+    <p>Write exams yourself, without impersonating others. Organisers are responsible for the exams they create and for sharing links only with their intended students. Abuse, spam or attempts to disrupt the service may lead to removal.</p>
+    <h3>Content</h3>
+    <p>Previous-year questions remain the property of their respective examination boards and are used here for students' practice. Explanations and original content belong to StudentUp.</p>
+    <h3>Changes</h3>
+    <p>We may improve or change features over time. Continued use means you accept the updated terms.</p>
+  </div>
+"""
+    contact = """
+  <h2 class="sec">✉️ Contact</h2>
+  <div class="txt">
+    __CONTACT__
+    <p>Students: for exam-related help (join problems, marks queries), contact your college organiser first — they created your exam and can see your report. For bot help, message the admin through the Telegram bot.</p>
+    <p><a href="__BOT__" target="_blank" rel="noopener">🤖 Open the Telegram Bot</a></p>
+  </div>
+"""
+    return {"home": home, "study": study, "about": about,
+            "privacy": privacy, "terms": terms, "contact": contact}
+
+
+def public_page(handler, page):
+    """Full public page HTML (ads ONLY here — never on exam/session pages)."""
+    bot = ("https://t.me/" + _bot_username()) if page in ("home", "about", "contact") else "#"
+    email = config.env("PUBLIC_CONTACT_EMAIL", "").strip()
+    contact_line = (f'<p>Email: <a href="mailto:{email}">{email}</a></p>' if email
+                    else "<p>Reach the StudentUp team through the Telegram bot admin or your college organiser.</p>")
+    titles = {"home": "StudentUp — Free Quiz Practice & College Exams (AP & Telangana)",
+              "study": "Study Guide — StudentUp",
+              "about": "About — StudentUp",
+              "privacy": "Privacy Policy — StudentUp",
+              "terms": "Terms of Use — StudentUp",
+              "contact": "Contact — StudentUp"}
+    bodies = _pub_bodies(bot, email)
+    body = bodies.get(page, bodies["home"])
+    body = (body.replace("__BOT__", bot).replace("__CONTACT__", contact_line)
+                .replace("__AD_HOME__", _ad_slot("HOME"))
+                .replace("__AD_STUDY__", _ad_slot("STUDY")))
+    base = _public_base(handler)
+    canonical = (base + ("/" if page == "home" else "/" + page)) if base else ""
+    shell = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>__TITLE__</title>
+<meta name="description" content="StudentUp: free quiz polls, previous-year questions and browser-based college exams for AP & Telangana students (EAMCET, NEET, SSC, RRB, APPSC/TSPSC).">
+__CANONICAL____ADSHEAD__
+<style>__CSS__</style>
+</head>
+<body>
+<div class="nav">
+  <span class="logo">🎓 StudentUp</span>
+  <a href="/">🏠 Home</a><a href="/study">📚 Study Guide</a><a href="/about">ℹ️ About</a>
+  <a href="/privacy">🔐 Privacy</a><a href="/contact">✉️ Contact</a>
+  <a class="login" href="/login">🔑 Organiser Login</a>
+</div>
+<div class="wrap">__BODY__</div>
+<footer>
+  © StudentUp · Free study practice for AP &amp; Telangana students<br>
+  <a href="/about">About</a><a href="/privacy">Privacy Policy</a><a href="/terms">Terms</a><a href="/contact">Contact</a>
+</footer>
+</body>
+</html>"""
+    return (shell.replace("__TITLE__", titles.get(page, titles["home"]))
+                 .replace("__CANONICAL__", f'<link rel="canonical" href="{canonical}">' if canonical else "")
+                 .replace("__ADSHEAD__", _adsense_head())
+                 .replace("__CSS__", _PUB_CSS)
+                 .replace("__BODY__", body))
+
+
+def robots_txt(handler):
+    base = _public_base(handler)
+    lines = ["User-agent: *", "Allow: /", "Disallow: /api/", "Disallow: /exam/"]
+    if base:
+        lines.append(f"Sitemap: {base}/sitemap.xml")
+    return "\n".join(lines) + "\n"
+
+
+def sitemap_xml(handler):
+    base = _public_base(handler)
+    urls = ["/", "/study", "/about", "/privacy", "/terms", "/contact"]
+    items = "".join(f"<url><loc>{base}{u}</loc></url>" for u in urls)
+    return ('<?xml version="1.0" encoding="UTF-8"?>'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+            + items + "</urlset>")
+
+
 def _bot_username():
     """The bot students must land on: .env BOT_USERNAME → live getMe lookup
     (cached 1h) → legacy fallback. QR/join links built with a wrong bot name
@@ -5388,6 +5647,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _send_text(self, body_text, code=200, ctype="text/plain; charset=utf-8"):
+        body = body_text.encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def _send_json(self, data, code=200):
         body = json.dumps(data, ensure_ascii=False).encode("utf-8")
         self.send_response(code)
@@ -5481,6 +5748,26 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         pass
                     snap = campus.web_state(code, tok) or snap
                 self._send_json({"ok": True, **snap})
+            return
+        # 🌍 Public Website + AdSense kit — login akkarledu
+        if p.path == "/" and not self._authed():
+            self._send_html(public_page(self, "home"))
+            return
+        if p.path in PUBLIC_PAGE_PATHS:
+            self._send_html(public_page(self, PUBLIC_PAGE_PATHS[p.path]))
+            return
+        if p.path == "/ads.txt":
+            body_txt = ads_txt_content()
+            if body_txt:
+                self._send_text(body_txt)
+            else:
+                self._send_text("# AdSense not configured\n", code=404)
+            return
+        if p.path == "/robots.txt":
+            self._send_text(robots_txt(self))
+            return
+        if p.path == "/sitemap.xml":
+            self._send_text(sitemap_xml(self), ctype="application/xml; charset=utf-8")
             return
         if not self._authed():
             self._deny(is_api=p.path.startswith("/api/"))
