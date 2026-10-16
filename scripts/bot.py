@@ -66,6 +66,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from core import config
 from core.telegram import Telegram, TelegramError
+from core import reaction_polls as _rp
 from core.question_bank import Bank
 from core.content import build_question_text, build_options, build_explanation
 from core.members import Members, EXAM_TARGETS, LANGUAGES, level_for
@@ -306,7 +307,7 @@ class Bot:
                 code = campus.quick_event(colleges[0], district, created_by=uid)
             else:
                 code = campus.new_event(f"{district} College War ⚔️", district, colleges,
-                                        created_by=uid)
+                                        created_by=uid, shuffle=True)
         except Exception as ex:
             self.tg.send_message(chat_id, f"❌ Event create fail: {ex}")
             return
@@ -340,6 +341,56 @@ class Bot:
                     return                 # identical panel → no duplicate, ever
         self.tg.send_message(chat_id, txt, buttons=btns)
 
+    @staticmethod
+    def _profile_buttons():
+        """One-tap enrichment: exam goal / district / mobile."""
+        return [
+            [{"text": "🎯 Exam Goal marchali", "callback_data": "prof:menu_exam"},
+             {"text": "📍 Na District", "callback_data": "prof:menu_district"}],
+            [{"text": "📱 Mobile add", "callback_data": "prof:menu_mobile"},
+             {"text": "🏠 Na Profile", "callback_data": "prof:view"}],
+        ]
+
+    def _profile_button(self, uid, chat_id, data):
+        """prof:* — one-tap profile enrichment (sheet kuda sync avuthundi)."""
+        parts = (data or "").split(":")
+        act = parts[1] if len(parts) > 1 else ""
+        val = parts[2] if len(parts) > 2 else ""
+        from core import districts as _dist
+        if act == "menu_mobile":
+            self.tg.send_message(
+                chat_id,
+                "📱 Kinda button click chesi mee mobile number share cheyyandi — "
+                "results mariyu personal alerts kosam maatrame (spam ledu):",
+                markup={"keyboard": [[{"text": "📱 Share my number",
+                                       "request_contact": True}]],
+                        "resize_keyboard": True, "one_time_keyboard": True})
+        elif act == "menu_district":
+            btns = [[{"text": f"{en} · {te}", "callback_data": f"prof:st:{code}"}]
+                    for code, (en, te, _ds) in _dist.STATES.items()]
+            self.tg.send_message(chat_id, "📍 Mee state pick cheyyandi (state pick):",
+                                 buttons=btns)
+        elif act == "st" and val in _dist.STATES:
+            self.members.update_profile(uid, state=val)
+            names = [d[0] for d in _dist.STATES[val][2]]
+            btns = [[{"text": d, "callback_data": f"prof:di:{d}"}] for d in names[:20]]
+            self.tg.send_message(chat_id, f"✅ State: {_dist.STATES[val][0]}\n📍 Ikkada district pick cheyyandi:",
+                                 buttons=btns)
+        elif act == "di" and val:
+            self.members.update_profile(uid, district=val)
+            self.tg.send_message(chat_id, f"✅ District set: {val} — District League lo meeru ippudu unnaru! 🏙️",
+                                 buttons=self._profile_buttons())
+        elif act == "menu_exam":
+            from core.members import EXAM_TARGETS
+            btns = [[{"text": e, "callback_data": f"prof:ex:{e}"}] for e in list(EXAM_TARGETS)[:10]]
+            self.tg.send_message(chat_id, "🎯 Mee exam goal pick cheyyandi:", buttons=btns)
+        elif act == "ex" and val:
+            self.members.update_profile(uid, exam=val)
+            self.tg.send_message(chat_id, f"✅ Exam goal set: {val} 🎯",
+                                 buttons=self._profile_buttons())
+        elif act == "view":
+            self.tg.send_message(chat_id, self.members.render_profile(uid))
+
     def handle_callback(self, cq):
         """Inline-button taps (qualification step, future menus)."""
         uid = cq.get("from", {}).get("id")
@@ -350,6 +401,9 @@ class Bot:
         except TelegramError:
             pass
         kind, _, value = data.partition(":")
+        if kind == "prof" and uid:
+            self._profile_button(uid, chat_id, data)
+            return
         if kind == "challenge" and uid:
             self._start_challenge(uid, chat_id)
             return
@@ -805,7 +859,7 @@ class Bot:
                 else:
                     try:
                         code = campus.new_event(f"{district} College War ⚔️", district, colleges,
-                                                created_by=uid)
+                                                created_by=uid, shuffle=True)
                         self.tg.send_message(chat_id, f"✅ {code} ready — {len(colleges)} colleges war ⚔️")
                         self.tg.send_message(chat_id, campus.links_text(code))
                         self.tg.send_message(chat_id, campus.panel_text(self.members, code),
@@ -1094,6 +1148,23 @@ class Bot:
         chat_id = str(msg["chat"]["id"])
         who = msg.get("from", {})
         uid = who.get("id")
+        # 📱 Shared contact → mobile save (unique guard tho) + keyboard tidy
+        if msg.get("contact") and uid:
+            phone = (msg["contact"] or {}).get("phone_number") or ""
+            saved = self.members.update_profile(uid, mobile=phone)
+            if saved:
+                self.tg.send_message(
+                    chat_id,
+                    f"✅ Mobile save ayindi: {saved.get('mobile')} 📱\n"
+                    "Ippudu memu meeku personal alerts, results pampagalamu!",
+                    markup={"remove_keyboard": True})
+            else:
+                self.tg.send_message(
+                    chat_id,
+                    "⚠️ Ee number already vere account ki link ayi undi. "
+                    "Vere number share cheyyandi leda /help chudandi.",
+                    markup={"remove_keyboard": True})
+            return
         text = (msg.get("text") or msg.get("caption") or "").strip()
         low = text.lower()
 
@@ -1396,6 +1467,22 @@ class Bot:
         elif low.startswith("/cancel"):
             self.members.cancel_registration(uid)
             self.tg.send_message(chat_id, "Registration cancelled. /register to retry.\n⤷ రద్దు చేయబడింది.")
+        elif low.startswith("/myplan"):
+            # 🗺️ Personal syllabus plan — weak topics + next steps
+            if uid and not self.members.is_registered(uid):
+                self.members.auto_register_from_poll(uid, who)
+            try:
+                from core import syllabus
+                from core.members import exam_channel
+                _m = self.members._get(uid)
+                _bank = self.bank
+                if _bank is None:
+                    from core.question_bank import Bank
+                    _bank = Bank()
+                self.tg.send_message(chat_id, syllabus.plan_text(
+                    _m, _bank, exam_channel(_m.get("exam", ""))))
+            except Exception as e:
+                self.tg.send_message(chat_id, f"Plan ippudu ready ga ledu: {e}")
         elif low.startswith("/quiz"):
             # Registration-first: the form (name → state → district → exam →
             # language) must be completed once before playing.
@@ -1849,7 +1936,7 @@ class Bot:
                 if len(f) < 3:
                     self.tg.send_message(chat_id, "Usage: /campus new <event name> | <district> | <College A> ; <College B> ; … [| questions] [| easy/medium/hard]"); return
                 code = campus.new_event(f[0], f[1], f[2].split(";"), int(f[3]) if len(f) > 3 and f[3].isdigit() else campus.DEFAULT_Q,
-                                        f[4].lower() if len(f) > 4 else "medium", created_by=uid)
+                                        f[4].lower() if len(f) > 4 else "medium", created_by=uid, shuffle=True)
                 self.tg.send_message(chat_id, f"✅ Event {code}\n\n" + campus.links_text(code))
             elif sub == "links":
                 self.tg.send_message(chat_id, campus.links_text(rest.strip()))
@@ -2526,12 +2613,13 @@ class Bot:
             ch, qid, correct_idx = meta[0], meta[1], meta[2]
             topic = meta[3] if len(meta) > 3 else ""
         is_correct = int(chosen[0]) == int(correct_idx)
-        # First-time player? Ask for registration ONCE (name → district → mobile).
-        # The answer still counts; the ask is never repeated after completion.
+        # 🎉 First-time player? AUTO-register from the poll answer itself
+        # (owner rule) — profile + sheet update avvuthayi, points yeppudu
+        # lock avavu. Welcome + one-tap enrichment buttons okkasari.
         first_ask = False
-        if uid and not self.members.is_registered(uid) and not self.members.pending_step(uid):
-            self.members.start_registration(uid, username=self._name(user))
-            self.members.register_default_exam(uid, self._channel_to_exam(ch))
+        if uid and not self.members.is_registered(uid):
+            self.members.auto_register_from_poll(
+                uid, user, exam=self._channel_to_exam(ch))
             first_ask = True
         if round_id:
             e = self.members.record_round_answer(uid, round_id, ch, is_correct, qid=qid)
@@ -2548,6 +2636,42 @@ class Bot:
         result = self.members.award_answer(
             uid, username=self._name(user),
             correct=is_correct, topic=topic, qid=qid)
+        try:      # 🧠 item intelligence: prathi answer oka data point
+            from core import item_intel
+            item_intel.record(qid, is_correct, topic=topic, channel=ch)
+        except Exception:
+            pass
+        _m_now = self.members._get(uid)
+        if _m_now.get("total") == 10 and not _m_now.get("smart_nudged"):
+            _m_now["smart_nudged"] = True
+            try:
+                self.members.kv.save()
+            except Exception:
+                pass
+            try:
+                weak = self.members.weak_topics(uid)
+                _w = (" · weak topic: " + weak[0]) if weak else ""
+                self.tg.send_message(
+                    uid,
+                    "🧠 *Smart check:* 10 answers aipoyayi 🎉 meeru baaga "
+                    f"progress avthunnaru{_w}.\nProfile complete chesthe "
+                    "personal weak-topic rounds inka better ga vasthayi 👇",
+                    buttons=self._profile_buttons())
+            except Exception:
+                pass
+        if first_ask:
+            try:
+                self.tg.send_message(
+                    uid,
+                    "🎉 *Welcome to StudentUp!*\n"
+                    "Meeru poll answer cheyyaga ne mee registration automatic "
+                    "ga complete ayipoyindi ✅ (+25 bonus points)\n"
+                    "Profile complete cheyyadaniki kinda buttons click cheyyandi — "
+                    "exam goal, district select chesthe personal reports, "
+                    "district league anni set avuthayi 👇",
+                    buttons=self._profile_buttons())
+            except Exception:
+                pass
         if result.get("locked"):
             # 🔒 unregistered: points are held. First time → full ask; later → short nudge.
             try:
@@ -2610,6 +2734,15 @@ class Bot:
                         pass
                     if campus.tick(self.tg, self.members):
                         live = True
+                    try:      # 🎓 Exam Conductor: due events → announce / start / finish
+                        from core import conductor
+                        conductor.tick(bank=self.bank, members=self.members, tg=self.tg)
+                    except Exception:
+                        pass
+                    try:      # 👍 emoji-poll windows close → tally + key reveal
+                        _rp.tick(self.tg)
+                    except Exception:
+                        pass
                     try:      # 🏆 College Cup: next-round / champion announcements + unstarted match reminders
                         from core import cup as C
                         C.check_reminders(self.tg, staff_ids=self._staff_ids())
@@ -2640,6 +2773,11 @@ class Bot:
                             self.handle_callback(upd["callback_query"])
                         except Exception as e:
                             print(f"[bot] callback error: {e}")
+                    elif "message_reaction" in upd or "message_reaction_count" in upd:
+                        try:      # 👍 emoji-poll votes (opt-in channels)
+                            _rp.apply_update(upd)
+                        except Exception as e:
+                            print("reaction update error:", e)
                     elif "poll_answer" in upd:
                         try:
                             self.handle_poll_answer(upd)

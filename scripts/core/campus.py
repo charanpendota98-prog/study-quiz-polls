@@ -73,7 +73,7 @@ def _code(existing):
 
 
 # ================================================================== events
-def new_event(name, district, colleges, n_q=DEFAULT_Q, level="medium", created_by="", mode="college", subjects=None, start_at="", neg=0):
+def new_event(name, district, colleges, n_q=DEFAULT_Q, level="medium", created_by="", mode="college", subjects=None, start_at="", neg=0, shuffle=True):
     d = _load()
     code = _code(d["events"])
     cols = [c.strip()[:40] for c in colleges if c.strip()][:12]
@@ -82,6 +82,7 @@ def new_event(name, district, colleges, n_q=DEFAULT_Q, level="medium", created_b
     subjs = [s.strip() for s in (subjects or []) if s.strip()] or ["reasoning", "quant", "gs", "english", "ca"]
     d["events"][code] = {"code": code, "name": name.strip()[:60], "district": district.strip(), "colleges": cols,
                          "n_q": max(5, min(int(n_q), 30)), "level": level if level in LEVELS else "medium",
+                         "shuffle": bool(shuffle),
                          "mode": "exam" if str(mode).lower().startswith("ex") else "college",
                          "subjects": subjs,
                          "state": "open", "created": _now().isoformat(), "by": str(created_by),
@@ -423,11 +424,13 @@ def start(bank, members, tg, code, now=None):
         return False, f"not enough questions ({len(qs)})"
     e["players"] = ready
     e["questions"] = qs
-    # 🔀 Anti-copy shuffle: every student gets a DIFFERENT question order and
-    # DIFFERENT option order (seeded per student, so it is reproducible).
+    # 🔀 Anti-copy shuffle (opt-in via new_event(shuffle=True) — product
+    # surfaces enable it; default paper is the SAME for everyone, which is
+    # also the projector-mode standard): every student gets a DIFFERENT
+    # question order and DIFFERENT option order (seeded, reproducible).
     n_qs = len(qs)
     e["qorder"] = {}; e["omap"] = {}
-    for uid in ready:
+    for uid in (ready if e.get("shuffle") else []):
         rng = random.Random(f"{code}:{uid}")
         order = list(range(n_qs)); rng.shuffle(order)
         e["qorder"][uid] = order
@@ -436,7 +439,6 @@ def start(bank, members, tg, code, now=None):
             n_opt = len(qs[qidx].get("options_en") or []) or 4
             perm = list(range(n_opt)); rng.shuffle(perm)
             e["omap"][uid][str(qidx)] = perm
-    e["shuffle"] = True
     e["state"] = "question"; e["qi"] = 0; e["answers"] = {}
     e["started"] = now.isoformat()
     d["polls"] = {k: v for k, v in d["polls"].items() if v[0] != code}

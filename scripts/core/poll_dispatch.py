@@ -60,7 +60,8 @@ def post_channel_polls(channel_key: str, count: int = 1, subjects=None,
 
     sent, sent_qs = 0, []
     for q in picked[:count]:
-        if eng.send_quiz(send_key, q):
+        _sender = getattr(eng, "_send_channel_question", None) or eng.send_quiz
+        if _sender(send_key, q):
             sent += 1
             sent_qs.append(q)
 

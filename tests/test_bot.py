@@ -812,7 +812,7 @@ class TestTeluguFirstAndAnswerKey(unittest.TestCase):
         q["options_te"] = ["పది", "ఇరవై", "ముప్పై", "నలభై"]
         opts = build_options(q, telugu_first=True)
         self.assertEqual(len(opts), 4)
-        self.assertTrue(opts[0].startswith("A) పది"), opts[0])
+        self.assertTrue(opts[0].startswith("🅰️ పది"), opts[0])
         self.assertIn("Ten", opts[0])
 
     def test_delayed_answer_key_builder(self):

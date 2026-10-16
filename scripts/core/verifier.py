@@ -266,6 +266,13 @@ def status_of(qid: str) -> str:
 def postable(q: dict, strict: bool | None = None) -> bool:
     """Gate used by the bank. strict=None → config VERIFY_STRICT (default True
     once any API key is configured, else lenient)."""
+    # 🧠 Item-intel live quarantine (kill-switch: item_intel_quarantine flag)
+    try:
+        from . import flags as _fl, item_intel as _ii
+        if _fl.enabled("item_intel_quarantine") and _ii.is_quarantined(q.get("id", "")):
+            return False             # suspect wrong key — even PYQ blocked
+    except Exception:
+        pass
     s = status_of(q.get("id", ""))
     if s in ("ok", "fixed"):
         return True

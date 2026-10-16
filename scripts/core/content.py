@@ -205,7 +205,7 @@ def build_options(q: dict, telugu_first: bool = True) -> list:
     Merge EN + TE into exactly 4 option strings (≤100 chars each).
     Telugu-first style: "A) Telugu — English" (falls back to EN-only if needed).
     """
-    letters = ["A", "B", "C", "D"]
+    letters = ["🅰️", "🅱️", "🅲️", "🅳"]
     en = q.get("options_en", [])
     te = [t.lstrip("⤷").strip() for t in q.get("options_te", [])]
     out = []
@@ -216,13 +216,13 @@ def build_options(q: dict, telugu_first: bool = True) -> list:
         e = re.sub(r"^[A-D][\)\.\:]\s*", "", e)
         t = re.sub(r"^[A-D][\)\.\:]\s*", "", t)
         if telugu_first and t:
-            opt = f"{letters[i]}) {t}"
+            opt = f"{letters[i]} {t}"
             if e and e != t:
                 merged = f"{opt} — {e}"
                 if len(merged) <= 100:
                     opt = merged
         else:
-            opt = f"{letters[i]}) {e}"
+            opt = f"{letters[i]} {e}"
             if t and t != e:
                 merged = f"{opt} — {t}"
                 if len(merged) <= 100:
@@ -543,3 +543,35 @@ def build_missed_explanations(questions: list, poll_stats: dict | None, member_s
         return ""
     lines.append("ఇది exam లో మళ్ళీ వస్తుంది — note చేసుకోండి · Save this one 📝")
     return "\n".join(lines)[:3900]
+
+
+# 👍❤️😂😮 — long-press reaction set (owner-chosen channel answers)
+REACTION_EMOJIS = ["👍", "❤️", "😂", "😮"]
+
+
+def build_reaction_text(q: dict, channel_cfg: dict | None = None,
+                        telugu_first: bool = True, position: str = "") -> str:
+    """👍 Emoji TEXT poll — WhatsApp Channel / reaction-mode kosam.
+    Options REACTION_EMOJIS order lo; answer key phase-2 lo vasthundi."""
+    cfg = channel_cfg or {}
+    head = f"{cfg.get('emoji', '🎯')} {cfg.get('subject') or cfg.get('name') or ''}".strip()
+    if position:
+        head = f"{head} · {position}" if head else str(position)
+    q_te = (q.get("q_te") or "").lstrip("⤷").strip()
+    q_en = (q.get("q_en") or "").strip()
+    primary, secondary = (q_te, q_en) if telugu_first else (q_en, q_te)
+    lines = []
+    if head:
+        lines.append(head)
+    if primary:
+        lines.append(primary)
+    if secondary and secondary != primary:
+        lines.append(secondary)
+    lines.append("")
+    for i, opt in enumerate(build_options(q, telugu_first)):
+        txt = re.sub(r"^([A-D]\)|[🅰️🅱️🅲️🅳])\s*", "", opt)
+        lines.append(f"{REACTION_EMOJIS[i]} {txt}")
+    lines.append("")
+    lines.append("👆 Mee answer emoji ni long-press chesi react cheyyandi! "
+                 "Answer key tharuvatha vasthundi.")
+    return _clamp("\n".join(lines), 4096)

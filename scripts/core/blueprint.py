@@ -34,6 +34,14 @@ def blueprint() -> dict:
         _BP = load_json(BLUEPRINT_PATH, {})
         if not isinstance(_BP, dict):
             _BP = {}
+        # 📜 PYQ-first policy (owner): prathi channel lo real previous-paper
+        # questions share — floor 30% (data file lo declare chesi untundi;
+        # lekapothe ikkada guarantee chestam).
+        if float(_BP.get("min_pyq_share_default", 0) or 0) < 0.3:
+            _BP["min_pyq_share_default"] = 0.3
+        for _cfg in (_BP.get("channels") or {}).values():
+            if isinstance(_cfg, dict) and float(_cfg.get("min_pyq_share", 0) or 0) < 0.3:
+                _cfg["min_pyq_share"] = _BP["min_pyq_share_default"]
     return _BP
 
 
@@ -85,6 +93,13 @@ def difficulty_of(q: dict) -> str:
     tag = (q.get("difficulty") or q.get("level") or "").lower()
     if tag in ("easy", "medium", "hard"):
         return tag
+    try:      # 🧠 real student data unte heuristic kanna ade nammu
+        from . import item_intel
+        cal = item_intel.calibrated_difficulty(q.get("id", ""), "")
+        if cal in ("easy", "medium", "hard"):
+            return cal
+    except Exception:
+        pass
     stem = q.get("q_en") or ""
     nums = len(re.findall(r"\d+(?:\.\d+)?", stem))
     opts = q.get("options_en") or []

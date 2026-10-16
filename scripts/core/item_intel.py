@@ -40,6 +40,10 @@ def _load() -> dict:
         mt = STATS_FILE.stat().st_mtime
     except OSError:
         mt = None
+    if mt is None:            # file ledu → stale cache vaddu (test isolation)
+        _cache["data"] = {}
+        _cache["mtime"] = None
+        return _cache["data"]
     if _cache["mtime"] != mt:
         d = load_json(STATS_FILE, {})
         _cache["data"] = d if isinstance(d, dict) else {}

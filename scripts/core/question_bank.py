@@ -270,8 +270,17 @@ class Bank:
             from .verifier import postable
         except Exception:
             postable = None
+        _fresh, _retired = [], []
+        try:
+            from . import item_intel as _ii
+            _retired_ids = _ii.retired_ids()
+        except Exception:
+            _retired_ids = set()
         for q in self.by_channel(channel):
             if q["id"] in used:
+                continue
+            if q["id"] in _retired_ids:
+                _retired.append(q)          # too-easy — fresh pool nunchi pakku
                 continue
             if postable and not postable(q):
                 continue
@@ -283,7 +292,11 @@ class Bank:
             # option set already posted -> treat as repeat
             if self._near_posted(q):
                 continue
-            out.append(q)
+            _fresh.append(q)
+        out = _fresh
+        # 🚰 Valve: fresh pool healthy ga unte retired pakku; pool thin aithe
+        # round fill avvadaniki retired ni kuda vadatham (never go short).
+        out.extend(_retired if len(_fresh) < 10 else [])
         return out
 
     def _near_posted(self, q: dict, threshold: float = 0.72) -> bool:
@@ -325,6 +338,40 @@ class Bank:
         self.shown_sigs["sigs"] = sorted(self._sig_set)
         save_json_atomic(config.STORE_USED, self.used)
         save_json_atomic(config.DATA / "shown_signatures.json", self.shown_sigs)
+
+    def pick_smart(self, channel: str, n: int = 10, weak_below: float = 0.6,
+                   min_answers: int = 5):
+        """🧠 Smart Rounds: normal pick + channel WEAK topics nunchi fresh
+        questions ni non-PYQ slots loki swap (PYQ slot eppudu protected,
+        PYQ floor safe). Weak data lekapothe normal pick ye."""
+        picked = self.pick(channel, n)
+        try:
+            from . import item_intel
+            rates = item_intel.channel_topic_rates(channel)
+        except Exception:
+            rates = {}
+        weak = {(t or "").strip().lower() for t, r in (rates or {}).items()
+                if (r or {}).get("attempts", (r or {}).get("total", 0)) >= min_answers
+                and (r or {}).get("rate", 1.0) < weak_below}
+        if not weak or not picked:
+            return picked
+        have = {q.get("id") for q in picked}
+        fresh = [q for q in self.questions
+                 if q.get("channel") == channel
+                 and (q.get("topic") or "").strip().lower() in weak
+                 and q.get("id") not in have
+                 and not q.get("retired")]
+        if not fresh:
+            return picked
+        out = list(picked)
+        fi = 0
+        for i in range(len(out) - 1, -1, -1):
+            if fi >= len(fresh):
+                break
+            if out[i].get("source") != "pyq":      # PYQ slot protected
+                out[i] = fresh[fi]
+                fi += 1
+        return out
 
     def pick(self, channel: str, n: int = 10):
         """

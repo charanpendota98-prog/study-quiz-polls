@@ -192,18 +192,33 @@ def build_wa_poll_text(q: dict, group_name: str, exam_category: str) -> str:
         lines.append(f"  *{b}*. {opt}")
 
     lines.append("")
-    ans_idx = int(q.get("answer_index", 0))
-    ans_letter = ["A", "B", "C", "D", "E"][ans_idx] if ans_idx < 5 else str(ans_idx + 1)
-    
-    expl = q.get("explanation_te") or q.get("explanation_en") or "Syllabus Verified Key"
-    lines.append(f"🏆 *Correct Answer*: Option *{ans_letter}*")
-    lines.append(f"💡 *వివరణ / Explanation*: {expl}")
+    lines.append("🔑 *Answer Key* koddi sepu tarvatha vasthundi — mundu mee answer alochinchi vote cheyyandi!")
     lines.append("")
     bot_name = getattr(config, "BOT_USERNAME", "") or "StudentUpBot"
     lines.append(f"📲 Telegram లో లైవ్ ర్యాంక్ తో పాల్గొనండి: t.me/{bot_name}")
     
     full = "\n".join(lines)
     return apply_stealth_jitter(full)
+
+
+def build_wa_answer_text(q: dict, exam_category: str) -> str:
+    """Phase-2 answer key (poll tarvatha — mundu question lo key vundadu)."""
+    tf = bool(getattr(config, "TELUGU_FIRST", True))
+    ans_idx = int(q.get("answer_index", 0))
+    ans_letter = ["A", "B", "C", "D", "E"][ans_idx] if ans_idx < 5 else str(ans_idx + 1)
+    opts = q.get("options_te") if (tf and q.get("options_te")) else q.get("options_en", [])
+    correct_opt = opts[ans_idx] if ans_idx < len(opts) else ""
+    expl = q.get("explanation_te") or q.get("explanation_en") or "Syllabus Verified Key"
+    bot_name = getattr(config, "BOT_USERNAME", "") or "StudentUpBot"
+    lines = [
+        f"🔑 *Answer Key* — *{exam_category}*",
+        "",
+        f"🏆 *Correct Answer*: Option *{ans_letter}*" + (f" — {correct_opt}" if correct_opt else ""),
+        f"💡 *వివరణ / Explanation*: {expl}",
+        "",
+        f"📲 Live rank kosam Telegram lo kuda aadandi: t.me/{bot_name}",
+    ]
+    return apply_stealth_jitter("\n".join(lines))
 
 
 def broadcast(
@@ -232,6 +247,11 @@ def broadcast(
 
     if not groups:
         logs.append("   ⚠️ No active groups found matching criteria.")
+        return {"ok": False, "sent": 0, "log": "\n".join(logs)}
+
+    if not gateway_url:
+        # 🚫 HONEST MODE: gateway lekunda "sent" ani cheppakudadhu (no fake OK)
+        logs.append("   ❌ NOT SENT — WhatsApp gateway/bridge configure cheyyale. Fake simulated dispatch cheyyamu.")
         return {"ok": False, "sent": 0, "log": "\n".join(logs)}
 
     bank = Bank()
@@ -273,7 +293,7 @@ def broadcast(
             except Exception as e:
                 logs.append(f"   -> Gateway note: {e}")
         else:
-            logs.append("   -> Dispatched via Stealth Simulated Buffer: OK")
+            logs.append("   -> NOT SENT (gateway empty)")
 
         sent_count += 1
 

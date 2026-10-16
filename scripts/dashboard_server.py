@@ -7934,7 +7934,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 code = campus.new_event(
                     f"{colleges[0]} + {len(colleges) - 1} Colleges × StudentUp Challenge",
                     district, colleges, n_q=nq, level=lvl, created_by="dashboard",
-                    mode="college", subjects=subjs, start_at=start_at, neg=neg)
+                    mode="college", subjects=subjs, start_at=start_at, neg=neg, shuffle=True)
             else:
                 code = campus.quick_event(college, district, n_q=nq, level=lvl, subjects=subjs, start_at=start_at, neg=neg)
             try:

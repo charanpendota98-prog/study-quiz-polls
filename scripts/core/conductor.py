@@ -109,7 +109,7 @@ def create_event(title, kind, starts_at, channel="CURRENT", duration_min=None,
                 ev["campus_name"] or ev["title"], ev["district"] or "TS/AP",
                 [ev["campus_name"] or "General"],
                 n_q=max(5, min(30, ev["n_questions"] or 20)),
-                created_by=ev["created_by"])
+                created_by=ev["created_by"], shuffle=True)
             ev["engine_ref"] = code
             ev["note"] = f"Join code: {code} — students bot lo /campus {code} tho join avutharu"
         except Exception as e:

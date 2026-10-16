@@ -177,6 +177,63 @@ class Members:
             print(f"   [members] crm note: {e}")
         return m
 
+    def auto_register_from_poll(self, uid, user, exam=None):
+        """🎉 Poll answer → instant registration (owner rule).
+        Telegram profile nunchi name/username, source="poll_auto",
+        +25 bonus okkasari matrame, wizard clear, sheet sync.
+        Malli answer chesthe — exam overwrite / double bonus levu."""
+        user = user or {}
+        name = " ".join(x for x in (str(user.get("first_name") or ""),
+                                    str(user.get("last_name") or "")) if x).strip()
+        m = self._get(uid)
+        if not m.get("registered"):
+            m = self.register(uid, name=name or None, exam=exam,
+                              username=str(user.get("username") or ""),
+                              source="poll_auto")
+        else:
+            if name and not m.get("name"):
+                m["name"] = name
+            if user.get("username"):
+                m["username"] = str(user["username"])
+            if not m.get("source"):
+                m["source"] = "poll_auto"
+            self.kv.save()
+        # stale wizard state clear (pending_step None avvali)
+        self.pending.pop(str(uid), None)
+        self.pending.pop(uid, None)
+        self.kv.save()
+        return m
+
+    def update_profile(self, uid, exam=None, district=None, state=None,
+                       mobile=None, **kw):
+        """👆 One-tap profile enrichment (prof: buttons / commands).
+        Mobile unique guard: vere account ki unte None (refuse)."""
+        m = self._get(uid)
+        if mobile:
+            mb = norm_mobile(mobile)
+            if not mb:
+                return None
+            holder = self.find_by_mobile(mb)
+            if holder and str(holder) != str(uid):
+                return None
+            m["mobile"] = mb
+        if exam:
+            m["exam"] = exam
+        if district:
+            m["district"] = district
+        if state:
+            m["state"] = state
+        for k, v in kw.items():
+            if v:
+                m[k] = v
+        self.kv.save()
+        try:
+            from . import crm
+            crm.push_member(uid, m, members_dict=self.members)
+        except Exception:
+            pass
+        return m
+
     # ------------------------------------------------------------ points
     def award_answer(self, uid, username="", correct=True, topic="", qid=""):
         """Award points for a poll answer. Returns a dict describing the award."""

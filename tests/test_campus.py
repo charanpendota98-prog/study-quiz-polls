@@ -66,11 +66,17 @@ class TestCampus(unittest.TestCase):
         n_q = len(e["questions"]); self.assertGreaterEqual(n_q, 5)
         for qi in range(n_q):
             d = C._load(); e = d["events"][code]
-            ans = e["questions"][qi]["answer_index"]
             for u in "12345":
                 # SR students (4,5) answer all right; KU: 1 right, 2 half, 3 wrong
                 right = u in "45" or u == "1" or (u == "2" and qi % 2 == 0)
-                C.record_answer(self._pid(d, code, u), u, ans if right else (ans + 1) % 4)
+                # anti-copy shuffle: student ki vachina question + valla
+                # display order lone answer ivvali (real poll flow ide)
+                qidx = C._order_for(e, u)[qi]
+                ans = e["questions"][qidx]["answer_index"]
+                perm = C._omap_for(e, u, qidx)
+                disp = perm.index(ans)
+                C.record_answer(self._pid(d, code, u), u,
+                                disp if right else (disp + 1) % len(perm))
             d = C._load(); e = d["events"][code]
             e["state"] = "gap"; e["q_open"] = C._now().isoformat(); C._save(d)
             C.tick(tg, m, C._now() + timedelta(seconds=1))
