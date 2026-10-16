@@ -228,6 +228,7 @@ def _profile(members, uid):
             "points": m.get("points", 0),
             "streak": m.get("streak", 0), "best_streak": m.get("best_streak", 0),
             "ref_code": _ref_code(uid), "referrals": m.get("referrals", 0),
+            "badges": m.get("badges") or [],
             "review_due": due,
             "answered": tot, "correct": cor,
             "accuracy": round(cor / tot * 100) if tot else 0,
@@ -278,6 +279,7 @@ def state(members, token):
                                            key=lambda x: x["starts_at"],
                                            reverse=True)[:6]],
             "top_referrers": top_referrers(members),
+            "district_league": district_league(members, prof["district"]),
             "winners_wall": [{"title": e["title"], "kind": e["kind"],
                               "winners": e.get("winners") or []}
                              for e in sorted((d.get("exams") or {}).values(),
@@ -508,7 +510,8 @@ def _refresh(d, now):
     changed = len(d.get("exams") or {}) != before
     for e in (d.get("exams") or {}).values():
         if not e.get("final") and exam_status(e, now) == "done":
-            rows = sorted(e.get("entries", {}).values(),
+            rows = sorted((r for r in e.get("entries", {}).values()
+                           if r.get("correct", 0) > 0),
                           key=lambda r: (-r.get("correct", 0), -r.get("pts", 0),
                                          r.get("joined_at", "")))
             e["winners"] = [{"name": r.get("name", ""),
@@ -553,6 +556,8 @@ def _exam_view(e, members, uid, now):
             members)
     if status == "done":
         view["winners"] = e.get("winners") or []
+        ent = entries.get(uid or "")
+        view["my_winner"] = bool(ent) and (view["my"]["rank"] or 99) <= 3
     return view
 
 
@@ -842,3 +847,81 @@ def report_text(members, uid, portal_url=""):
         lines.append(f"📝 Daily Quiz + Mocks ikkade raayandi: {portal_url}")
     lines.append("💪 Roju konchem practice = pedha rank. All the best!")
     return "\n".join(lines)
+
+
+# ------------------------------------------- district league + certificates
+BADGE_LABELS = {"first_steps": "🌱 First Steps", "streak_3": "🔥 3-Day Streak",
+                "streak_7": "🔥🔥 Week Warrior", "quiz_10": "📝 Quiz x10",
+                "quiz_50": "🎯 Quiz x50", "quiz_100": "💯 Century",
+                "sharp": "🎯 Sharpshooter", "topper": "🏆 Topper"}
+
+
+def district_league(members, my_district="", limit=10):
+    """🏙️ District League — district-wise total points + students count.
+    Mana districts madhya healthy competition = daily habit ki pedha push."""
+    import collections
+    pts = collections.Counter()
+    cnt = collections.Counter()
+    for uid, m in (getattr(members, "members", None) or {}).items():
+        dist = (m or {}).get("district")
+        if not dist or not (m.get("registered") or m.get("points")):
+            continue
+        pts[dist] += int(m.get("points") or 0)
+        cnt[dist] += 1
+    rows = [{"name": dnm, "district": dnm, "correct": cnt[dnm], "total": cnt[dnm],
+             "pts": pts[dnm], "students": cnt[dnm]}
+            for dnm in pts]
+    rows.sort(key=lambda r: (-r["pts"], r["name"]))
+    my_rank = next((i + 1 for i, r in enumerate(rows)
+                    if r["name"] == my_district), None)
+    return {"rows": rows[:limit], "my_district": my_district, "my_rank": my_rank,
+            "districts": len(rows)}
+
+
+def winners_public(limit=8):
+    """Public Hall of Fame kosam finished exams winners (names+district —
+    bot lo already public ga announce chese data ne)."""
+    d = _load()
+    out = []
+    for e in sorted((d.get("exams") or {}).values(),
+                    key=lambda x: x["starts_at"], reverse=True):
+        if e.get("final") and e.get("winners"):
+            out.append({"title": e["title"], "kind": e["kind"],
+                        "winners": e["winners"]})
+        if len(out) >= limit:
+            break
+    return out
+
+
+def exam_certificate(members, token, exam_id):
+    """🏆 Top-3 winners ki certificate PNG (certcard engine). Winner
+    kakapothe None — andariki raadu, gelichinavallake value untundi."""
+    d = _load()
+    uid = _sess(d, token)
+    e = (d.get("exams") or {}).get(str(exam_id or ""))
+    if not uid or not e:
+        return None
+    _refresh(d, _now())
+    e = d["exams"][e["id"]]
+    if exam_status(e, _now()) != "done":
+        return None
+    rows_all = sorted((r for r in e.get("entries", {}).values()
+                       if r.get("correct", 0) > 0),
+                      key=lambda r: (-r.get("correct", 0), -r.get("pts", 0)))
+    rank = next((i + 1 for i, r in enumerate(rows_all)
+                 if r.get("uid") == uid), None)
+    if not rank or rank > 3:
+        return None
+    try:
+        from . import certcard
+        rows = [{"name": r.get("name", ""), "rank": i + 1,
+                 "score": f"{r.get('correct', 0)}/{len(e['qs'])}",
+                 "pct": round(r.get("correct", 0) / max(1, len(e["qs"])) * 100)}
+                for i, r in enumerate(rows_all[:3])]
+        prof = _profile(members, uid)
+        title = str(e["title"]).replace("🏆", "").strip().upper()[:28] or "WINNERS"
+        return certcard.render_certificate(
+            title, "StudentUp Live Exam · Top Scorers",
+            rows, footer=f"{prof['name']} — Rank #{rank} · studentup.in")
+    except Exception:
+        return None

@@ -59,7 +59,7 @@ def _public_base(handler=None):
 # ⚠️ Ads kevalam PUBLIC pages lone (exam/session pages lo bao — policy + focus).
 PUBLIC_PAGE_PATHS = {"/site": "home", "/about": "about", "/privacy": "privacy",
                      "/terms": "terms", "/contact": "contact", "/study": "study",
-                     "/updates": "updates"}
+                     "/updates": "updates", "/winners": "winners"}
 
 
 def _adsense_client():
@@ -249,9 +249,14 @@ def _pub_bodies(bot, contact_email):
   <div class="txt"><p>Official exam announcements, application dates and StudentUp news. Always verify dates on the official board website linked in each notice.</p></div>
   __NOTICES__
 """
+    winners = """
+  <h2 class="sec">🏆 Hall of Fame — StudentUp Winners</h2>
+  <div class="txt"><p>Top scorers of our Weekly Grand Tests and Live Exams. Practice daily, rank daily — your name could be here next week.</p></div>
+  __WINNERS__
+"""
     return {"home": home, "study": study, "about": about,
             "privacy": privacy, "terms": terms, "contact": contact,
-            "updates": updates}
+            "updates": updates, "winners": winners}
 
 
 def public_page(handler, page):
@@ -266,9 +271,21 @@ def public_page(handler, page):
               "privacy": "Privacy Policy — StudentUp",
               "terms": "Terms of Use — StudentUp",
               "contact": "Contact — StudentUp",
-              "updates": "Exam Updates & Notifications — StudentUp"}
+              "updates": "Exam Updates & Notifications — StudentUp",
+              "winners": "Hall of Fame — StudentUp Winners"}
     bodies = _pub_bodies(bot, email)
     body = bodies.get(page, bodies["home"])
+    try:
+        _wf = portal.winners_public(8)
+        _whtml = "".join(
+            f'<div class="card" style="margin-bottom:10px;"><h3>🏆 {_w["title"]}</h3>'
+            + "".join(
+                f'<p>{["🥇","🥈","🥉"][i] if i < 3 else ""} <b>{ww["name"]}</b> · {ww["district"]} · ✅ {ww["correct"]}/{ww["total"]}</p>'
+                for i, ww in enumerate(_w["winners"])) + "</div>"
+            for _w in _wf) or '<div class="card"><p>First Weekly Grand Test winners ikkade vastaru — Sunday 10 AM ready ga undandi!</p></div>'
+    except Exception:
+        _whtml = '<div class="card"><p>Winners coming soon.</p></div>'
+    body = body.replace("__WINNERS__", _whtml)
     try:
         _nts = portal.list_notices(20)
         _nhtml = "".join(
@@ -299,7 +316,7 @@ __CANONICAL____ADSHEAD__
 <div class="nav">
   <span class="logo">🎓 StudentUp</span>
   <a href="/">🏠 Home</a><a href="/study">📚 Study Guide</a><a href="/about">ℹ️ About</a>
-  <a href="/privacy">🔐 Privacy</a><a href="/updates">📢 Updates</a><a href="/contact">✉️ Contact</a>
+  <a href="/privacy">🔐 Privacy</a><a href="/updates">📢 Updates</a><a href="/winners">🏆 Winners</a><a href="/contact">✉️ Contact</a>
   <a class="login" href="/login">🔑 Organiser Login</a>
 </div>
 <div class="wrap">__BODY__</div>
@@ -577,6 +594,11 @@ PORTAL_HTML = """<!DOCTYPE html>
     </div>
 
     <div class="card">
+      <h3>🏙️ District League — mee district vs migatha districts</h3>
+      <div id="district-league"></div>
+    </div>
+
+    <div class="card">
       <h3>📝 Mock Tests — mee exam select cheskondi</h3>
       <p class="muted">Real exam pattern practice: 15 questions, timer tho. Ayyaka instant score + full answer review.</p>
       <div class="grid" id="mock-grid"></div>
@@ -752,7 +774,8 @@ async function loadHome() {
     '<span class="chip">📍 ' + esc(s.district) + '</span>' +
     '<span class="chip gold">⭐ ' + s.points + ' pts</span>' +
     (d.my_rank_today ? '<span class="chip">🏆 Today Rank #' + d.my_rank_today + '</span>' : '') +
-    (s.streak ? '<span class="chip">🔥 ' + s.streak + '-day streak</span>' : '');
+    (s.streak ? '<span class="chip">🔥 ' + s.streak + '-day streak</span>' : '') +
+    (s.badges || []).map(b => '<span class="chip gold">🏅 ' + esc(b) + '</span>').join('');
   const nts = d.notices || [];
   document.getElementById('notice-card').style.display = nts.length ? 'block' : 'none';
   document.getElementById('notices').innerHTML = nts.map(n =>
@@ -778,6 +801,10 @@ async function loadHome() {
     ((s.weak_topics || []).length ? '⚠️ Weak topics: ' + s.weak_topics.map(w => w.topic + ' ' + w.accuracy + '%').join(', ') + '\n' : '') +
     '📝 Daily Quiz ikkade: ' + location.origin + '/portal';
   document.getElementById('wa-share').onclick = () => window.open('https://wa.me/?text=' + encodeURIComponent(rtext), '_blank');
+  const dl = d.district_league || {rows: []};
+  document.getElementById('district-league').innerHTML =
+    (dl.my_rank ? '<div class="muted" style="margin-bottom:6px;">Mee district <b>' + esc(dl.my_district) + '</b> rank <b>#' + dl.my_rank + '</b> / ' + dl.districts + ' districts 🏙️</div>' : '') +
+    (dl.rows || []).map((t, i) => '<div class="trow"><span>' + (['🥇','🥈','🥉'][i] || (i + 1)) + '</span><b>' + esc(t.name) + '</b><span class="muted">👥 ' + t.students + ' students</span><span>⭐ ' + t.pts + ' pts</span></div>').join('') || '<div class="muted">Inka district data ledu — points earn cheste league start avthundi!</div>';
   document.getElementById('board-daily').innerHTML = rows(d.daily_board, 'Inka evaru ee roju quiz complete cheyyaledu — meeru first avandi! 🔥');
   document.getElementById('board-mock').innerHTML = rows(d.mock_board, 'Inka mock leaders leru — okka mock raasi board meeda vacheyyandi!');
   document.getElementById('board-win').innerHTML = rows(d.yesterday_winners, 'Ninna winners inka leru.');
@@ -979,6 +1006,7 @@ async function showExamResult(id) {
   if (!d.ok) { alert('❌ Result dorakaledu'); return; }
   if (d.status !== 'done') { alert('⏳ Result exam complete ayyaka vastundi.'); return; }
   document.getElementById('res-score').textContent = (d.my ? d.my.correct : 0) + '/' + d.n_q;
+
   document.getElementById('res-sub').innerHTML = esc(d.title) + (d.my && d.my.rank ? ' · 🏆 Mee Rank #' + d.my.rank : '') +
     '<br>🏆 Winners: ' + (d.winners || []).map(w => esc(w.name) + ' (' + w.correct + '/' + w.total + ')').join(' · ');
   document.getElementById('res-review').innerHTML = (d.review || []).map(r => {
@@ -987,6 +1015,10 @@ async function showExamResult(id) {
       '<br><span class="muted">Meeru: ' + esc(opts[r.given] || '— attempt cheyyaledu') + (r.right ? ' ✅' : ' ❌ · Correct: ' + esc(opts[r.answer] || '')) + '</span>' +
       (q.explanation ? '<br><span class="muted">💡 ' + esc(q.explanation) + '</span>' : '') + '</div>';
   }).join('') || '<div class="muted">Mee review ledu (answers ivvaledu).</div>';
+  if (d.my_winner) {
+    document.getElementById('res-sub').insertAdjacentHTML('beforeend',
+      '<br><a href="/api/portal/exam/certificate?id=' + encodeURIComponent(id) + '&token=' + encodeURIComponent(token) + '" style="display:inline-block; margin-top:10px; padding:11px 18px; background:linear-gradient(90deg,#a16207,#facc15); color:#1a1000; font-weight:800; border-radius:10px;">🏆 Naa Winners Certificate Download</a>');
+  }
   show('view-result');
 }
 if ('serviceWorker' in navigator) { try { navigator.serviceWorker.register('/sw.js'); } catch (e) {} }
@@ -6542,6 +6574,21 @@ class DashboardHandler(BaseHTTPRequestHandler):
             ex = portal.exam_questions(Members(), query.get("token", [""])[0],
                                        query.get("id", [""])[0])
             self._send_json({"ok": ex is not None, **(ex or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/exam/certificate":
+            query = urllib.parse.parse_qs(p.query)
+            png = portal.exam_certificate(Members(), query.get("token", [""])[0],
+                                          query.get("id", [""])[0])
+            if png:
+                self.send_response(200)
+                self.send_header("Content-Type", "image/png")
+                self.send_header("Content-Disposition",
+                                 'attachment; filename="studentup-certificate.png"')
+                self.send_header("Content-Length", str(len(png)))
+                self.end_headers()
+                self.wfile.write(png)
+            else:
+                self._send_json({"ok": False, "error": "Certificate kevalam Top-3 winners ke!"}, code=403)
             return
         if p.path == "/api/portal/exam/result":
             query = urllib.parse.parse_qs(p.query)
