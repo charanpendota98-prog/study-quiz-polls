@@ -1796,6 +1796,7 @@ HTML_PAGE = """<!DOCTYPE html>
             📵 NOT LINKED
           </div>
           <div style="font-size:12px; color:var(--text-muted); line-height:1.7;">
+            <div id="wa-session-desc"></div>
             <div>👤 Device: <b style="color:#f8fafc;" id="wa-device-name">—</b> <span id="wa-connected-since" style="color:#64748b;"></span></div>
             <div>💬 Synced Groups: <b style="color:#38bdf8;" id="wa-dialogs-count">0 Groups</b> · 🛡️ Anti-Ban: <b style="color:#10b981;">60-80s Jitter + Adaptive Risk Brain + 60-90s Batch Rest</b></div>
           </div>
@@ -6830,7 +6831,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _send_json(self, data, code=200):
-        body, enc = self._gz(json.dumps(data, ensure_ascii=False).encode("utf-8"))
+        try:
+            raw = json.dumps(data, ensure_ascii=False)
+        except Exception:
+            raw = '{"ok": false, "error": "serialization failed"}'
+            code = 500
+        body, enc = self._gz(raw.encode("utf-8"))
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
@@ -6853,6 +6859,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
+        try:
+            self._do_GET()
+        except Exception as e:
+            # 🛡️ Endpoint crash aina browser ki JSON error padali —
+            # empty reply ("anni errors") raakudadhu.
+            print(f"   [dashboard] GET {self.path} error: {e}")
+            try:
+                self._send_json({"ok": False,
+                                 "error": f"server error: {e}"}, code=500)
+            except Exception:
+                pass
+
+    def _do_GET(self):
         p = urllib.parse.urlparse(self.path)
 
         # 🛡️ IP allowlist — checked BEFORE everything (even the login page)
@@ -7339,7 +7358,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             except Exception:
                 cnt = 2
             self._send_json(whatsapp_pipeline.preview_broadcast(
-                category=query.get("category", ["ALL"])[0], questions_per_group=cnt))
+                target_category=query.get("category", ["ALL"])[0], questions_per_group=cnt))
             return
 
         if p.path == "/api/whatsapp/safety":
@@ -7583,6 +7602,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_POST(self):
+        try:
+            self._do_POST()
+        except Exception as e:
+            print(f"   [dashboard] POST {self.path} error: {e}")
+            try:
+                self._send_json({"ok": False,
+                                 "error": f"server error: {e}"}, code=500)
+            except Exception:
+                pass
+
+    def _do_POST(self):
         p = urllib.parse.urlparse(self.path)
 
         # 🛡️ IP allowlist — checked BEFORE everything (even login attempts)

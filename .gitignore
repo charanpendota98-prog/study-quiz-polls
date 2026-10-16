@@ -75,7 +75,3 @@ data/item_stats.json
 gateway/wa_polls_*.json
 data/certificates/
 data/portal.json
-data/brain.json
-data/wa_group_health.json
-data/wa_winners_cert.png
-data/wa_retry_queue.json
