@@ -1,0 +1,109 @@
+"""
+Feature Flags — top-company-style controlled rollouts / kill switches.
+
+Defaults live in code (safe: current behaviour), admin overrides persist
+in data/feature_flags.json and take effect immediately — no restart, no
+redeploy. Every flag here is wired into a REAL decision point:
+
+  item_intel_quarantine   verifier.postable — suspect-key questions block
+  personal_coach_rounds   autopilot coach DM — personal syllabus rounds
+  pyq_floor               blueprint — prathi round ≥40% PYQ guarantee
+  wa_retry_queue          whatsapp_pipeline — failed-send retry queue
+
+enabled() never raises and fails OPEN to the code default (a broken flag
+file must never change product behaviour). CLI: python3 -m core.flags
+"""
+from __future__ import annotations
+
+from . import config
+from .store import load_json, save_json_atomic
+
+FLAGS_FILE = config.DATA / "feature_flags.json"
+
+DEFAULTS = {
+    "item_intel_quarantine": {
+        "default": True,
+        "label": "🧠 Item Intel auto-quarantine",
+        "desc": "Students andaru fail ayye (suspect wrong-key) questions ni automatic ga posting nunchi block chesthundi.",
+    },
+    "personal_coach_rounds": {
+        "default": True,
+        "label": "🗺️ Personal coach rounds",
+        "desc": "07:30 coach DM lo prathi student ki weak-topics + due-review personal round (off = common adaptive round).",
+    },
+    "pyq_floor": {
+        "default": True,
+        "label": "📜 PYQ floor (≥40%)",
+        "desc": "Prathi composed round lo kammi 40% previous-exam questions guarantee (pool allow chesinanta varaku).",
+    },
+    "channel_reaction_polls": {
+        "default": False,
+        "label": "👍 Telegram reaction text-polls (OFF — direct polls)",
+        "desc": "Default: Telegram channel/group anni DIRECT native polls (owner rule). Emoji 👍❤️😂😮 text-polls ONLY WhatsApp Channel ke (akkada direct poll option ledu). Ee switch ON chesthe matrame Telegram kuda reaction style ki maruthundi.",
+    },
+    "smart_rounds": {
+        "default": True,
+        "label": "🧠 Smart Rounds (weak-topic focus)",
+        "desc": "Channel rounds lo students weak ga unna topics mida ekkuva questions automatic ga vasthayi (item-intel data nunchi, PYQ floor safe). Data inka lekapothe normal pick ye jaruguthundi.",
+    },
+    "wa_retry_queue": {
+        "default": True,
+        "label": "🔁 WhatsApp retry queue",
+        "desc": "Fail ayina WhatsApp sends ni persistent queue lo vesi backoff tho malli try chesthundi.",
+    },
+}
+
+
+def _overrides() -> dict:
+    try:
+        d = load_json(FLAGS_FILE, {})
+        return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+
+def enabled(name: str) -> bool:
+    """Current effective value. Unknown flag → True (fail-open)."""
+    try:
+        ov = _overrides()
+        if name in ov:
+            return bool(ov[name])
+        meta = DEFAULTS.get(name)
+        return bool(meta["default"]) if meta else True
+    except Exception:
+        meta = DEFAULTS.get(name)
+        return bool(meta["default"]) if meta else True
+
+
+def all_flags() -> list:
+    ov = _overrides()
+    out = []
+    for name, meta in DEFAULTS.items():
+        out.append({
+            "name": name,
+            "label": meta["label"],
+            "desc": meta["desc"],
+            "default": bool(meta["default"]),
+            "enabled": bool(ov[name]) if name in ov else bool(meta["default"]),
+            "overridden": name in ov,
+        })
+    return out
+
+
+def set_flag(name: str, value: bool) -> bool:
+    """Persist an override. False if the flag name is unknown."""
+    if name not in DEFAULTS:
+        return False
+    try:
+        ov = _overrides()
+        ov[name] = bool(value)
+        save_json_atomic(FLAGS_FILE, ov)
+        return True
+    except Exception:
+        return False
+
+
+if __name__ == "__main__":
+    for f in all_flags():
+        print(f"{'🟢' if f['enabled'] else '🔴'} {f['name']}: {f['label']}"
+              f"{'  (override)' if f['overridden'] else ''}")
