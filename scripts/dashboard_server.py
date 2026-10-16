@@ -24,8 +24,51 @@ sys.path.insert(0, str(ROOT))
 from core import config
 from core.members import Members
 from core.question_bank import Bank
-from core import hooks, districtwar, arena, campus, crm, whatsapp_pipeline, channel_router, bundle_manager, member_queue
+from core import hooks, districtwar, arena, campus, crm, whatsapp_pipeline, channel_router, bundle_manager, member_queue, planner
 from core.telegram import Telegram
+
+
+_BOT_USERNAME_CACHE = {"name": "", "ts": 0}
+
+
+def _public_base(handler=None):
+    """🌐 Student-facing links ki base URL: PUBLIC_BASE_URL env (meeru
+    subdomain point cheste adhe vastundi) → lekapothe request Host
+    (preview / domain ఏదైనా) nunchi derive chestham — app host-agnostic."""
+    base = config.env("PUBLIC_BASE_URL", "").strip().rstrip("/")
+    if base:
+        return base
+    if handler is not None:
+        host = (handler.headers.get("X-Forwarded-Host")
+                or handler.headers.get("Host") or "")
+        if host:
+            proto = handler.headers.get("X-Forwarded-Proto") or (
+                "http" if host.split(":")[0] in ("127.0.0.1", "localhost") else "https")
+            return f"{proto}://{host}"
+    return ""
+
+
+def _bot_username():
+    """The bot students must land on: .env BOT_USERNAME → live getMe lookup
+    (cached 1h) → legacy fallback. QR/join links built with a wrong bot name
+    are the #1 on-site failure, so never guess silently."""
+    if getattr(config, "BOT_USERNAME", ""):
+        return config.BOT_USERNAME
+    if _BOT_USERNAME_CACHE["name"] and time.time() - _BOT_USERNAME_CACHE["ts"] < 3600:
+        return _BOT_USERNAME_CACHE["name"]
+    name = ""
+    try:
+        r = Telegram()._call("getMe", {}) or {}
+        name = (r.get("result") or {}).get("username", "") or ""
+    except Exception:
+        name = ""
+    if name:
+        _BOT_USERNAME_CACHE.update(name=name, ts=time.time())
+        try:
+            config.BOT_USERNAME = name
+        except Exception:
+            pass
+    return name or "StudentUpBot"
 
 PORT = int(config.env("DASHBOARD_PORT", "5000"))
 
@@ -148,6 +191,230 @@ async function doLogin() {
 </body>
 </html>"""
 
+WEB_EXAM_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StudentUp — College Exam</title>
+<style>
+  * { box-sizing: border-box; margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+  body { min-height: 100vh; background: radial-gradient(circle at 30% 10%, #12315e 0%, #050811 70%); color: #e2e8f0; padding: 18px 14px 40px; }
+  .wrap { max-width: 520px; margin: 0 auto; }
+  .brand { text-align: center; font-size: 22px; font-weight: 800; color: #f8fafc; margin: 8px 0 16px; }
+  .brand span { display: block; font-size: 12px; color: #38bdf8; font-weight: 600; letter-spacing: 1.5px; margin-top: 3px; }
+  .card { background: #0b1329; border: 1px solid #1e3a5f; border-radius: 16px; padding: 22px 18px; box-shadow: 0 16px 40px rgba(0,0,0,.5); }
+  h2 { font-size: 19px; margin-bottom: 8px; }
+  h3 { font-size: 14px; margin: 16px 0 8px; color: #38bdf8; }
+  .muted { color: #94a3b8; font-size: 13px; line-height: 1.6; }
+  .small { font-size: 11.5px; margin-top: 12px; }
+  label { display: block; font-size: 12.5px; font-weight: 700; margin: 14px 0 5px; color: #cbd5e1; }
+  input, select { width: 100%; padding: 12px 14px; font-size: 16px; background: #050811; color: #f8fafc; border: 1px solid #1e3a5f; border-radius: 10px; outline: none; }
+  input:focus, select:focus { border-color: #38bdf8; }
+  .btn-main { width: 100%; margin-top: 18px; padding: 14px; font-size: 16px; font-weight: 800; border: none; border-radius: 11px; background: linear-gradient(90deg, #10b981, #38bdf8); color: #04121f; cursor: pointer; }
+  .err { color: #f87171; font-size: 13px; font-weight: 700; min-height: 18px; margin-top: 10px; }
+  .big { font-size: 44px; text-align: center; margin-bottom: 6px; }
+  .pulse { text-align: center; color: #10b981; font-weight: 700; margin-top: 14px; animation: pl 1.6s infinite; }
+  @keyframes pl { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .between { justify-content: space-between; }
+  .chip { background: #12233f; border: 1px solid #1e3a5f; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .timer { color: #facc15; }
+  .tbar { height: 8px; background: #12233f; border-radius: 99px; overflow: hidden; margin: 12px 0 16px; }
+  #tbar-fill { height: 100%; background: linear-gradient(90deg, #10b981, #facc15, #ef4444); width: 100%; transition: width .3s linear; }
+  .qte { font-size: 17px; font-weight: 700; line-height: 1.55; }
+  .qen { font-size: 14.5px; color: #a5c4e8; line-height: 1.55; margin-top: 6px; }
+  .opt { display: block; width: 100%; text-align: left; margin-top: 10px; padding: 14px 15px; font-size: 15px; font-weight: 600; background: #0f1e38; color: #e2e8f0; border: 1.5px solid #24466e; border-radius: 12px; cursor: pointer; }
+  .opt:active { transform: scale(.99); }
+  .opt.picked { border-color: #38bdf8; background: #12315e; }
+  .opt:disabled { opacity: .75; cursor: default; }
+  .feedback { min-height: 22px; margin-top: 12px; font-size: 14px; font-weight: 700; }
+  .score-big { font-size: 44px; font-weight: 800; text-align: center; color: #10b981; }
+  .trow { display: flex; gap: 8px; align-items: center; padding: 8px 10px; background: #0f1e38; border-radius: 10px; margin-top: 6px; font-size: 13.5px; }
+  .trow b { flex: 1; }
+  .rrow { padding: 9px 11px; border-radius: 10px; margin-top: 6px; font-size: 13px; line-height: 1.55; background: #0f1e38; }
+  .rrow.ok { border-left: 4px solid #10b981; }
+  .rrow.bad { border-left: 4px solid #ef4444; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">🎓 StudentUp<span>COLLEGE EXAM · WEB</span></div>
+
+  <div id="view-join" class="card">
+    <h2 id="exam-name">College Exam</h2>
+    <p class="muted" id="join-sub">Peru + mobile isthe chalu — app download akkarledu!</p>
+    <label>Mee Peru (Full Name)</label>
+    <input id="f-name" placeholder="e.g. Priya Sharma" autocomplete="name">
+    <label>Mobile Number</label>
+    <input id="f-phone" inputmode="numeric" maxlength="13" placeholder="10-digit mobile number" autocomplete="tel">
+    <label id="college-label" style="display:none;">Mee College</label>
+    <select id="f-college" style="display:none;"></select>
+    <button class="btn-main" onclick="doJoin()">🚀 Join Exam</button>
+    <div id="join-err" class="err"></div>
+    <p class="muted small">📱 Ee link browser lo ne pani chesthundi. Telegram app unna vallu organiser ichina Telegram link kuda vadachu — rendu okkate exam, okkate marks!</p>
+  </div>
+
+  <div id="view-wait" class="card" style="display:none;">
+    <div class="big">⏳</div>
+    <h2 style="text-align:center;">Join ayyaru! ✅</h2>
+    <p class="muted" id="wait-info" style="text-align:center;"></p>
+    <p class="muted" style="text-align:center;">Exam start ayyaka questions ikkade vastayi — ee page close cheyyakandi.</p>
+    <div class="pulse">● Waiting for exam to start…</div>
+  </div>
+
+  <div id="view-quiz" class="card" style="display:none;">
+    <div class="row between"><span id="q-pos" class="chip"></span><span id="q-timer" class="chip timer"></span><span id="q-score" class="chip"></span></div>
+    <div class="tbar"><div id="tbar-fill"></div></div>
+    <div id="q-te" class="qte"></div>
+    <div id="q-en" class="qen"></div>
+    <div id="opts"></div>
+    <div id="q-feedback" class="feedback"></div>
+  </div>
+
+  <div id="view-done" class="card" style="display:none;">
+    <div class="big">🏆</div>
+    <h2 id="done-title" style="text-align:center;">Result</h2>
+    <div class="score-big" id="done-score"></div>
+    <p class="muted" id="done-summary" style="text-align:center;"></p>
+    <h3>🏅 Top 5</h3>
+    <div id="done-top"></div>
+    <h3>📝 Mee Answers Review</h3>
+    <div id="done-review"></div>
+  </div>
+</div>
+
+<script>
+const CODE = location.pathname.split('/').filter(Boolean).pop().toUpperCase();
+let token = localStorage.getItem('su_exam_' + CODE) || '';
+let pollInt = null, timerInt = null, curPos = 0, qWindow = 40, endsAt = 0;
+const esc = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+
+async function api(path, body) {
+  const opt = body ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)} : {};
+  const r = await fetch(path, opt);
+  return await r.json();
+}
+function show(id) {
+  ['view-join', 'view-wait', 'view-quiz', 'view-done'].forEach(v => {
+    document.getElementById(v).style.display = (v === id ? 'block' : 'none');
+  });
+}
+async function doJoin() {
+  const name = document.getElementById('f-name').value.trim();
+  const phone = document.getElementById('f-phone').value.trim();
+  const sel = document.getElementById('f-college');
+  const err = document.getElementById('join-err');
+  err.textContent = '';
+  const d = await api('/api/exam/join', {code: CODE, name, phone, college_idx: sel.style.display === 'none' ? 1 : (sel.selectedIndex + 1)});
+  if (!d.ok) { err.textContent = '❌ ' + (d.error || 'Join avvaledu'); return; }
+  token = d.token;
+  localStorage.setItem('su_exam_' + CODE, token);
+  startPolling();
+}
+async function refresh() {
+  if (!token) return;
+  let d;
+  try { d = await api('/api/exam/state?code=' + encodeURIComponent(CODE) + '&token=' + encodeURIComponent(token)); }
+  catch (e) { return; }
+  if (!d.ok) { localStorage.removeItem('su_exam_' + CODE); token = ''; show('view-join'); return; }
+  const s = d;
+  if (s.state === 'open') {
+    show('view-wait');
+    document.getElementById('wait-info').textContent = s.joined + ' students join ayyaru · ' + s.n_q + ' questions' + (s.start_at ? ' · ⏰ ' + s.start_at.replace('T', ' ') + ' ki start avthundi' : '');
+  } else if (s.state === 'question') {
+    renderQ(s);
+  } else if (s.state === 'gap') {
+    show('view-wait');
+    document.getElementById('wait-info').textContent = 'Next question vastundi… ⏳';
+  } else if (s.state === 'done') {
+    renderDone(s);
+  }
+}
+function renderQ(s) {
+  show('view-quiz');
+  document.getElementById('q-pos').textContent = 'Q ' + s.position + '/' + s.n_q;
+  document.getElementById('q-score').textContent = '⭐ ' + s.my.pts + ' pts · ✅ ' + s.my.correct;
+  if (s.position !== curPos) {
+    curPos = s.position;
+    const q = s.question;
+    document.getElementById('q-te').textContent = q.te || '';
+    document.getElementById('q-en').textContent = q.en || '';
+    document.getElementById('q-feedback').textContent = '';
+    const box = document.getElementById('opts');
+    box.innerHTML = '';
+    q.options.forEach((opt, i) => {
+      const b = document.createElement('button');
+      b.className = 'opt';
+      b.textContent = opt;
+      if (q.answered) { b.disabled = true; }
+      else { b.onclick = () => answer(i, b); }
+      box.appendChild(b);
+    });
+    qWindow = Math.max(5, s.ends_in || 40);
+    endsAt = Date.now() + qWindow * 1000;
+    clearInterval(timerInt);
+    timerInt = setInterval(tickTimer, 250);
+    tickTimer();
+  }
+}
+function tickTimer() {
+  const left = Math.max(0, Math.round((endsAt - Date.now()) / 1000));
+  document.getElementById('q-timer').textContent = '⏱ ' + left + 's';
+  document.getElementById('tbar-fill').style.width = Math.max(0, Math.min(100, left / qWindow * 100)) + '%';
+  if (left <= 0) { clearInterval(timerInt); refresh(); }
+}
+async function answer(i, btn) {
+  document.querySelectorAll('.opt').forEach(b => { b.disabled = true; });
+  btn.classList.add('picked');
+  const d = await api('/api/exam/answer', {code: CODE, token, position: curPos, choice: i});
+  const fb = document.getElementById('q-feedback');
+  if (d.ok) { fb.innerHTML = d.correct ? '✅ Correct! Points add ayyayi ⭐' : '❌ Wrong — parvaledu, next question undi!'; }
+  else { fb.textContent = d.error || ''; }
+  setTimeout(refresh, 900);
+}
+function renderDone(s) {
+  show('view-done');
+  clearInterval(pollInt);
+  clearInterval(timerInt);
+  document.getElementById('done-title').textContent = s.rank ? ('🎉 Meeru Rank #' + s.rank + ' / ' + s.total_players) : 'Exam Complete!';
+  document.getElementById('done-score').textContent = s.my.correct + '/' + s.n_q;
+  document.getElementById('done-summary').textContent = '⭐ ' + s.my.pts + ' points · ' + (s.my.college || '');
+  document.getElementById('done-top').innerHTML = (s.top || []).map((t, i) =>
+    '<div class="trow"><span>' + (['🥇', '🥈', '🥉'][i] || (i + 1)) + '</span><b>' + esc(t.name) + '</b><span class="muted">' + esc(t.college) + '</span><span>✅ ' + t.correct + ' · ⭐ ' + t.pts + '</span></div>').join('');
+  document.getElementById('done-review').innerHTML = (s.review || []).map(r =>
+    '<div class="rrow ' + (r.right ? 'ok' : 'bad') + '"><div><b>Q' + r.n + '.</b> ' + esc(r.q) + '</div><div class="muted">Meeru: ' + esc(r.your) + (r.right ? ' ✅' : ' ❌ · Correct: ' + esc(r.answer)) + '</div></div>').join('') || '<div class="muted">Review data ledu</div>';
+}
+function startPolling() {
+  refresh();
+  clearInterval(pollInt);
+  pollInt = setInterval(refresh, 2000);
+}
+(async () => {
+  try {
+    const d = await api('/api/exam/info?code=' + encodeURIComponent(CODE));
+    if (d.ok) {
+      document.getElementById('exam-name').textContent = d.exam;
+      document.getElementById('join-sub').textContent = d.n_q + ' questions · peru + mobile isthe chalu, app download akkarledu!';
+      if (d.colleges && d.colleges.length > 1) {
+        const sel = document.getElementById('f-college');
+        const lab = document.getElementById('college-label');
+        sel.innerHTML = d.colleges.map(c => '<option>' + esc(c) + '</option>').join('');
+        sel.style.display = 'block';
+        lab.style.display = 'block';
+      }
+      if (d.state === 'done') { document.getElementById('join-err').textContent = 'Ee exam ayipoyindi.'; }
+    } else {
+      document.getElementById('join-err').textContent = '❌ Exam link invalid — organiser ni adagandi.';
+    }
+  } catch (e) {}
+  if (token) { startPolling(); }
+})();
+</script>
+</body>
+</html>
+"""
+
+
 HTML_PAGE = """<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -190,11 +457,24 @@ HTML_PAGE = """<!DOCTYPE html>
     .stat-card .label { font-size: 12px; color: var(--text-muted); font-weight: 500; }
     .stat-card .val { font-size: 28px; font-weight: 800; margin-top: 5px; }
     .stat-card .desc { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
-    .tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding: 8px 4px 10px; overflow-x: auto; position: sticky; top: 0; z-index: 20; background: rgba(11,15,25,.94); backdrop-filter: blur(14px); }
-    .tab-btn { background: transparent; border: none; color: var(--text-muted); font-size: 14px; font-weight: 600; padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
-    .tab-btn.active { background: var(--primary); color: #fff; }
+    /* ===== 🧭 Neat grouped sidebar navigation (no more 16-tab clutter row) ===== */
+    .tabs { position: fixed; left: 0; top: 0; bottom: 0; width: 236px; z-index: 40; display: flex; flex-direction: column; gap: 2px; padding: 16px 12px; overflow-y: auto; background: #0a0f1e; border-right: 1px solid var(--border); scrollbar-width: thin; }
+    .tabs::-webkit-scrollbar { width: 6px; }
+    .tabs::-webkit-scrollbar-thumb { background: #22304d; border-radius: 3px; }
+    .nav-brand { font-size: 17px; font-weight: 800; color: #f8fafc; padding: 2px 8px; letter-spacing: .2px; }
+    .nav-brand small { display: block; font-size: 10.5px; color: var(--text-muted); font-weight: 500; margin-top: 2px; }
+    .nav-search { width: 100%; box-sizing: border-box; margin: 10px 0 6px; padding: 8px 10px; font-size: 12.5px; background: #050811; color: var(--text); border: 1px solid var(--border); border-radius: 9px; outline: none; }
+    .nav-search:focus { border-color: var(--primary); }
+    .nav-group { font-size: 10px; font-weight: 800; letter-spacing: 1.4px; color: #5b6b8c; margin: 14px 8px 5px; text-transform: uppercase; }
+    .tab-btn { width: 100%; text-align: left; background: transparent; border: none; color: var(--text-muted); font-size: 13.5px; font-weight: 600; padding: 9px 12px; border-radius: 10px; cursor: pointer; transition: all .15s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tab-btn:hover { background: rgba(59,130,246,.10); color: var(--text); }
+    .tab-btn.active { background: linear-gradient(90deg, var(--primary), #0ea5e9); color: #fff; box-shadow: 0 4px 14px rgba(37,99,235,.35); }
+    body { padding-left: 260px; }
+    details.adv { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin-top: 12px; background: #0a1122; }
+    details.adv summary { cursor: pointer; font-size: 12.5px; font-weight: 700; color: var(--text-muted); }
     .tab-pane { display: none; }
-    .tab-pane.active { display: block; }
+    .tab-pane.active { display: block; animation: paneIn .25s ease; }
+    @keyframes paneIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
     .panel-card { background: linear-gradient(145deg, rgba(19,27,46,.98), rgba(15,23,42,.98)); border: 1px solid var(--border); border-radius: 14px; padding: 22px; margin-bottom: 20px; box-shadow: 0 8px 28px rgba(0,0,0,0.22); }
     .panel-card h2 { font-size: 18px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
     .btn { background: var(--primary); color: #fff; border: none; padding: 9px 15px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
@@ -232,8 +512,11 @@ HTML_PAGE = """<!DOCTYPE html>
       .stat-card { padding: 10px 12px; }
       .stat-card .val { font-size: 20px; }
       .stat-card .desc { display: none; }
-      .tabs { gap: 4px; padding-bottom: 6px; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
-      .tab-btn { font-size: 12px; padding: 8px 10px; }
+      body { padding-left: 12px; }
+      .tabs { position: static; width: auto; flex-direction: row; flex-wrap: wrap; align-items: center; border-right: none; border-bottom: 1px solid var(--border); padding: 10px 4px; margin-bottom: 12px; }
+      .nav-group { display: none; }
+      .nav-search { display: none; }
+      .tab-btn { width: auto; font-size: 12px; padding: 8px 10px; }
       .panel-card { padding: 12px !important; }
       table { display: block; overflow-x: auto; white-space: nowrap; font-size: 11px; }
       #wa-login-number-badge { font-size: 16px !important; padding: 5px 12px !important; }
@@ -317,6 +600,23 @@ HTML_PAGE = """<!DOCTYPE html>
     </div>
   </div>
 
+  <!-- 🎯 VISION MISSION CONTROL -->
+  <div style="background:linear-gradient(135deg,#0d1b36,#131024); border:1px solid #a78bfa; border-radius:12px; padding:16px; margin-bottom:18px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <div>
+        <h3 style="font-size:15px; color:#c4b5fd; margin:0;">🎯 Vision Mission Control</h3>
+        <div id="vision-tagline" style="font-size:11px; color:var(--text-muted); margin-top:2px;">Prathi TS/AP aspirant ki — prathi roju thana exam PYQ + fresh bilingual polls, rendu platforms lo, rank tho.</div>
+      </div>
+      <div style="text-align:center;">
+        <div id="vision-score" style="font-size:30px; font-weight:900; color:#a78bfa; line-height:1;">…</div>
+        <div style="font-size:10px; color:var(--text-muted);">VISION SCORE <span id="vision-grade"></span></div>
+      </div>
+    </div>
+    <div id="vision-pillars" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; margin-top:12px; font-size:12px;"></div>
+    <div id="vision-actions" style="margin-top:10px; font-size:12px;"></div>
+    <div id="vision-next" style="margin-top:6px; font-size:11px; color:#64748b;"></div>
+  </div>
+
   <!-- Global WhatsApp Device Connectivity Header -->
   <div style="background: linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(59,130,246,0.15) 100%); border:1px solid #10b981; border-radius:12px; padding:14px 18px; margin-bottom:18px;">
     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
@@ -332,7 +632,7 @@ HTML_PAGE = """<!DOCTYPE html>
           </div>
           <div style="font-size:12px; color:var(--text-muted); line-height:1.7;">
             <div>👤 Device: <b style="color:#f8fafc;" id="wa-device-name">—</b> <span id="wa-connected-since" style="color:#64748b;"></span></div>
-            <div>💬 Synced Groups: <b style="color:#38bdf8;" id="wa-dialogs-count">0 Groups</b> · 🛡️ Anti-Ban: <b style="color:#10b981;">40-60s Jitter + 5-Poll Rotation + 60-90s Batch Rest</b></div>
+            <div>💬 Synced Groups: <b style="color:#38bdf8;" id="wa-dialogs-count">0 Groups</b> · 🛡️ Anti-Ban: <b style="color:#10b981;">60-80s Jitter + Adaptive Risk Brain + 60-90s Batch Rest</b></div>
           </div>
           <span id="wa-device-phone" style="display:none;"></span>
         </div>
@@ -341,8 +641,8 @@ HTML_PAGE = """<!DOCTYPE html>
         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:8px; background:#050811; border:1px solid #1e293b; border-radius:10px; padding:8px 14px;">
           <b style="font-size:12px; color:#f59e0b;">⏱️ Anti-Ban Gap Engine:</b>
           <select id="global-gap-preset" onchange="applyGapPreset(this.value)" style="margin:0; padding:5px 8px; font-size:12px; background:#0b1329; border:1px solid #f59e0b; color:#f8fafc; border-radius:6px;">
-            <option value="20,35">⚡ Fast — 20-35s</option>
-            <option value="40,60" selected>🛡️ Normal — 40-60s</option>
+            
+            <option value="60,80" selected>🛡️ Safe — 60-80s (recommended)</option>
             <option value="90,150">🐢 Long — 1.5-2.5 min</option>
             <option value="180,300">🧘 Extra Long — 3-5 min</option>
             <option value="300,600">🌙 Marathon — 5-10 min</option>
@@ -367,17 +667,39 @@ HTML_PAGE = """<!DOCTYPE html>
   </div>
 
   <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('tab-bulk-broadcast')">🚀 Bulk Messages & Channels Hub</button>
-    <button class="tab-btn" onclick="switchTab('tab-wa-dispatch')">🛡️ WhatsApp 100+ Interleaved Dispatcher</button>
-    <button class="tab-btn" onclick="switchTab('tab-bundles')">📦 Custom Saved Bundles</button>
+    <div class="nav-brand">🎓 StudentUp<small>Admin Control · neat &amp; easy</small></div>
+    <input class="nav-search" id="nav-search" placeholder="🔍 Search tabs… (exam, whatsapp, members)" oninput="filterNav(this.value)">
+    <button class="btn btn-outline" style="margin:2px 0 4px; padding:6px 10px; font-size:11px; justify-content:center;" onclick="openCmdk()">⌨️ Quick Search · Ctrl+K</button>
+    <div class="nav-group">Main</div>
+    <button class="tab-btn active" onclick="switchTab('tab-setup-wizard')">🏠 Home · Easy Setup Wizard</button>
+    <div class="nav-group">Dispatch</div>
+    <button class="tab-btn" onclick="switchTab('tab-bulk-broadcast')">🚀 Bulk Broadcast</button>
+    <button class="tab-btn" onclick="switchTab('tab-wa-dispatch')">🛡️ WhatsApp Dispatcher</button>
+    <button class="tab-btn" onclick="switchTab('tab-bundles')">📦 Bundles</button>
+    <button class="tab-btn" onclick="switchTab('tab-excel-import')">📊 Excel Import</button>
+    <div class="nav-group">Exams</div>
+    <button class="tab-btn" onclick="switchTab('tab-campus')">🏫 College Exams &amp; QR</button>
+    <button class="tab-btn" onclick="switchTab('tab-conductor')">🎓 Exam Conductor</button>
+    <div class="nav-group">People</div>
+    <button class="tab-btn" onclick="switchTab('tab-members')">📋 Members &amp; CRM</button>
     <button class="tab-btn" onclick="switchTab('tab-member-queue')">👥 Member Queue</button>
-    <button class="tab-btn" onclick="switchTab('tab-excel-import')">📊 Multi-Sheet Excel Importer</button>
-    <button class="tab-btn" onclick="switchTab('tab-campus')">🏫 College On-Spot Exams & QR</button>
-    <button class="tab-btn" onclick="switchTab('tab-dynamic-channels')">📢 Telegram Channels & Poll Counts</button>
-    <button class="tab-btn" onclick="switchTab('tab-control')">⚡ Fast Actions & District War</button>
-    <button class="tab-btn" onclick="switchTab('tab-squads')">👥 Squad Wars & Arena</button>
-    <button class="tab-btn" onclick="switchTab('tab-members')">📋 Registered Members & CRM</button>
-    <button class="tab-btn" onclick="switchTab('tab-history')">📊 History & Analytics</button>
+    <button class="tab-btn" onclick="switchTab('tab-squads')">⚔️ Squad Wars &amp; Arena</button>
+    <div class="nav-group">Live &amp; Content</div>
+    <button class="tab-btn" onclick="switchTab('tab-dynamic-channels')">📢 Telegram Channels</button>
+    <button class="tab-btn" onclick="switchTab('tab-control')">⚡ Fast Actions · War</button>
+    <div class="nav-group">Insights</div>
+    <button class="tab-btn" onclick="switchTab('tab-growth')">📈 Growth &amp; Revenue</button>
+    <button class="tab-btn" onclick="switchTab('tab-history')">📊 History &amp; Analytics</button>
+    <div class="nav-group">System</div>
+    <button class="tab-btn" onclick="switchTab('tab-proops')">🏢 Pro Ops</button>
+  </div>
+
+  <!-- ⌨️ COMMAND PALETTE (Ctrl+K) -->
+  <div id="cmdk-overlay" style="display:none; position:fixed; inset:0; background:rgba(3,6,12,.72); z-index:200;" onclick="if(event.target===this) closeCmdk()">
+    <div style="max-width:560px; margin:9vh auto 0; background:#0b1329; border:1px solid #2b3f66; border-radius:14px; overflow:hidden; box-shadow:0 24px 60px rgba(0,0,0,.6);">
+      <input id="cmdk-input" placeholder="🔍 Search — tabs, college exams, members… (↑↓ select · Enter open · Esc close)" oninput="cmdkSel=0; renderCmdk(this.value)" style="width:100%; margin:0; border:none; border-bottom:1px solid var(--border); border-radius:0; padding:14px 16px; font-size:15px; background:#0b1329;">
+      <div id="cmdk-list" style="max-height:46vh; overflow-y:auto; padding:6px;"></div>
+    </div>
   </div>
 
   <!-- TAB 1: WHATSAPP INTERLEAVED DISPATCHER -->
@@ -385,7 +707,7 @@ HTML_PAGE = """<!DOCTYPE html>
     <div class="planner-hero"><div><div class="eyebrow">CONTROL CENTER · WHATSAPP AUTOMATION</div><h2>Plan once. Deliver automatically.</h2><p>Pick an exam, choose exact groups, set multiple daily times and let the server run the schedule.</p></div><div class="hero-actions"><button class="btn btn-accent" onclick="toggleScheduleBuilder()">＋ New smart schedule</button><button class="btn btn-outline" onclick="switchTab('tab-excel-import')">Import from Excel</button></div></div>
     <div class="planner-grid"><div class="planner-card"><div class="planner-card-head"><span class="step">01</span><div><b>Choose exam / poll pack</b><small>Only matching content will be sent</small></div></div><div class="exam-pills"><button onclick="setPlannerCategory('ALL',this)" class="exam-pill active">All exams</button><button onclick="setPlannerCategory('POLICE',this)" class="exam-pill">Police</button><button onclick="setPlannerCategory('TSPSC',this)" class="exam-pill">TSPSC</button><button onclick="setPlannerCategory('APPSC',this)" class="exam-pill">APPSC</button><button onclick="setPlannerCategory('SSC',this)" class="exam-pill">SSC / Railway</button><button onclick="setPlannerCategory('TET_DSC',this)" class="exam-pill">TET / DSC</button><button onclick="setPlannerCategory('CURRENT',this)" class="exam-pill">Current affairs</button></div></div><div class="planner-card"><div class="planner-card-head"><span class="step">02</span><div><b>Choose recipients</b><small>Tick exact groups in the directory below</small></div></div><div class="selection-summary"><strong id="planner-selected-count">0 groups selected</strong><span>Category filters remain available</span></div><button class="btn btn-outline" onclick="document.getElementById('table-wa-groups').scrollIntoView({behavior:'smooth',block:'center'})">Select groups ↓</button></div><div class="planner-card"><div class="planner-card-head"><span class="step">03</span><div><b>Set delivery plan</b><small>Times, frequency, duration and days</small></div></div><div class="mini-stat-row"><span>⏱ Multi-time</span><span>📅 Lifetime / days</span><span>🛡 Safe queue</span></div><button class="btn btn-accent" onclick="toggleScheduleBuilder()">Open scheduler →</button></div></div>
     <div class="panel-card">
-      <h2>🛡️ Advanced WhatsApp Anti-Ban Dispatcher (5 Polls/Group, 40-60s Jitter, 60-90s Batch Rest)</h2>
+      <h2>🛡️ Advanced WhatsApp Anti-Ban Dispatcher (5 Polls/Group, 60-80s Jitter, Adaptive Risk Brain)</h2>
       <p style="color:var(--text-muted); font-size:13px; margin-bottom:16px;">
         ఖాతా పూర్తి భద్రత కోసం: ప్రతి గ్రూపులో <b>5 ప్రశ్నలు</b> పూర్తయ్యే వరకు <b>40-60 సెకన్ల</b> రాండమ్ గ్యాప్‌తో పోస్ట్ అవుతాయి. ప్రతి 5 గ్రూపుల తర్వాత <b>60-90 సెకన్ల</b> కూల్‌డౌన్ పాజ్ తీసుకుంటుంది. మొదటి 5 గ్రూపులకు ఇంగ్లీష్ మొదటి లైన్, తర్వాతి 5 గ్రూపులకు తెలుగు మొదటి లైన్ క్రమంలో ఆటోమేటిక్ బైలింగ్వల్ రోటేషన్ ఉంటుంది.
       </p>
@@ -512,6 +834,7 @@ HTML_PAGE = """<!DOCTYPE html>
               <label style="display:flex; align-items:center; gap:4px;"><input type="checkbox" class="sb-subj" value="ENGLISH">🔤 English</label>
               <label style="display:flex; align-items:center; gap:4px;"><input type="checkbox" class="sb-subj" value="SCIENCE">🔬 Science</label>
             </div>
+            <input type="text" id="sb-subj-custom" placeholder="Custom subjects: HISTORY+GEOGRAPHY (+ tho) — bank topics tho match avuthaayi" style="margin-top:6px; font-size:12px;">
             <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
               <button class="btn btn-accent" onclick="createScheduleFromBuilder()">✅ Create Schedule (Target: selected groups/category above)</button>
               <button class="btn btn-outline" onclick="toggleScheduleBuilder()">✖ Close</button>
@@ -599,6 +922,9 @@ HTML_PAGE = """<!DOCTYPE html>
             <div class="progress-bar-container">
               <div id="pipeline-progress-bar" class="progress-bar"></div>
             </div>
+            <div id="pipeline-pacing-text" style="font-size:11px; color:#93c5fd; margin-top:6px;">🧠 Adaptive Anti-Ban: ×1.00 · 🟢 HEALTHY · fatigue ×1.00</div>
+            <div id="wa-safety-stack" style="margin-top:10px; font-size:12px;"></div>
+            <div id="wa-safety-detail" style="margin-top:6px; font-size:11.5px;"></div>
           </div>
         </div>
 
@@ -648,10 +974,14 @@ HTML_PAGE = """<!DOCTYPE html>
           </thead>
           <tbody></tbody>
         </table>
+        <div style="margin-top:14px; background:rgba(212,175,55,0.07); border:1px solid rgba(212,175,55,0.45); border-radius:10px; padding:12px 14px;">
+          <b>🏆 Hall of Fame — WhatsApp All-Time Champions</b>
+          <div id="wa-hof" style="margin-top:8px; font-size:13px;"><span style="color:var(--text-muted);">Inka champions leru — first winners round tarvata ikkada kanipistharu.</span></div>
+        </div>
 
         <div style="display:flex; gap:10px; margin-top:16px; background:#0f172a; padding:12px; border-radius:8px; flex-wrap:wrap; align-items:center;">
           <input type="text" id="new-wa-title" placeholder="Group Title (e.g. Warangal TS Police SI Batch)" style="flex:2; min-width:200px; margin:0;">
-          <input type="text" id="new-wa-jid" placeholder="Group JID or Invite link" style="flex:2; min-width:200px; margin:0;">
+          <input type="text" id="new-wa-jid" placeholder="Group JID / Channel JID (…@newsletter) / Invite link" style="flex:2; min-width:200px; margin:0;">
           <select id="new-wa-category" style="width:160px; margin:0;">
             <option value="AUTO">🤖 Auto Category</option>
             <option value="GENERAL">🌐 General Group</option>
@@ -725,11 +1055,14 @@ HTML_PAGE = """<!DOCTYPE html>
       <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
         <div style="background:#0f172a; padding:18px; border-radius:10px; border:1px solid var(--border);">
           <h3 style="font-size:15px; margin-bottom:12px; color:#38bdf8;">➕ Launch New College Exam Event</h3>
-          <label>College Name (e.g. SR Engineering College or Kakatiya Univ):</label>
+          <label>College Name (e.g. SR Engineering College or Kakatiya Univ): <span style="color:var(--text-muted); font-size:11px;">— ekkuva colleges kosam comma tho separate cheyyandi (Inter-College War!)</span></label>
           <input type="text" id="campus-college-name" placeholder="Enter College Name">
 
           <label>District:</label>
           <input type="text" id="campus-district" placeholder="e.g. Warangal, Visakhapatnam, Hyderabad, Guntur">
+
+          <label>⏰ Auto-Start Time (optional — ఖాళీగా వదిలేస్తే మీరే 🚀 Start నొక్కాలి):</label>
+          <input type="datetime-local" id="campus-start-at">
 
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
             <div>
@@ -750,6 +1083,14 @@ HTML_PAGE = """<!DOCTYPE html>
               </select>
             </div>
           </div>
+
+          <label style="margin-top:6px;">⚠️ Negative Marking (real-exam feel, optional):</label>
+          <select id="campus-neg">
+            <option value="0" selected>No negative marking (friendly)</option>
+            <option value="1">−1 point per wrong answer</option>
+            <option value="2">−2 points per wrong answer</option>
+            <option value="5">−5 points per wrong answer (strict)</option>
+          </select>
 
           <label style="margin-top:6px;">Select Subjects to Include in Exam:</label>
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:12px; margin-bottom:12px; background:#050811; padding:10px; border-radius:8px; border:1px solid var(--border);">
@@ -791,6 +1132,51 @@ HTML_PAGE = """<!DOCTYPE html>
           </thead>
           <tbody></tbody>
         </table>
+      <div class="panel-card" style="margin-top:16px;">
+        <h3 style="font-size:14px; color:#facc15;">🏆 College League — అన్ని exams kalipi Inter-College Standings</h3>
+        <div id="campus-league-box" style="font-size:12px; margin-top:8px; color:var(--text-muted);">League data loading…</div>
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: 🚀 EASY SETUP WIZARD -->
+  <div id="tab-setup-wizard" class="tab-pane active">
+    <div class="panel-card">
+      <h2>🏠 Home · Easy Setup Wizard — 5 steps lo full system ready!</h2>
+      <p style="color:var(--text-muted); font-size:13px; margin-bottom:12px;">
+        Telegram + WhatsApp rendu, step-by-step. Prathi step status automatic ga check avuthundi —
+        pending unna chota button nokkithe saraina tab ki theeskellthundi. Anni ✅ aithe meeru emi cheyakkarledu, system ye nadusthundi!
+      </p>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;">
+        <button class="btn btn-accent" onclick="switchTab('tab-campus')">🏫 New College Exam</button>
+        <button class="btn btn-primary" onclick="switchTab('tab-bulk-broadcast')">🚀 Bulk Broadcast</button>
+        <button class="btn btn-outline" onclick="switchTab('tab-wa-dispatch')">🛡️ WhatsApp Schedules</button>
+        <button class="btn btn-outline" onclick="switchTab('tab-members')">📋 Members</button>
+        <button class="btn btn-outline" onclick="switchTab('tab-dynamic-channels')">📢 Telegram Channels</button>
+      </div>
+      <div style="background:#0b1329; border:1px solid #22304d; border-radius:10px; height:14px; overflow:hidden; margin-bottom:14px;">
+        <div id="wiz-progress" style="height:100%; width:0%; background:linear-gradient(90deg,#10b981,#38bdf8); transition:width .4s;"></div>
+      </div>
+      <div id="wiz-steps" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px;"></div>
+      <details class="adv">
+        <summary>🖥️ Advanced — server commands &amp; production (developers kosam)</summary>
+        <div style="font-size:12.5px; margin-top:8px;">
+        <b style="color:#38bdf8;">🖥️ Server meeda motham stack okka command tho:</b>
+        <pre style="background:#0b1329; padding:10px; border-radius:8px; margin-top:8px; overflow:auto;">bash start_all.sh        # Dashboard + Bridge + Scheduler (collector 8x/day) + Bot</pre>
+        <span style="color:var(--text-muted);">Production (systemd) kosam: <code>deploy/*.service</code> · Status: <code>python3 -m core.vision</code></span>
+        <button class="btn btn-outline" style="margin-left:10px; padding:4px 10px; font-size:11px;" onclick="loadSetupWizard()">🔄 Refresh Status</button>
+        </div>
+      </details>
+      <div id="wiz-actions" style="margin-top:12px; font-size:12.5px;"></div>
+      <div style="margin-top:16px; border-top:1px solid var(--border); padding-top:14px;">
+        <h3 style="font-size:14px; color:#a78bfa;">✨ Smart Day Planner — eeroju dispatch plan ready ga</h3>
+        <p style="font-size:12px; color:var(--text-muted); margin:4px 0 8px;">Students eppudu active ga untaro + ekkada weak ga unnaro chusi system ye plan chesthundi. Nachithe okka click lo apply — anthe!</p>
+        <div id="planner-box" style="font-size:12px; color:var(--text-muted);">"✨ Plan Chudu" nokkithe eeroju plan kanipisthundi.</div>
+        <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
+          <button class="btn btn-purple" style="font-size:12px;" onclick="loadPlanner()">✨ Plan Chudu</button>
+          <button class="btn btn-accent" style="font-size:12px;" onclick="applyPlanner()">✅ Select Chesinavi Apply Chey</button>
+        </div>
       </div>
     </div>
   </div>
@@ -854,11 +1240,44 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
       </div>
 
       <div id="excel-import-log" class="log-box" style="margin-top:16px;">Importer ready. Upload .xlsx file or paste rows.</div>
+
+      <!-- ✍️ MANUAL SETUP — Excel lekunda, form thone okka target full setup -->
+      <div style="background:rgba(16,24,40,0.9); border:1px solid #fbbf24; border-radius:10px; padding:16px; margin-top:18px;">
+        <h4 style="margin-bottom:4px; font-size:14px; color:#fbbf24;">✍️ Manual Setup — Excel lekunda, ikkade add cheyyandi (1 minute!)</h4>
+        <p style="font-size:12px; color:var(--text-muted); margin-bottom:10px;">Okka WhatsApp group / Telegram channel ni form tho add chesi — <b>exam, timings, polls, days, subjects</b> anni okkasare set cheyyandi. Times iste auto-schedule kuda create avuthundi. (Excel import tho behavior okkate: validation + duplicate check untundi)</p>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px;">
+          <div><label>📱 Platform</label>
+            <select id="ms-platform" onchange="msPlatformChanged()">
+              <option value="wa">🟢 WhatsApp Group</option>
+              <option value="tg-channel">📢 Telegram Channel</option>
+              <option value="tg-group">💬 Telegram Group</option>
+            </select></div>
+          <div><label>🏷️ Name</label><input type="text" id="ms-name" placeholder="Warangal SI Batch 1"></div>
+          <div><label id="ms-link-label">🔗 Invite Link or JID</label><input type="text" id="ms-link" placeholder="https://chat.whatsapp.com/... లేదా 1203...@g.us లేదా Channel JID: 1203...@newsletter"></div>
+          <div><label>🎯 Exam</label>
+            <select id="ms-exam" onchange="msExamChanged()"></select>
+            <input type="text" id="ms-exam-custom" placeholder="Custom exam name (e.g. TS Police SI 2027)" style="display:none; margin-top:6px;"></div>
+          <div><label id="ms-shift-label">⏰ Shift</label>
+            <select id="ms-shift"><option value="ALL_DAY">ALL_DAY</option><option value="MORNING">MORNING</option><option value="EVENING">EVENING</option></select></div>
+          <div><label>🗂️ Group Type</label>
+            <select id="ms-type"><option value="EXAM_SPECIFIC">EXAM_SPECIFIC</option><option value="GENERAL">GENERAL</option></select></div>
+          <div><label>⏱️ Daily Times (+ tho)</label><input type="text" id="ms-times" placeholder="08:00+20:30 (ఖాళీ = no schedule)"></div>
+          <div><label>📊 Polls / slot</label><input type="number" id="ms-count" min="1" max="20" value="5"></div>
+          <div><label>📅 Days (0 = ♾️ Always)</label><input type="number" id="ms-days" min="0" max="3650" value="0"></div>
+        </div>
+        <label style="margin-top:10px; display:block;">📚 Subjects (ఏదీ select చేయకపోతే = ALL) — custom subject kuda type cheyyandi:</label>
+        <div id="ms-subjects" style="display:flex; gap:10px; flex-wrap:wrap; margin-top:4px; font-size:12px;"></div>
+        <input type="text" id="ms-subj-custom" placeholder="Custom subjects: HISTORY+GEOGRAPHY+TELUGU (+ tho kalapandi)" style="margin-top:6px;">
+        <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
+          <button class="btn btn-accent" onclick="manualAddTarget()">➕ Add Target (+ Schedule)</button>
+        </div>
+        <div id="ms-result" style="font-size:12px; margin-top:8px;"></div>
+      </div>
     </div>
   </div>
 
   <!-- TAB: BULK BROADCAST & ATTACHMENTS (GROUPS & CHANNELS) -->
-  <div id="tab-bulk-broadcast" class="tab-pane active">
+  <div id="tab-bulk-broadcast" class="tab-pane">
 
     <!-- 🧭 MISSION HOME: ఒక్క చూపులో అంతా అర్థమయ్యే setup guide -->
     <div class="panel-card" id="setup-guide-card" style="border:1px solid #10b981;">
@@ -1241,6 +1660,7 @@ All candidates must join today before 9:00 PM!"></textarea>
           <label style="display:inline; font-size:12px;"><input type="checkbox" class="tg-ap-subj" value="CURRENT"> 📰 Current</label>
           <label style="display:inline; font-size:12px;"><input type="checkbox" class="tg-ap-subj" value="ENGLISH"> 🔤 English</label>
           <label style="display:inline; font-size:12px;"><input type="checkbox" class="tg-ap-subj" value="SCIENCE"> 🔬 Science</label>
+          <input type="text" id="tg-ap-subj-custom" placeholder="Custom: HISTORY+GEOGRAPHY" style="width:190px; margin:0; padding:6px 8px; font-size:12px;">
         </div>
         <div id="tg-ap-result" style="font-size:12px; margin-top:8px;"></div>
         <div id="tg-ap-jobs" style="font-size:12px; margin-top:10px;"></div>
@@ -1408,6 +1828,79 @@ All candidates must join today before 9:00 PM!"></textarea>
   </div>
 
   <!-- TAB: 📊 BROADCAST HISTORY & ANALYTICS -->
+  <div id="tab-growth" class="tab-pane">
+    <div class="panel-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <h2>📈 Growth & Revenue — Business Pulse</h2>
+        <button class="btn btn-outline" style="padding:4px 12px; font-size:11px;" onclick="loadPulse()">🔄 Refresh</button>
+      </div>
+      <p style="color:var(--text-muted); font-size:12px;">Real member data nunchi funnel, referral engine, partner economy — planner matram meeru set chese what-if (price × conversion).</p>
+      <div class="grid-stats" id="pulse-cards"></div>
+      <h3 style="font-size:13px; margin-top:16px;">🔻 Funnel</h3>
+      <div id="pulse-funnel" style="font-size:12px;"></div>
+      <h3 style="font-size:13px; margin-top:16px;">🏆 Top Referrers (📣 /invite loop)</h3>
+      <div id="pulse-referrers" style="font-size:12px;"></div>
+      <h3 style="font-size:13px; margin-top:16px;">🏪 Partner Economy (points → local offers)</h3>
+      <div id="pulse-economy" style="font-size:12px;"></div>
+      <h3 style="font-size:13px; margin-top:16px;">💰 Monetization Planner <span style="color:var(--text-muted); font-weight:normal;">(what-if — real ga charge chese mundu mee assumptions)</span></h3>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:end; font-size:12px;">
+        <label>Plan name<br><input id="pulse-plan-name" style="width:150px;"></label>
+        <label>Price ₹/month<br><input id="pulse-price" type="number" min="0" max="100000" style="width:110px;" oninput="pulseRecompute()"></label>
+        <label>Conversion %<br><input id="pulse-conv" type="number" min="0" max="100" step="0.5" style="width:90px;" oninput="pulseRecompute()"></label>
+        <button class="btn btn-accent" style="padding:6px 14px; font-size:12px;" onclick="savePulseSettings()">💾 Save assumptions</button>
+      </div>
+      <div id="pulse-proj" style="font-size:13px; margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <div id="tab-proops" class="tab-pane">
+    <div class="panel-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <h2>🏢 Pro Ops — System Health, Metrics, Flags, Audit</h2>
+        <span style="font-size:11px; color:var(--text-muted);">auto-refresh 30s · <button class="btn btn-outline" style="padding:3px 10px; font-size:11px;" onclick="loadProOps()">🔄 Refresh</button></span>
+      </div>
+      <div id="proops-health" style="font-size:12px; margin-top:10px;">Loading...</div>
+      <h3 style="font-size:13px; margin-top:16px;">📊 Live Metrics <span style="color:var(--text-muted); font-weight:normal;">(real events — dry runs count avvavu)</span></h3>
+      <div class="grid-stats" id="proops-metrics"></div>
+      <div style="font-size:12px; margin-top:8px;">🕐 Last 24h — student answers (hourly)</div>
+      <div id="proops-chart" style="display:flex; align-items:end; gap:2px; height:74px; margin-top:6px; background:rgba(255,255,255,0.03); border-radius:8px; padding:8px;"></div>
+      <h3 style="font-size:13px; margin-top:16px;">🚦 Feature Flags <span style="color:var(--text-muted); font-weight:normal;">(kill switches — restart akkarledu, ventane apply avuthundi)</span></h3>
+      <div id="proops-flags" style="font-size:12px;"></div>
+      <h3 style="font-size:13px; margin-top:16px;">🧾 Audit Trail <span style="color:var(--text-muted); font-weight:normal;">(evaru, eppudu, em chesaru)</span></h3>
+      <div id="proops-audit" style="font-size:12px;"></div>
+    </div>
+  </div>
+
+  <div id="tab-conductor" class="tab-pane">
+    <div class="panel-card">
+      <h2>🎓 Exam Conductor — oka screen lo exam schedule cheyyandi, migatha motham automatic</h2>
+      <p style="color:var(--text-muted); font-size:12px;">Time ki bot automatic ga start chesthundi (Grand Test / District War / Campus Exam). Bot server lo run avuthunte matrame scheduled launch jaruguthundi — ippude kavali ante Launch Now undi.</p>
+      <div id="conductor-daily" style="font-size:12px; margin:10px 0; padding:8px 10px; background:rgba(56,189,248,0.08); border-radius:8px;">📌 Daily fixed polls status loading...</div>
+      <div id="conductor-advisor" style="font-size:12px; margin:10px 0; padding:8px 10px; background:rgba(167,139,250,0.08); border-radius:8px;">🧠 Smart Slot Advisor loading...</div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; font-size:12px;">
+        <label>Exam peru (title)<br><input id="cd-title" placeholder="Sunday Grand Test — SSC" style="width:100%;"></label>
+        <label>Type<br><select id="cd-kind" style="width:100%;" onchange="cdKindHint()">
+          <option value="grand">📝 Grand Test (channel mock)</option>
+          <option value="war">⚔️ District War</option>
+          <option value="campus">🏫 Campus Exam (join code)</option></select></label>
+        <label>Channel (Grand ki)<br><select id="cd-channel" style="width:100%;"></select></label>
+        <label>Date + Time<br><input id="cd-when" type="datetime-local" style="width:100%;"></label>
+        <label>Duration (minutes)<br><input id="cd-duration" type="number" value="90" min="5" max="600" style="width:100%;"></label>
+        <label>Questions (Grand/Campus)<br><input id="cd-nq" type="number" value="25" min="0" max="200" style="width:100%;"></label>
+        <label>War lobby (minutes)<br><input id="cd-lobby" type="number" value="5" min="1" max="60" style="width:100%;"></label>
+        <label>Campus / College peru<br><input id="cd-campus" placeholder="ABC Degree College" style="width:100%;"></label>
+        <label>District<br><input id="cd-district" placeholder="Warangal" style="width:100%;"></label>
+      </div>
+      <div id="cd-hint" style="font-size:12px; color:var(--text-muted); margin-top:8px;"></div>
+      <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn btn-accent" style="padding:8px 18px; font-size:13px;" onclick="createConductorEvent()">📅 Schedule Exam</button>
+        <button class="btn btn-outline" style="padding:8px 14px; font-size:12px;" onclick="loadConductor()">🔄 Refresh</button>
+      </div>
+      <h3 style="font-size:13px; margin-top:18px;">🗓️ Mee Exams</h3>
+      <div id="conductor-events" style="font-size:12px;">Loading...</div>
+    </div>
+  </div>
+
   <div id="tab-history" class="tab-pane">
     <div class="panel-card">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
@@ -1430,6 +1923,15 @@ All candidates must join today before 9:00 PM!"></textarea>
         </div>
         <div id="health-badges" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; font-size:12px;"></div>
         <div id="health-bank" style="margin-top:10px; font-size:12px;"></div>
+      </div>
+
+      <!-- 🧠 ITEM INTELLIGENCE OPS -->
+      <div style="background:#0b1329; border:1px solid #f472b6; border-radius:10px; padding:14px; margin-top:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <h3 style="font-size:14px; margin:0;">🧠 Item Intelligence — Question Quality (Real Answers)</h3>
+          <button class="btn btn-outline" style="padding:4px 10px; font-size:11px;" onclick="loadItemIntel()">🔄 Refresh</button>
+        </div>
+        <div id="item-intel-body" style="font-size:12px; margin-top:9px; color:var(--text-muted);">Loading...</div>
       </div>
 
       <div class="grid-stats" style="margin-top:14px;">
@@ -1474,6 +1976,130 @@ All candidates must join today before 9:00 PM!"></textarea>
   </div>
 
   <script>
+    async function loadPlanner() {
+      const box = document.getElementById('planner-box'); if (!box) return;
+      box.innerHTML = '<div style="color:var(--text-muted); font-size:12px;">✨ Plan tayaravthundi… (students active hours + weak topics chusthunnanu)</div>';
+      try {
+        const r = await fetch('/api/planner/today'); const d = await r.json();
+        window._plannerItems = d.items || [];
+        box.innerHTML = (d.items || []).map((it, i) => `<label style="display:flex; gap:8px; align-items:flex-start; background:#050811; border:1px solid var(--border); border-radius:9px; padding:9px 11px; margin:6px 0; cursor:pointer;">
+          <input type="checkbox" class="planner-chk" data-i="${i}" checked style="width:auto; margin:3px 0 0;">
+          <span style="font-size:12px;"><b style="color:#facc15;">${it.time}</b> · ${it.mode === 'wa' ? '📱' : '✈️'} <b>${it.name}</b> · ${it.count} polls<br><span style="color:var(--text-muted);">${it.reason}</span></span></label>`).join('') + `<div style="font-size:11px; color:var(--text-muted); margin-top:6px;">${d.note || ''}</div>`;
+      } catch (e) { box.innerHTML = '<div style="color:#f87171; font-size:12px;">❌ Plan load avvaledu</div>'; }
+    }
+
+    async function applyPlanner() {
+      const items = [...document.querySelectorAll('.planner-chk:checked')].map(c => window._plannerItems[+c.dataset.i]).filter(Boolean);
+      if (!items.length) return alert('Kanisam okka slot select cheyyandi!');
+      if (!confirm(`✨ ${items.length} daily jobs create cheyyala? Prathi roju ee times lo automatic ga polls velthayi.`)) return;
+      const box = document.getElementById('planner-box');
+      try {
+        const r = await fetch('/api/planner/apply', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({items})});
+        const d = await r.json();
+        box.innerHTML = `<div style="color:#10b981; font-size:13px;">✅ ${d.message || 'Plan applied!'} Jobs ni 📢 Telegram Channels tab lo chudachu / off cheyyachu.</div>`;
+      } catch (e) { alert('❌ ' + e); }
+    }
+
+    // ---------- ⌨️ Command Palette ----------
+    let cmdkSel = 0, cmdkList = [], cmdkEventsCache = null, cmdkMembersCache = null;
+    function cmdkBaseItems() {
+      const items = [];
+      document.querySelectorAll('.tabs .tab-btn').forEach(b => {
+        const m = (b.getAttribute('onclick') || '').match(/switchTab\('([^']+)'\)/);
+        if (m) items.push({label: b.textContent.trim(), hint: 'Tab', run: () => switchTab(m[1])});
+      });
+      items.push({label: '🏫➕ New College Exam (fresh form)', hint: 'Action', run: () => { switchTab('tab-campus'); setTimeout(() => document.getElementById('campus-college-name')?.focus(), 60); }});
+      items.push({label: '✨ Smart Day Planner chudu', hint: 'Action', run: () => { switchTab('tab-setup-wizard'); loadPlanner(); }});
+      items.push({label: '🔄 Setup status refresh chey', hint: 'Action', run: () => { switchTab('tab-setup-wizard'); loadSetupWizard(); }});
+      return items;
+    }
+    async function cmdkDynamic() {
+      const out = [];
+      try {
+        if (!cmdkEventsCache) { const r = await fetch('/api/campus/list'); const d = await r.json(); cmdkEventsCache = d.events || []; }
+        cmdkEventsCache.slice(0, 30).forEach(e => {
+          out.push({label: `📊 Marks — ${e.name} (${e.code})`, hint: `${e.players_count} students · ${e.state}`, run: () => { switchTab('tab-campus'); viewCampusReport(e.code); }});
+          if (e.state === 'question' || e.state === 'gap') out.push({label: `🔴 Live Control — ${e.name}`, hint: 'Exam LIVE', run: () => { switchTab('tab-campus'); watchCampusLive(e.code); }});
+        });
+      } catch (e) {}
+      try {
+        if (!cmdkMembersCache) { const r = await fetch('/api/members'); const d = await r.json(); cmdkMembersCache = d.members || []; }
+        cmdkMembersCache.slice(0, 200).forEach(m => out.push({label: `👤 ${m.name} — ${m.points} pts`, hint: ((m.district || '') + ' ' + (m.college || '')).trim() || 'Member', run: () => switchTab('tab-members')}));
+      } catch (e) {}
+      return out;
+    }
+    async function openCmdk() {
+      const ov = document.getElementById('cmdk-overlay'); if (!ov) return;
+      ov.style.display = 'block';
+      const inp = document.getElementById('cmdk-input'); inp.value = '';
+      window._cmdkAll = [...cmdkBaseItems(), ...(await cmdkDynamic())];
+      cmdkSel = 0; renderCmdk('');
+      setTimeout(() => inp.focus(), 30);
+    }
+    function closeCmdk() { const ov = document.getElementById('cmdk-overlay'); if (ov) ov.style.display = 'none'; }
+    function renderCmdk(q) {
+      q = (q || '').toLowerCase();
+      cmdkList = (window._cmdkAll || []).filter(it => !q || it.label.toLowerCase().includes(q) || (it.hint || '').toLowerCase().includes(q)).slice(0, 12);
+      if (cmdkSel >= cmdkList.length) cmdkSel = 0;
+      document.getElementById('cmdk-list').innerHTML = cmdkList.map((it, i) => `<div onclick="cmdkRun(${i})" style="padding:9px 12px; border-radius:9px; cursor:pointer; display:flex; justify-content:space-between; gap:10px; ${i === cmdkSel ? 'background:linear-gradient(90deg,#2563eb,#0ea5e9); color:#fff;' : ''}"><span style="font-size:13px; font-weight:600;">${it.label}</span><span style="font-size:10.5px; opacity:.75;">${it.hint || ''}</span></div>`).join('') || '<div style="padding:12px; font-size:12px; color:var(--text-muted);">Emi dorakaledu — verega type cheyyandi.</div>';
+    }
+    function cmdkRun(i) { const it = cmdkList[i]; closeCmdk(); if (it) it.run(); }
+    document.addEventListener('keydown', (e) => {
+      const ov = document.getElementById('cmdk-overlay');
+      const open = ov && ov.style.display !== 'none';
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); open ? closeCmdk() : openCmdk(); return; }
+      if (!open) return;
+      if (e.key === 'Escape') closeCmdk();
+      else if (e.key === 'ArrowDown') { e.preventDefault(); cmdkSel = Math.min(cmdkSel + 1, cmdkList.length - 1); renderCmdk(document.getElementById('cmdk-input').value); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); cmdkSel = Math.max(cmdkSel - 1, 0); renderCmdk(document.getElementById('cmdk-input').value); }
+      else if (e.key === 'Enter') { e.preventDefault(); cmdkRun(cmdkSel); }
+    });
+
+    async function loadSafetyStack() {
+      const box = document.getElementById('wa-safety-stack'); if (!box) return;
+      try {
+        const r = await fetch('/api/whatsapp/safety'); const d = await r.json();
+        box.innerHTML = '<div style="font-weight:800; color:#e2e8f0; margin-bottom:6px;">🛡️ WhatsApp Safety Stack' + (d.quiet ? ' <span style="color:#facc15;">· 🌙 QUIET NOW (sends defer)</span>' : '') + (d.running ? ' <span style="color:#f87171;">· 🔴 BROADCASTING</span>' : '') + '</div>' +
+          (d.layers || []).map(l => `<div style="display:flex; gap:8px; padding:5px 9px; background:#050811; border:1px solid var(--border); border-radius:8px; margin:4px 0;"><span>${l.icon}</span><span style="flex:1;"><b style="color:#e2e8f0;">${l.name}</b><br><span style="color:var(--text-muted); font-size:11px;">${l.detail}</span></span><span>${l.ok ? '✅' : '⏸️'}</span></div>`).join('') +
+          `<div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;"><button class="btn btn-outline" style="padding:4px 10px; font-size:11px;" onclick="runPreflight()">🔍 Preflight Check</button><button class="btn btn-outline" style="padding:4px 10px; font-size:11px;" onclick="runWaPreview()">👀 Broadcast Preview</button><button class="btn btn-outline" style="padding:4px 10px; font-size:11px;" onclick="loadSafetyStack()">🔄 Refresh</button><button class="btn" style="padding:4px 10px; font-size:11px; background:#dc2626;" onclick="emergencyStopWA()">🚨 Emergency Stop</button></div>`;
+      } catch (e) { box.innerHTML = '<span style="color:#f87171;">Safety status load avvaledu</span>'; }
+    }
+
+    async function runPreflight() {
+      const box = document.getElementById('wa-safety-detail'); if (!box) return;
+      box.innerHTML = '🔍 Checking…';
+      try {
+        const r = await fetch('/api/whatsapp/preflight'); const d = await r.json(); const pf = d.preflight || {};
+        box.innerHTML = `<b style="color:${pf.ok ? '#10b981' : '#f87171'};">${pf.ok ? '✅ Preflight PASSED — broadcast safe ga start cheyyachu' : '❌ Blockers: ' + (pf.blockers || []).join(', ')}</b>` + (pf.checks || []).map(c => `<div style="padding:3px 0; color:var(--text-muted);">${c.ok ? '✅' : '❌'} ${c.name} — ${c.detail}</div>`).join('');
+      } catch (e) { box.innerHTML = '❌ ' + e; }
+    }
+
+    async function emergencyStopWA() {
+      if (!confirm('🚨 Run avthunna WhatsApp broadcast ni IPPude aapeyyala? (mid-send kuda aaguthundi)')) return;
+      try {
+        const r = await fetch('/api/whatsapp/stop_pipeline', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+        const d = await r.json();
+        alert(d.message || 'Stop signal sent');
+        loadSafetyStack();
+      } catch (e) { alert('❌ ' + e); }
+    }
+
+    function filterNav(q) {
+      q = (q || '').toLowerCase().trim();
+      document.querySelectorAll('.tabs .tab-btn').forEach(b => {
+        b.style.display = (!q || b.textContent.toLowerCase().includes(q)) ? '' : 'none';
+      });
+      document.querySelectorAll('.tabs .nav-group').forEach(g => {
+        let n = g.nextElementSibling, any = false;
+        while (n && !n.classList.contains('nav-group')) {
+          if (n.classList.contains('tab-btn') && n.style.display !== 'none') any = true;
+          n = n.nextElementSibling;
+        }
+        g.style.display = any ? '' : 'none';
+      });
+    }
+    document.addEventListener('DOMContentLoaded', () => { try { loadSetupWizard(); } catch (e) {} });
+
     function switchTab(id, btnElem) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
@@ -1491,10 +2117,15 @@ All candidates must join today before 9:00 PM!"></textarea>
       const targetPane = document.getElementById(id);
       if (targetPane) targetPane.classList.add('active');
 
-      if (id === 'tab-wa-dispatch') loadWAGroups();
+      if (id === 'tab-wa-dispatch') { loadWAGroups(); loadSafetyStack(); }
       if (id === 'tab-campus') loadCampusEvents();
       if (id === 'tab-dynamic-channels') { loadChannels(); loadTgAutopilotJobs(); }
-      if (id === 'tab-history') { loadHistory(); loadHealth(); }
+      if (id === 'tab-history') { loadHistory(); loadHealth(); loadItemIntel(); }
+      if (id === 'tab-growth') loadPulse();
+      if (id === 'tab-proops') loadProOps();
+      if (id === 'tab-conductor') loadConductor();
+      if (id === 'tab-excel-import') loadSetupOptions();
+      if (id === 'tab-setup-wizard') loadSetupWizard();
       if (id === 'tab-bundles') loadBundles();
       if (id === 'tab-bulk-broadcast') { loadBulkTargets(); renderMissionHome(); }
       if (id === 'tab-squads') loadSquads();
@@ -1523,6 +2154,15 @@ All candidates must join today before 9:00 PM!"></textarea>
         const progText = document.getElementById('pipeline-progress-text');
         const bar = document.getElementById('pipeline-progress-bar');
         const logBox = document.getElementById('wa-log-box');
+        const paceText = document.getElementById('pipeline-pacing-text');
+        if (paceText && d.pacing) {
+          const modeIcon = {HEALTHY: '🟢', CAUTIOUS: '⚠️', CRAWL: '🚨'}[d.pacing.mode] || '🧠';
+          paceText.innerHTML = '🧠 <b>Adaptive Anti-Ban:</b> ×' + d.pacing.multiplier +
+            ' · ' + modeIcon + ' ' + d.pacing.mode +
+            ' · fatigue ×' + d.pacing.fatigue +
+            ' · fails ' + d.pacing.consecutive_fails +
+            (d.pacing.crawl_until ? ' · 🚨 crawl active' : '');
+        }
 
         if (d.running) {
           statText.innerHTML = '🟢 <b>RUNNING:</b> ' + (d.current_group ? ('Posting in ' + d.current_group) : 'Rotating pairs...');
@@ -1809,7 +2449,7 @@ All candidates must join today before 9:00 PM!"></textarea>
       try {
         localStorage.setItem('su_gap', JSON.stringify({
           min: getGapMin(), max: getGapMax(),
-          preset: document.getElementById('global-gap-preset')?.value || '40,60'
+          preset: document.getElementById('global-gap-preset')?.value || '60,80'
         }));
       } catch (e) {}
     }
@@ -2089,6 +2729,7 @@ All candidates must join today before 9:00 PM!"></textarea>
       const count = document.getElementById('tg-ap-count').value;
       const channels = getSelectedChannelKeys();
       const subjects = Array.from(document.querySelectorAll('.tg-ap-subj:checked')).map(c => c.value);
+      (document.getElementById('tg-ap-subj-custom').value || '').toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean).forEach(s => subjects.push(s));
       if (!times) return alert('Times ఇవ్వండి — ఉదా: 08:00, 20:30');
       if (!channels.length) return alert('పై table లో కనీసం ఒక channel/group select చేయండి (checkbox)');
       box.innerHTML = '<span style="color:#fbbf24;">Creating auto-pilot slots...</span>';
@@ -2290,7 +2931,44 @@ All candidates must join today before 9:00 PM!"></textarea>
       }
     }
 
+    async function loadHallOfFame() {
+      try {
+        const d = await (await fetch('/api/whatsapp/hall-of-fame')).json();
+        const el = document.getElementById('wa-hof');
+        if (!el) return;
+        const rows = (d.champions || []).slice(0, 10);
+        if (!rows.length) return;
+        const medals = ['🥇', '🥈', '🥉'];
+        el.innerHTML = rows.map((c, i) => '<div style="padding:3px 0;">' + (medals[i] || ((i + 1) + '.')) +
+          ' <b>@' + c.phone + '</b> — ' + c.correct + '✓ · ' + c.quizzes + ' quizzes' +
+          (c.group ? ' · <span style="color:var(--text-muted);">' + c.group + '</span>' : '') + '</div>').join('');
+      } catch (e) { /* hall of fame optional */ }
+    }
+    function waHealthBadge(jid) {
+      const h = (window._waHealth || {})[jid];
+      if (!h || (h.sent + h.failed) === 0) return '';
+      if (h.status === 'paused') return ` <span style="background:#dc2626; color:white; padding:2px 7px; border-radius:12px; font-size:10px; font-weight:700;" title="Varusa failures — auto-paused">🔴 PAUSED</span> <button class="btn btn-outline" style="padding:1px 6px; font-size:10px;" onclick="resetGroupHealth('${jid}')">Reset</button>`;
+      const col = h.status === 'good' ? '#059669' : '#d97706';
+      return ` <span style="background:${col}; color:white; padding:2px 7px; border-radius:12px; font-size:10px; font-weight:700;" title="Delivery success ${h.rate}% (${h.sent} sent, ${h.failed} failed)">📶 ${h.rate}%</span>`;
+    }
+    async function resetGroupHealth(jid) {
+      try { await fetch('/api/whatsapp/group_health_reset', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({jid})}); } catch (e) {}
+      loadWAGroups();
+    }
+    async function runWaPreview() {
+      const box = document.getElementById('wa-safety-detail'); if (!box) return;
+      box.innerHTML = '👀 Preview tayaravthundi…';
+      try {
+        const r = await fetch('/api/whatsapp/preview?count=2'); const d = await r.json();
+        const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+        box.innerHTML = `<b style="color:#38bdf8;">👀 Broadcast Preview</b> <span style="color:var(--text-muted);">${d.groups_total} groups ki ilane velthundi (sample ${d.samples.length} groups · emi send avvadhu)</span>` +
+          (d.samples || []).map(s => `<div style="background:#050811; border:1px solid var(--border); border-radius:8px; padding:9px 11px; margin-top:7px;"><b>${esc(s.group)}</b> <span style="color:#64748b;">· ${s.style}</span>${s.messages.map(t => `<pre style="white-space:pre-wrap; font-size:11px; color:#cbd5e1; margin:6px 0; font-family:inherit;">${esc(t)}</pre>`).join('')}</div>`).join('');
+      } catch (e) { box.innerHTML = '❌ ' + e; }
+    }
+
     async function loadWAGroups() {
+      loadHallOfFame();
+      try { const hr = await fetch('/api/whatsapp/group_health'); const hd = await hr.json(); window._waHealth = hd.health || {}; } catch (e) { window._waHealth = {}; }
       const res = await fetch('/api/whatsapp/groups');
       const d = await res.json();
       const tbody = document.querySelector('#table-wa-groups tbody');
@@ -2309,7 +2987,7 @@ All candidates must join today before 9:00 PM!"></textarea>
         tr.innerHTML = `
           <td><input type="checkbox" class="wa-group-select-checkbox" data-gid="${g.id}" onchange="updatePlannerSelectionCount()"></td>
           <td>${g.id}</td>
-          <td><b>${g.name}</b></td>
+          <td>${(g.jid || '').endsWith('@newsletter') ? '📣 <span style="background:#7c3aed; color:white; padding:2px 7px; border-radius:12px; font-size:10px; font-weight:700;">CHANNEL</span> ' : ''}<b>${g.name}</b>${waHealthBadge(g.jid)}</td>
           <td>
             <div style="display:flex; align-items:center; gap:6px;">
               <select style="margin:0; padding:4px 8px; font-size:11px; background:#0f172a; border:1px solid #38bdf8; color:#f8fafc; border-radius:6px; font-weight:600;" onchange="updateGroupExamCategory('${g.id}', this.value)">
@@ -2634,6 +3312,7 @@ All candidates must join today before 9:00 PM!"></textarea>
       const qCount = parseInt(document.getElementById('sb-count').value) || 5;
       const label = document.getElementById('sb-label').value.trim();
       const subjects = Array.from(document.querySelectorAll('.sb-subj:checked')).map(c => c.value);
+      (document.getElementById('sb-subj-custom').value || '').toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean).forEach(s => subjects.push(s));
       const weekdays = Array.from(document.querySelectorAll('.sb-weekday:checked')).map(c => Number(c.value));
       const cat = document.getElementById('wa-target-category').value;
       const gids = getSelectedGroupIds();
@@ -3425,6 +4104,8 @@ All candidates must join today before 9:00 PM!"></textarea>
       if (!college) return alert('College name ఎంటర్ చేయండి!');
       if (!district) return alert('District ఎంటర్ చేయండి!');
       const nq = parseInt(document.getElementById('campus-nq').value || '10', 10);
+      const startAt = document.getElementById('campus-start-at')?.value || '';
+      const neg = parseInt(document.getElementById('campus-neg')?.value || '0', 10);
       const level = document.getElementById('campus-level').value || 'easy';
       const subjects = [];
       if (document.getElementById('subj-reasoning')?.checked) subjects.push('reasoning');
@@ -3440,21 +4121,35 @@ All candidates must join today before 9:00 PM!"></textarea>
       try {
         const res = await fetch('/api/campus/create', {
           method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({college, district, n_q: nq, level, subjects})
+          body: JSON.stringify({college, district, n_q: nq, level, subjects, start_at: startAt, neg})
         });
         const d = await res.json();
         if (!d.ok) { card.innerHTML = '<div style="color:#ef4444;">❌ ' + (d.error || 'Failed') + '</div>'; return; }
         card.innerHTML = `
           <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
-            <img src="${d.qr}" style="width:150px; height:150px; border-radius:8px; background:white; padding:5px; border:2px solid #10b981;">
+            <img src="${d.web_qr || d.qr}" onerror="this.outerHTML='<div style=\"color:#facc15; font-size:12px;\">⚠️ QR unavailable — use the join link.</div>'" style="width:150px; height:150px; border-radius:8px; background:white; padding:5px; border:2px solid #10b981;">
             <div style="flex:1; min-width:200px;">
               <div style="font-size:14px; font-weight:800; color:#10b981;">✅ ${d.college} — Exam Ready!</div>
-              <div style="margin:6px 0; font-size:12px;">Code: <b style="color:#facc15;">${d.code}</b></div>
-              <div style="font-size:11px; word-break:break-all; color:#38bdf8;">${d.link}</div>
+              <div style="margin:6px 0; font-size:12px;">Code: <b style="color:#facc15;">${d.code}</b>${d.colleges && d.colleges.length > 1 ? ` · 🏫 ${d.colleges.join(' vs ')}` : ''}</div>
+              <div style="font-size:11px; word-break:break-all; color:#10b981;">🌐 ${d.web_link || d.link}</div>
+              <div style="font-size:11px; word-break:break-all; color:#38bdf8;">🤖 ${d.link}</div>
               <div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">
-                <button class="btn btn-accent" style="padding:4px 10px; font-size:11px;" onclick="navigator.clipboard.writeText('${d.link}').then(()=>alert('✅ Link copied!'))">📋 Copy Link</button>
-                <a href="${d.qr}" target="_blank" class="btn btn-outline" style="padding:4px 10px; font-size:11px; text-decoration:none;">🖼️ Full-Size QR</a>
-                <a href="https://wa.me/?text=${encodeURIComponent('🏫 ' + d.college + ' Exam! Join: ' + d.link)}" target="_blank" class="btn btn-purple" style="padding:4px 10px; font-size:11px; text-decoration:none;">📲 Share on WhatsApp</a>
+                <button class="btn btn-accent" style="padding:4px 10px; font-size:11px;" onclick="navigator.clipboard.writeText('${d.web_link || d.link}').then(()=>alert('✅ Web Link copied!'))">🌐 Copy Web Link</button>
+                <button class="btn btn-outline" style="padding:4px 10px; font-size:11px;" onclick="navigator.clipboard.writeText('${d.link}').then(()=>alert('✅ Telegram Link copied!'))">🤖 Telegram Link</button>
+                <button class="btn btn-outline" style="padding:4px 10px; font-size:11px;" onclick="navigator.clipboard.writeText(decodeURIComponent('${encodeURIComponent(d.poster || d.link)}')).then(()=>alert('✅ Poster copied — WhatsApp groups lo paste cheyyandi!'))">📢 Copy WhatsApp Poster</button>
+                ${d.start_at ? `<span style="font-size:11px; color:#facc15;">⏰ Auto-start: ${d.start_at.replace('T', ' ')}</span>` : ''}
+                ${d.neg ? `<span style="font-size:11px; color:#f87171;">⚠️ Negative marking: −${d.neg} pt / wrong answer</span>` : ''}
+                <a href="${d.web_qr || d.qr}&dl=1" class="btn btn-outline" style="padding:4px 10px; font-size:11px; text-decoration:none;">📥 Download Web QR</a>
+                <button class="btn btn-primary" style="padding:4px 10px; font-size:11px;" onclick="startCampusExam('${d.code}')">🚀 Start Exam</button>
+                <button class="btn btn-accent" style="padding:4px 10px; font-size:11px;" onclick="viewCampusReport('${d.code}')">📊 Marks</button>
+                <a href="https://wa.me/?text=${encodeURIComponent('🏫 ' + d.college + ' Exam — browser lone rayachu, app akkarledu! Join: ' + (d.web_link || d.link))}" target="_blank" class="btn btn-purple" style="padding:4px 10px; font-size:11px; text-decoration:none;">📲 Share on WhatsApp</a>
+              </div>
+              ${d.bot_warning ? `<div style="margin-top:8px; color:#facc15; font-size:11px;">⚠️ ${d.bot_warning}</div>` : ''}
+              <div style="margin-top:8px; font-size:11px; color:var(--text-muted); line-height:1.7;">
+                <b style="color:#e2e8f0;">Next steps:</b> 1️⃣ QR/link ni WhatsApp group lo share cheyyandi →
+                2️⃣ Students scan chesi <b style="color:#10b981;">browser lone peru + mobile</b> istharu (Telegram app akkarledu!) — Telegram unna vallu 🤖 Telegram Link kuda vadachu, rendu okkate exam →
+                3️⃣ Hall ready ayyaka mee <b>🚀 Start Exam</b> →
+                4️⃣ Exam ayyaka <b>📊 Marks</b> lo అందరి results + Excel download.
               </div>
             </div>
           </div>`;
@@ -3464,7 +4159,80 @@ All candidates must join today before 9:00 PM!"></textarea>
       }
     }
 
+    async function startCampusExam(code) {
+      if (!confirm('🚀 ' + code + ' exam ippude start cheyyala? Join ayyi registration complete chesina students andhariki bot lo questions vastayi.')) return;
+      const card = document.getElementById('campus-active-card');
+      try {
+        const res = await fetch('/api/campus/start', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({code})});
+        const d = await res.json();
+        if (d.ok) {
+          card.innerHTML = '<div style="color:#10b981; font-size:13px;">🚀 <b>Exam LIVE!</b> ' + (d.info?.players ?? '') + ' students ki ' + (d.info?.questions ?? '') + ' questions vellthunnayi. Control Room open avthundi…</div>';
+          watchCampusLive(code);
+        } else {
+          card.innerHTML = '<div style="color:#facc15; font-size:13px;">⏸️ Start avvaledu: ' + (d.message || 'unknown') + '<br><span style="color:var(--text-muted);">కనీసం 2 students QR scan chesi registration complete cheyyali.</span></div>';
+        }
+        loadCampusEvents();
+      } catch (e) { card.innerHTML = '<div style="color:#ef4444;">❌ ' + e + '</div>'; }
+    }
+
+    let campusLiveTimer = null;
+    let campusLiveCode = '';
+    function stopCampusLive() { if (campusLiveTimer) { clearInterval(campusLiveTimer); campusLiveTimer = null; } }
+    async function watchCampusLive(code) {
+      stopCampusLive(); campusLiveCode = code;
+      const card = document.getElementById('campus-active-card');
+      const render = async () => {
+        try {
+          const res = await fetch('/api/campus/live?code=' + encodeURIComponent(code));
+          const d = await res.json();
+          if (!d.ok) { card.innerHTML = '<div style="color:#ef4444;">❌ Live data ledu</div>'; stopCampusLive(); return; }
+          const L = d.live;
+          if (L.state === 'done') { stopCampusLive(); viewCampusReport(code); return; }
+          const pct = L.n_q ? Math.round(100 * (L.qi - (L.state === 'question' ? 1 : 0)) / L.n_q) : 0;
+          const rows = (L.players || []).map((pl, i) => `<tr><td style="padding:2px 8px;">${['🥇','🥈','🥉'][i] || (i + 1)}</td><td style="padding:2px 8px;"><b>${pl.name}</b></td><td style="padding:2px 8px; color:#64748b;">${pl.college || ''}</td><td style="padding:2px 8px; color:#38bdf8;"><b>${pl.pts}</b> pts</td><td style="padding:2px 8px;">${pl.correct} ✅</td></tr>`).join('');
+          card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; align-items:center;">
+              <div style="font-size:14px; font-weight:800; color:#f87171;">🔴 LIVE — ${L.name}</div>
+              <div style="font-size:11px; color:var(--text-muted);">${L.shuffle ? '🔀 Anti-copy shuffle ON · ' : ''}👥 ${L.joined} students</div>
+            </div>
+            <div style="margin:8px 0; font-size:12px;">Question <b style="color:#facc15;">${L.qi}/${L.n_q}</b> · Answered now: <b style="color:#10b981;">${L.answered_now}/${L.joined}</b>${L.ends_in != null && L.state === 'question' ? ` · ⏱ ${L.ends_in}s left` : ''}</div>
+            <div style="background:#1e293b; border-radius:99px; height:10px; overflow:hidden;"><div style="width:${pct}%; height:100%; background:linear-gradient(90deg,#10b981,#38bdf8);"></div></div>
+            ${rows ? `<table style="width:100%; font-size:12px; border-collapse:collapse; margin-top:8px;"><tbody>${rows}</tbody></table>` : '<div style="font-size:12px; color:#64748b; margin-top:8px;">Answers vastunnayi…</div>'}
+            <div style="display:flex; gap:6px; margin-top:10px; flex-wrap:wrap;">
+              <button class="btn btn-accent" style="padding:4px 10px; font-size:11px;" onclick="controlCampus('${code}', 'next')">⏭ Next Question</button>
+              <button class="btn btn-primary" style="padding:4px 10px; font-size:11px; background:#dc2626;" onclick="if(confirm('Exam ippude aapeyyala? Results ventane vellipothayi.')) controlCampus('${code}', 'finish')">🏁 Finish Exam Now</button>
+              <button class="btn btn-outline" style="padding:4px 10px; font-size:11px;" onclick="stopCampusLive()">⏸ Stop Watching</button>
+            </div>`;
+        } catch (e) { /* next tick retries */ }
+      };
+      render();
+      campusLiveTimer = setInterval(render, 5000);
+    }
+
+    async function controlCampus(code, action) {
+      try {
+        const res = await fetch('/api/campus/control', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({code, action})});
+        const d = await res.json();
+        if (!d.ok) alert('❌ ' + (d.message || 'control failed'));
+        if (action === 'finish') { stopCampusLive(); setTimeout(() => viewCampusReport(code), 1200); loadCampusEvents(); }
+      } catch (e) { alert('❌ ' + e); }
+    }
+
+    async function loadCampusLeague() {
+      const box = document.getElementById('campus-league-box');
+      if (!box) return;
+      try {
+        const res = await fetch('/api/campus/league');
+        const d = await res.json();
+        const rows = d.league || [];
+        if (!rows.length) { box.innerHTML = 'Inka okka exam kuda complete avvaledu — first exam ayyaka league ikkada kanipisthundi.'; return; }
+        box.innerHTML = '<table style="width:100%; font-size:12px; border-collapse:collapse;"><thead><tr style="color:#64748b;"><th style="text-align:left; padding:3px 8px;">#</th><th style="text-align:left; padding:3px 8px;">College</th><th style="text-align:left; padding:3px 8px;">🏆 Wins</th><th style="text-align:left; padding:3px 8px;">Exams</th><th style="text-align:left; padding:3px 8px;">Students</th><th style="text-align:left; padding:3px 8px;">Avg Accuracy</th></tr></thead><tbody>' +
+          rows.map((r, i) => `<tr><td style="padding:3px 8px;">${['🥇','🥈','🥉'][i] || (i + 1)}</td><td style="padding:3px 8px;"><b style="color:#e2e8f0;">${r.college}</b></td><td style="padding:3px 8px; color:#facc15;"><b>${r.wins}</b></td><td style="padding:3px 8px;">${r.events}</td><td style="padding:3px 8px;">${r.students}</td><td style="padding:3px 8px; color:#38bdf8;">${r.avg_acc}%</td></tr>`).join('') + '</tbody></table>';
+      } catch (e) { box.innerHTML = 'League load avvaledu.'; }
+    }
+
     async function viewCampusReport(code) {
+      stopCampusLive();
       const card = document.getElementById('campus-active-card');
       card.innerHTML = '<div style="color:#38bdf8;">⏳ Loading report for ' + code + '...</div>';
       try {
@@ -3473,15 +4241,41 @@ All candidates must join today before 9:00 PM!"></textarea>
         const rep = d.report;
         if (!rep) { card.innerHTML = '<div style="color:#ef4444;">❌ Report not found for ' + code + '</div>'; return; }
         const players = rep.players || rep.top_players || [];
-        let rows = players.slice(0, 15).map((pl, i) =>
-          `<tr><td style="padding:3px 8px;">${i + 1}</td><td style="padding:3px 8px;"><b>${pl.name || pl.user || '—'}</b></td><td style="padding:3px 8px; color:#38bdf8;">${pl.score ?? pl.points ?? 0}</td></tr>`).join('');
+        let rows = players.slice(0, 50).map((pl, i) =>
+          `<tr><td style="padding:3px 8px;">${['🥇','🥈','🥉'][i] || (i + 1)}</td><td style="padding:3px 8px;"><b>${pl.name || pl.user || '—'}</b>${pl.college ? ' <span style="color:#64748b;">· ' + pl.college + '</span>' : ''}</td><td style="padding:3px 8px; color:#38bdf8;"><b>${pl.score ?? pl.points ?? 0}/${pl.total ?? rep.n_q ?? ''}</b></td><td style="padding:3px 8px; color:#a78bfa;">${pl.pts ?? ''} pts</td></tr>`).join('');
         card.innerHTML = `
           <div style="font-size:14px; font-weight:800; color:#38bdf8;">📋 ${rep.name || code} — Principal Report</div>
-          <div style="font-size:12px; color:var(--text-muted); margin:6px 0;">District: ${rep.district || '—'} · Students: <b style="color:#10b981;">${rep.players_count ?? players.length}</b> · Status: ${rep.state || '—'}</div>
-          ${rows ? `<table style="width:100%; font-size:12px; border-collapse:collapse; margin-top:6px;"><thead><tr style="color:#64748b;"><th style="text-align:left; padding:3px 8px;">#</th><th style="text-align:left; padding:3px 8px;">Student</th><th style="text-align:left; padding:3px 8px;">Score</th></tr></thead><tbody>${rows}</tbody></table>` : '<div style="font-size:12px; color:#64748b; margin-top:8px;">ఇంకా students join అవ్వలేదు — QR scan చేయగానే ఇక్కడ కనిపిస్తారు.</div>'}`;
+          <div style="font-size:12px; color:var(--text-muted); margin:6px 0;">District: ${rep.district || '—'} · Joined: <b style="color:#10b981;">${rep.players_count ?? players.length}</b> · Answered: <b style="color:#10b981;">${rep.answered ?? players.length}</b> · Class Average: <b style="color:#facc15;">${rep.average_pct ?? 0}%</b> · Status: ${rep.state || '—'} &nbsp; <a href="/api/campus/excel?code=${code}" class="btn btn-outline" style="padding:2px 8px; font-size:11px; text-decoration:none;">⬇ Excel Marks Sheet</a> <button class="btn btn-outline" style="padding:2px 8px; font-size:11px;" onclick="retestCampus('${code}')">🔁 Retest (same settings)</button> <a href="/api/campus/poster?code=${code}" class="btn btn-outline" style="padding:2px 8px; font-size:11px; text-decoration:none;">🖼️ Result Poster</a>${rep.neg ? ` · <span style="color:#f87171;">⚠️ −${rep.neg}/wrong</span>` : ''}</div>
+          ${rows ? `<table style="width:100%; font-size:12px; border-collapse:collapse; margin-top:6px;"><thead><tr style="color:#64748b;"><th style="text-align:left; padding:3px 8px;">#</th><th style="text-align:left; padding:3px 8px;">Student</th><th style="text-align:left; padding:3px 8px;">Score</th></tr></thead><tbody>${rows}</tbody></table>` : '<div style="font-size:12px; color:#64748b; margin-top:8px;">ఇంకా students join అవ్వలేదు — QR scan చేయగానే ఇక్కడ కనిపిస్తారు.</div>'}
+          ${(rep.topic_stats && rep.topic_stats.length) ? `<div style="margin-top:10px; font-size:12px;"><b style="color:#38bdf8;">📚 Topic Performance:</b>${rep.topic_stats.map(t => `<div style="margin:4px 0;">${t.topic} — <b style="color:${t.pct >= 60 ? '#10b981' : (t.pct >= 40 ? '#facc15' : '#f87171')};">${t.pct}%</b> <span style="color:#64748b;">(${t.correct}/${t.answered})</span><div style="background:#1e293b; border-radius:99px; height:6px;"><div style="width:${t.pct}%; height:100%; border-radius:99px; background:${t.pct >= 60 ? '#10b981' : (t.pct >= 40 ? '#facc15' : '#f87171')};"></div></div></div>`).join('')}</div>` : ''}
+          ${(rep.question_stats && rep.question_stats.length) ? `<div style="margin-top:8px; font-size:12px;"><b style="color:#f87171;">❌ Students ki kashtamaina questions:</b>${rep.question_stats.slice(0, 3).map(s => `<div style="color:var(--text-muted); margin:2px 0;">· ${s.pct}% correct — ${s.q}</div>`).join('')}</div>` : ''}`;
       } catch (e) {
         card.innerHTML = '<div style="color:#ef4444;">❌ ' + e + '</div>';
       }
+    }
+
+    async function retestCampus(code) {
+      if (!confirm('🔁 ' + code + ' settings tho kottha exam create cheyyala? (Same college, questions, level — students progress compare avthundi)')) return;
+      try {
+        const res = await fetch('/api/campus/retest', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({code})});
+        const d = await res.json();
+        if (!d.ok) return alert('❌ ' + (d.message || 'retest failed'));
+        const card = document.getElementById('campus-active-card');
+        card.innerHTML = `<div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
+          <img src="${d.qr}" style="width:130px; height:130px; border-radius:8px; background:white; padding:5px; border:2px solid #10b981;">
+          <div style="flex:1; min-width:200px;">
+            <div style="font-size:14px; font-weight:800; color:#10b981;">🔁 Retest Ready! New Code: ${d.code}</div>
+            <div style="font-size:11px; word-break:break-all; color:#38bdf8; margin:6px 0;">${d.link}</div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <a href="${d.qr}&dl=1" class="btn btn-outline" style="padding:4px 10px; font-size:11px; text-decoration:none;">📥 Download QR</a>
+              <button class="btn btn-accent" style="padding:4px 10px; font-size:11px;" onclick="navigator.clipboard.writeText('${d.link}').then(()=>alert('✅ Link copied!'))">📋 Copy Link</button>
+              <button class="btn btn-outline" style="padding:4px 10px; font-size:11px;" onclick="navigator.clipboard.writeText(window.location.origin + '/exam/${d.code}').then(()=>alert('✅ Web Link copied!'))">🌐 Copy Web Link</button>
+              <button class="btn btn-primary" style="padding:4px 10px; font-size:11px;" onclick="startCampusExam('${d.code}')">🚀 Start Exam</button>
+            </div>
+            <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">QR scan cheyyamani students ki cheppandi — hall ready ayyaka 🚀 Start nokkandi.</div>
+          </div></div>`;
+        loadCampusEvents();
+      } catch (e) { alert('❌ ' + e); }
     }
 
     async function loadCampusEvents() {
@@ -3501,11 +4295,17 @@ All candidates must join today before 9:00 PM!"></textarea>
           <td><span class="status-pill ${e.state === 'open' ? 'open' : 'closed'}">${e.state}</span></td>
           <td>
             <a href="${link}" target="_blank" class="btn btn-outline" style="padding:3px 7px; font-size:11px; text-decoration:none;">🔗 Link</a>
+            <a href="/exam/${e.code}" target="_blank" class="btn btn-outline" style="padding:3px 7px; font-size:11px; margin-left:4px; text-decoration:none;">🌐 Web Exam</a>
             <button class="btn btn-accent" style="padding:3px 7px; font-size:11px; margin-left:4px;" onclick="viewCampusReport('${e.code}')">📋 Report</button>
+            <a href="/api/campus/qr?code=${e.code}&dl=1" class="btn btn-outline" style="padding:3px 7px; font-size:11px; margin-left:4px; text-decoration:none;">📥 QR</a>
+            ${e.state === 'open' ? `<button class="btn btn-primary" style="padding:3px 7px; font-size:11px; margin-left:4px;" onclick="startCampusExam('${e.code}')">🚀 Start</button>` : ''}
+            ${(e.state === 'question' || e.state === 'gap') ? `<button class="btn btn-primary" style="padding:3px 7px; font-size:11px; margin-left:4px; background:#dc2626;" onclick="watchCampusLive('${e.code}')">🔴 Live</button>` : ''}
+            ${e.state === 'done' ? `<button class="btn btn-outline" style="padding:3px 7px; font-size:11px; margin-left:4px;" onclick="retestCampus('${e.code}')">🔁 Retest</button>` : ''}
           </td>
         `;
         tbody.appendChild(tr);
       });
+      loadCampusLeague();
     }
 
     async function loadBundles() {
@@ -3940,7 +4740,7 @@ All candidates must join today before 9:00 PM!"></textarea>
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td style="font-family:monospace;">${m.uid}</td>
-          <td><b>${m.name}</b></td>
+          <td><b>${m.name}</b>${m.weak_topic ? `<br><span style="font-size:11px; color:#f87171;">🎯 Weak: ${m.weak_topic}</span> <span style="font-size:11px; color:#64748b;">· ${m.accuracy}% acc</span>` : ''}</td>
           <td>${m.district || '—'}</td>
           <td><span class="category-tag">${m.exam || '—'}</span></td>
           <td style="color:var(--warning); font-weight:800; font-size:14px;">🏆 ${m.points}</td>
@@ -4027,7 +4827,445 @@ All candidates must join today before 9:00 PM!"></textarea>
       }
     }
 
+    function _splitSubjects(txt) {
+      return (txt || '').toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean);
+    }
+    async function loadSetupOptions() {
+      const sel = document.getElementById('ms-exam');
+      if (!sel || sel.options.length) { /* already filled */ }
+      try {
+        const r = await fetch('/api/setup/options');
+        const d = await r.json();
+        if (sel && !sel.options.length) {
+          sel.innerHTML = '<option value="AUTO">🤖 AUTO (name nunchi detect)</option>' +
+            (d.exams || []).map(e => '<option value="' + e + '">' + e + '</option>').join('') +
+            '<option value="CUSTOM">✏️ Custom exam (type cheyyandi)...</option>';
+        }
+        // Schedule Builder category dropdown loki kuda live exams add cheyyandi
+        const wsel = document.getElementById('wa-target-category');
+        if (wsel) {
+          const have = Array.from(wsel.options).map(o => o.value);
+          (d.exams || []).forEach(e => {
+            if (!have.includes(e)) {
+              const o = document.createElement('option'); o.value = e; o.textContent = '🎯 ' + e; wsel.appendChild(o);
+            }
+          });
+        }
+        const box = document.getElementById('ms-subjects');
+        if (box && !box.children.length) {
+          const icons = {MATHS:'🔢', REASONING:'🧠', GK:'🌍', CURRENT:'📰', ENGLISH:'🔤', SCIENCE:'🔬'};
+          box.innerHTML = (d.subjects || []).map(s =>
+            '<label style="display:flex; align-items:center; gap:4px;"><input type="checkbox" class="ms-subj" value="' + s + '">' +
+            (icons[s] || '📚') + ' ' + s + '</label>').join('');
+        }
+      } catch (e) { /* form works with defaults too */ }
+    }
+    function msExamChanged() {
+      const v = document.getElementById('ms-exam').value;
+      document.getElementById('ms-exam-custom').style.display = (v === 'CUSTOM') ? 'block' : 'none';
+    }
+    function msPlatformChanged() {
+      const v = document.getElementById('ms-platform').value;
+      const ll = document.getElementById('ms-link-label');
+      const sl = document.getElementById('ms-shift-label');
+      if (v === 'wa') {
+        ll.textContent = '🔗 Invite Link or JID';
+        document.getElementById('ms-link').placeholder = 'https://chat.whatsapp.com/... లేదా 1203...@g.us లేదా Channel JID: 1203...@newsletter';
+        sl.textContent = '⏰ Shift';
+      } else {
+        ll.textContent = '🔗 @username / t.me link / -100 ID';
+        document.getElementById('ms-link').placeholder = '@YourChannel or https://t.me/YourChannel or -1001234567890';
+        sl.textContent = '⏰ Shift (TG ki వర్తించదు)';
+      }
+    }
+    async function manualAddTarget() {
+      const box = document.getElementById('ms-result');
+      const plat = document.getElementById('ms-platform').value;
+      const name = document.getElementById('ms-name').value.trim();
+      const link = document.getElementById('ms-link').value.trim();
+      let exam = document.getElementById('ms-exam').value || 'AUTO';
+      if (exam === 'CUSTOM') exam = document.getElementById('ms-exam-custom').value.trim();
+      const subjects = Array.from(document.querySelectorAll('.ms-subj:checked')).map(c => c.value)
+        .concat(_splitSubjects(document.getElementById('ms-subj-custom').value));
+      if (!name || !link) { box.innerHTML = '<span style="color:#f87171;">❌ Name mariyu Link rendu ivvandi</span>'; return; }
+      box.innerHTML = '<span style="color:#fbbf24;">Adding...</span>';
+      try {
+        const r = await fetch('/api/setup/manual_add', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            platform: plat === 'wa' ? 'wa' : 'tg',
+            type: plat === 'tg-group' ? 'group' : (plat === 'tg-channel' ? 'channel' : document.getElementById('ms-type').value),
+            name, link, exam,
+            shift: document.getElementById('ms-shift').value,
+            times: document.getElementById('ms-times').value.trim(),
+            count: parseInt(document.getElementById('ms-count').value) || 5,
+            days: parseInt(document.getElementById('ms-days').value) || 0,
+            subjects
+          })
+        });
+        const d = await r.json();
+        let html = d.ok
+          ? '<span style="color:#34d399;">' + d.message + '</span>'
+          : '<span style="color:#f87171;">' + (d.message || 'Failed') + '</span>';
+        (d.errors || []).forEach(e => { html += '<br><span style="color:#f87171;">❌ ' + e.reason + '</span>'; });
+        (d.skipped_duplicates || []).forEach(e => { html += '<br><span style="color:#fbbf24;">⏭️ Duplicate: ' + e.name + '</span>'; });
+        box.innerHTML = html;
+        if (d.ok) {
+          document.getElementById('ms-name').value = '';
+          document.getElementById('ms-link').value = '';
+          if (typeof loadWAGroups === 'function') loadWAGroups();
+          if (typeof loadChannels === 'function') loadChannels();
+          if (typeof loadSchedules === 'function') loadSchedules();
+          if (typeof fetchStats === 'function') fetchStats();
+        }
+      } catch (e) { box.innerHTML = '<span style="color:#f87171;">❌ ' + e + '</span>'; }
+    }
+
+    async function loadVision() {
+      try {
+        const r = await fetch('/api/vision');
+        const d = await r.json();
+        const sc = document.getElementById('vision-score');
+        if (!sc) return;
+        sc.innerText = d.score + '/100';
+        sc.style.color = d.score >= 75 ? '#34d399' : (d.score >= 50 ? '#fbbf24' : '#f87171');
+        document.getElementById('vision-grade').innerText = '(' + d.grade + ')';
+        const c = d.pillars.content, rc = d.pillars.reach, e = d.pillars.engagement, cov = d.pillars.coverage;
+        const cell = (icon, title, lines) =>
+          '<div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px;">' +
+          '<div style="font-weight:800; margin-bottom:4px;">' + icon + ' ' + title + '</div>' + lines + '</div>';
+        document.getElementById('vision-pillars').innerHTML =
+          cell('📚', 'Content', 'Bank <b>' + c.bank_questions + '</b> · PYQ <b>' + c.pyq_questions + '</b> (' + c.pyq_share_pct + '%)<br>Weakest stock: ' + c.min_channel + ' = ' + c.min_unused + '<br>Sources live ' + c.sources_live + '/' + c.sources_total + ' · Papers ' + c.pyq_papers) +
+          cell('📡', 'Reach', rc.telegram_channels + ' TG channels · ' + rc.whatsapp_groups + ' WA groups<br>' + rc.members_registered + ' members · ' + rc.districts + ' districts') +
+          cell('🎯', 'Engagement', 'Last 7d LIVE polls: <b>' + e.week_polls_sent + '</b> (dry ' + e.week_dry_polls + ')<br>' + e.students_with_points + ' students with points (' + e.total_points + ' pts)') +
+          cell('🗓️', 'Coverage', cov.active_schedules + ' schedules (WA ' + cov.wa_jobs + ' · TG ' + cov.tg_jobs + ' · both ' + cov.both_jobs + ')<br>Autopilot leni channels: ' + cov.channels_without_autopilot.length);
+        document.getElementById('vision-actions').innerHTML = (d.actions || []).length
+          ? '<b style="color:#fbbf24;">👉 Next actions:</b><br>' + d.actions.map(a => '• ' + a).join('<br>')
+          : '<span style="color:#34d399;">✅ Anni pillars healthy!</span>';
+        document.getElementById('vision-next').innerText = '⏭️ Next collections today: ' + ((d.next_collections_today || []).join(', ') || '—');
+      } catch (e) { /* vision card is best-effort */ }
+    }
+
+    async function loadSetupWizard() {
+      const wrap = document.getElementById('wiz-steps');
+      if (!wrap) return;
+      wrap.innerHTML = '<div style="color:var(--text-muted); font-size:12px;">Checking...</div>';
+      const get = async (u) => { try { const r = await fetch(u); return await r.json(); } catch (e) { return {}; } };
+      const [health, bridges, chans, scheds, vision, retry, waGroups] = await Promise.all([
+        get('/api/health'), get('/api/whatsapp/bridges'), get('/api/channels'),
+        get('/api/whatsapp/schedules'), get('/api/vision'),
+        get('/api/whatsapp/retry_queue'), get('/api/whatsapp/groups')]);
+      const bList = bridges.bridges || [];
+      const waConnected = bList.some(b => b.connected);
+      const chCount = Object.keys(chans.channels || {}).length;
+      const jobs = (scheds.jobs || []).filter(j => j.enabled !== false);
+      const waJobs = jobs.filter(j => (j.mode || 'wa') !== 'tg').length;
+      const tgJobs = jobs.filter(j => j.mode === 'tg').length;
+      const waActive = (waGroups.groups || []).filter(g => g.active !== false).length;
+      const card = (ok, warn, icon, title, detail, btnTab, btnTxt) => {
+        const st = ok ? ['✅', '#34d399', 'READY'] : (warn ? ['⚠️', '#fbbf24', 'PARTIAL'] : ['⭕', '#f87171', 'PENDING']);
+        return '<div style="background:#0b1329; border:1px solid ' + st[1] + '55; border-radius:10px; padding:13px;">' +
+          '<div style="display:flex; justify-content:space-between; align-items:center;"><b style="font-size:13px;">' + icon + ' ' + title + '</b>' +
+          '<span style="font-size:10px; font-weight:800; color:' + st[1] + ';">' + st[0] + ' ' + st[2] + '</span></div>' +
+          '<div style="font-size:12px; color:var(--text-muted); margin:7px 0; min-height:32px;">' + detail + '</div>' +
+          '<button class="btn btn-outline" style="padding:5px 11px; font-size:11.5px;" onclick="switchTab(\'' + btnTab + '\')">' + btnTxt + '</button></div>';
+      };
+      const steps = [
+        card(!!health.telegram_live, chCount > 0, '🤖', '1. Telegram Bot',
+          health.telegram_live ? 'Bot token LIVE · ' + chCount + ' channels/groups registered' : 'BOT_TOKEN set cheyyandi (env/.env) — tarvata bot ni channels lo admin cheyyandi',
+          'tab-dynamic-channels', '📢 Channels Tab'),
+        card(waConnected, bList.some(b => b.online), '💚', '2. WhatsApp Bridge',
+          waConnected ? 'Connected: ' + (bList.filter(b => b.connected).map(b => b.phone || b.session || 'number').join(', ')) + ' · Pool: ' + bList.length + ' number(s)' + ((retry.count || 0) ? ' · 🔁 ' + retry.count + ' retry pending' : '') : (bList.some(b => b.online) ? 'Bridge run avuthondi kani WhatsApp link ledu — QR scan cheyyandi' : 'Bridge offline — start_all.sh lo automatic ga start avuthundi'),
+          'tab-wa-dispatch', '🛡️ WhatsApp Tab (QR)'),
+        card((chCount > 0 && waActive > 0), (chCount > 0 || waActive > 0), '🎯', '3. Targets (Groups/Channels)',
+          chCount + ' Telegram targets · ' + waActive + ' WhatsApp groups active — Excel leda Manual form tho add cheyyandi',
+          'tab-excel-import', '📊 Excel / Manual Setup'),
+        card(jobs.length > 0, false, '🗓️', '4. Timings & Schedules',
+          jobs.length ? jobs.length + ' active schedule(s) — WA ' + waJobs + ' · TG ' + tgJobs + ' · anni automatic ga post avuthaayi' : 'Inka okka schedule kuda ledu — timings set cheste roju automatic posts!',
+          'tab-wa-dispatch', '⏰ Schedule Builder'),
+        card((vision.score || 0) >= 50, (vision.score || 0) >= 25, '🎯', '5. Vision Health',
+          'Vision Score: <b>' + (vision.score ?? '…') + '/100 (' + (vision.grade || '-') + ')</b>' + ((vision.actions || []).length ? '<br>Next: ' + vision.actions[0] : '<br>Anni pillars healthy!'),
+          'tab-bulk-broadcast', '🏠 Home (Vision Card)'),
+      ];
+      const done = steps.filter(s => s.includes('READY')).length;
+      document.getElementById('wiz-progress').style.width = (done * 20) + '%';
+      wrap.innerHTML = steps.join('');
+      document.getElementById('wiz-actions').innerHTML = (vision.actions || []).length
+        ? '<b style="color:#fbbf24;">👉 System cheppe next actions:</b><br>' + vision.actions.map(a => '• ' + a).join('<br>')
+        : '<span style="color:#34d399;">🎉 Anni steps ready — system full automatic ga nadusthundi!</span>';
+    }
+
+    async function loadItemIntel() {
+      const box = document.getElementById('item-intel-body');
+      if (!box) return;
+      try {
+        const r = await fetch('/api/item_intel');
+        const d = await r.json();
+        const row = (q, color, btn) =>
+          '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:5px 8px; background:rgba(255,255,255,0.03); border-radius:6px; margin-top:5px;">' +
+          '<span><b style="color:' + color + ';">' + q.qid + '</b> <span style="color:var(--text-muted);">[' + (q.channel || '') + '/' + (q.topic || '') + '] ' +
+          q.correct + '/' + q.attempts + ' correct (' + Math.round((q.rate || 0) * 100) + '%)</span></span>' + btn + '</div>';
+        let html = 'Tracked: <b>' + d.tracked_questions + '</b> questions · 🚫 quarantined: <b style="color:#f87171;">' + d.suspect_count + '</b> · 😴 too-easy: <b>' + d.too_easy_count + '</b>';
+        (d.suspect_key || []).forEach(q => {
+          html += row(q, '#f87171;', '<button class="btn btn-outline" style="padding:3px 9px; font-size:11px;" onclick="resetItemStats(\'' + q.qid + '\')">🔓 Key fix chesa → Reset</button>');
+        });
+        (d.too_easy || []).slice(0, 5).forEach(q => { html += row(q, '#fbbf24', ''); });
+        if (!d.suspect_count && !d.too_easy_count) html += '<div style="margin-top:6px; color:#34d399;">✅ Quality issues levu — answers vache koddi ikkada kanipisthayi.</div>';
+        box.innerHTML = html;
+      } catch (e) { box.innerHTML = '❌ ' + e; }
+    }
+    async function resetItemStats(qid) {
+      if (!confirm(qid + ' stats reset cheyyala? (key fix ayyindi anukunte matrame)')) return;
+      try {
+        const r = await fetch('/api/item_intel/reset', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({qid})});
+        const d = await r.json();
+        alert(d.message || 'done');
+        loadItemIntel();
+      } catch (e) { alert('❌ ' + e); }
+    }
+
+    let _pulseBase = 0;
+    function _inr(n) { return '₹' + Number(n || 0).toLocaleString('en-IN'); }
+    function pulseRecompute() {
+      const price = parseFloat(document.getElementById('pulse-price').value) || 0;
+      const conv = parseFloat(document.getElementById('pulse-conv').value) || 0;
+      const paying = Math.round(_pulseBase * conv / 100);
+      const mrr = paying * price;
+      document.getElementById('pulse-proj').innerHTML =
+        'Base: <b>' + _pulseBase + '</b> members × ' + conv + '% → <b>' + paying + ' paying</b> → ' +
+        '<b style="color:#34d399;">' + _inr(mrr) + '/month</b> · ' + _inr(mrr * 12) + '/year ' +
+        '<span style="color:var(--text-muted);">(projection matrame — real billing start ayyaka actuals ikkada)</span>';
+    }
+    async function loadPulse() {
+      try {
+        const r = await fetch('/api/pulse');
+        const d = await r.json();
+        const f = d.funnel, e = d.economy, p = d.planner;
+        _pulseBase = p.base_members;
+        const card = (label, val, sub) => '<div class="stat-card"><div class="label">' + label + '</div><div class="val">' + val + '</div><div style="font-size:11px; color:var(--text-muted);">' + (sub || '') + '</div></div>';
+        document.getElementById('pulse-cards').innerHTML =
+          card('GROWTH SCORE', d.growth_score + '/100', 'activation+activity+referrals') +
+          card('REGISTERED', f.registered, f.activated + ' activated (' + f.activation_pct + '%)') +
+          card('ACTIVE 7D', f.active_7d, f.active_today + ' today') +
+          card('REFERRAL JOINS', f.referred_members, f.total_referral_activated + ' activated · ' + f.referrers + ' referrers');
+        const bar = (label, v, total) => {
+          const pct = total ? Math.round(100 * v / total) : 0;
+          return '<div style="margin-top:5px;">' + label + ': <b>' + v + '</b> <span style="color:var(--text-muted);">(' + pct + '%)</span>' +
+            '<div style="height:7px; background:rgba(255,255,255,0.08); border-radius:4px;"><div style="height:7px; width:' + pct + '%; background:linear-gradient(90deg,#38bdf8,#34d399); border-radius:4px;"></div></div></div>';
+        };
+        document.getElementById('pulse-funnel').innerHTML =
+          bar('Registered', f.registered, f.registered) + bar('Activated (≥1 answer)', f.activated, f.registered) +
+          bar('Active last 7 days', f.active_7d, f.registered) + bar('Came via referral', f.referred_members, f.registered);
+        document.getElementById('pulse-referrers').innerHTML = (f.top_referrers.length ? f.top_referrers.map(x =>
+          '<div style="padding:4px 8px; background:rgba(255,255,255,0.03); border-radius:6px; margin-top:4px;">' +
+          (x.tier ? x.tier + ' ' : '') + '<b>' + x.name + '</b> <span style="color:var(--text-muted);">' + (x.district || '') +
+          ' · ' + x.referrals + ' friends · ' + x.activated + ' activated</span></div>').join('')
+          : '<span style="color:var(--text-muted);">Inka referrers leru — students /invite vadithe ikkada kanipistharu.</span>');
+        document.getElementById('pulse-economy').innerHTML =
+          '🏪 ' + e.partners + ' partners · 🎁 ' + e.offers + ' offers · ✅ ' + e.vouchers_used + ' redeemed · ⏳ ' +
+          e.vouchers_held + ' pending at shops (' + e.points_held_at_shops + ' pts) · 🪙 ' + e.points_in_circulation +
+          ' pts circulation · 🎟 ' + e.points_redeemed + ' pts redeemed all-time';
+        document.getElementById('pulse-plan-name').value = p.plan_name || '';
+        document.getElementById('pulse-price').value = p.price_inr;
+        document.getElementById('pulse-conv').value = p.conversion_pct;
+        pulseRecompute();
+      } catch (e) {
+        document.getElementById('pulse-cards').innerHTML = '<div style="color:#f87171; font-size:12px;">❌ ' + e + '</div>';
+      }
+    }
+    async function savePulseSettings() {
+      try {
+        const body = {plan_name: document.getElementById('pulse-plan-name').value,
+                      price_inr: parseInt(document.getElementById('pulse-price').value) || 0,
+                      conversion_pct: parseFloat(document.getElementById('pulse-conv').value) || 0};
+        const r = await fetch('/api/pulse/settings', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+        const d = await r.json();
+        if (d && d.planner) { alert('✅ Planner assumptions save ayyayi — base: ' + d.planner.base_members + ' members'); loadPulse(); }
+        else alert('❌ save avvaledu');
+      } catch (e) { alert('❌ ' + e); }
+    }
+
+    async function loadProOps() {
+      const dot = s => s === 'ok' ? '🟢' : (s === 'warn' ? '🟡' : '🔴');
+      try {
+        const [h, m, f, a] = await Promise.all([
+          fetch('/api/health/full').then(r => r.json()),
+          fetch('/api/metrics').then(r => r.json()),
+          fetch('/api/flags').then(r => r.json()),
+          fetch('/api/audit').then(r => r.json())]);
+        document.getElementById('proops-health').innerHTML =
+          '<div style="margin-bottom:8px;">Overall: <b>' + dot(h.overall) + ' ' + String(h.overall || '').toUpperCase() + '</b>' +
+          ' · uptime ' + (h.uptime_min || 0) + ' min · Python ' + (h.system ? h.system.python : '?') + ' · ' + (h.generated_at || '') + '</div>' +
+          (h.checks || []).map(c => '<div style="padding:4px 8px; background:rgba(255,255,255,0.03); border-radius:6px; margin-top:4px;">' +
+            dot(c.status) + ' <b>' + c.name + '</b> <span style="color:var(--text-muted);">' + c.detail + '</span></div>').join('');
+        const c = m.counters || {}, d = m.delivery || {};
+        const card = (label, val, sub) => '<div class="stat-card"><div class="label">' + label + '</div><div class="val">' + val + '</div><div style="font-size:11px; color:var(--text-muted);">' + (sub || '') + '</div></div>';
+        document.getElementById('proops-metrics').innerHTML =
+          card('WA DELIVERY', (d.success_pct === null || d.success_pct === undefined) ? '—' : d.success_pct + '%', d.sent + ' sent · ' + d.failed + ' failed') +
+          card('ANSWERS TODAY', (m.today || {}).answers || 0, ((m.today || {}).answers_correct || 0) + ' correct today') +
+          card('ANSWERS (ALL-TIME)', c.answers || 0, 'metrics start: ' + String(m.started_at || '').slice(0, 10)) +
+          card('RETRIES QUEUED (LIFETIME)', c.wa_retry_enqueued || 0, 'failed sends auto-retry count');
+        const s = (m.hourly_series || {}).answers || {values: [], labels: []};
+        const mx = Math.max(1, ...s.values);
+        document.getElementById('proops-chart').innerHTML = s.values.map((v, i) =>
+          '<div title="' + (s.labels[i] || '') + ': ' + v + '" style="flex:1; min-height:2px; height:' + Math.max(3, Math.round(58 * v / mx)) +
+          'px; background:linear-gradient(180deg,#38bdf8,#2563eb); border-radius:2px;"></div>').join('') ||
+          '<span style="color:var(--text-muted);">Inka data ledu</span>';
+        document.getElementById('proops-flags').innerHTML = (f.flags || []).map(x =>
+          '<div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:6px 8px; background:rgba(255,255,255,0.03); border-radius:6px; margin-top:5px;">' +
+          '<span><b>' + x.label + '</b>' + (x.overridden ? ' <span style="color:#fbbf24;">(override)</span>' : '') +
+          '<br><span style="color:var(--text-muted);">' + x.desc + '</span></span>' +
+          '<label style="display:flex; align-items:center; gap:6px; white-space:nowrap;">' +
+          '<input type="checkbox" ' + (x.enabled ? 'checked' : '') + ' onchange="toggleFlag(\'' + x.name + '\', this.checked)"> ' +
+          (x.enabled ? 'ON' : 'OFF') + '</label></div>').join('');
+        document.getElementById('proops-audit').innerHTML = (a.entries || []).length ? (a.entries || []).map(e =>
+          '<div style="padding:4px 8px; background:rgba(255,255,255,0.03); border-radius:6px; margin-top:4px;">' +
+          '<span style="color:var(--text-muted);">' + e.ts + '</span> <b>' + e.action + '</b> ' +
+          '<span style="color:var(--text-muted);">' + (e.detail || '') + '</span></div>').join('')
+          : '<span style="color:var(--text-muted);">Inka audit entries levu — dashboard actions ikkada record avuthayi.</span>';
+      } catch (e) {
+        document.getElementById('proops-health').innerHTML = '<span style="color:#f87171;">❌ ' + e + '</span>';
+      }
+    }
+    async function toggleFlag(name, enabled) {
+      try {
+        const r = await fetch('/api/flags', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name, enabled})});
+        const d = await r.json();
+        if (!d.ok) alert('❌ Flag update avvaledu');
+        loadProOps();
+      } catch (e) { alert('❌ ' + e); }
+    }
+    setInterval(() => {
+      const pane = document.getElementById('tab-proops');
+      if (pane && pane.classList.contains('active')) loadProOps();
+    }, 30000);
+
+    function applySmartHour(h) {
+      const el = document.getElementById('cd-when');
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      d.setHours(h, 0, 0, 0);
+      const p2 = n => String(n).padStart(2, '0');
+      el.value = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + 'T' + p2(d.getHours()) + ':00';
+      el.scrollIntoView({behavior: 'smooth', block: 'center'});
+    }
+    async function scheduleSmartHour(h) {
+      const ch = document.getElementById('cd-channel').value || 'CURRENT';
+      const p2 = n => String(n).padStart(2, '0');
+      const time = p2(h) + ':00';
+      if (!confirm('🔁 Daily schedule: prathi roju ' + time + ' ki ' + ch + ' channel/group ki automatic ga 5 polls vellala?')) return;
+      try {
+        const r = await fetch('/api/telegram/schedule', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({times: [time], channels: [ch], count: 5})});
+        const d = await r.json();
+        alert(d.ok ? ('✅ ' + d.message + '\nSchedules tab lo job kanipistundi — akkada off/edit cheyyochu.') : ('❌ ' + (d.error || 'failed')));
+      } catch (e) { alert('❌ ' + e); }
+    }
+    function cdKindHint() {
+      const k = document.getElementById('cd-kind').value;
+      const hints = {
+        grand: '📝 Channel lo full mock — sections, negative marking, results settle anni engine chesthundi.',
+        war: '⚔️ Lobby open avuthundi, districts madhya live war — bot tick start chesthundi. WAR_TIME daily war ki idhi additional.',
+        campus: '🏫 Join code ippude create avuthundi — code students tho share cheyyandi, time ki exam start avuthundi (kammi 2 registered students kavali).'
+      };
+      document.getElementById('cd-hint').textContent = hints[k] || '';
+      document.getElementById('cd-duration').value = k === 'war' ? 30 : (k === 'campus' ? 60 : 90);
+      document.getElementById('cd-nq').value = k === 'campus' ? 20 : 25;
+    }
+    async function loadConductor() {
+      try {
+        const d = await fetch('/api/conductor').then(r => r.json());
+        const sel = document.getElementById('cd-channel');
+        if (sel && !sel.options.length) (d.channels || []).forEach(c => {
+          const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o);
+        });
+        const h = await fetch('/api/health').then(r => r.json()).catch(() => ({}));
+        document.getElementById('conductor-daily').innerHTML =
+          '📌 <b>Daily Fixed Polls:</b> Telegram Auto-Pilot slots <b>' + (h.autopilot_slots ?? '?') + '</b> · WhatsApp slots <b>' +
+          (h.wa_slots ?? '?') + '</b> · ee week polls <b>' + (h.week_polls ?? '?') + '</b> — timings marchali ante ' +
+          '<a href="#" onclick="switchTab(\'tab-setup-wizard\'); return false;">🚀 Setup Wizard</a> / ' +
+          '<a href="#" onclick="switchTab(\'tab-dynamic-channels\'); return false;">📢 Telegram tab</a> chudandi.';
+        try {
+          const mm = await fetch('/api/metrics').then(r => r.json());
+          const prof = mm.hour_profile || {};
+          const rows = Object.entries(prof).map(([h, v]) => ({h: parseInt(h), v})).filter(x => x.v > 0).sort((a, b) => b.v - a.v);
+          const tot = rows.reduce((s, x) => s + x.v, 0);
+          const adv = document.getElementById('conductor-advisor');
+          if (tot < 50) {
+            adv.innerHTML = '🧠 <b>Smart Slot Advisor:</b> students eppudu ekkuva answer chestharo nerchukuntundi — ippatiki ' + tot + ' answers matrame. 50+ ayyaka best times suggest chesthundi.';
+          } else {
+            const mx = rows[0].v;
+            adv.innerHTML = '🧠 <b>Smart Slot Advisor</b> — students ekkuva answer chesina hours (14 days, ' + tot + ' answers):' +
+              rows.slice(0, 3).map(x => '<div style="margin-top:5px;">🕐 <b>' + String(x.h).padStart(2, '0') + ':00</b> — ' + x.v + ' answers ' +
+                '<button class="btn btn-outline" style="padding:2px 9px; font-size:11px;" onclick="applySmartHour(' + x.h + ')">ee time ki exam schedule chey</button> ' +
+                '<button class="btn btn-outline" style="padding:2px 9px; font-size:11px;" onclick="scheduleSmartHour(' + x.h + ')">🔁 daily schedule</button>' +
+                '<div style="height:6px; background:rgba(255,255,255,0.08); border-radius:3px; margin-top:3px;"><div style="height:6px; width:' + Math.round(100 * x.v / mx) + '%; background:linear-gradient(90deg,#a78bfa,#38bdf8); border-radius:3px;"></div></div></div>').join('');
+          }
+        } catch (e) { /* advisor optional */ }
+        const chip = s => ({scheduled: '🔵', live: '🔴 LIVE', done: '✅ done', failed: '❌ failed', cancelled: '⚪ cancelled'}[s] || s);
+        document.getElementById('conductor-events').innerHTML = (d.events || []).length ? (d.events || []).map(e =>
+          '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 8px; background:rgba(255,255,255,0.03); border-radius:6px; margin-top:5px; flex-wrap:wrap;">' +
+          '<span><b>' + e.title + '</b> <span style="color:var(--text-muted);">' + (d.kinds[e.kind] ? d.kinds[e.kind].label : e.kind) +
+          ' · ' + String(e.starts_at).replace('T', ' ') + (e.starts_in_min !== null && e.status === 'scheduled' ? ' · ⏳ ' + e.starts_in_min + ' min lo' : '') +
+          (e.engine_ref ? ' · code <b>' + e.engine_ref + '</b>' : '') + (e.error ? ' · <span style="color:#f87171;">' + e.error + '</span>' : '') +
+          (e.note ? '<br><span style="color:var(--text-muted);">' + e.note + '</span>' : '') + '</span></span>' +
+          '<span style="display:flex; gap:6px; align-items:center;">' + chip(e.status) +
+          (e.status === 'scheduled' || e.status === 'failed' ? '<button class="btn btn-accent" style="padding:3px 10px; font-size:11px;" onclick="launchConductorEvent(\'' + e.id + '\')">🚀 Launch Now</button>' : '') +
+          (e.status === 'scheduled' || e.status === 'live' ? '<button class="btn btn-outline" style="padding:3px 10px; font-size:11px;" onclick="cancelConductorEvent(\'' + e.id + '\')">✖ Cancel</button>' : '') +
+          (e.status === 'done' || e.status === 'live' ? '<button class="btn btn-outline" style="padding:3px 10px; font-size:11px;" onclick="conductorResult(\'' + e.id + '\')">📊 Result</button>' : '') +
+          '</span></div>').join('')
+          : '<span style="color:var(--text-muted);">Inka exams levu — paina form tho first exam schedule cheyyandi!</span>';
+        cdKindHint();
+      } catch (e) {
+        document.getElementById('conductor-events').innerHTML = '<span style="color:#f87171;">❌ ' + e + '</span>';
+      }
+    }
+    async function createConductorEvent() {
+      const when = document.getElementById('cd-when').value;
+      if (!when) { alert('❌ Date + Time select cheyyandi'); return; }
+      const body = {
+        title: document.getElementById('cd-title').value,
+        kind: document.getElementById('cd-kind').value,
+        channel: document.getElementById('cd-channel').value || 'CURRENT',
+        starts_at: when,
+        duration_min: parseInt(document.getElementById('cd-duration').value) || 0,
+        n_questions: parseInt(document.getElementById('cd-nq').value) || 0,
+        lobby_min: parseInt(document.getElementById('cd-lobby').value) || 5,
+        campus_name: document.getElementById('cd-campus').value,
+        district: document.getElementById('cd-district').value
+      };
+      try {
+        const r = await fetch('/api/conductor/create', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+        const d = await r.json();
+        alert(d.ok ? ('✅ ' + (d.message || 'scheduled')) : ('❌ ' + (d.error || 'failed')));
+        if (d.ok) loadConductor();
+      } catch (e) { alert('❌ ' + e); }
+    }
+    async function launchConductorEvent(id) {
+      if (!confirm('Ippude launch cheyyala? Real channels/groups ki posts vellochu.')) return;
+      try {
+        const r = await fetch('/api/conductor/launch', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id})});
+        const d = await r.json();
+        alert((d.ok ? '✅ ' : '❌ ') + (d.message || ''));
+        loadConductor();
+      } catch (e) { alert('❌ ' + e); }
+    }
+    async function cancelConductorEvent(id) {
+      try {
+        await fetch('/api/conductor/cancel', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id})});
+        loadConductor();
+      } catch (e) { alert('❌ ' + e); }
+    }
+    async function conductorResult(id) {
+      try {
+        const r = await fetch('/api/conductor/result', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id})});
+        const d = await r.json();
+        alert(d.ok ? d.text : ('❌ ' + (d.error || '')));
+      } catch (e) { alert('❌ ' + e); }
+    }
+
     fetchStats();
+    loadVision();
+    loadSetupOptions();
     loadWASession();
     loadMemberQueue();
     loadWAGroups();
@@ -4039,6 +5277,7 @@ All candidates must join today before 9:00 PM!"></textarea>
     refreshStatusStrip();
     renderMissionHome();
     setInterval(fetchStats, 10000);
+    setInterval(loadVision, 60000);
     setInterval(pollPipelineStatus, 1500);
     setInterval(loadWASession, 10000);
   </script>
@@ -4209,6 +5448,40 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
+        # 🌐 Student Web Exam — login akkarledu (students browser lone exam)
+        if p.path.startswith("/exam/"):
+            self._send_html(WEB_EXAM_HTML)
+            return
+        if p.path == "/api/exam/info":
+            query = urllib.parse.parse_qs(p.query)
+            code = query.get("code", [""])[0]
+            d = campus._load(); e = d["events"].get(code)
+            if not e:
+                self._send_json({"ok": False, "error": "Exam not found"})
+            else:
+                self._send_json({"ok": True, "exam": e.get("name", ""),
+                                 "n_q": e.get("n_q", 0),
+                                 "colleges": e.get("colleges", []),
+                                 "state": e.get("state", "open"),
+                                 "joined": len(e.get("players", {}))})
+            return
+        if p.path == "/api/exam/state":
+            query = urllib.parse.parse_qs(p.query)
+            code = query.get("code", [""])[0]
+            tok = query.get("token", [""])[0]
+            snap = campus.web_state(code, tok)
+            if snap is None:
+                self._send_json({"ok": False, "error": "session expired — link malli open cheyyandi"})
+            else:
+                if (snap["state"] in ("question", "gap")
+                        or (snap["state"] == "open" and snap.get("start_at"))):
+                    try:
+                        campus.tick(Telegram(), Members())
+                    except Exception:
+                        pass
+                    snap = campus.web_state(code, tok) or snap
+                self._send_json({"ok": True, **snap})
+            return
         if not self._authed():
             self._deny(is_api=p.path.startswith("/api/"))
             return
@@ -4350,12 +5623,111 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json(whatsapp_pipeline.load_wa_registry())
             return
 
+        if p.path == "/api/whatsapp/retry_queue":
+            from core.store import load_json as _load_json
+            _rq = _load_json(whatsapp_pipeline.WA_RETRY_FILE, {"items": []})
+            _items = _rq.get("items", []) if isinstance(_rq, dict) else []
+            self._send_json({"count": len(_items), "items": _items[-20:]})
+            return
+
+        if p.path == "/api/whatsapp/bridges":
+            self._send_json({"bridges": whatsapp_pipeline.bridges_status(),
+                             "pool_size": len(whatsapp_pipeline._bridge_urls())})
+            return
+
         if p.path == "/api/whatsapp/session":
             self._send_json(whatsapp_pipeline.get_session_info())
             return
 
         if p.path == "/api/whatsapp/schedules":
             self._send_json({"jobs": whatsapp_pipeline.get_scheduled_jobs()})
+            return
+
+        if p.path == "/api/whatsapp/hall-of-fame":
+            self._send_json({"ok": True,
+                             "champions": whatsapp_pipeline.wa_hall_of_fame(20)})
+            return
+
+        if p.path == "/api/conductor":
+            from core import conductor as _cd
+            from core import config as _cfg
+            self._send_json({"ok": True, "events": _cd.list_events(),
+                             "channels": list(getattr(_cfg, "PUBLIC_CHANNELS", [])),
+                             "kinds": _cd.KINDS})
+            return
+
+        if p.path == "/api/metrics":
+            from core import metrics as _mx
+            self._send_json(_mx.snapshot())
+            return
+
+        if p.path == "/api/health/full":
+            from core import health as _hl
+            rep = _hl.full_report()
+            rep["uptime_min"] = int((time.time() - _START_TS) // 60)
+            self._send_json(rep)
+            return
+
+        if p.path == "/api/flags":
+            from core import flags as _fl
+            self._send_json({"ok": True, "flags": _fl.all_flags()})
+            return
+
+        if p.path == "/api/audit":
+            from core import auditlog as _al
+            self._send_json({"ok": True, "entries": _al.recent(30)})
+            return
+
+        if p.path == "/api/pulse":
+            from core import pulse as _pl
+            self._send_json(_pl.report())
+            return
+
+        if p.path == "/api/item_intel":
+            from core import item_intel as _ii
+            self._send_json({"ok": True, **_ii.report()})
+            return
+
+        if p.path == "/api/syllabus":
+            query = urllib.parse.parse_qs(p.query)
+            uid = (query.get("uid", [""])[0] or "").strip()
+            if not uid:
+                self._send_json({"ok": False, "error": "uid kavali (?uid=<telegram id>)"})
+                return
+            from core import syllabus as _syllabus
+            mb = Members()
+            mem = mb.members.get(str(uid), {})
+            from core.question_bank import Bank as _Bank
+            ch = (mem.get("follow") or ["CURRENT"])[0] if mem.get("follow") else "CURRENT"
+            self._send_json({"ok": True, "uid": uid,
+                             "plan": _syllabus.plan(mem, _Bank(), ch)})
+            return
+
+        if p.path == "/api/vision":
+            from core import vision as _vision
+            self._send_json(_vision.vision_report())
+            return
+
+        if p.path == "/api/setup/options":
+            # 🎛️ Manual Setup form data: exams mariyu subjects rendu
+            # live registry nunche (hardcode kaadu).
+            exams = set()
+            for _k, _v in channel_router.get_all_channels().items():
+                if _v.get("base_exam"):
+                    exams.add(str(_v["base_exam"]).upper())
+                exams.add(str(_k).upper())
+            try:
+                for _g in whatsapp_pipeline.load_wa_registry().get("groups", []):
+                    if _g.get("category"):
+                        exams.add(str(_g["category"]).upper())
+            except Exception:
+                pass
+            self._send_json({
+                "exams": sorted(exams),
+                "subjects": sorted(whatsapp_pipeline.SUBJECT_TOPIC_MAP.keys()),
+                "shifts": ["ALL_DAY", "MORNING", "EVENING"],
+                "group_types": ["EXAM_SPECIFIC", "GENERAL"],
+            })
             return
 
         if p.path == "/api/whatsapp/pipeline_status":
@@ -4375,6 +5747,31 @@ class DashboardHandler(BaseHTTPRequestHandler):
             })
             return
 
+        if p.path == "/api/whatsapp/group_health":
+            self._send_json({"ok": True, "health": whatsapp_pipeline.group_health()})
+            return
+
+        if p.path == "/api/whatsapp/preview":
+            query = urllib.parse.parse_qs(p.query)
+            try:
+                cnt = max(1, min(int(query.get("count", ["2"])[0]), 5))
+            except Exception:
+                cnt = 2
+            self._send_json(whatsapp_pipeline.preview_broadcast(
+                category=query.get("category", ["ALL"])[0], questions_per_group=cnt))
+            return
+
+        if p.path == "/api/whatsapp/safety":
+            self._send_json({"ok": True, **whatsapp_pipeline.safety_stack()})
+            return
+
+        if p.path == "/api/whatsapp/preflight":
+            reg = whatsapp_pipeline.load_wa_registry()
+            grps = [g for g in reg.get("groups", []) if g.get("active")]
+            pf = whatsapp_pipeline.preflight_whatsapp(groups=grps, category="ALL", questions_per_group=5)
+            self._send_json({"ok": pf["ok"], "preflight": pf})
+            return
+
         if p.path == "/api/campus/list":
             d = campus._load()
             events = []
@@ -4390,7 +5787,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     "players_count": len(e.get("players", {}))
                 })
             self._send_json({
-                "bot": config.BOT_USERNAME or "StudentUpBot",
+                "bot": _bot_username(),
                 "events": events
             })
             return
@@ -4398,8 +5795,78 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if p.path == "/api/campus/report":
             query = urllib.parse.parse_qs(p.query)
             code = query.get("code", [""])[0]
-            rep = campus.college_report(code)
-            self._send_json({"ok": True, "report": rep})
+            rep = campus.report_dict(code)
+            if rep is None:
+                self._send_json({"ok": False, "error": "Event not found", "report": None})
+            else:
+                self._send_json({"ok": True, "report": rep})
+            return
+
+        if p.path == "/api/campus/poster":
+            query = urllib.parse.parse_qs(p.query)
+            code = query.get("code", [""])[0]
+            data = campus.poster_png(code)
+            if not data:
+                self._send_json({"ok": False, "error": "Poster unavailable (no finishers yet or Pillow missing)."})
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Content-Disposition", f'attachment; filename="campus-{code}-poster.png"')
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
+
+        if p.path == "/api/campus/qr":
+            query = urllib.parse.parse_qs(p.query)
+            code = query.get("code", [""])[0]
+            if query.get("web", [""])[0] == "1":
+                data = campus.qr_png(code, _bot_username(),
+                                     link=f"{_public_base(self)}/exam/{code}")
+            else:
+                data = campus.qr_png(code, _bot_username())
+            if not data:
+                self._send_json({"ok": False, "error": "QR unavailable (qrcode package missing or event not found). Use the join link instead."})
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "image/png")
+            if query.get("dl", [""])[0] == "1":
+                self.send_header("Content-Disposition", f'attachment; filename="campus-{code}-qr.png"')
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
+
+        if p.path == "/api/campus/excel":
+            query = urllib.parse.parse_qs(p.query)
+            code = query.get("code", [""])[0]
+            fname, data = campus.export_excel_bytes(code)
+            if not data:
+                self._send_json({"ok": False, "error": "No marks data for this event yet."})
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/vnd.ms-excel")
+            self.send_header("Content-Disposition", f'attachment; filename="{fname}"')
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
+
+        if p.path == "/api/campus/live":
+            query = urllib.parse.parse_qs(p.query)
+            snap = campus.live_snapshot(query.get("code", [""])[0])
+            if snap is None:
+                self._send_json({"ok": False, "error": "Event not found"})
+            else:
+                self._send_json({"ok": True, "live": snap})
+            return
+
+        if p.path == "/api/campus/league":
+            self._send_json({"ok": True, "league": campus.league_table()})
+            return
+
+        if p.path == "/api/planner/today":
+            self._send_json({"ok": True, **planner.today_plan()})
             return
 
         if p.path == "/api/bundles":
@@ -4477,7 +5944,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     "exam": m.get("exam", ""),
                     "points": m.get("points", 0),
                     "streak": m.get("streak", 0),
-                    "college": m.get("college", "")
+                    "college": m.get("college", ""),
+                    "accuracy": (round(100 * m.get("correct", 0) / m["total"]) if m.get("total") else 0),
+                    "weak_topic": (mb.weak_topics(uid) or [""])[0]
                 })
             self._send_json({"members": arr})
             return
@@ -4506,6 +5975,29 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 _log_login_attempt(self._client_ip(), False)
                 time.sleep(1.2)  # slow brute-force attempts
                 self._send_json({"ok": False, "error": "wrong password"}, code=401)
+            return
+        # 🌐 Student Web Exam APIs — login akkarledu
+        if p.path == "/api/exam/join":
+            ok, info = campus.web_join(
+                Members(), (body.get("code") or "").strip(),
+                body.get("name", ""), body.get("phone", ""), body.get("college_idx", 1))
+            if ok:
+                self._send_json({"ok": True, **info})
+            else:
+                self._send_json({"ok": False, "error": info})
+            return
+        if p.path == "/api/exam/answer":
+            try:
+                ok, info = campus.web_answer(
+                    (body.get("code") or "").strip(), body.get("token", ""),
+                    int(body.get("position") or 0),
+                    int(body.get("choice") if body.get("choice") is not None else -1))
+            except Exception as ex:
+                ok, info = False, str(ex)
+            if ok:
+                self._send_json({"ok": True, **info})
+            else:
+                self._send_json({"ok": False, "error": info})
             return
         if not self._authed():
             self._send_json({"ok": False, "error": "unauthorized — login required"}, code=401)
@@ -4639,24 +6131,95 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": False, "message": "User not found"})
             return
 
+        if p.path == "/api/whatsapp/group_health_reset":
+            ok = whatsapp_pipeline.group_health_reset((body.get("jid") or "").strip())
+            self._send_json({"ok": ok, "message": "Group health reset — next broadcast nunchi malli try chesthundi" if ok else "group not found"})
+            return
+
+        if p.path == "/api/planner/apply":
+            created = planner.apply_plan(body.get("items") or [])
+            self._send_json({"ok": True, "created": len(created),
+                             "message": f"✨ {len(created)} daily jobs create ayyayi — Smart Plan active!"})
+            return
+
+        if p.path == "/api/campus/retest":
+            old = (body.get("code") or "").strip()
+            new_code = campus.retest_event(old)
+            if not new_code:
+                self._send_json({"ok": False, "message": "event not found"})
+            else:
+                bot = _bot_username()
+                self._send_json({"ok": True, "code": new_code, "retest_of": old,
+                                 "link": campus.deep_link(new_code, bot),
+                                 "qr": f"/api/campus/qr?code={new_code}"})
+            return
+
+        if p.path == "/api/campus/control":
+            code = (body.get("code") or "").strip()
+            action = (body.get("action") or "").strip()
+            if action == "next":
+                ok, msg = campus.advance_now(Telegram(), Members(), code)
+            elif action == "finish":
+                ok, msg = campus.finish_now(Telegram(), Members(), code)
+            else:
+                ok, msg = False, "unknown action"
+            self._send_json({"ok": ok, "code": code, "message": msg})
+            return
+
+        if p.path == "/api/campus/start":
+            code = (body.get("code") or "").strip()
+            ok, info = campus.start(Bank(), Members(), Telegram(), code)
+            if ok:
+                self._send_json({"ok": True, "code": code, "info": info})
+            else:
+                self._send_json({"ok": False, "code": code, "message": str(info)})
+            return
+
         if p.path == "/api/campus/create":
             college = body.get("college", "College").strip()
             district = body.get("district", "District").strip()
             nq = int(body.get("n_q", 10))
             lvl = body.get("level", "easy")
             subjs = body.get("subjects", ["reasoning", "quant", "science", "english", "ca"])
-            code = campus.quick_event(college, district, n_q=nq, level=lvl, subjects=subjs)
+            start_at = (body.get("start_at") or "").strip()
+            try:
+                neg = max(0, min(int(body.get("neg", 0) or 0), 10))
+            except Exception:
+                neg = 0
+            colleges = [c.strip() for c in college.split(",") if c.strip()][:12]
+            if len(colleges) > 1:
+                code = campus.new_event(
+                    f"{colleges[0]} + {len(colleges) - 1} Colleges × StudentUp Challenge",
+                    district, colleges, n_q=nq, level=lvl, created_by="dashboard",
+                    mode="college", subjects=subjs, start_at=start_at, neg=neg)
+            else:
+                code = campus.quick_event(college, district, n_q=nq, level=lvl, subjects=subjs, start_at=start_at, neg=neg)
+            try:
+                poster = campus.poster_text(code)
+            except Exception:
+                poster = ""
 
-            bot = getattr(config, "BOT_USERNAME", "") or "StudentUpBot"
-            link = f"https://t.me/{bot}?start=c{code.replace('CE-', '')}-1"
-            qr = f"https://api.qrserver.com/v1/create-qr-code/?size=600x600&data={link}"
+            bot = _bot_username()
+            link = campus.deep_link(code, bot)
+            qr = f"/api/campus/qr?code={code}"
+            warn = ""
+            if bot == "StudentUpBot" and not getattr(config, "BOT_USERNAME", ""):
+                warn = "BOT_USERNAME is not set and the bot name could not be auto-detected — set BOT_USERNAME in .env, otherwise this QR may open the wrong bot."
 
             self._send_json({
                 "ok": True,
                 "code": code,
-                "college": college,
+                "college": colleges[0] if colleges else college,
+                "colleges": colleges,
+                "bot": bot,
+                "bot_warning": warn,
+                "start_at": start_at,
+                "neg": neg,
+                "poster": poster,
                 "link": link,
-                "qr": qr
+                "qr": qr,
+                "web_link": f"{_public_base(self)}/exam/{code}",
+                "web_qr": f"/api/campus/qr?code={code}&web=1"
             })
             return
 
@@ -4892,6 +6455,162 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json({"ok": ok})
             return
 
+        if p.path == "/api/conductor/create":
+            from core import conductor as _cd
+            try:
+                ev = _cd.create_event(
+                    title=body.get("title", ""), kind=body.get("kind", "grand"),
+                    starts_at=body.get("starts_at", ""),
+                    channel=body.get("channel", "CURRENT"),
+                    duration_min=body.get("duration_min"),
+                    n_questions=body.get("n_questions"),
+                    lobby_min=body.get("lobby_min", 5),
+                    campus_name=body.get("campus_name", ""),
+                    district=body.get("district", ""))
+                try:
+                    from core import auditlog as _al
+                    _al.log("conductor.create", f"{ev['kind']} {ev['title']} @ {ev['starts_at']}")
+                except Exception:
+                    pass
+                self._send_json({"ok": True, "event": ev,
+                                 "message": f"✅ {ev['title']} schedule ayyindi — {ev['starts_at']} ki automatic ga start avuthundi (bot run avuthunte)"})
+            except ValueError as e:
+                self._send_json({"ok": False, "error": str(e)})
+            return
+
+        if p.path == "/api/conductor/cancel":
+            from core import conductor as _cd
+            ok = _cd.cancel_event(str(body.get("id", "")))
+            try:
+                from core import auditlog as _al
+                _al.log("conductor.cancel", f"{body.get('id')} ok={ok}")
+            except Exception:
+                pass
+            self._send_json({"ok": ok})
+            return
+
+        if p.path == "/api/conductor/launch":
+            from core import conductor as _cd
+            ev = _cd.get_event(str(body.get("id", "")))
+            if not ev:
+                self._send_json({"ok": False, "error": "event dorakaledu"})
+                return
+            if ev.get("status") not in ("scheduled", "failed"):
+                self._send_json({"ok": False, "error": f"status {ev.get('status')} — launch cheyyalenu"})
+                return
+            from core.engine import Engine as _Engine
+            ok, msg = _cd.launch_event(
+                ev, bank=Bank(), members=Members(), tg=Telegram(),
+                engine_factory=lambda: _Engine(dry=False))
+            if not ok and ev.get("status") == "scheduled":
+                _cd._update(ev["id"], status="failed", error=str(msg)[:200])
+            try:
+                from core import auditlog as _al
+                _al.log("conductor.launch", f"{ev['id']} {ev['kind']} ok={ok}")
+            except Exception:
+                pass
+            self._send_json({"ok": ok, "message": msg})
+            return
+
+        if p.path == "/api/conductor/result":
+            from core import conductor as _cd
+            ev = _cd.get_event(str(body.get("id", "")))
+            if not ev:
+                self._send_json({"ok": False, "error": "event dorakaledu"})
+                return
+            self._send_json({"ok": True, "text": _cd.result_text(ev, members=Members())})
+            return
+
+        if p.path == "/api/flags":
+            from core import flags as _fl
+            ok = _fl.set_flag(str(body.get("name", "")), bool(body.get("enabled")))
+            try:
+                from core import auditlog as _al
+                _al.log("flag.toggle", f"{body.get('name')} -> {bool(body.get('enabled'))} (ok={ok})")
+            except Exception:
+                pass
+            self._send_json({"ok": ok, "flags": _fl.all_flags()})
+            return
+
+        if p.path == "/api/pulse/settings":
+            from core import pulse as _pl
+            _pl.save_settings(price_inr=body.get("price_inr"),
+                              conversion_pct=body.get("conversion_pct"),
+                              plan_name=body.get("plan_name"))
+            try:
+                from core import auditlog as _al
+                _al.log("pulse.settings", f"price={body.get('price_inr')} conv={body.get('conversion_pct')}")
+            except Exception:
+                pass
+            self._send_json(_pl.report())
+            return
+
+        if p.path == "/api/item_intel/reset":
+            from core import item_intel as _ii
+            qid = str(body.get("qid", "")).strip()
+            removed = _ii.reset(qid) if qid else False
+            try:
+                from core import auditlog as _al
+                _al.log("item_intel.reset", f"qid={qid} removed={removed}")
+            except Exception:
+                pass
+            self._send_json({"ok": removed, "qid": qid,
+                             "message": ("✅ Stats reset — question malli nerchukuntundi (quarantine lift ayyindi)"
+                                         if removed else "qid dorakaledu")})
+            return
+
+        if p.path == "/api/setup/manual_add":
+            # ✍️ MANUAL SETUP — Excel lekunda, okka form tho target + exam
+            # + timings + subjects + days. Excel import_rows_list ne reuse
+            # chestundi (validation/dedupe/auto-schedule rendu chotla okkate).
+            platform = str(body.get("platform", "wa")).lower()
+            m_name = str(body.get("name", "")).strip()
+            m_link = str(body.get("link", "")).strip()
+            m_exam = str(body.get("exam", "")).strip() or "AUTO"
+            m_times = body.get("times", "")
+            if isinstance(m_times, list):
+                m_times = "+".join(str(x).strip() for x in m_times if str(x).strip())
+            m_times = str(m_times).replace(",", "+").replace(" ", "+")
+            m_count = str(body.get("count", 5))
+            m_days = str(body.get("days", 0))
+            m_subjects = "+".join(str(s).strip().upper()
+                                  for s in (body.get("subjects") or []) if str(s).strip())
+            if not m_name or not m_link:
+                self._send_json({"ok": False, "error": "Name mariyu Link/JID rendu kavali"})
+                return
+            if platform == "tg":
+                rows = [[m_name, m_link, m_exam, str(body.get("type", "channel")),
+                         m_times, m_count, m_days, m_subjects]]
+                res = bundle_manager.import_rows_list(rows, kind="tg")
+                sched = bundle_manager.create_tg_schedules_for_imports(
+                    res.pop("tg_schedules_wanted", []), "✍️ Manual")
+                res.pop("schedules_wanted", None)
+            else:
+                rows = [[m_name, m_link, m_exam, str(body.get("shift", "ALL_DAY")),
+                         str(body.get("type", "EXAM_SPECIFIC")),
+                         m_times, m_count, m_days, m_subjects]]
+                res = bundle_manager.import_rows_list(rows, kind="wa")
+                sched = bundle_manager.create_schedules_for_imports(
+                    res.pop("schedules_wanted", []), "✍️ Manual")
+                res.pop("tg_schedules_wanted", None)
+            added = res.get("imported_groups_count", 0) + res.get("imported_channels_count", 0)
+            try:
+                from core import auditlog as _al
+                _al.log("setup.manual_add", f"{platform} {m_name} added={added} schedules={len(sched)}")
+            except Exception:
+                pass
+            self._send_json({
+                "ok": added > 0,
+                "added_groups": res.get("imported_groups_count", 0),
+                "added_channels": res.get("imported_channels_count", 0),
+                "schedules_created": len(sched),
+                "skipped_duplicates": res.get("skipped_duplicates", []),
+                "errors": res.get("errors", []),
+                "message": (f"✅ {m_name} add ayyindi + {len(sched)} schedule(s)!"
+                            if added else "❌ Add avvaledu — kindha errors chudandi"),
+            })
+            return
+
         if p.path == "/api/whatsapp/add_group":
             name = body.get("name", "").strip()
             jid = body.get("jid", "").strip()
@@ -4923,8 +6642,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             msg = body.get("custom_msg", "")
             att = body.get("attachment", "")
             gw = body.get("gateway", "").strip()
-            delay_min = int(body.get("delay_min", 40))
-            delay_max = int(body.get("delay_max", 60))
+            delay_min = int(body.get("delay_min", 60))
+            delay_max = int(body.get("delay_max", 80))
             q_count = int(body.get("questions_count", 5))
             subjects = body.get("subjects", None)
 
@@ -4972,7 +6691,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             dry = not bool(Telegram().token)
             eng = Engine(dry=dry)
             send_key = ch if ch in config.CHANNELS else "CURRENT"
-            ok = eng.send_quiz(send_key, q)
+            # channel/group post → 👍 reaction text-poll style (flag ON);
+            # native quiz poll only when the owner kills the flag in Pro Ops
+            ok = eng._send_channel_question(send_key, q)
             if ok and not dry:
                 try:
                     bank.mark_posted(q.get("channel", "CURRENT"), [q])
