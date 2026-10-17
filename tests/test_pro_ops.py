@@ -83,7 +83,7 @@ class TestFlags(TmpState):
         self.assertFalse(flags.enabled("pyq_floor"))
         row = [f for f in flags.all_flags() if f["name"] == "pyq_floor"][0]
         self.assertTrue(row["overridden"])
-        self.assertEqual(len(flags.all_flags()), 11)  # +3 (20X) +2: daily_challenge, similar_followup
+        self.assertEqual(len(flags.all_flags()), 13)  # +2 (40X): grand_mock, sectional_tests
 
     def test_flag_flips_verifier_quarantine(self):
         # BADQ: 20 answers, 1 correct -> suspect wrong key (quarantined)
@@ -166,7 +166,7 @@ class TestProOpsApi(TmpState):
         self.assertIn("checks", h)
         self.assertIn("uptime_min", h)
         f = self._call("GET", "/api/flags")
-        self.assertEqual(len(f["flags"]), 11)  # advanced flags
+        self.assertEqual(len(f["flags"]), 13)  # advanced flags
         r = self._call("POST", "/api/flags",
                        {"name": "pyq_floor", "enabled": False})
         self.assertTrue(r["ok"])

@@ -61,6 +61,16 @@ DEFAULTS = {
         "label": "🏁 Negative-marking mocks",
         "desc": "Portal mocks lo real-exam negative marking simulator (0/-0.25/-0.5/-1) allow chesthundi.",
     },
+    "grand_mock": {
+        "default": True,
+        "label": "🏛️ Grand Mock (50Q full simulation)",
+        "desc": "Portal lo full-length 50-question grand mock tests allow chesthundi.",
+    },
+    "sectional_tests": {
+        "default": True,
+        "label": "🧩 Sectional Tests",
+        "desc": "Subject-wise (GK/Quant/Reasoning/English) sectional practice allow chesthundi.",
+    },
     "daily_challenge": {
         "default": True,
         "label": "🏆 Challenge of the Day",

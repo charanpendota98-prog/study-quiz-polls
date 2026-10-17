@@ -709,6 +709,8 @@ PORTAL_HTML = """<!DOCTYPE html>
   .trow { display: flex; gap: 8px; align-items: center; padding: 7px 10px; background: #0f1e38; border-radius: 10px; margin-top: 6px; font-size: 13px; }
   .trow b { flex: 1; }
   .qte { font-size: 16.5px; font-weight: 700; line-height: 1.55; }
+  body.lang-te .qen { display: none; }
+  body.lang-en .qte { display: none; }
   .qen { font-size: 14px; color: #a5c4e8; line-height: 1.55; margin-top: 5px; }
   .opt { display: block; width: 100%; text-align: left; margin-top: 9px; padding: 13px 14px; font-size: 14.5px; font-weight: 600; background: #0f1e38; color: #e2e8f0; border: 1.5px solid #24466e; border-radius: 12px; cursor: pointer; }
   .opt.picked { border-color: #38bdf8; background: #12315e; }
@@ -879,7 +881,15 @@ PORTAL_HTML = """<!DOCTYPE html>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="loadTrends()">📈 PYQ Trends</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="loadGoalBoard()">🏆 Goal Board</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="downloadRevisionPack()">🎁 Revision Pack</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="startGrand()">🏛️ Grand Mock 50Q</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadSections()">🧩 Sections</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadPatterns()">📉 Mistakes</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadRetention()">🧠 Retention</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadRecords()">🏆 Records + Series</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadRival()">🥊 Rival Race</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="cycleLang()">🌐 Language</button>
       </div>
+      <div id="series-chip" style="margin-top:7px;"></div>
       <div id="challenge-card" style="margin-top:9px;"></div>
       <div id="adv-out" style="margin-top:9px;"></div>
     </div>
@@ -1177,7 +1187,11 @@ async function loadHome() {
   document.getElementById('board-mock').innerHTML = rows(d.mock_board, 'Inka mock leaders leru — okka mock raasi board meeda vacheyyandi!');
   document.getElementById('board-win').innerHTML = rows(d.yesterday_winners, 'Ninna winners inka leru.');
   renderPlan(d.today_plan); renderPapers(d.papers || [], d.paper_progress || {});
-  renderCountdown(d.countdown); loadCoach(); loadChallenge();
+  renderCountdown(d.countdown); loadCoach(); loadChallenge(); applyLang();
+  api('/api/portal/records?token=' + encodeURIComponent(token)).then(rd => {
+    const sc = document.getElementById('series-chip');
+    if (sc && rd.ok && rd.series) sc.innerHTML = '<span class="muted">📚 Test Series: ' + (rd.series.attempted || 0) + '/' + (rd.series.target || 10) + ' ayyayi — Test #' + (rd.series.next_no || 1) + ' ready!</span>';
+  });
   renderLiveExams(d.live_exams || []); cdTick();
   document.getElementById('winners-wall').innerHTML = (d.winners_wall || []).map(w =>
     '<div style="margin-top:8px;"><b style="font-size:13px;">' + esc(w.title) + '</b>' + rows(w.winners, '') + '</div>').join('') || '<div class="muted">Inka winners leru — Weekly Grand Test (Sunday 10 AM) first!</div>';
@@ -1332,6 +1346,110 @@ async function loadGoalBoard() {
   out.innerHTML = '<b>🏆 Goal Leaderboard</b>' + (rows.length ? '' : '<div class="muted">Ee goal lo inka scores levu — first meeru avvandi!</div>') +
     rows.map((r, i) => '<div style="display:flex; justify-content:space-between; margin:3px 0;"><span>' + (i + 1) + '. ' + esc(r.name) + ' <span class="muted">' + esc(r.district || '') + '</span></span><b>' + r.correct + '/' + r.total + '</b></div>').join('');
 }
+async function startGrand() {
+  const goal = (STATE && STATE.student && STATE.student.goal) || 'mixed';
+  const negEl = document.getElementById('neg-sel');
+  const neg = negEl ? parseFloat(negEl.value || '0') : 0;
+  const d = await api('/api/portal/mock/start', {token, goal, neg, kind: 'grand'});
+  if (!d.ok) { alert('❌ ' + (d.error || 'Grand Mock start avvaledu')); return; }
+  MOCK = d;
+  document.getElementById('m-title').textContent = '🏛️ ' + d.label;
+  const box = document.getElementById('m-qs'); box.innerHTML = '';
+  d.questions.forEach((q) => {
+    const div = document.createElement('div'); div.id = 'mq' + q.i;
+    div.innerHTML = '<div class="qte" style="margin-top:14px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
+    q.options.forEach((opt, oi) => {
+      const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+      b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.answers[q.i] = oi; };
+      div.appendChild(b);
+    });
+    box.appendChild(div);
+  });
+  show('view-mock');
+  let left = (d.minutes || 60) * 60;
+  const tEl = document.getElementById('m-timer');
+  clearInterval(mockTimer);
+  mockTimer = setInterval(() => {
+    left--; tEl.textContent = '⏱ ' + Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
+    if (left <= 0) { clearInterval(mockTimer); submitMock(); }
+  }, 1000);
+}
+async function loadSections() {
+  const out = document.getElementById('adv-out');
+  const d = await api('/api/portal/sections?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  out.innerHTML = '<b>🧩 Sectional Tests</b>' + (d.sections || []).map(x =>
+    '<div style="display:flex; justify-content:space-between; align-items:center; margin:5px 0;"><span>' + esc(x.label) + ' <span class="muted">' + x.total + ' Qs · ' + x.pyq + ' PYQ</span></span>' +
+    '<button class="btn-alt" style="width:auto; margin:0;" onclick="startSection(\'' + x.subject + '\')">Start ▶</button></div>').join('');
+}
+function startSection(subject) {
+  const sel = document.getElementById('topic-sel');
+  PR_MODE_OVERRIDE = subject;
+  startPractice('section', subject);
+}
+async function loadPatterns() {
+  const out = document.getElementById('adv-out');
+  const d = await api('/api/portal/patterns?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  out.innerHTML = '<b>📉 Mistake Patterns</b><div class="muted">Concept gaps: ' +
+    ((d.concept_gaps || []).map(g => esc(g.topic) + ' ×' + g.wrongs).join(', ') || 'levu') +
+    '<br>Slips: ' + ((d.slips || []).map(g => esc(g.topic)).join(', ') || 'levu') +
+    ' · Skipped: ' + (d.skipped || 0) + '</div>' +
+    (d.advice || []).map(a => '<div>' + esc(a) + '</div>').join('');
+}
+async function loadRetention() {
+  const out = document.getElementById('adv-out');
+  const d = await api('/api/portal/retention?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  const r = d.retention || {};
+  out.innerHTML = '<b>🧠 Memory Retention</b> <span class="chip gold">' + (r.retention_score ?? '-') + '%</span>' +
+    '<div class="muted">Cards: ' + (r.cards || 0) + ' · Today due: ' + (r.due_today || 0) +
+    ' · Fresh ' + ((r.intervals || {}).fresh_0d || 0) + ' / 3d ' + ((r.intervals || {}).spaced_3d || 0) + ' / Strong 7d ' + ((r.intervals || {}).strong_7d || 0) + '</div>' +
+    '<div class="muted">Next 7 days due: ' + (r.forecast || []).map(f => f.due).join(' · ') + '</div>' +
+    (d.weekly_goal ? '<div>🎯 Weekly Goal: ' + esc(d.weekly_goal.text || '') + '</div>' : '');
+}
+async function loadRecords() {
+  const out = document.getElementById('adv-out');
+  const d = await api('/api/portal/records?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  const r = d.records || {}, sr = d.series || {};
+  out.innerHTML = '<b>🏆 Personal Records</b><div class="muted">Attempts: ' + (r.attempts || 0) +
+    ' · Best: ' + (r.best_pct != null ? r.best_pct + '% (' + esc(r.best_title || '') + ')' : '—') +
+    '<br>Accuracy: ' + (r.accuracy || 0) + '% · Answered: ' + (r.answered || 0) +
+    ' · 🔥 Streak ' + (r.streak || 0) + ' (best ' + (r.best_streak || 0) + ')</div>' +
+    '<div>📚 Test Series: Test #' + (sr.next_no || 1) + ' ready · Progress ' + (sr.progress_pct || 0) + '%' +
+    (sr.avg_pct != null ? ' · Avg ' + sr.avg_pct + '%' : '') + '</div>';
+}
+async function loadRival() {
+  const out = document.getElementById('adv-out');
+  const d = await api('/api/portal/rival?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  if (!d.rival) {
+    const code = prompt('🥊 Rival student SU code ivvandi (friend ref code):');
+    if (!code) { out.innerHTML = '<div class="muted">Rival set cheyyaledu.</div>'; return; }
+    const r = await api('/api/portal/rival/set', {token, ref: code});
+    out.innerHTML = r.ok ? '<div>🥊 Rival: <b>' + esc(r.rival) + '</b> — ee week race start!</div>' : '<div class="muted">' + esc(r.error || '') + '</div>';
+    return;
+  }
+  out.innerHTML = '<b>🥊 Rival Race (ee week)</b><div>Nenu: <b>' + d.my_pts + ' pts</b> · ' + esc(d.rival) + ': <b>' + d.rival_pts + ' pts</b><br>' +
+    (d.leading === 'you' ? '🔥 Meeru mundhu unnaru (+' + d.diff + ') — maintain cheyyandi!' : '⚠️ Rival mundhu unnadu (' + d.diff + ') — oka mock raasi overtake cheyyandi!') + '</div>';
+}
+let LANGS = ['both', 'te', 'en'];
+async function cycleLang() {
+  const cur = (STATE && STATE.student && STATE.student.lang) || localStorage.getItem('su_lang') || 'both';
+  const nxt = LANGS[(LANGS.indexOf(cur) + 1) % LANGS.length];
+  localStorage.setItem('su_lang', nxt);
+  document.body.classList.remove('lang-te', 'lang-en');
+  if (nxt !== 'both') document.body.classList.add('lang-' + nxt);
+  if (STATE && STATE.student) STATE.student.lang = nxt;
+  await api('/api/portal/lang', {token, lang: nxt});
+  alert('🌐 Language: ' + (nxt === 'both' ? 'Telugu + English' : nxt === 'te' ? 'Telugu matrame' : 'English matrame'));
+}
+function applyLang() {
+  const l = localStorage.getItem('su_lang') || (STATE && STATE.student && STATE.student.lang) || 'both';
+  document.body.classList.remove('lang-te', 'lang-en');
+  if (l !== 'both') document.body.classList.add('lang-' + l);
+}
 async function downloadRevisionPack() {
   const d = await api('/api/portal/revision_pack?token=' + encodeURIComponent(token));
   if (!d.ok || !d.text) { alert('❌ ' + (d.error || 'Revision pack avvaledu')); return; }
@@ -1459,8 +1577,10 @@ async function submitMock() {
 var STATE = null;
 let PR = null;
 let prTimer = null;
-async function startPractice(mode) {
-  const topic = document.getElementById('topic-sel').value || '';
+let PR_MODE_OVERRIDE = '';
+async function startPractice(mode, subject) {
+  const topic = subject || PR_MODE_OVERRIDE || document.getElementById('topic-sel').value || '';
+  PR_MODE_OVERRIDE = '';
   const d = await api('/api/portal/practice/start', {token, mode, topic});
   if (!d.ok) { alert('❌ ' + (d.error || 'Practice start avvaledu')); return; }
   PR = {run_id: d.run_id, questions: d.questions || [], cur: 0, score: 0, per_q: d.per_q || 0};
@@ -7419,6 +7539,38 @@ class DashboardHandler(BaseHTTPRequestHandler):
             ok, info = portal.revision_pack_text(Members(), query.get("token", [""])[0])
             self._send_json({"ok": ok, **(info if ok else {"error": info})})
             return
+        if p.path == "/api/portal/sections":
+            query = urllib.parse.parse_qs(p.query)
+            ss = portal.section_stock(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": ss is not None, **(ss or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/patterns":
+            query = urllib.parse.parse_qs(p.query)
+            pt = portal.mistake_patterns(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": pt is not None, **(pt or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/retention":
+            query = urllib.parse.parse_qs(p.query)
+            rt = portal.retention_report(Members(), query.get("token", [""])[0])
+            wg = portal.weekly_goal(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": rt is not None, "retention": rt, "weekly_goal": wg})
+            return
+        if p.path == "/api/portal/records":
+            query = urllib.parse.parse_qs(p.query)
+            rc = portal.my_records(Members(), query.get("token", [""])[0])
+            sr = portal.test_series(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": rc is not None, "records": rc, "series": sr})
+            return
+        if p.path == "/api/portal/rival":
+            query = urllib.parse.parse_qs(p.query)
+            rv = portal.rival_status(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": rv is not None, **(rv or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/district_rank":
+            query = urllib.parse.parse_qs(p.query)
+            dr = portal.district_goal_rank(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": dr is not None, **(dr or {"error": "session expired"})})
+            return
         if p.path == "/api/portal/exam":
             query = urllib.parse.parse_qs(p.query)
             ex = portal.exam_questions(Members(), query.get("token", [""])[0],
@@ -8119,6 +8271,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 ok, info = False, str(ex)
             self._send_json({"ok": ok, **(info if ok and isinstance(info, dict) else {"error": info})})
             return
+        if p.path == "/api/portal/lang":
+            ok, info = portal.set_lang(Members(), body.get("token", ""),
+                                       body.get("lang", "both"))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/rival/set":
+            ok, info = portal.set_rival(Members(), body.get("token", ""),
+                                        body.get("ref", ""))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
         if p.path == "/api/portal/goal":
             ok, info = portal.set_goal(Members(), body.get("token", ""),
                                        body.get("goal", ""))
@@ -8146,7 +8308,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         if p.path == "/api/portal/mock/start":
             ok, info = portal.mock_start(Members(), body.get("token", ""), body.get("goal", "mixed"),
-                                         neg=float(body.get("neg") or 0))
+                                         neg=float(body.get("neg") or 0),
+                                         kind=str(body.get("kind") or "mock"))
             self._send_json({"ok": ok, **(info if ok else {"error": info})})
             return
         if p.path == "/api/portal/bookmark":

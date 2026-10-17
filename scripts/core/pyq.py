@@ -386,6 +386,18 @@ def papers_index(min_q: int = 5) -> list:
     return out
 
 
+def coverage_gaps(target: int = 50) -> list:
+    """🎯 PYQ COVERAGE GAPS: channel-wise real PYQ stock + target ki
+    gap — harvest priority list (takkuva unna channel mundhu)."""
+    cov = by_channel()  # {channel: {"pyq": n, "total": t}}
+    rows = [{"channel": ch, "pyq": int(v.get("pyq") or 0),
+             "total": int(v.get("total") or 0),
+             "gap": max(0, int(target) - int(v.get("pyq") or 0))}
+            for ch, v in cov.items()]
+    rows.sort(key=lambda r: (r["pyq"], r["channel"]))
+    return rows
+
+
 def by_channel():
     """Exam-wise real-PYQ coverage — prati channel ki enni previous-year
     questions bank lo unnayo (harvest priority + admin visibility)."""

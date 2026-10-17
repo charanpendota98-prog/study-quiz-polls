@@ -33,6 +33,7 @@ DAILY_N = 10
 MOCK_N = 15
 PTS_DAILY = 10
 PTS_MOCK = 10
+PTS_GRAND = 10
 
 # 🗓️ Official exam countdown targets (dashboard notice ga marchukovachu;
 # date daggara padithe plan intensity automatic ga peruguthundi).
@@ -473,6 +474,7 @@ def _profile(members, uid):
             "streak": m.get("streak", 0), "best_streak": m.get("best_streak", 0),
             "ref_code": _ref_code(uid), "referrals": m.get("referrals", 0),
             "badges": m.get("badges") or [],
+            "lang": m.get("lang") or "both",
             "review_due": due,
             "answered": tot, "correct": cor,
             "accuracy": round(cor / tot * 100) if tot else 0,
@@ -664,7 +666,7 @@ def my_archive(members, token, limit=30):
 
 # ---------------------------------------------------------------- mock tests
 @_locked
-def mock_start(members, token, goal, neg=0.0):
+def mock_start(members, token, goal, neg=0.0, kind="mock"):
     d = _load()
     uid = _sess(d, token)
     if not uid:
@@ -672,11 +674,22 @@ def mock_start(members, token, goal, neg=0.0):
     if goal not in GOALS:
         goal = "mixed"
     chans = GOALS[goal]["channels"]
-    pool = _bank_pool(chans or None)
-    if len(pool) < 5:
-        pool = _bank_pool()
-    picked = random.Random(secrets.token_hex(4)).sample(
-        pool, min(MOCK_N, len(pool))) if pool else []
+    if kind == "grand":
+        # 🏛️ GRAND MOCK: full-length simulation (50Q, PYQ-first)
+        try:
+            from . import flags as _fl
+            if not _fl.enabled("grand_mock"):
+                kind = "mock"
+        except Exception:
+            pass
+    if kind == "grand":
+        picked = _paper(chans or None, 50, "grand-" + secrets.token_hex(4))
+    else:
+        pool = _bank_pool(chans or None)
+        if len(pool) < 5:
+            pool = _bank_pool()
+        picked = random.Random(secrets.token_hex(4)).sample(
+            pool, min(MOCK_N, len(pool))) if pool else []
     if not picked:
         return False, "Question bank ready ga ledu."
     try:
@@ -692,6 +705,7 @@ def mock_start(members, token, goal, neg=0.0):
         pass
     run_id = secrets.token_urlsafe(9)
     d["mocks"][run_id] = {"uid": uid, "goal": goal, "neg": neg,
+                          "kind": kind,
                           "qs": [_snap(q) for q in picked],
                           "answers": {}, "done": False,
                           "started": _now().isoformat()}
@@ -699,9 +713,11 @@ def mock_start(members, token, goal, neg=0.0):
     for k in list(d["mocks"])[:-120]:
         d["mocks"].pop(k, None)
     _save(d)
-    return True, {"run_id": run_id, "goal": goal, "neg": neg,
-                  "label": GOALS[goal]["label"],
-                  "minutes": max(5, len(picked) * 1),
+    return True, {"run_id": run_id, "goal": goal, "neg": neg, "kind": kind,
+                  "label": ("🏛️ Grand Mock — " if kind == "grand" else "")
+                           + GOALS[goal]["label"],
+                  "minutes": (60 if kind == "grand"
+                              else max(5, len(picked) * 1)),
                   "questions": _serve(d["mocks"][run_id]["qs"], run_id, {})}
 
 
@@ -737,12 +753,20 @@ def mock_submit(members, token, run_id, answers):
     # 🏁 Negative marking (real-exam simulation): pts matrame tagguthayi,
     # correct count nijamgane untundi (honest score).
     neg = float(run.get("neg") or 0)
-    pts = correct * PTS_MOCK
+    kind = run.get("kind") or "mock"
+    pts = correct * (PTS_GRAND if kind == "grand" else PTS_MOCK)
     if neg:
-        pts = max(0, round(pts - wrong * PTS_MOCK * neg, 1))
+        pts = max(0, round(pts - wrong * (PTS_GRAND if kind == "grand" else PTS_MOCK) * neg, 1))
     run["done"] = True
     run["correct"] = correct
     run["wrong"] = wrong
+    try:
+        from datetime import datetime as _dt2
+        _st = _dt2.fromisoformat(run.get("started") or "")
+        run["mins_taken"] = round((_now() - _st).total_seconds() / 60.0, 1) \
+            if _st.tzinfo else None
+    except Exception:
+        run["mins_taken"] = None
     run["pts"] = pts
     run["finished"] = _now().isoformat()
     d.setdefault("mock_board", []).append(
@@ -769,8 +793,16 @@ def mock_submit(members, token, run_id, answers):
 # ------------------------------------------------------------- live exams
 def _paper(channels, n, seed, pyq_first=True):
     """Real-exam paper: PYQ questions FIRST (real previous-year questions),
-    filled with curated ones. Same paper for every student in the exam."""
+    filled with curated ones. Same paper for every student in the exam.
+
+    🛠️ FIX (R3): count kana pool chinna ayithe paper short ga
+    vachedi (channels pool matrame) — ippudu full bank nunchi
+    fill chestham (PYQ-first order maintain chesthu)."""
     pool = _bank_pool(channels or None)
+    seen = {q.get("id") for q in pool}
+    if len(pool) < n:
+        pool = pool + [q for q in _bank_pool()
+                       if q.get("id") not in seen]
     if not pool:
         return []
     rng = random.Random(seed)
@@ -867,6 +899,10 @@ def _weekly_exam(d, now):
          "qs": _paper(None, 40, "weekly-" + key),
          "entries": {}, "final": False, "winners": [],
          "created": now.isoformat()}
+    # 🛠️ FIX (R3): bank ready kakapothe 0-question weekly exam
+    # create avvakudadhu (students ki empty exam kanipinchakudadhu).
+    if not e["qs"]:
+        return None
     d.setdefault("exams", {})[e["id"]] = e
     return e
 
@@ -920,13 +956,20 @@ def _exam_view(e, members, uid, now):
     status = exam_status(e, now)
     _st, en = _exam_times(e)
     entries = e.get("entries") or {}
+    # 🛠️ FIX (R3): winners/board tie-break ikkada kuda joined_at —
+    # lekunte tie lo 'my_winner'/rank announced winners tho mismatch.
     rows = sorted(entries.values(),
-                  key=lambda r: (-r.get("correct", 0), -r.get("pts", 0)))
+                  key=lambda r: (-r.get("correct", 0), -r.get("pts", 0),
+                                 r.get("joined_at", "")))
     ent = entries.get(uid or "")
     view = {"id": e["id"], "title": e["title"], "goal": e["goal"],
             "goal_label": (GOALS.get(e["goal"]) or {}).get("label", e["goal"]),
             "kind": e["kind"], "starts_at": e["starts_at"],
             "ends_at": en.isoformat(), "duration_min": e["duration_min"],
+            "starts_in_min": (max(0, int((_st - now).total_seconds() // 60))
+                              if status == "scheduled" else None),
+            "ends_in_min": (max(0, int((en - now).total_seconds() // 60))
+                            if status == "live" else None),
             "n_q": len(e["qs"]), "status": status, "joined": len(entries),
             "neg": float(e.get("neg") or 0),
             "pyq_count": sum(1 for q in e["qs"] if q.get("source") == "pyq"),
@@ -1376,8 +1419,50 @@ def practice_start(members, token, mode="smart", topic=""):
                          != q.get("answer_index")]
                 if wrong:
                     picked = wrong[:10]
+    if not picked and mode == "pyq":
+        # 📜 PYQ-only drill (topic optional)
+        pool = [q for q in _bank_pool() if q.get("source") == "pyq"]
+        if topic:
+            tp = [q for q in pool
+                  if (q.get("topic") or "").lower() == topic.lower()]
+            pool = tp or pool
+        if pool:
+            picked = random.Random(secrets.token_hex(4)).sample(
+                pool, min(10, len(pool)))
+    if not picked and mode == "section":
+        # 🧩 Sectional test: subject (gk/quant/reasoning/english) wise
+        try:
+            from . import flags as _fl
+            _sec_on = _fl.enabled("sectional_tests")
+        except Exception:
+            _sec_on = True
+        if _sec_on and topic:
+            try:
+                from . import blueprint as _bp
+                pool = [q for q in _bank_pool()
+                        if _bp.subject_of(q) == topic.lower()]
+            except Exception:
+                pool = []
+            if len(pool) >= 3:
+                picked = random.Random(secrets.token_hex(4)).sample(
+                    pool, min(10, len(pool)))
     if not picked and mode == "bookmarks":
         picked = my_bookmarks(members, token)[:10]
+    if not picked and mode == "ladder":
+        # 🪜 Difficulty ladder: brain target level nunchi start chesi
+        # paiki — easy->medium->hard step by step (confidence build).
+        try:
+            from . import brain as _brain
+            from . import blueprint as _bp
+            start = _brain.target_level(uid)
+            rank = {"easy": 0, "medium": 1, "hard": 2}
+            pool = _bank_pool()
+            pool = sorted(pool, key=lambda q: (
+                abs(rank.get(_bp.difficulty_of(q), 1) - rank.get(start, 1)),
+                rank.get(_bp.difficulty_of(q), 1)))
+            picked = pool[:10]
+        except Exception:
+            picked = []
     if not picked:
         pool = _bank_pool()
         if mode == "topic" and topic:
@@ -2275,7 +2360,279 @@ def portal_analytics(members):
             "challenge_today": len(((d.get("challenge") or {}).get(today)
                                      or {}).get("done") or {}),
             "archive_size": len(arc),
-            "sessions_live": len(d.get("sessions") or {})}
+            "sessions_live": len(d.get("sessions") or {}),
+            "pyq_gaps": _pyq_gaps_safe(),
+            "attempt_kinds": dict(collections.Counter(
+                a.get("kind") or "?" for a in arc).most_common(8)),
+            "backup": _backup_safe()}
+
+
+def _pyq_gaps_safe():
+    try:
+        from . import pyq as _pyq
+        return _pyq.coverage_gaps()[:6]
+    except Exception:
+        return []
+
+
+def _backup_safe():
+    try:
+        from . import backup as _bk
+        return _bk.last_backup_info()
+    except Exception:
+        return {}
+
+
+# ------------------------------------------- 40X expert intelligence
+def section_stock(members, token):
+    """🧩 SECTIONAL TESTS: goal pool lo subject-wise stock (real)."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return None
+    prof = _profile(members, uid)
+    chans = (GOALS.get(prof.get("goal") or "") or {}).get("channels") or []
+    pool = _bank_pool(chans or None)
+    try:
+        from . import blueprint as _bp
+        import collections
+        cnt = collections.Counter(_bp.subject_of(q) for q in pool)
+        pyq = collections.Counter(_bp.subject_of(q) for q in pool
+                                  if q.get("source") == "pyq")
+    except Exception:
+        return None
+    labels = {"gk": "📚 GK & Current Affairs", "quant": "🔢 Quant",
+              "reasoning": "🧠 Reasoning", "english": "🔤 English"}
+    return {"goal": prof.get("goal"),
+            "sections": [{"subject": k, "label": labels.get(k, k),
+                          "total": cnt.get(k, 0), "pyq": pyq.get(k, 0)}
+                         for k in ("gk", "quant", "reasoning", "english")]}
+
+
+def mistake_patterns(members, token):
+    """📉 MISTAKE PATTERN ANALYZER: last attempts lo tappula pattern —
+    concept gaps (repeat topic wrongs) vs slips (okkasari) vs skipped."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return None
+    import collections
+    wrong = collections.Counter()
+    skipped = 0
+    total_wrong = 0
+    for a in [x for x in (d.get("archive") or [])
+              if x.get("uid") == uid][:3]:
+        for i, q in enumerate(a.get("qs") or []):
+            g = (a.get("answers") or {}).get(str(i))
+            if g is None:
+                skipped += 1
+            elif g != q.get("answer_index"):
+                wrong[q.get("topic") or "general"] += 1
+                total_wrong += 1
+    gaps = [{"topic": t, "wrongs": n} for t, n in wrong.most_common()
+            if n >= 2]
+    slips = [{"topic": t, "wrongs": n} for t, n in wrong.most_common()
+             if n == 1]
+    advice = []
+    if gaps:
+        advice.append(f"📚 Concept gap: {gaps[0]['topic']} — topic "
+                      "practice tho concept clear cheyyandi.")
+    if skipped >= 5:
+        advice.append("⏭️ Skips ekkuva — time management meeda "
+                      "Grand Mock practice cheyyandi.")
+    if slips and not gaps:
+        advice.append("⚡ Concepts okay, slips ekkuva — Speed mode lo "
+                      "careful ga practice cheyyandi.")
+    if not advice:
+        advice.append("🚀 Pattern clean ga undi — Grand Mock ki vellandi!")
+    return {"concept_gaps": gaps[:4], "slips": slips[:4],
+            "skipped": skipped, "total_wrong": total_wrong,
+            "advice": advice}
+
+
+def retention_report(members, token):
+    """🧠 RETENTION + REVISION FORECAST: review cards interval-wise +
+    raboye 7 rojullo due ayye cards (forgetting-curve plan)."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return None
+    m = _member(members, uid)
+    cards = m.get("review") or []
+    import collections
+    by_int = collections.Counter(int(c.get("interval") or 0) for c in cards)
+    forecast = []
+    for i in range(7):
+        ds = (_now() + timedelta(days=i)).strftime("%Y-%m-%d")
+        forecast.append({"date": ds,
+                         "due": sum(1 for c in cards
+                                    if str(c.get("due", "")) == ds)})
+    total = max(1, len(cards))
+    score = round(100 * (by_int.get(7, 0) * 1.0 + by_int.get(3, 0) * 0.6
+                         + by_int.get(0, 0) * 0.2) / total) if cards else 100
+    return {"cards": len(cards), "due_today": forecast[0]["due"],
+            "intervals": {"fresh_0d": by_int.get(0, 0),
+                          "spaced_3d": by_int.get(3, 0),
+                          "strong_7d": by_int.get(7, 0)},
+            "retention_score": score,
+            "forecast": forecast,
+            "note": "7d interval cards = strong memory. Due cards daily "
+                    "clear chesthe retention periguthundi."}
+
+
+def weekly_goal(members, token):
+    """🎯 WEEKLY GOAL: ee week 5 active days target progress."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return None
+    cal = activity_calendar(members, token, days=7) or []
+    prof = _profile(members, uid)
+    active = sum(1 for a in cal if a["active"])
+    return {"active_days": active, "target": 5,
+            "done": active >= 5, "days": cal,
+            "streak": prof.get("streak", 0),
+            "best_streak": prof.get("best_streak", 0),
+            "text": (f"{active}/5 active days ee week — "
+                     + ("🏆 Goal complete!" if active >= 5 else
+                        f"inka {5 - active} rojulu active unte goal complete!"))}
+
+
+def my_records(members, token):
+    """🏆 PERSONAL RECORDS: best scores + totals (archive nunchi)."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return None
+    mine = [a for a in (d.get("archive") or []) if a.get("uid") == uid]
+    prof = _profile(members, uid)
+
+    def pct(a):
+        return round(100 * int(a.get("correct") or 0)
+                     / max(1, int(a.get("total") or 0)))
+    best = max(mine, key=pct, default=None)
+    papers = [a for a in mine if a.get("kind") == "paper"]
+    best_paper = max(papers, key=lambda a: int(a.get("correct") or 0),
+                     default=None)
+    return {"attempts": len(mine),
+            "best_pct": pct(best) if best else None,
+            "best_title": (best or {}).get("title"),
+            "best_paper": ({"title": best_paper.get("title"),
+                            "correct": best_paper.get("correct"),
+                            "total": best_paper.get("total")}
+                           if best_paper else None),
+            "points": prof.get("points", 0),
+            "accuracy": prof.get("accuracy", 0),
+            "answered": prof.get("answered", 0),
+            "streak": prof.get("streak", 0),
+            "best_streak": prof.get("best_streak", 0)}
+
+
+def test_series(members, token):
+    """📚 TEST SERIES: goal mocks series progress (next test number)."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return None
+    prof = _profile(members, uid)
+    label = (GOALS.get(prof.get("goal") or "") or {}).get("label", "")
+    mine = [a for a in (d.get("archive") or [])
+            if a.get("uid") == uid and a.get("kind") in ("mock", "grand")
+            and a.get("title") == label]
+    pcts = [round(100 * int(a.get("correct") or 0)
+                  / max(1, int(a.get("total") or 0))) for a in mine]
+    return {"goal": prof.get("goal"), "label": label,
+            "attempted": len(mine), "next_no": len(mine) + 1,
+            "target": 10,
+            "progress_pct": min(100, round(100 * len(mine) / 10)),
+            "avg_pct": round(sum(pcts) / len(pcts)) if pcts else None,
+            "best_pct": max(pcts) if pcts else None}
+
+
+def district_goal_rank(members, token):
+    """🏙️ DISTRICT x GOAL RANK: naa district lo naa goal rank."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return None
+    prof = _profile(members, uid)
+    gb = goal_board(members, prof.get("goal") or "mixed", limit=100)
+    mine = (prof.get("district") or "").lower()
+    rows = []
+    my_rank = None
+    for i, r in enumerate(gb):
+        if (r.get("district") or "").lower() == mine:
+            rows.append(r)
+            nm = _member(members, uid).get("name", "")
+            if r.get("name") == nm and my_rank is None:
+                my_rank = len(rows)
+    return {"district": prof.get("district"), "goal": prof.get("goal"),
+            "rows": rows[:10], "my_rank": my_rank,
+            "students": len(rows)}
+
+
+def set_lang(members, token, lang):
+    """🌐 Display language preference: te | en | both."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return False, "Session expired."
+    lang = str(lang or "both").lower()
+    if lang not in ("te", "en", "both"):
+        lang = "both"
+    m = _member(members, uid)
+    m["lang"] = lang
+    _kv_save(members)
+    return True, {"lang": lang}
+
+
+def set_rival(members, token, ref_code):
+    """🥊 RIVAL: ref-code tho oka student ni rival ga set — weekly
+    points race."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return False, "Session expired."
+    code = str(ref_code or "").strip().upper()
+    rival = (d.get("refcodes") or {}).get(code)
+    if not rival:
+        for cand in (getattr(members, "members", None) or {}):
+            if _ref_code(cand) == code:
+                rival = cand
+                break
+    if not rival or str(rival) == str(uid):
+        return False, "Rival dorakaledu — correct SU code ivvandi."
+    m = _member(members, uid)
+    m["rival"] = str(rival)
+    _kv_save(members)
+    rm = _member(members, rival)
+    return True, {"rival": rm.get("name", "Rival"),
+                  "district": rm.get("district", "")}
+
+
+def rival_status(members, token):
+    """🥊 RIVAL RACE: ee week points nenu vs rival."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return None
+    m = _member(members, uid)
+    rival = m.get("rival")
+    if not rival:
+        return {"rival": None}
+    start = _period_start("week", _now())
+    pts = {}
+    for r in (d.get("ledger") or []):
+        if r.get("date", "") >= start and r.get("uid") in (str(uid), str(rival)):
+            pts[r["uid"]] = pts.get(r["uid"], 0) + int(r.get("pts") or 0)
+    rm = _member(members, rival)
+    my_pts = pts.get(str(uid), 0)
+    rv_pts = pts.get(str(rival), 0)
+    return {"rival": rm.get("name", "Rival"),
+            "rival_district": rm.get("district", ""),
+            "my_pts": my_pts, "rival_pts": rv_pts,
+            "leading": "you" if my_pts >= rv_pts else "rival",
+            "diff": abs(my_pts - rv_pts)}
 
 
 # ------------------------------------------------- referrals + my report
@@ -2369,8 +2726,10 @@ def district_league(members, my_district="", limit=10):
             continue
         pts[dist] += int(m.get("points") or 0)
         cnt[dist] += 1
-    rows = [{"name": dnm, "district": dnm, "correct": cnt[dnm], "total": cnt[dnm],
-             "pts": pts[dnm], "students": cnt[dnm]}
+    # 🛠️ FIX (R3): 'correct'/'total' rendu student-count ga undedi
+    # (API misleading) — ippudu honest fields matrame.
+    rows = [{"name": dnm, "district": dnm, "students": cnt[dnm],
+             "pts": pts[dnm]}
             for dnm in pts]
     rows.sort(key=lambda r: (-r["pts"], r["name"]))
     my_rank = next((i + 1 for i, r in enumerate(rows)
