@@ -474,7 +474,7 @@ def public_page(handler, page):
                + ", ".join(f'{t["topic"]} ({t["pyq"]})'
                            for t in _trends.get(k, {}).get("topics", [])[:3])
                + '</p>' if _trends.get(k, {}).get("topics") else '')
-            + f'<p style="margin-top:6px;"><a href="/portal">Ee goal tho Start Cheyyandi →</a></p></div>'
+            + f'<p style="margin-top:6px;"><a href="__PORTAL__?go=hub&goal={k}">🎓 {v["label"]} Hub — PYQ Mock & Drill →</a> · <a href="/papers">📜 Papers</a></p></div>'
             for k, v in _goals.items())
     except Exception:
         _ehtml = '<div class="card"><p>Exams loading…</p></div>'
@@ -1085,6 +1085,8 @@ async function init() {
   if (_ref) localStorage.setItem('su_ref', _ref.toUpperCase());
   const _go = new URLSearchParams(location.search).get('go');
   if (_go) localStorage.setItem('su_go', _go);
+  const _hg = new URLSearchParams(location.search).get('goal');
+  if (_hg) localStorage.setItem('su_hub_goal', _hg);
   const meta = await api('/api/portal/meta');
   GOALS = meta.goals || {};
   const dg = document.getElementById('r-district');
@@ -1104,6 +1106,12 @@ window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault(); _deferredInstall = e;
   document.getElementById('install-card').style.display = 'block';
 });
+function qMeta(q) {
+  if (!q) return '';
+  let m = '🏷️ ' + (q.topic || '') + (q.level ? ' · ' + q.level : '');
+  if (q.source === 'pyq') m += ' · 📜 PYQ' + (q.exam ? ' · ' + q.exam : '') + (q.year ? ' ' + q.year : '');
+  return m;
+}
 function scrollDoor(id) {
   const el = document.getElementById(id);
   if (el) { el.scrollIntoView({behavior: 'smooth', block: 'start'}); el.style.borderColor = '#facc15'; setTimeout(() => el.style.borderColor = '', 1600); }
@@ -1112,8 +1120,15 @@ function _applyGo() {
   const go = new URLSearchParams(location.search).get('go') || localStorage.getItem('su_go') || '';
   if (!go) return;
   localStorage.removeItem('su_go');
-  const map = {quiz: 'sec-quiz', smart: 'sec-quiz', exams: 'sec-exams', live: 'sec-exams', mocks: 'mock-grid', mock: 'mock-grid', papers: 'sec-papers', pyq: 'sec-papers'};
-  setTimeout(() => scrollDoor(map[go] || 'sec-quiz'), 350);
+  const map = {quiz: 'sec-quiz', smart: 'sec-quiz', exams: 'sec-exams', live: 'sec-exams', mocks: 'mock-grid', mock: 'mock-grid', papers: 'sec-papers', pyq: 'sec-papers', hub: 'goal-hub-card'};
+  setTimeout(() => {
+    scrollDoor(map[go] || 'sec-quiz');
+    if (go === 'hub') {
+      const hg = new URLSearchParams(location.search).get('goal') || localStorage.getItem('su_hub_goal') || '';
+      localStorage.removeItem('su_hub_goal');
+      if (hg) setTimeout(() => loadGoalHub(hg), 450);
+    }
+  }, 350);
 }
 async function setGoal(k) {
   const d = await api('/api/portal/goal', {token, goal: k});
@@ -1297,7 +1312,7 @@ async function openQuiz() {
 function renderQ() {
   const q = QUESTIONS[cur];
   document.getElementById('q-pos').textContent = 'Q ' + (cur + 1) + '/' + QUESTIONS.length;
-  document.getElementById('q-topic').textContent = '🏷️ ' + (q.topic || '');
+  document.getElementById('q-topic').textContent = qMeta(q);
   document.getElementById('q-score').textContent = '✅ ' + score;
   document.getElementById('q-te').textContent = q.te || '';
   document.getElementById('q-en').textContent = q.en || '';
@@ -1419,7 +1434,7 @@ async function resumeMock() {
   const box = document.getElementById('m-qs'); box.innerHTML = '';
   d.mock.questions.forEach((q) => {
     const div = document.createElement('div'); div.id = 'mq' + q.i;
-    div.innerHTML = '<div class="qte" style="margin-top:14px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
+    div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
     q.options.forEach((opt, oi) => {
       const b = document.createElement('button'); b.className = 'opt' + ((d.mock.answers || {})[q.i] === oi ? ' picked' : ''); b.textContent = opt;
       if ((d.mock.answers || {})[q.i] === oi) MOCK.answers[q.i] = oi;
@@ -1454,7 +1469,7 @@ function renderMockRun(d) {
   renderPalette(d.questions);
   d.questions.forEach((q) => {
     const div = document.createElement('div'); div.id = 'mq' + q.i;
-    div.innerHTML = '<div class="qte" style="margin-top:14px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
+    div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
     q.options.forEach((opt, oi) => {
       const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
       b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.answers[q.i] = oi; markPalette(q.i); };
@@ -1555,12 +1570,14 @@ async function loadGoalHub(g) {
   box.innerHTML =
     '<b style="font-size:15px;">' + esc(d.label) + '</b>' +
     '<div class="row" style="margin-top:7px; flex-wrap:wrap; gap:6px;">' +
-    '<span class="chip">📜 ' + d.pyq + ' real PYQ</span><span class="chip">🧠 ' + d.total + ' questions</span>' +
+    '<span class="chip">📜 ' + d.pyq + ' real PYQ</span><span class="chip">🎯 ' + (d.pyq_exam != null ? d.pyq_exam : d.pyq) + ' ' + esc(d.label) + ' PYQ</span><span class="chip">🧠 ' + d.total + ' questions</span>' +
     '<span class="chip">📄 ' + d.papers + ' paper sets</span><span class="chip gold">✍️ Mee attempts: ' + d.attempts + ' · Best ' + d.best + '%</span></div>' +
+    ((d.paper_labels || []).length ? '<p class="muted" style="margin-top:7px;">📜 Papers: ' + d.paper_labels.map(esc).join(' · ') + '</p>' : '') +
     ((d.topics || []).length ? '<p class="muted" style="margin-top:7px;">📈 Repeat ayye topics: ' + d.topics.map(t => esc(t.topic) + ' (' + t.pyq + ')').join(' · ') + '</p>' : '') +
     '<p style="margin-top:7px;">👉 ' + esc(d.next) + '</p>' +
-    '<div class="row" style="margin-top:8px; gap:6px;"><button class="btn-main" style="flex:1;" onclick="startMock(\'' + d.goal + '\')">📝 Start Mock</button>' +
-    '<button class="btn-alt" style="width:auto; margin:0;" onclick="startPractice(\'pyq\')">📜 PYQ Drill</button></div>';
+    '<div class="row" style="margin-top:8px; gap:6px;"><button class="btn-main" style="flex:1;" onclick="startMock(\'' + d.goal + '\', \'exam\')">📜 ' + esc(d.label) + ' PYQ Mock</button>' +
+    '<button class="btn-alt" style="width:auto; margin:0;" onclick="startMock(\'' + d.goal + '\')">📝 Mixed Mock</button>' +
+    '<button class="btn-alt" style="width:auto; margin:0;" onclick="startPractice(\'pyq\', \'\', \'' + d.goal + '\')">🎯 PYQ Drill</button></div>';
 }
 async function remindExam(id, el) {
   const on = !(el && el.dataset && el.dataset.on === '1');
@@ -1619,7 +1636,7 @@ async function startGrand() {
   const box = document.getElementById('m-qs'); box.innerHTML = '';
   d.questions.forEach((q) => {
     const div = document.createElement('div'); div.id = 'mq' + q.i;
-    div.innerHTML = '<div class="qte" style="margin-top:14px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
+    div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
     q.options.forEach((opt, oi) => {
       const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
       b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.answers[q.i] = oi; markPalette(q.i); };
@@ -1761,7 +1778,7 @@ async function startPaper(exam, year, paper) {
   const box = document.getElementById('m-qs'); box.innerHTML = '';
   d.questions.forEach((q) => {
     const div = document.createElement('div'); div.id = 'mq' + q.i;
-    div.innerHTML = '<div class="qte" style="margin-top:14px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
+    div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
     q.options.forEach((opt, oi) => {
       const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
       b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.answers[q.i] = oi; markPalette(q.i); };
@@ -1779,17 +1796,17 @@ async function startPaper(exam, year, paper) {
     if (left <= 0) { clearInterval(mockTimer); submitMock(); }
   }, 1000);
 }
-async function startMock(goal) {
+async function startMock(goal, kind) {
   const negEl = document.getElementById('neg-sel');
   const neg = negEl ? parseFloat(negEl.value || '0') : 0;
-  const d = await api('/api/portal/mock/start', {token, goal, neg});
+  const d = await api('/api/portal/mock/start', {token, goal, neg, kind: kind || 'mock'});
   if (!d.ok) { alert('❌ ' + (d.error || 'Mock start avvaledu')); return; }
   MOCK = d;
   document.getElementById('m-title').textContent = '📝 ' + d.label;
   const box = document.getElementById('m-qs'); box.innerHTML = '';
   d.questions.forEach((q) => {
     const div = document.createElement('div'); div.id = 'mq' + q.i;
-    div.innerHTML = '<div class="qte" style="margin-top:14px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
+    div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
     q.options.forEach((opt, oi) => {
       const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
       b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.answers[q.i] = oi; markPalette(q.i); };
@@ -1842,10 +1859,10 @@ var STATE = null;
 let PR = null;
 let prTimer = null;
 let PR_MODE_OVERRIDE = '';
-async function startPractice(mode, subject) {
+async function startPractice(mode, subject, goal) {
   const topic = subject || PR_MODE_OVERRIDE || document.getElementById('topic-sel').value || '';
   PR_MODE_OVERRIDE = '';
-  const d = await api('/api/portal/practice/start', {token, mode, topic});
+  const d = await api('/api/portal/practice/start', {token, mode, topic, goal: goal || ''});
   if (!d.ok) { alert('❌ ' + (d.error || 'Practice start avvaledu')); return; }
   PR = {run_id: d.run_id, questions: d.questions || [], cur: 0, score: 0, per_q: d.per_q || 0};
   show('view-prc'); renderPr();
@@ -1897,7 +1914,7 @@ function renderPr() {
   if (bmB) bmB.textContent = '🔖 Save Question';
   startPrTimer();
   document.getElementById('p-pos').textContent = 'Q ' + (PR.cur + 1) + '/' + PR.questions.length;
-  document.getElementById('p-topic').textContent = '🏷️ ' + (q.topic || '') + (q.level ? ' · ' + q.level : '');
+  document.getElementById('p-topic').textContent = qMeta(q);
   document.getElementById('p-score').textContent = '✅ ' + PR.score;
   document.getElementById('p-te').textContent = q.te || '';
   document.getElementById('p-en').textContent = q.en || '';
@@ -2001,7 +2018,7 @@ async function enterExam(id) {
   const box = document.getElementById('x-qs'); box.innerHTML = '';
   (d.questions || []).forEach(q => {
     const div = document.createElement('div');
-    div.innerHTML = '<div class="qte" style="margin-top:14px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
+    div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
     q.options.forEach((opt, oi) => {
       const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
       if (q.answered) { b.disabled = true; }
@@ -8668,7 +8685,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if p.path == "/api/portal/practice/start":
             ok, info = portal.practice_start(Members(), body.get("token", ""),
                                              body.get("mode", "smart"),
-                                             body.get("topic", ""))
+                                             body.get("topic", ""),
+                                             body.get("goal", ""))
             self._send_json({"ok": ok, **(info if ok else {"error": info})})
             return
         if p.path == "/api/portal/practice/answer":

@@ -111,6 +111,11 @@ DEFAULTS = {
         "label": "📕 Mistake Notebook download",
         "desc": "Student tappu chesina questions anni okka downloadable notebook (correct answer + explanation).",
     },
+    "exam_pyq_mocks": {
+        "default": True,
+        "label": "📜 Exam PYQ Mocks (exam-separate)",
+        "desc": "Prathi exam ki aa exam previous-paper questions matrame vache strict PYQ mock tests.",
+    },
 }
 
 

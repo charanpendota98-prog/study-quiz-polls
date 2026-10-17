@@ -42,6 +42,34 @@ EXAM_DATES = {
     "railway": "2027-01-18", "police": "2026-12-27", "mixed": "2026-12-31",
 }
 
+# 🎓 EXAM-SEPARATION (80X): prathi goal ki aa exam YE previous-paper
+# questions — exam name keywords (bank 'exam' field mida match).
+GOAL_EXAM_KEYS = {
+    "groups": ("appsc", "tspsc", "group"),
+    "ssc": ("ssc",),
+    "banking": ("bank", "ibps", "sbi", "rbi"),
+    "railway": ("rrb", "railway", "ntpc", "alp", "group d"),
+    "police": ("police", "defence", "defense", "army", "constable"),
+    "mixed": (),
+}
+
+
+def _goal_pyq_pool(goal):
+    """📜 STRICT exam-wise PYQ pool: goal channels loni PYQs, exam name
+    keyword match unte adhe (vere exam PYQs mix avvakunda). Keyword pool
+    empty ayithe channel PYQs fallback (honest counts ekkade vastayi)."""
+    chans = (GOALS.get(goal) or {}).get("channels") or []
+    pyqs = [q for q in _bank_pool()
+            if q.get("source") == "pyq"
+            and (not chans or q.get("channel") in chans)]
+    keys = GOAL_EXAM_KEYS.get(goal) or ()
+    if keys:
+        ex = [q for q in pyqs
+              if any(k in str(q.get("exam") or "").lower() for k in keys)]
+        if ex:
+            return ex
+    return pyqs
+
 
 def _now():
     tz = getattr(config, "IST", None)
@@ -276,6 +304,9 @@ def _snap(q):
     return {"id": q.get("id"), "source": q.get("source") or "",
             "topic": (q.get("topic") or "general"),
             "channel": q.get("channel") or "",
+            # 📜 PYQ provenance (80X): exam/year/paper badges + hub ki
+            "exam": q.get("exam") or "", "year": q.get("year") or "",
+            "paper": q.get("paper") or "",
             "q_en": q.get("q_en", ""), "q_te": q.get("q_te", ""),
             "options_en": list(q.get("options_en") or []),
             "options_te": list(q.get("options_te") or []),
@@ -336,6 +367,8 @@ def _serve(qs, seed_prefix, answers):
         out.append({"i": i, "qid": q.get("id"), "topic": q["topic"], "channel": q["channel"],
                     "te": q.get("q_te", ""), "en": q.get("q_en", ""),
                     "level": _lvl(q),
+                    "source": q.get("source") or "",
+                    "exam": q.get("exam") or "", "year": q.get("year") or "",
                     "options": opts, "answered": str(i) in (answers or {})})
     return out
 
@@ -757,7 +790,8 @@ def mock_start(members, token, goal, neg=0.0, kind="mock"):
         except Exception:
             pass
     if kind == "grand":
-        picked = _paper(chans or None, 50, "grand-" + secrets.token_hex(4))
+        picked = _paper(chans or None, 50, "grand-" + secrets.token_hex(4),
+                        strict=bool(chans))
     elif kind == "adaptive":
         # 🧠 ADAPTIVE MOCK: Brain compose (due review + weak + level zone)
         try:
@@ -796,6 +830,32 @@ def mock_start(members, token, goal, neg=0.0, kind="mock"):
             pool = _bank_pool(chans or None)
             picked = random.Random(secrets.token_hex(4)).sample(
                 pool, min(MOCK_N, len(pool))) if pool else []
+    elif kind == "exam":
+        # 📜 EXAM PYQ MOCK (80X): aa exam previous papers nunchi matrame
+        # (exam-name strict pool) + same-channel curated fill.
+        try:
+            from . import flags as _fl
+            _ex_on = _fl.enabled("exam_pyq_mocks")
+        except Exception:
+            _ex_on = True
+        if not _ex_on or goal == "mixed":
+            kind = "mock"
+            pool = _bank_pool(chans or None)
+            picked = random.Random(secrets.token_hex(4)).sample(
+                pool, min(MOCK_N, len(pool))) if pool else []
+        else:
+            rng = random.Random(secrets.token_hex(4))
+            pyqs = _goal_pyq_pool(goal)
+            rng.shuffle(pyqs)
+            fill = [q for q in _bank_pool(chans or None)
+                    if q.get("source") != "pyq"]
+            rng.shuffle(fill)
+            picked = [_snap(q) for q in (pyqs + fill)[:MOCK_N]]
+            if not picked:
+                return False, ("Ee exam ki inka previous-paper questions "
+                               "levu — harvest thondaralo vasthundi.")
+            _exam_pyq_n = sum(1 for q in picked
+                              if q.get("source") == "pyq")
     else:
         pool = _bank_pool(chans or None)
         if len(pool) < 5:
@@ -827,7 +887,9 @@ def mock_start(members, token, goal, neg=0.0, kind="mock"):
     _save(d)
     return True, {"run_id": run_id, "goal": goal, "neg": neg, "kind": kind,
                   "label": ("🏛️ Grand Mock — " if kind == "grand" else
-                            "🧠 Adaptive Mock — " if kind == "adaptive" else "")
+                            "🧠 Adaptive Mock — " if kind == "adaptive" else
+                            f"📜 PYQ Mock ({locals().get('_exam_pyq_n', 0)} real PYQ) — "
+                            if kind == "exam" else "")
                            + GOALS[goal]["label"],
                   "minutes": (60 if kind == "grand"
                               else max(5, len(picked) * 1)),
@@ -904,21 +966,39 @@ def mock_submit(members, token, run_id, answers):
 
 
 # ------------------------------------------------------------- live exams
-def _paper(channels, n, seed, pyq_first=True):
+def _paper(channels, n, seed, pyq_first=True, strict=False):
     """Real-exam paper: PYQ questions FIRST (real previous-year questions),
     filled with curated ones. Same paper for every student in the exam.
 
     🛠️ FIX (R3): count kana pool chinna ayithe paper short ga
     vachedi (channels pool matrame) — ippudu full bank nunchi
-    fill chestham (PYQ-first order maintain chesthu)."""
+    fill chestham (PYQ-first order maintain chesthu).
+    🎓 80X strict=True: EXAM-SEPARATION — paper order: (1) aa exam
+    PYQs, (2) aa exam curated, (3) vere exams PYQs (last resort,
+    previous-paper promise kosam), (4) migilina bank. Production
+    bank lo (1)-(2) lone full paper vasthundi."""
     pool = _bank_pool(channels or None)
+    if not pool and not strict:
+        return []
+    rng = random.Random(seed)
+    if strict and channels:
+        seen = {q.get("id") for q in pool}
+        fb = [q for q in _bank_pool() if q.get("id") not in seen]
+        groups = [[q for q in pool if q.get("source") == "pyq"],
+                  [q for q in pool if q.get("source") != "pyq"],
+                  [q for q in fb if q.get("source") == "pyq"],
+                  [q for q in fb if q.get("source") != "pyq"]]
+        picked = []
+        for g in groups:
+            rng.shuffle(g)
+            picked += g
+        return [_snap(q) for q in picked[:n]]
     seen = {q.get("id") for q in pool}
     if len(pool) < n:
         pool = pool + [q for q in _bank_pool()
                        if q.get("id") not in seen]
     if not pool:
         return []
-    rng = random.Random(seed)
     if pyq_first:
         pyq = [q for q in pool if q.get("source") == "pyq"]
         rest = [q for q in pool if q.get("source") != "pyq"]
@@ -984,7 +1064,8 @@ def create_exam(title, goal, starts_at, duration_min=30, n_q=20, kind="live",
          "neg": max(0.0, min(1.0, float(neg or 0))),
          "duration_min": max(5, min(180, int(duration_min or 30))),
          "qs": _paper(GOALS[goal]["channels"] or None,
-                      max(5, min(100, int(n_q or 20))), "portal-exam-" + exam_id),
+                      max(5, min(100, int(n_q or 20))), "portal-exam-" + exam_id,
+                      strict=bool(GOALS[goal]["channels"])),
          "entries": {}, "final": False, "winners": [],
          "created": _now().isoformat()}
     if not e["qs"]:
@@ -1489,7 +1570,7 @@ def topics_list(limit=16):
 
 
 @_locked
-def practice_start(members, token, mode="smart", topic=""):
+def practice_start(members, token, mode="smart", topic="", goal=""):
     """🎯 Practice: 'smart' = mee weak topics + revision nunchi; 'topic' =
     select chesina topic; 'review' = ee roju due revision questions.
     Instant feedback tho — leaderboard pressure ledu."""
@@ -1535,8 +1616,16 @@ def practice_start(members, token, mode="smart", topic=""):
                 if wrong:
                     picked = wrong[:10]
     if not picked and mode == "pyq":
-        # 📜 PYQ-only drill (topic optional)
-        pool = [q for q in _bank_pool() if q.get("source") == "pyq"]
+        # 📜 PYQ-only drill (80X: goal unte aa exam strict PYQ pool)
+        if goal in GOALS and GOALS[goal]["channels"]:
+            pool = _goal_pyq_pool(goal)
+            if len(pool) < 3:
+                chans = GOALS[goal]["channels"]
+                pool = [q for q in _bank_pool()
+                        if q.get("source") == "pyq"
+                        and q.get("channel") in chans]
+        else:
+            pool = [q for q in _bank_pool() if q.get("source") == "pyq"]
         if topic:
             tp = [q for q in pool
                   if (q.get("topic") or "").lower() == topic.lower()]
@@ -3395,9 +3484,18 @@ def goal_hub(members, token, goal):
     else:
         nxt = "🏛️ Grand Mock (50Q) tho full-exam simulation ki ready!"
     trends = pyq_trends(goal)
+    _ch_stock = []
+    for _ch in sorted(chans):
+        _cp = _bank_pool([_ch])
+        _ch_stock.append({"channel": _ch, "total": len(_cp),
+                          "pyq": sum(1 for q in _cp
+                                     if q.get("source") == "pyq")})
     return True, {"goal": goal, "label": GOALS[goal].get("label", goal),
                   "pyq": stock.get("pyq", 0), "total": stock.get("total", 0),
+                  "pyq_exam": len(_goal_pyq_pool(goal)),
+                  "channels_stock": _ch_stock,
                   "papers": len(papers), "attempts": len(mine), "best": best,
+                  "paper_labels": [r["label"] for r in papers[:5]],
                   "topics": (trends or {}).get("topics", [])[:5],
                   "next": nxt}
 

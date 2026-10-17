@@ -83,7 +83,7 @@ class _Base(unittest.TestCase):
 
 class TestFlags70(_Base):
     def test_flags_18_and_new_enabled(self):
-        self.assertEqual(len(flags.all_flags()), 18)
+        self.assertEqual(len(flags.all_flags()), 19)
         for f in ("focus_timer", "goal_hub", "mistake_notebook"):
             self.assertTrue(flags.enabled(f), f)
 
