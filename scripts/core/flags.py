@@ -61,6 +61,16 @@ DEFAULTS = {
         "label": "🏁 Negative-marking mocks",
         "desc": "Portal mocks lo real-exam negative marking simulator (0/-0.25/-0.5/-1) allow chesthundi.",
     },
+    "daily_challenge": {
+        "default": True,
+        "label": "🏆 Challenge of the Day",
+        "desc": "Portal home lo roju okka tough PYQ challenge (bonus points) chupisthundi.",
+    },
+    "similar_followup": {
+        "default": True,
+        "label": "🔗 Similar-question follow-up",
+        "desc": "Practice lo wrong answer ki same-topic similar question try cheyyisthundi.",
+    },
     "revenge_mode": {
         "default": True,
         "label": "😤 Revenge Mode practice",

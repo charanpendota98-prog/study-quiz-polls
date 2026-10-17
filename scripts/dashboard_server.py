@@ -873,7 +873,14 @@ PORTAL_HTML = """<!DOCTYPE html>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="loadPercentile()">📈 Naa Percentile</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="loadBookmarks()">🔖 Saved Questions</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="downloadWorksheet()">🖨️ Worksheet</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadStudyPlan()">📅 7-Day Plan</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadForecast()">🔮 Score Forecast</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadTrend()">📊 Naa Trend</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadTrends()">📈 PYQ Trends</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadGoalBoard()">🏆 Goal Board</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="downloadRevisionPack()">🎁 Revision Pack</button>
       </div>
+      <div id="challenge-card" style="margin-top:9px;"></div>
       <div id="adv-out" style="margin-top:9px;"></div>
     </div>
 
@@ -1094,7 +1101,7 @@ function showToppers(period) {
 async function loadHome() {
   const d = await api('/api/portal/state?token=' + encodeURIComponent(token));
   if (!d.ok) { logout(); return; }
-  const s = d.student;
+  const s = d.student; STATE = d;
   document.getElementById('hello').textContent = '👋 ' + s.name;
   document.getElementById('mychips').innerHTML =
     '<span class="chip">🎯 ' + esc(GOALS[s.goal] || s.goal) + '</span>' +
@@ -1170,7 +1177,7 @@ async function loadHome() {
   document.getElementById('board-mock').innerHTML = rows(d.mock_board, 'Inka mock leaders leru — okka mock raasi board meeda vacheyyandi!');
   document.getElementById('board-win').innerHTML = rows(d.yesterday_winners, 'Ninna winners inka leru.');
   renderPlan(d.today_plan); renderPapers(d.papers || [], d.paper_progress || {});
-  renderCountdown(d.countdown); loadCoach();
+  renderCountdown(d.countdown); loadCoach(); loadChallenge();
   renderLiveExams(d.live_exams || []); cdTick();
   document.getElementById('winners-wall').innerHTML = (d.winners_wall || []).map(w =>
     '<div style="margin-top:8px;"><b style="font-size:13px;">' + esc(w.title) + '</b>' + rows(w.winners, '') + '</div>').join('') || '<div class="muted">Inka winners leru — Weekly Grand Test (Sunday 10 AM) first!</div>';
@@ -1285,6 +1292,79 @@ async function toggleBookmark(qid) {
   const d = await api('/api/portal/bookmark', {token, qid});
   if (d.ok) loadBookmarks();
 }
+async function loadStudyPlan() {
+  const out = document.getElementById('adv-out');
+  out.innerHTML = '<div class="muted">Plan tayaru avuthondi…</div>';
+  const d = await api('/api/portal/study_plan?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  out.innerHTML = '<b>📅 7-Day Study Plan</b>' + (d.exam_in ? ' <span class="chip gold">' + esc(d.exam_in.label) + ' — ' + d.exam_in.days + ' rojulu</span>' : '') +
+    (d.days || []).map(x => '<div style="margin:5px 0;"><b>Day ' + x.day + '</b> <span class="muted">' + x.date + '</span> — 🎯 ' + esc(x.focus) + '<br><span class="muted">' + (x.tasks || []).map(esc).join(' · ') + '</span></div>').join('');
+}
+async function loadForecast() {
+  const out = document.getElementById('adv-out');
+  const d = await api('/api/portal/forecast?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  out.innerHTML = '<b>🔮 Score Forecast</b> <span class="chip gold">~' + d.expected_pct + '%</span><div class="muted">Next mock expected range: ' + d.low + '–' + d.high + '% · Band: ' + esc(d.band || '') + '<br>' + esc(d.note || '') + '</div>';
+}
+async function loadTrend() {
+  const out = document.getElementById('adv-out');
+  const d = await api('/api/portal/trend?token=' + encodeURIComponent(token));
+  const tr = d.trend || [];
+  if (!tr.length) { out.innerHTML = '<div class="muted">📊 Inka attempts levu — okka mock rayandi, trend ikkada kanipisthundi.</div>'; return; }
+  out.innerHTML = '<b>📊 Score Trend</b>' + tr.map(r => {
+    const w = Math.max(4, r.pct);
+    return '<div style="display:flex; align-items:center; gap:7px; margin:4px 0;"><span class="muted" style="width:118px; font-size:11px;">' + esc((r.title || r.kind || '').slice(0, 20)) + '</span><span style="flex:1; background:rgba(56,189,248,.15); border-radius:5px;"><span style="display:block; width:' + w + '%; height:13px; border-radius:5px; background:#38bdf8;"></span></span><b>' + r.pct + '%</b></div>';
+  }).join('') + '<div class="muted">' + (d.activity || []).filter(a => a.active).length + ' active days (last 14)</div>';
+}
+async function loadTrends() {
+  const out = document.getElementById('adv-out');
+  const goal = (STATE && STATE.student && STATE.student.goal) || '';
+  const d = await api('/api/portal/pyq_trends?goal=' + encodeURIComponent(goal));
+  if (!d.ok) { out.innerHTML = '<div class="muted">Trends ready ledu</div>'; return; }
+  out.innerHTML = '<b>📈 PYQ Trends</b> <span class="chip">' + d.pyq_total + ' PYQ questions</span><div class="muted">Previous papers lo ekkuva repeat ayye topics — ive master ayithe marks:</div>' +
+    (d.topics || []).map(t => '<div style="display:flex; justify-content:space-between; margin:3px 0;"><span>' + esc(t.topic) + '</span><b>' + t.pyq + ' Qs · ' + t.share + '%</b></div>').join('');
+}
+async function loadGoalBoard() {
+  const out = document.getElementById('adv-out');
+  const goal = (STATE && STATE.student && STATE.student.goal) || 'mixed';
+  const d = await api('/api/portal/goal_board?goal=' + encodeURIComponent(goal));
+  const rows = d.board || [];
+  out.innerHTML = '<b>🏆 Goal Leaderboard</b>' + (rows.length ? '' : '<div class="muted">Ee goal lo inka scores levu — first meeru avvandi!</div>') +
+    rows.map((r, i) => '<div style="display:flex; justify-content:space-between; margin:3px 0;"><span>' + (i + 1) + '. ' + esc(r.name) + ' <span class="muted">' + esc(r.district || '') + '</span></span><b>' + r.correct + '/' + r.total + '</b></div>').join('');
+}
+async function downloadRevisionPack() {
+  const d = await api('/api/portal/revision_pack?token=' + encodeURIComponent(token));
+  if (!d.ok || !d.text) { alert('❌ ' + (d.error || 'Revision pack avvaledu')); return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([d.text], {type: 'text/plain;charset=utf-8'}));
+  a.download = d.filename || 'StudentUp-RevisionPack.txt'; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+let CHQ = null;
+async function loadChallenge() {
+  const el = document.getElementById('challenge-card');
+  if (!el) return;
+  const d = await api('/api/portal/challenge?token=' + encodeURIComponent(token));
+  if (!d.ok) { el.innerHTML = ''; return; }
+  if (d.done) { el.innerHTML = '<b>🏆 Challenge of the Day</b> <span class="chip gold">' + (d.correct ? '✅ +20 bonus!' : 'Ayipoyindi — repu malli') + '</span>'; return; }
+  CHQ = d.question;
+  if (!CHQ) { el.innerHTML = ''; return; }
+  el.innerHTML = '<b>🏆 Challenge of the Day</b> <span class="chip">Correct ayithe +20 pts</span>' +
+    '<div class="qte" style="margin-top:8px;">' + esc(CHQ.te || CHQ.en) + '</div>' + (CHQ.te && CHQ.en ? '<div class="qen">' + esc(CHQ.en) + '</div>' : '') +
+    '<div id="ch-opts"></div><div id="ch-fb" class="feedback"></div>';
+  const box = document.getElementById('ch-opts'); box.innerHTML = '';
+  (CHQ.options || []).forEach((opt, i) => {
+    const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+    b.onclick = () => ansChallenge(i); box.appendChild(b);
+  });
+}
+async function ansChallenge(i) {
+  document.querySelectorAll('#ch-opts .opt').forEach(b => { b.disabled = true; });
+  const d = await api('/api/portal/challenge/answer', {token, choice: i});
+  const fb = document.getElementById('ch-fb');
+  if (!d.ok) { fb.textContent = d.error || ''; return; }
+  fb.innerHTML = d.correct ? '✅ Correct! +20 bonus points 🎉 ' + esc(d.explanation || '') : '❌ Correct: <b>' + esc(d.answer_text || '') + '</b> ' + esc(d.explanation || '');
+}
 async function downloadWorksheet() {
   const d = await api('/api/portal/worksheet?token=' + encodeURIComponent(token));
   if (!d.ok || !d.text) { alert('❌ ' + (d.error || 'Worksheet avvaledu')); return; }
@@ -1364,10 +1444,19 @@ async function submitMock() {
   }).join('');
   const _mrun = MOCK.run_id;
   MOCK = null;
+  api('/api/portal/attempt?token=' + encodeURIComponent(token) + '&run_id=' + encodeURIComponent(_mrun)).then(an => {
+    if (!an.ok) return;
+    const box = document.getElementById('res-review');
+    const delta = an.delta_vs_prev == null ? '' : ' · Previous kante ' + (an.delta_vs_prev >= 0 ? '+' : '') + an.delta_vs_prev;
+    box.insertAdjacentHTML('afterbegin', '<div class="rrow"><b>🔬 Attempt Analysis</b>' + delta +
+      (an.weakest ? '<br><span class="muted">Weakest: ' + esc(an.weakest) + ' — ' + (an.wrong_topics || []).map(esc).join(', ') + '</span>' : '') +
+      (an.topics || []).map(t => '<br><span class="muted">' + esc(t.topic) + ': ' + t.correct + '/' + t.total + ' (' + t.accuracy + '%)</span>').join('') + '</div>');
+  });
   show('view-result');
   document.getElementById('res-sub').insertAdjacentHTML('beforeend',
     '<br><button class="btn-alt" style="width:auto; margin-top:10px;" onclick="downloadKey(\'mock\',\'' + _mrun + '\')">⬇️ Answer Key Paper Download 📄</button>');
 }
+var STATE = null;
 let PR = null;
 let prTimer = null;
 async function startPractice(mode) {
@@ -1438,11 +1527,20 @@ async function ansPr(i, btn) {
   if (!d.ok) { fb.textContent = d.error || ''; return; }
   PR.score = d.score || PR.score;
   fb.innerHTML = d.correct ? '✅ Correct! ' + (d.explanation ? '<span class="muted">' + esc(d.explanation) + '</span>' : '')
-    : '❌ Wrong. Correct: <b>' + esc(d.answer_text) + '</b>' + (d.explanation ? '<br><span class="muted">' + esc(d.explanation) + '</span>' : '');
+    : '❌ Wrong. Correct: <b>' + esc(d.answer_text) + '</b>' + (d.explanation ? '<br><span class="muted">' + esc(d.explanation) + '</span>' : '') +
+      (d.similar ? '<br><button class="btn-alt" style="width:auto; margin-top:6px;" onclick="trySimilar(\'' + esc(d.similar.topic || '') + '\')">🔗 Similar Question Try Chey (' + esc(d.similar.topic || '') + ')</button>' : '');
   document.getElementById('p-score').textContent = '✅ ' + PR.score;
   const nb = document.getElementById('p-next');
   nb.textContent = d.done ? '🏠 Finish' : 'Next ➡️';
   nb.style.display = 'block';
+}
+function trySimilar(topic) {
+  const sel = document.getElementById('topic-sel');
+  if (sel && topic) {
+    for (const o of sel.options) { if (o.value.toLowerCase() === String(topic).toLowerCase()) { sel.value = o.value; break; } }
+  }
+  backHome();
+  setTimeout(() => startPractice('topic'), 60);
 }
 function nextPr() {
   clearInterval(prTimer);
@@ -6948,6 +7046,20 @@ class DashboardHandler(BaseHTTPRequestHandler):
         tok = self._cookie_token()
         return bool(tok) and tok in _load_auth().get("tokens", [])
 
+    # ---------------- 🛡️ RATE LIMIT (public API anti-spam) ----------------
+    _RL = {}
+
+    def _rate_ok(self, key, limit=12, window=600):
+        """Simple sliding-window limiter (per key, e.g. register/IP)."""
+        now = time.time()
+        hits = [t for t in self._RL.get(key, []) if now - t < window]
+        if len(hits) >= limit:
+            self._RL[key] = hits
+            return False
+        hits.append(now)
+        self._RL[key] = hits
+        return True
+
     # ---------------- 🛡️ IP ALLOWLIST (2nd security layer) ----------------
     def _client_ip(self) -> str:
         """Real visitor IP. Behind the preview proxy the trusted proxy APPENDS
@@ -7260,6 +7372,52 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         if p.path == "/api/portal/daily_mix":
             self._send_json({"ok": True, **portal.daily_mix()})
+            return
+        if p.path == "/api/portal/pyq_trends":
+            query = urllib.parse.parse_qs(p.query)
+            self._send_json({"ok": True, **portal.pyq_trends(query.get("goal", [""])[0])})
+            return
+        if p.path == "/api/portal/challenge":
+            query = urllib.parse.parse_qs(p.query)
+            ch = portal.challenge_today(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": ch is not None, **(ch or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/study_plan":
+            query = urllib.parse.parse_qs(p.query)
+            sp = portal.study_plan(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": sp is not None, **(sp or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/next_topic":
+            query = urllib.parse.parse_qs(p.query)
+            nt = portal.next_topic(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": nt is not None, **(nt or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/trend":
+            query = urllib.parse.parse_qs(p.query)
+            tr = portal.score_trend(Members(), query.get("token", [""])[0])
+            ac = portal.activity_calendar(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": True, "trend": tr, "activity": ac})
+            return
+        if p.path == "/api/portal/forecast":
+            query = urllib.parse.parse_qs(p.query)
+            fc = portal.score_forecast(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": fc is not None, **(fc or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/attempt":
+            query = urllib.parse.parse_qs(p.query)
+            an = portal.attempt_analysis(Members(), query.get("token", [""])[0],
+                                         query.get("run_id", [""])[0])
+            self._send_json({"ok": an is not None, **(an or {"error": "attempt dorakaledu"})})
+            return
+        if p.path == "/api/portal/goal_board":
+            query = urllib.parse.parse_qs(p.query)
+            gb = portal.goal_board(Members(), query.get("goal", ["mixed"])[0])
+            self._send_json({"ok": True, "board": gb})
+            return
+        if p.path == "/api/portal/revision_pack":
+            query = urllib.parse.parse_qs(p.query)
+            ok, info = portal.revision_pack_text(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
             return
         if p.path == "/api/portal/exam":
             query = urllib.parse.parse_qs(p.query)
@@ -7678,6 +7836,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json({"ok": True, "notices": portal.list_notices(10)})
             return
 
+        if p.path == "/api/portal/admin/analytics":
+            self._send_json({"ok": True, **portal.portal_analytics(Members())})
+            return
+        if p.path == "/api/bank/quality":
+            from core.question_bank import bank_quality
+            self._send_json({"ok": True, **bank_quality()})
+            return
         if p.path == "/api/portal/admin/exams":
             self._send_json({"ok": True, "exams": portal.admin_list(),
                              "goals": {k: v["label"] for k, v in portal.GOALS.items()}})
@@ -7945,12 +8110,24 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 ok, info = False, str(ex)
             self._send_json({"ok": ok, **(info if ok and isinstance(info, dict) else {"error": info})})
             return
+        if p.path == "/api/portal/challenge/answer":
+            try:
+                ok, info = portal.challenge_answer(
+                    Members(), body.get("token", ""),
+                    int(body.get("choice") if body.get("choice") is not None else -1))
+            except Exception as ex:
+                ok, info = False, str(ex)
+            self._send_json({"ok": ok, **(info if ok and isinstance(info, dict) else {"error": info})})
+            return
         if p.path == "/api/portal/goal":
             ok, info = portal.set_goal(Members(), body.get("token", ""),
                                        body.get("goal", ""))
             self._send_json({"ok": ok, **(info if ok else {"error": info})})
             return
         if p.path == "/api/portal/register":
+            if not self._rate_ok("reg:" + self._client_ip(), 12, 600):
+                self._send_json({"ok": False, "error": "Chala sarlu try chesaru — koncham aagi malli try cheyyandi."}, code=429)
+                return
             ok, info = portal.register_student(
                 Members(), body.get("name", ""), body.get("phone", ""),
                 body.get("district", ""), body.get("goal", "mixed"),

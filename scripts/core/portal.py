@@ -279,7 +279,12 @@ def _snap(q):
             "options_en": list(q.get("options_en") or []),
             "options_te": list(q.get("options_te") or []),
             "answer_index": int(q.get("answer_index") or 0),
-            "explanation": q.get("explanation") or q.get("exp") or ""}
+            # 🛠️ FIX (bug hunt R2): bank field 'explanation_en' —
+            # 'explanation' matrame chudatam valla portal lo
+            # explanations EPPUDU empty ga vachevi (feedback/key/worksheet).
+            "explanation": (q.get("explanation") or q.get("explanation_en")
+                            or q.get("exp") or q.get("note") or ""),
+            "explanation_te": q.get("explanation_te") or ""}
 
 
 @_locked
@@ -361,7 +366,8 @@ def register_student(members, name, phone, district, goal, ref=""):
     _kv_save(members)
     token = secrets.token_urlsafe(18)
     d = _load()
-    d["sessions"][token] = uid
+    # 🛠️ Session TTL: value ippudu {uid, ts} — 30 rojula tarvatha expire
+    d["sessions"][token] = {"uid": uid, "ts": _now().isoformat()}
     d.setdefault("refcodes", {})[_ref_code(uid)] = uid
     # 🤝 Referral: kottha student vere student link tho vaste, aa student ki
     # bonus points (okko sari maatrame, thana code thane vadithe invalid).
@@ -391,8 +397,26 @@ def register_student(members, name, phone, district, goal, ref=""):
                   "ref_code": _ref_code(uid), "referred_by": ref_by}
 
 
+SESSION_TTL_DAYS = 30
+
+
 def _sess(d, token):
-    return (d.get("sessions") or {}).get(str(token or ""))
+    """Session token -> uid. 🛠️ FIX: sessions eppudu expire ayyevi kaavu
+    — ippudu 30-day TTL ({uid, ts} format; legacy string tokens
+    grandfathered, next login nunchi new format vastundi)."""
+    raw = (d.get("sessions") or {}).get(str(token or ""))
+    if raw is None:
+        return None
+    if isinstance(raw, dict):
+        try:
+            age = (_now() - datetime.fromisoformat(raw.get("ts") or "")).days
+        except Exception:
+            age = 0
+        if age > SESSION_TTL_DAYS:
+            (d.get("sessions") or {}).pop(str(token or ""), None)
+            return None
+        return raw.get("uid")
+    return raw
 
 
 def _member(members, uid):
@@ -1432,9 +1456,30 @@ def practice_answer(members, token, run_id, idx, choice):
     prof = _profile(members, uid)
     _award(members, uid, prof["name"], correct, q)
     opts = q.get("options_en") or []
+    # 🔗 Similar follow-up: tappu ayithe same-topic vere question
+    # try cheyyaniki (concept strong avuthundi).
+    similar = None
+    try:
+        from . import flags as _fl
+        _sim_on = _fl.enabled("similar_followup")
+    except Exception:
+        _sim_on = True
+    if _sim_on and not correct:
+        try:
+            pool = [x for x in _bank_pool()
+                    if (x.get("topic") or "").lower()
+                    == (q.get("topic") or "").lower()
+                    and x.get("id") != q.get("id")]
+            if pool:
+                sq = pool[0]
+                similar = {"qid": sq.get("id"), "topic": sq.get("topic", ""),
+                           "te": sq.get("q_te", ""), "en": sq.get("q_en", "")}
+        except Exception:
+            similar = None
     return True, {"correct": correct,
                   "answer_text": opts[q["answer_index"]] if 0 <= q["answer_index"] < len(opts) else "",
                   "explanation": q.get("explanation", ""),
+                  "similar": similar,
                   "answered": len(run["answers"]), "total_q": len(run["qs"]),
                   "score": run["correct"],
                   "done": len(run["answers"]) >= len(run["qs"])}
@@ -1467,19 +1512,31 @@ def paper_progress(members, token):
     if not uid:
         return {}
     out = {}
+
+    def _add(label, correct, total, date):
+        e = out.setdefault(label, {"attempts": 0, "best": 0, "total": 0,
+                                   "last": ""})
+        if e["attempts"] == 0:
+            e["last"] = date or ""
+        e["attempts"] += 1
+        e["best"] = max(e["best"], int(correct or 0))
+        e["total"] = int(total or 0) or e["total"]
+
+    # 🗄️ Archive-first (permanent): board 300-cap tarvatha kuda counts
+    seen_refs = set()
+    for a in (d.get("archive") or []):
+        if a.get("uid") != uid or a.get("kind") != "paper":
+            continue
+        seen_refs.add(a.get("ref"))
+        if a.get("title"):
+            _add(a["title"], a.get("correct"), a.get("total"), a.get("date"))
     for r in reversed(d.get("mock_board") or []):
-        if r.get("uid") != uid:
+        if r.get("uid") != uid or r.get("run_id") in seen_refs:
             continue
         goal = (r.get("goal") or "").strip()
         if goal in GOALS or not goal:
             continue  # goal mocks kaavu — paper label goal ga velthundi
-        e = out.setdefault(goal, {"attempts": 0, "best": 0, "total": 0,
-                                  "last": ""})
-        if e["attempts"] == 0:
-            e["last"] = r.get("date") or ""
-        e["attempts"] += 1
-        e["best"] = max(e["best"], int(r.get("correct") or 0))
-        e["total"] = int(r.get("total") or 0) or e["total"]
+        _add(goal, r.get("correct"), r.get("total"), r.get("date"))
     return out
 
 
@@ -1503,10 +1560,12 @@ def exam_countdowns(members, token):
         out.append({"goal": g, "label": (GOALS.get(g) or {}).get("label", g),
                     "date": date_s, "days": days,
                     "mine": g == goal,
-                    "phase": ("🔴 Final Sprint" if 0 <= days <= 30 else
+                    # 🛠️ FIX: negative days kuda 'Revision Phase'
+                    # andi (order bug) — ippudu exam ayipothe done.
+                    "phase": ("✅ Exam done — next cycle" if days < 0 else
+                              "🔴 Final Sprint" if days <= 30 else
                               "🟠 Revision Phase" if days <= 90 else
-                              "🟢 Foundation Phase" if days > 90 else
-                              "✅ Exam done — next cycle")})
+                              "🟢 Foundation Phase")})
     out.sort(key=lambda r: (not r["mine"], r["days"]))
     return {"goal": goal, "list": out,
             "mine": next((r for r in out if r["mine"]), None)}
@@ -1654,6 +1713,16 @@ def bookmark_toggle(members, token, qid):
     uid = _sess(d, token)
     if not uid or not qid:
         return False, "Session/question dorakaledu."
+    # 🛠️ FIX: bank lo leni qid kuda save ayyedi (ghost bookmarks) —
+    # remove toggle ki validation ledu, save ki matrame bank check.
+    m0 = _member(members, uid)
+    if str(qid) not in list(m0.get("bookmarks") or []):
+        try:
+            from .question_bank import Bank
+            if Bank().by_id(str(qid)) is None:
+                return False, "Aa question bank lo ledu."
+        except Exception:
+            pass
     m = _member(members, uid)
     marks = list(m.get("bookmarks") or [])
     if str(qid) in marks:
@@ -1828,6 +1897,385 @@ def today_plan(members, token):
             "tasks": tasks,
             "done_count": sum(1 for t in tasks if t["done"]),
             "total": len(tasks)}
+
+
+# ------------------------------------------- 30X next-level intelligence
+def study_plan(members, token, days=7):
+    """📅 7-DAY STUDY PLAN: countdown + syllabus gaps + weak topics
+    nunchi roju ki oka clear plan (topic focus + tasks)."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return None
+    prof = _profile(members, uid)
+    try:
+        sy = my_syllabus(members, token) or {}
+    except Exception:
+        sy = {}
+    weak = [w["topic"] for w in (prof.get("weak_topics") or [])]
+    gaps = [s2["subject"] for s2 in (sy.get("subjects") or [])
+            if s2.get("done_topics", 0) < s2.get("topics", 0)]
+    focus_pool = weak + [g for g in gaps if g not in weak]
+    if not focus_pool:
+        focus_pool = ["Smart Practice"]
+    cd = exam_countdowns(members, token) or {}
+    mine = cd.get("mine") or {}
+    out = []
+    for i in range(int(days)):
+        dt = (_now() + timedelta(days=i)).strftime("%Y-%m-%d")
+        focus = focus_pool[i % len(focus_pool)]
+        tasks = ["📝 Daily Quiz (10Q)"]
+        if prof.get("review_due"):
+            tasks.append("🔁 Revision due clear")
+        tasks.append(f"🎯 Topic Practice: {focus}")
+        if i in (2, 6):
+            tasks.append("📄 Full Mock Test (timer)")
+        if i == 6:
+            tasks.append("📜 Previous Paper attempt")
+        out.append({"date": dt, "day": i + 1, "focus": focus,
+                    "tasks": tasks})
+    return {"goal": prof.get("goal"), "exam_in": mine,
+            "coverage": sy.get("coverage"), "days": out}
+
+
+def next_topic(members, token):
+    """🎯 NEXT BEST TOPIC: exam weight ekkuva + mastery takkuva unna
+    topic — studentu 'next emi chadavaali?' ki okka answer."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return None
+    prof = _profile(members, uid)
+    wk = prof.get("weak_topics") or []
+    if wk:
+        w = wk[0]
+        return {"topic": w["topic"], "reason": "weak",
+                "accuracy": w.get("accuracy"),
+                "text": f"{w['topic']} lo accuracy {w.get('accuracy')}% — "
+                        "idi strong chesthe marks periguthayi."}
+    try:
+        sy = my_syllabus(members, token) or {}
+    except Exception:
+        sy = {}
+    for s2 in (sy.get("subjects") or []):
+        if s2.get("done_topics", 0) < s2.get("topics", 0):
+            return {"topic": s2["subject"], "reason": "syllabus-gap",
+                    "text": f"{s2['subject']} syllabus inka "
+                            f"{s2['topics'] - s2['done_topics']} topics "
+                            "migilayi — okko topic practice cheyyandi."}
+    return {"topic": "", "reason": "smart",
+            "text": "Smart Practice — mee level ki saripadda questions."}
+
+
+def attempt_analysis(members, token, run_id):
+    """🔬 ATTEMPT ANALYSIS: archive attempt nunchi topic-wise
+    breakdown + previous attempt tho improvement delta."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return None
+    mine = [a for a in (d.get("archive") or []) if a.get("uid") == uid]
+    cur = next((a for a in mine if str(a.get("ref")) == str(run_id)), None)
+    if not cur:
+        return None
+    topics = {}
+    wrong_topics = {}
+    for i, q in enumerate(cur.get("qs") or []):
+        t = q.get("topic") or "general"
+        topics.setdefault(t, {"topic": t, "total": 0, "correct": 0})
+        topics[t]["total"] += 1
+        ok = (cur.get("answers") or {}).get(str(i), -1) == q.get("answer_index")
+        topics[t]["correct"] += int(ok)
+        if not ok:
+            wrong_topics[t] = wrong_topics.get(t, 0) + 1
+    rows = sorted(topics.values(), key=lambda r: (r["correct"] / max(1, r["total"]), -r["total"]))
+    for r in rows:
+        r["accuracy"] = round(100 * r["correct"] / max(1, r["total"]))
+    # previous same-kind attempt tho delta
+    idx = mine.index(cur)
+    prev = mine[idx + 1] if idx + 1 < len(mine) and mine[idx + 1].get("kind") == cur.get("kind") else None
+    delta = None
+    if prev:
+        delta = int(cur.get("correct") or 0) - int(prev.get("correct") or 0)
+    return {"title": cur.get("title"), "kind": cur.get("kind"),
+            "date": cur.get("date"), "correct": cur.get("correct"),
+            "total": cur.get("total"), "topics": rows,
+            "weakest": rows[0]["topic"] if rows else "",
+            "delta_vs_prev": delta,
+            "wrong_topics": [t for t, _n in sorted(
+                wrong_topics.items(), key=lambda kv: -kv[1])[:3]]}
+
+
+def score_trend(members, token, limit=10):
+    """📊 SCORE TREND: last attempts score graph (archive nunchi)."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return []
+    rows = [a for a in (d.get("archive") or []) if a.get("uid") == uid]
+    out = []
+    for a in reversed(rows[:limit]):
+        tot = int(a.get("total") or 0)
+        out.append({"date": a.get("date"), "title": a.get("title"),
+                    "kind": a.get("kind"), "correct": a.get("correct"),
+                    "total": tot,
+                    "pct": round(100 * int(a.get("correct") or 0) / max(1, tot))})
+    return out
+
+
+def activity_calendar(members, token, days=14):
+    """🗓️ ACTIVITY CALENDAR: last 14 rojula attempts + points."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return []
+    led = {}
+    for r in (d.get("ledger") or []):
+        if r.get("uid") == uid:
+            led[r["date"]] = led.get(r["date"], 0) + int(r.get("pts") or 0)
+    att = {}
+    for a in (d.get("archive") or []):
+        if a.get("uid") == uid:
+            att[a.get("date")] = att.get(a.get("date"), 0) + 1
+    out = []
+    for i in range(int(days) - 1, -1, -1):
+        ds = (_now() - timedelta(days=i)).strftime("%Y-%m-%d")
+        out.append({"date": ds, "pts": led.get(ds, 0),
+                    "attempts": att.get(ds, 0),
+                    "active": bool(led.get(ds) or att.get(ds))})
+    return out
+
+
+def score_forecast(members, token):
+    """🔮 SCORE FORECAST (honest estimate): Brain ability + syllabus
+    coverage nunchi next mock lo expected score range."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return None
+    try:
+        from . import brain as _brain
+        ab = _brain.ability(uid)
+        theta = ab.get("theta", 1000)
+        # logistic expectation vs median-difficulty paper (D=1000)
+        p = 1.0 / (1.0 + 10 ** (-(theta - 1000) / 400.0))
+    except Exception:
+        p = 0.5
+        ab = {}
+    try:
+        sy = my_syllabus(members, token) or {}
+        cov = (sy.get("coverage") or 0) / 100.0
+    except Exception:
+        cov = 0.0
+    expected = round(100 * (0.75 * p + 0.25 * cov))
+    return {"expected_pct": expected,
+            "low": max(0, expected - 8), "high": min(100, expected + 8),
+            "theta": ab.get("theta"), "band": ab.get("band", ""),
+            "answers": ab.get("answers", 0),
+            "note": "Estimate matrame — Brain ability + syllabus "
+                    "coverage nunchi. Ekkuva mocks rayyandi, forecast "
+                    "accurate avuthundi."}
+
+
+def pyq_trends(goal=""):
+    """📈 PYQ TRENDS: previous papers lo ekkuva repeat ayye topics —
+    edi padithe marks vastayo data chepthundi."""
+    import collections
+    pool = _bank_pool()
+    chans = (GOALS.get(goal or "") or {}).get("channels") if goal in GOALS else None
+    pyqs = [q for q in pool if q.get("source") == "pyq"
+            and (not chans or q.get("channel") in chans)]
+    tc = collections.Counter((q.get("topic") or "general") for q in pyqs)
+    cc = collections.Counter((q.get("channel") or "") for q in pyqs)
+    total = max(1, len(pyqs))
+    return {"goal": goal or "all", "pyq_total": len(pyqs),
+            "topics": [{"topic": t, "pyq": n,
+                        "share": round(100 * n / total)}
+                       for t, n in tc.most_common(8)],
+            "channels": [{"channel": c, "pyq": n}
+                         for c, n in cc.most_common(6)]}
+
+
+def challenge_today(members, token):
+    """🏆 CHALLENGE OF THE DAY: okka tough PYQ question, sariga
+    answer chesthe bonus points. Roju okka chance."""
+    try:
+        from . import flags as _fl
+        if not _fl.enabled("daily_challenge"):
+            return None
+    except Exception:
+        pass
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return None
+    day = _today()
+    ch = d.setdefault("challenge", {})
+    entry = ch.get(day)
+    if not entry:
+        pool = [q for q in _bank_pool() if q.get("source") == "pyq"]
+        if not pool:
+            pool = _bank_pool()
+        if not pool:
+            return None
+        q = __import__("random").Random("challenge-" + day).choice(pool)
+        entry = {"q": _snap(q), "done": {}}
+        ch[day] = entry
+        for old in list(ch)[:-3]:
+            ch.pop(old, None)
+        _save(d)
+    mine = (entry.get("done") or {}).get(uid)
+    return {"date": day, "done": bool(mine),
+            "correct": (mine or {}).get("correct"),
+            "bonus": (mine or {}).get("bonus", 0),
+            "question": None if mine else
+            _serve([entry["q"]], f"CH:{uid}:{day}", {})[0]}
+
+
+@_locked
+def challenge_answer(members, token, choice):
+    """Challenge answer — correct ayithe +20 bonus (ledger tho)."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return False, "Session expired — malli login avandi."
+    day = _today()
+    entry = (d.get("challenge") or {}).get(day)
+    if not entry:
+        return False, "Ee roju challenge ready avuthondi."
+    if uid in (entry.get("done") or {}):
+        return True, {"already": True}
+    q = entry["q"]
+    _opts, perm = _display(q, f"CH:{uid}:{day}:0")
+    ch = int(choice)
+    orig = perm[ch] if 0 <= ch < len(perm) else ch
+    correct = orig == q["answer_index"]
+    bonus = 0
+    entry.setdefault("done", {})[uid] = {
+        "correct": correct, "at": _now().isoformat()}
+    if correct:
+        bonus = 20
+        m = _member(members, uid)
+        m["points"] = int(m.get("points") or 0) + bonus
+        _kv_save(members)
+        try:
+            led = d.setdefault("ledger", [])
+            led.append({"uid": str(uid), "pts": bonus, "date": day})
+        except Exception:
+            pass
+        entry["done"][uid]["bonus"] = bonus
+    _save(d, flush=True)
+    prof = _profile(members, uid)
+    _award(members, uid, prof["name"], correct, q)
+    return True, {"correct": correct, "bonus": bonus,
+                  "answer_text": (q.get("options_en") or [""])[q["answer_index"]]
+                  if 0 <= q["answer_index"] < len(q.get("options_en") or []) else "",
+                  "explanation": q.get("explanation", "")}
+
+
+def goal_board(members, goal, limit=10):
+    """🏆 GOAL LEADERBOARD: aa goal mocks lo best scores."""
+    d = _load()
+    label = (GOALS.get(goal or "") or {}).get("label", goal)
+    best = {}
+    for r in (d.get("mock_board") or []):
+        if r.get("goal") not in (goal, label):
+            continue
+        u = r.get("uid")
+        if u and int(r.get("correct") or 0) > int(best.get(u, {}).get("correct", -1)):
+            best[u] = r
+    rows = sorted(best.values(),
+                  key=lambda r: (-int(r.get("correct") or 0),
+                                 -int(r.get("pts") or 0)))[:limit]
+    return [{"name": r.get("name", ""), "district": r.get("district", ""),
+             "correct": r.get("correct", 0), "total": r.get("total", 0),
+             "pts": r.get("pts", 0)} for r in rows]
+
+
+def revision_pack_text(members, token):
+    """🎁 REVISION PACK: review queue + last wrongs nunchi printable
+    revision pack (questions mundhu, key chivarlo)."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return False, "Session expired — malli login avandi."
+    prof = _profile(members, uid)
+    qs = my_bookmarks(members, token)[:10]
+    try:
+        from .question_bank import Bank
+        bank = Bank()
+        m = _member(members, uid)
+        for r in (m.get("review") or []):
+            q = bank.by_id(r.get("qid"))
+            if q:
+                qs.append(_snap(q))
+    except Exception:
+        pass
+    # last attempt wrongs
+    arc = next((a for a in (d.get("archive") or []) if a.get("uid") == uid), None)
+    if arc:
+        for i, q in enumerate(arc.get("qs") or []):
+            if (arc.get("answers") or {}).get(str(i), -1) != q.get("answer_index"):
+                qs.append(q)
+    seen, uniq = set(), []
+    for q in qs:
+        if q.get("id") not in seen:
+            seen.add(q.get("id"))
+            uniq.append(q)
+    qs = uniq[:20]
+    if not qs:
+        return False, "Revision pack ki questions levu — mundhu mock/practice cheyyandi."
+    letters = "ABCD"
+    lines = ["🎓 StudentUp — Revision Pack", "=" * 44,
+             f"Student: {prof.get('name', '')} · Date: {_today()}",
+             "Tappu chesina + save chesina questions — answers chivarlo.", ""]
+    for i, q in enumerate(qs):
+        opts, _perm = _display(q, f"RP:{uid}:{i}")
+        lines.append(f"Q{i + 1}. [{q.get('topic', 'general')}] {q.get('q_en', '')}")
+        if q.get("q_te"):
+            lines.append(f"    {q['q_te']}")
+        for j, o in enumerate(opts[:4]):
+            lines.append(f"    {letters[j]}) {o}")
+        lines.append("")
+    lines += ["-" * 44, "✅ ANSWER KEY", ""]
+    for i, q in enumerate(qs):
+        opts, perm = _display(q, f"RP:{uid}:{i}")
+        try:
+            pos = perm.index(q["answer_index"])
+        except Exception:
+            pos = -1
+        ans_txt = opts[pos] if 0 <= pos < len(opts) else ""
+        lines.append(f"Q{i + 1}. {letters[pos] if 0 <= pos < 4 else '?'}"
+                     f") {ans_txt}")
+        if q.get("explanation"):
+            lines.append(f"    💡 {q['explanation']}")
+    return True, {"filename": f"StudentUp-RevisionPack-{_today()}.txt",
+                  "text": "\n".join(lines), "total": len(qs)}
+
+
+def portal_analytics(members):
+    """📊 ADMIN: portal growth analytics (students, attempts, goals)."""
+    import collections
+    d = _load()
+    mems = getattr(members, "members", None) or {}
+    reg = [m for m in mems.values() if (m or {}).get("registered")]
+    goals = collections.Counter((m or {}).get("exam_goal") or
+                                (m or {}).get("goal") or "?"
+                                for m in reg)
+    arc = d.get("archive") or []
+    today = _today()
+    led_today = {r.get("uid") for r in (d.get("ledger") or [])
+                 if r.get("date") == today}
+    return {"students": len(reg),
+            "attempts_total": len(arc),
+            "attempts_today": sum(1 for a in arc if a.get("date") == today),
+            "papers_attempts": sum(1 for a in arc if a.get("kind") == "paper"),
+            "active_today": len(led_today),
+            "goals": dict(goals.most_common(8)),
+            "challenge_today": len(((d.get("challenge") or {}).get(today)
+                                     or {}).get("done") or {}),
+            "archive_size": len(arc),
+            "sessions_live": len(d.get("sessions") or {})}
 
 
 # ------------------------------------------------- referrals + my report

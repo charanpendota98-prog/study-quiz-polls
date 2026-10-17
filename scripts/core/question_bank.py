@@ -472,6 +472,33 @@ class Bank:
         return out
 
 
+def bank_quality() -> dict:
+    """🏦 BANK QUALITY v2 (admin): totals, PYQ share, duplicates,
+    explanation coverage, channel mix — content engine health."""
+    import collections
+    import re as _re
+    qs = load_bank()
+    norm = collections.Counter()
+    for q in qs:
+        t = _re.sub(r"\s+", " ", (q.get("q_en") or "").strip().lower())
+        if t:
+            norm[t] += 1
+    dups = sum(1 for _t, n in norm.items() if n > 1)
+    chans = collections.Counter(q.get("channel") or "?" for q in qs)
+    return {"total": len(qs),
+            "pyq": sum(1 for q in qs if q.get("source") == "pyq"),
+            "pyq_pct": round(100 * sum(1 for q in qs
+                                      if q.get("source") == "pyq")
+                             / max(1, len(qs))),
+            "duplicate_texts": dups,
+            "no_explanation": sum(1 for q in qs
+                                  if not (q.get("explanation")
+                                          or q.get("explanation_en")
+                                          or q.get("exp"))),
+            "no_telugu": sum(1 for q in qs if not q.get("q_te")),
+            "channels": dict(chans.most_common(12))}
+
+
 def q_signature(q: dict) -> str:
     """
     Content identity of a question — topic + its key numbers + answer.
