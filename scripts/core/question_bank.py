@@ -225,8 +225,39 @@ def load_dynamic_questions():
         return []
 
 
+_BANK_CACHE = {"sig": None, "qs": None}
+
+
+def _bank_sig():
+    try:
+        st = config.BANK_JSON.stat()
+        sig = [st.st_mtime_ns, st.st_size]
+    except Exception:
+        sig = [0, 0]
+    for extra in ("pyq_bank.json", "pyq_bank_2.json", "pyq_bank_3.json",
+                  "pyq_bank_4_ssc.json", "notebook_bank.json",
+                  "curated_extra.json", "question_bank_extra.json",
+                  "scraped_bank.json", "dynamic_generated_bank.json"):
+        try:
+            st = (config.DATA / extra).stat()
+            sig += [st.st_mtime_ns, st.st_size]
+        except Exception:
+            sig += [0, 0]
+    return tuple(sig)
+
+
 def load_bank(force_rebuild=False):
-    """Load canonical bank; rebuild from MD if missing or forced."""
+    """Load canonical bank; rebuild from MD if missing or forced.
+
+    ⚡ PERF (50X): bank files maarithe thappa cached parse vadatham —
+    portal/bot prathi request ki full JSON parse avvadhu. File
+    size/mtime maarithe automatic fresh load."""
+    if not force_rebuild and _BANK_CACHE["qs"] is not None:
+        try:
+            if _bank_sig() == _BANK_CACHE["sig"]:
+                return list(_BANK_CACHE["qs"])
+        except Exception:
+            pass
     if force_rebuild or not config.BANK_JSON.exists():
         rebuild_json()
     data = load_json(config.BANK_JSON, {"questions": []})
@@ -243,7 +274,11 @@ def load_bank(force_rebuild=False):
     if dyn:
         existing_ids = {q.get("id") for q in qs}
         qs = list(qs) + [q for q in dyn if q.get("id") not in existing_ids]
-    return qs
+    try:
+        _BANK_CACHE.update({"sig": _bank_sig(), "qs": qs})
+    except Exception:
+        pass
+    return list(qs)
 
 
 class Bank:

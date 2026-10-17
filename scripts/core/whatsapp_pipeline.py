@@ -1362,8 +1362,18 @@ def start_scheduler_daemon():
     th.start()
 
 
-# Auto-start daemon on module import
-start_scheduler_daemon()
+# Auto-start daemon on module import — production (bot/dashboard)
+# matrame. 🛠️ FIX (50X bug hunt): test runs lo import avvagane
+# scheduler due-job catch-up broadcast start chesedi (lock hold
+# valla preflight tests time-dependent ga fail ayyevi, sandbox lo
+# real group names tho dry broadcast threads perigeyi). Test
+# context (unittest loaded / WA_SCHEDULER_AUTOSTART=0) lo daemon
+# start avvadhu — kavalsinappudu explicit ga start cheyyochu.
+import os as _os
+import sys as _sys
+if _os.environ.get("WA_SCHEDULER_AUTOSTART", "1") != "0" \
+        and "unittest" not in _sys.modules:
+    start_scheduler_daemon()
 
 
 # =====================================================================

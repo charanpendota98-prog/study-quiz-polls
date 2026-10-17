@@ -106,7 +106,7 @@ class TestFameLeague(unittest.TestCase):
         a = self._reg("Anitha", "9812345601")
         self.mem.d["w9812345601"]["badges"] = ["streak_3", "quiz_10"]
         st = portal.state(self.mem, a["token"])
-        self.assertIn("streak_3", st["student"]["badges"])
+        self.assertTrue(any("3-Day Streak" in b for b in st["student"]["badges"]), st["student"]["badges"])  # badges ippudu labels
         src = (Path(__file__).resolve().parent.parent
                / "scripts" / "dashboard_server.py").read_text(encoding="utf-8")
         for needle in ('"/api/portal/exam/certificate"', "portal.exam_certificate",

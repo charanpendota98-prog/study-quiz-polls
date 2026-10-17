@@ -456,6 +456,44 @@ def _award(members, uid, name, correct, q):
             pass
 
 
+_BADGE_FALLBACK = {"first_steps": "🌱 First Steps", "streak_3": "🔥 3-Day Streak",
+                   "streak_7": "🔥🔥 Week Warrior", "quiz_10": "📝 Quiz x10",
+                   "quiz_50": "🎯 Quiz x50", "quiz_100": "💯 Century",
+                   "sharp": "🎯 Sharpshooter", "topper": "🏆 Topper"}
+
+
+def _badge_labels(ids):
+    """🏅 Badge ids -> display labels. 🛠️ FIX (R4): portal chips lo
+    raw ids ('correct10') kanipinchhevi — ippudu icon+English name
+    (members._earned_badges single source nunchi)."""
+    defs = {}
+    try:
+        from .members import Members as _M
+        for b in _M._all_badge_defs():
+            defs[b["id"]] = b["icon"]
+    except Exception:
+        pass
+    _names = {"first": "First Answer", "correct10": "10 Correct",
+              "correct100": "Century — 100 Correct",
+              "streak3": "3-Day Streak", "streak7": "7-Day Streak",
+              "streak30": "30-Day Streak", "sharp": "Sharp Shooter",
+              "champion": "Champion", "beat_topper": "Beat the Topper",
+              "defender": "Defender", "round_top1": "Round Winner",
+              "round_top5": "5× Round Winner",
+              "district_king": "District Topper ×3",
+              "perfect": "Perfect Round", "referrer3": "Brought 3 Friends",
+              "focus": "Focus Star", "ambassador": "Ambassador"}
+    out = []
+    for bid in ids or []:
+        if bid in _BADGE_FALLBACK:
+            out.append(_BADGE_FALLBACK[bid])
+        elif bid in defs:
+            out.append(f"{defs[bid]} {_names.get(bid, bid)}")
+        else:
+            out.append(f"🏅 {_names.get(bid, bid)}")
+    return out
+
+
 def _profile(members, uid):
     m = _member(members, uid)
     topics = m.get("topics") or {}
@@ -473,7 +511,7 @@ def _profile(members, uid):
             "points": m.get("points", 0),
             "streak": m.get("streak", 0), "best_streak": m.get("best_streak", 0),
             "ref_code": _ref_code(uid), "referrals": m.get("referrals", 0),
-            "badges": m.get("badges") or [],
+            "badges": _badge_labels(m.get("badges") or []),
             "lang": m.get("lang") or "both",
             "review_due": due,
             "answered": tot, "correct": cor,
@@ -2633,6 +2671,177 @@ def rival_status(members, token):
             "my_pts": my_pts, "rival_pts": rv_pts,
             "leading": "you" if my_pts >= rv_pts else "rival",
             "diff": abs(my_pts - rv_pts)}
+
+
+# ------------------------------------------- 50X perfection features
+def search_practice(members, token, query):
+    """🔍 QUESTION SEARCH: keyword tho bank lo vethiki ave questions
+    practice run ga (student thanaku kavalsindi direct ga)."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return False, "Session expired — malli login avandi."
+    qtext = str(query or "").strip().lower()
+    if len(qtext) < 3:
+        return False, "Kammi 3 letters tho search cheyyandi."
+    pool = [q for q in _bank_pool()
+            if qtext in (q.get("q_en") or "").lower()
+            or qtext in (q.get("topic") or "").lower()
+            or any(qtext in str(o).lower()
+                   for o in (q.get("options_en") or []))]
+    if not pool:
+        return False, "Aa keyword tho questions dorakaledu — vere word try cheyyandi."
+    picked = pool[:10]
+    run_id = "PR-" + secrets.token_hex(4)
+    d.setdefault("practice", {})[run_id] = {
+        "uid": uid, "mode": "search", "qs": [_snap(q) for q in picked],
+        "answers": {}, "correct": 0, "created": _now().isoformat(),
+        "per_q": 0}
+    for k in list(d["practice"])[:-60]:
+        d["practice"].pop(k, None)
+    _save(d)
+    return True, {"run_id": run_id, "mode": "search", "per_q": 0,
+                  "brain": None, "found": len(pool),
+                  "questions": _serve(d["practice"][run_id]["qs"], run_id, {})}
+
+
+def daily_review(members, token):
+    """📅 DAILY REVIEW: ee roju daily quiz lo mee answers vs correct
+    (done ayithe full, lekapothe answered matrame)."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return None
+    day = _daily_paper(d)
+    run = (day.get("runs") or {}).get(uid) or {}
+    answers = run.get("answers") or {}
+    rows = []
+    for i, q in enumerate(day.get("qs") or []):
+        if not run.get("done") and str(i) not in answers:
+            continue
+        given = answers.get(str(i), -1)
+        opts = q.get("options_en") or []
+        rows.append({"i": i, "topic": q.get("topic", ""),
+                     "en": q.get("q_en", ""), "te": q.get("q_te", ""),
+                     "given": given, "answer": q["answer_index"],
+                     "right": given == q["answer_index"],
+                     "given_text": opts[given] if 0 <= given < len(opts) else "—",
+                     "answer_text": opts[q["answer_index"]]
+                     if 0 <= q["answer_index"] < len(opts) else "",
+                     "explanation": q.get("explanation", "")})
+    return {"date": _today(), "done": bool(run.get("done")),
+            "correct": run.get("correct", 0), "rows": rows}
+
+
+def resume_latest(members, token):
+    """▶️ RESUME: madhyalo aapina mock/practice akkadi nunchi malli —
+    answers display positions tho saha (student ki zero rework)."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return None
+    out = {"mock": None, "practice": None}
+    for run_id, run in reversed(list((d.get("mocks") or {}).items())):
+        if run.get("uid") == uid and not run.get("done"):
+            disp = {}
+            for i, q in enumerate(run["qs"]):
+                if str(i) in (run.get("answers") or {}):
+                    _o, perm = _display(q, f"{run_id}:{i}")
+                    try:
+                        disp[str(i)] = perm.index(run["answers"][str(i)])
+                    except Exception:
+                        pass
+            out["mock"] = {"run_id": run_id, "kind": run.get("kind", "mock"),
+                           "label": run.get("paper_label") or
+                           (GOALS.get(run.get("goal") or "") or {}).get(
+                               "label", "Mock Test"),
+                           "questions": _serve(run["qs"], run_id,
+                                               run.get("answers") or {}),
+                           "answers": disp,
+                           "answered": len(run.get("answers") or {})}
+            break
+    for run_id, run in reversed(list((d.get("practice") or {}).items())):
+        if (run.get("uid") == uid
+                and len(run.get("answers") or {}) < len(run.get("qs") or [])):
+            out["practice"] = {"run_id": run_id, "mode": run.get("mode"),
+                               "answered": len(run.get("answers") or {}),
+                               "total": len(run.get("qs") or [])}
+            break
+    return out
+
+
+def flag_question(members, token, qid, reason=""):
+    """🚩 FLAG QUESTION: student tappu question ni report chesthe
+    admin review queue loki (quality loop)."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid or not qid:
+        return False, "Session/question dorakaledu."
+    flags = d.setdefault("qflags", [])
+    if any(f.get("uid") == uid and f.get("qid") == str(qid)
+           and f.get("date") == _today() for f in flags):
+        return True, {"already": True}
+    flags.insert(0, {"qid": str(qid), "uid": uid,
+                     "reason": str(reason or "")[:120], "date": _today()})
+    d["qflags"] = flags[:300]
+    _save(d)
+    return True, {"flagged": True}
+
+
+def question_flags(limit=30):
+    """🚩 Admin: flagged questions review list."""
+    d = _load()
+    try:
+        from .question_bank import Bank
+        bank = Bank()
+    except Exception:
+        bank = None
+    out = []
+    for f in (d.get("qflags") or [])[:limit]:
+        q = bank.by_id(f.get("qid")) if bank else None
+        out.append({**f, "question": (q or {}).get("q_en", "")[:120],
+                    "topic": (q or {}).get("topic", "")})
+    return out
+
+
+def my_data_export(members, token):
+    """📦 MY DATA: student thana full data (profile, attempts,
+    bookmarks) JSON ga download — data meede thana hakku."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return False, "Session expired."
+    prof = _profile(members, uid)
+    m = _member(members, uid)
+    data = {"exported": _now().isoformat(), "profile": prof,
+            "bookmarks": m.get("bookmarks") or [],
+            "review_cards": len(m.get("review") or []),
+            "attempts": my_archive(members, token, limit=60),
+            "papers": paper_progress(members, token)}
+    return True, {"filename": f"StudentUp-MyData-{_today()}.json",
+                  "text": __import__("json").dumps(
+                      data, ensure_ascii=False, indent=2)}
+
+
+def admin_students(members, query=""):
+    """👩‍🎓 ADMIN: student search (name/phone/district) + top list."""
+    mems = getattr(members, "members", None) or {}
+    q = str(query or "").strip().lower()
+    rows = []
+    for uid, m in mems.items():
+        if not (m or {}).get("registered"):
+            continue
+        if q and not (q in str(m.get("name", "")).lower()
+                      or q in str(m.get("mobile", ""))
+                      or q in str(m.get("district", "")).lower()):
+            continue
+        rows.append({"uid": str(uid), "name": m.get("name", ""),
+                     "district": m.get("district", ""),
+                     "mobile": m.get("mobile", ""),
+                     "points": int(m.get("points") or 0),
+                     "goal": m.get("exam_goal") or m.get("goal") or ""})
+    rows.sort(key=lambda r: -r["points"])
+    return rows[:20]
 
 
 # ------------------------------------------------- referrals + my report

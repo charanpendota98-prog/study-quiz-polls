@@ -483,6 +483,8 @@ def public_page(handler, page):
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0b1329">
 <meta name="description" content="StudentUp: free quiz polls, previous-year questions and browser-based college exams for AP & Telangana students (EAMCET, NEET, SSC, RRB, APPSC/TSPSC).">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"StudentUp","url":"https://studentup.in","description":"Free daily quiz, previous-year questions (PYQ), mock tests and live exams for AP & Telangana students.","potentialAction":{"@type":"SearchAction","target":"https://studentup.in/papers","query-input":"required name=query"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"StudentUp lo previous-year questions (PYQ) unnaya?","acceptedAnswer":{"@type":"Answer","text":"Avunu — bank lo real previous-year questions unnayi, prathi paper exam-wise sets ga attempt cheyyavachu, counts kuda open ga chupistam."}},{"@type":"Question","name":"StudentUp free aa?","acceptedAnswer":{"@type":"Answer","text":"Avunu, Daily Quiz, Mock Tests, Previous Papers, Live Exams anni free."}},{"@type":"Question","name":"Weekly Grand Test eppudu?","acceptedAnswer":{"@type":"Answer","text":"Prathi Sunday 10:00 AM — 40 questions, 60 minutes, PYQ-first paper, winners certificate tho."}}]}</script>
 __CANONICAL____ADSHEAD__
 <style>__CSS__</style>
 </head>
@@ -856,6 +858,15 @@ PORTAL_HTML = """<!DOCTYPE html>
         <button class="btn-alt" style="width:auto; margin-top:0;" onclick="startPractice('topic')">Topic ▶</button>
       </div>
       <div class="row" style="margin-top:9px;">
+        <input id="search-q" type="text" placeholder="🔍 Question search (eg: photosynthesis, article 370)" style="flex:1;">
+        <button class="btn-alt" style="width:auto; margin-top:0;" onclick="searchPractice()">Search ▶</button>
+      </div>
+      <div class="row" style="margin-top:9px;">
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadDailyReview()">📅 Daily Review</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="resumeMock()">▶️ Resume Aapina Mock</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="downloadMyData()">📦 Naa Data Download</button>
+      </div>
+      <div class="row" style="margin-top:9px;">
         <span class="muted">🏁 Real-exam negative marking tho mock:</span>
         <select id="neg-sel" style="width:auto;">
           <option value="0">No negative</option>
@@ -969,7 +980,7 @@ PORTAL_HTML = """<!DOCTYPE html>
     <div id="p-en" class="qen"></div>
     <div id="p-opts"></div>
     <div id="p-fb" class="feedback"></div>
-    <div class="row"><button class="btn-alt" style="width:auto; margin:0;" id="p-bm" onclick="bmCurrent()">🔖 Save Question</button><span id="p-timer" class="chip" style="display:none;"></span></div>
+    <div class="row"><button class="btn-alt" style="width:auto; margin:0;" id="p-bm" onclick="bmCurrent()">🔖 Save Question</button><button class="btn-alt" style="width:auto; margin:0;" onclick="flagCurrent()">🚩 Wrong Question?</button><span id="p-timer" class="chip" style="display:none;"></span></div>
     <button class="btn-main" id="p-next" style="display:none;" onclick="nextPr()">Next ➡️</button>
   </div>
 
@@ -1306,6 +1317,51 @@ async function toggleBookmark(qid) {
   const d = await api('/api/portal/bookmark', {token, qid});
   if (d.ok) loadBookmarks();
 }
+async function searchPractice() {
+  const q = (document.getElementById('search-q').value || '').trim();
+  if (q.length < 3) { alert('Kammi 3 letters ivvandi'); return; }
+  const d = await api('/api/portal/search', {token, q});
+  if (!d.ok) { alert('❌ ' + (d.error || 'Search avvaledu')); return; }
+  PR = {run_id: d.run_id, questions: d.questions || [], cur: 0, score: 0, per_q: 0};
+  show('view-prc'); renderPr();
+}
+async function loadDailyReview() {
+  const out = document.getElementById('adv-out');
+  const d = await api('/api/portal/daily_review?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  out.innerHTML = '<b>📅 Daily Review</b> <span class="chip">' + (d.correct || 0) + ' correct</span>' +
+    (d.rows || []).map(r => '<div class="rrow ' + (r.right ? 'ok' : 'bad') + '"><b>Q' + (r.i + 1) + '.</b> ' + esc(r.en || r.te || '') +
+      '<br><span class="muted">Meeru: ' + esc(r.given_text) + (r.right ? ' ✅' : ' ❌ · Correct: ' + esc(r.answer_text)) + '</span>' +
+      (r.explanation ? '<br><span class="muted">💡 ' + esc(r.explanation) + '</span>' : '') + '</div>').join('');
+}
+async function resumeMock() {
+  const d = await api('/api/portal/resume?token=' + encodeURIComponent(token));
+  if (!d.ok || !d.mock) { alert('Resume cheyyadaniki aapina mock ledu'); return; }
+  MOCK = {run_id: d.mock.run_id, answers: {}};
+  document.getElementById('m-title').textContent = '▶️ Resume: ' + d.mock.label;
+  const box = document.getElementById('m-qs'); box.innerHTML = '';
+  d.mock.questions.forEach((q) => {
+    const div = document.createElement('div'); div.id = 'mq' + q.i;
+    div.innerHTML = '<div class="qte" style="margin-top:14px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
+    q.options.forEach((opt, oi) => {
+      const b = document.createElement('button'); b.className = 'opt' + ((d.mock.answers || {})[q.i] === oi ? ' picked' : ''); b.textContent = opt;
+      if ((d.mock.answers || {})[q.i] === oi) MOCK.answers[q.i] = oi;
+      b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers[q.i] = oi; };
+      div.appendChild(b);
+    });
+    box.appendChild(div);
+  });
+  show('view-mock');
+  alert('▶️ ' + d.mock.answered + ' answers restore ayyayi — migithavi complete cheyyandi!');
+}
+async function downloadMyData() {
+  const d = await api('/api/portal/mydata?token=' + encodeURIComponent(token));
+  if (!d.ok || !d.text) { alert('❌ ' + (d.error || '')); return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([d.text], {type: 'application/json;charset=utf-8'}));
+  a.download = d.filename || 'StudentUp-MyData.json'; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
 async function loadStudyPlan() {
   const out = document.getElementById('adv-out');
   out.innerHTML = '<div class="muted">Plan tayaru avuthondi…</div>';
@@ -1585,6 +1641,13 @@ async function startPractice(mode, subject) {
   if (!d.ok) { alert('❌ ' + (d.error || 'Practice start avvaledu')); return; }
   PR = {run_id: d.run_id, questions: d.questions || [], cur: 0, score: 0, per_q: d.per_q || 0};
   show('view-prc'); renderPr();
+}
+async function flagCurrent() {
+  const q = PR && PR.questions[PR.cur];
+  if (!q || !q.qid) return;
+  const reason = prompt('🚩 Ee question lo emi tappu undi? (optional)') || '';
+  const d = await api('/api/portal/flag', {token, qid: q.qid, reason});
+  alert(d.ok ? '🚩 Report vellindi — team check chestundi, thanks!' : '❌ ' + (d.error || ''));
 }
 function bmCurrent() {
   const q = PR && PR.questions[PR.cur];
@@ -7566,6 +7629,21 @@ class DashboardHandler(BaseHTTPRequestHandler):
             rv = portal.rival_status(Members(), query.get("token", [""])[0])
             self._send_json({"ok": rv is not None, **(rv or {"error": "session expired"})})
             return
+        if p.path == "/api/portal/daily_review":
+            query = urllib.parse.parse_qs(p.query)
+            dr2 = portal.daily_review(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": dr2 is not None, **(dr2 or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/resume":
+            query = urllib.parse.parse_qs(p.query)
+            rs = portal.resume_latest(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": rs is not None, **(rs or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/mydata":
+            query = urllib.parse.parse_qs(p.query)
+            ok, info = portal.my_data_export(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
         if p.path == "/api/portal/district_rank":
             query = urllib.parse.parse_qs(p.query)
             dr = portal.district_goal_rank(Members(), query.get("token", [""])[0])
@@ -7827,6 +7905,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
             from core import health as _hl
             rep = _hl.full_report()
             rep["uptime_min"] = int((time.time() - _START_TS) // 60)
+            try:
+                _pa = portal.portal_analytics(Members())
+                rep["portal"] = {"students": _pa.get("students"),
+                                 "attempts": _pa.get("attempts_total"),
+                                 "active_today": _pa.get("active_today")}
+            except Exception:
+                rep["portal"] = {}
             self._send_json(rep)
             return
 
@@ -7990,6 +8075,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         if p.path == "/api/portal/admin/analytics":
             self._send_json({"ok": True, **portal.portal_analytics(Members())})
+            return
+        if p.path == "/api/portal/admin/students":
+            query = urllib.parse.parse_qs(p.query)
+            self._send_json({"ok": True, "students": portal.admin_students(
+                Members(), query.get("q", [""])[0])})
+            return
+        if p.path == "/api/portal/admin/flags":
+            self._send_json({"ok": True, "flags": portal.question_flags()})
             return
         if p.path == "/api/bank/quality":
             from core.question_bank import bank_quality
@@ -8270,6 +8363,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
             except Exception as ex:
                 ok, info = False, str(ex)
             self._send_json({"ok": ok, **(info if ok and isinstance(info, dict) else {"error": info})})
+            return
+        if p.path == "/api/portal/search":
+            ok, info = portal.search_practice(Members(), body.get("token", ""),
+                                              body.get("q", ""))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/flag":
+            ok, info = portal.flag_question(Members(), body.get("token", ""),
+                                            body.get("qid", ""), body.get("reason", ""))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
             return
         if p.path == "/api/portal/lang":
             ok, info = portal.set_lang(Members(), body.get("token", ""),
