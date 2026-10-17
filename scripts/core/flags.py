@@ -61,6 +61,16 @@ DEFAULTS = {
         "label": "🏁 Negative-marking mocks",
         "desc": "Portal mocks lo real-exam negative marking simulator (0/-0.25/-0.5/-1) allow chesthundi.",
     },
+    "adaptive_mock": {
+        "default": True,
+        "label": "🧠 Adaptive Mock (Brain-composed)",
+        "desc": "Mock tests Brain compose tho (weak topics + revision + level zone) tayaru avuthayi.",
+    },
+    "sprint_mode": {
+        "default": True,
+        "label": "🔥 Sprint Mode (exam <=14d)",
+        "desc": "Exam daggara padithe intensive sprint plan card chupisthundi.",
+    },
     "grand_mock": {
         "default": True,
         "label": "🏛️ Grand Mock (50Q full simulation)",

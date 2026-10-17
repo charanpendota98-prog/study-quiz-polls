@@ -295,7 +295,18 @@ def _daily_paper(d):
     if day not in d["days"] or not d["days"][day].get("qs"):
         pool = _bank_pool()
         rng = random.Random("studentup-daily-" + day)
-        picked = rng.sample(pool, min(DAILY_N, len(pool))) if pool else []
+        # 📜 PYQ guarantee (60X): daily paper lo kammi 40% real PYQ
+        # (stock allow chesthe) — students ki daily previous-year feel.
+        pyqs = [q for q in pool if q.get("source") == "pyq"]
+        rest = [q for q in pool if q.get("source") != "pyq"]
+        rng.shuffle(pyqs)
+        rng.shuffle(rest)
+        n_pyq = min(len(pyqs), max(1, round(DAILY_N * 0.4))) if pyqs else 0
+        picked = pyqs[:n_pyq] + rest[:max(0, DAILY_N - n_pyq)]
+        if len(picked) < min(DAILY_N, len(pool)):
+            picked += (pyqs[n_pyq:] + rest[DAILY_N - n_pyq:])[
+                :min(DAILY_N, len(pool)) - len(picked)]
+        rng.shuffle(picked)
         d["days"][day] = {"qs": [_snap(q) for q in picked], "runs": {}}
         # keep only the last 3 days of papers/runs
         for old in sorted(d["days"])[:-3]:
@@ -315,10 +326,16 @@ def _display(q, seed):
 
 def _serve(qs, seed_prefix, answers):
     out = []
+    try:
+        from . import blueprint as _bp
+        _lvl = lambda q: _bp.difficulty_of(q)  # noqa: E731
+    except Exception:
+        _lvl = lambda q: ""  # noqa: E731
     for i, q in enumerate(qs):
         opts, _perm = _display(q, f"{seed_prefix}:{i}")
         out.append({"i": i, "qid": q.get("id"), "topic": q["topic"], "channel": q["channel"],
                     "te": q.get("q_te", ""), "en": q.get("q_en", ""),
+                    "level": _lvl(q),
                     "options": opts, "answered": str(i) in (answers or {})})
     return out
 
@@ -562,8 +579,16 @@ def state(members, token):
         _cd = exam_countdowns(members, token)
     except Exception:
         _cd = None
+    _nts = [n for n in list_notices(10)
+            if not n.get("goal") or n.get("goal") == prof.get("goal")]
     return {"student": prof, "brain": _brain_card, "today_plan": _plan,
             "countdown": _cd,
+            "sprint": (sprint_plan(members, token)
+                       if _cd and (_cd.get("mine") or {}).get("days") is not None
+                       and 0 <= (_cd["mine"]["days"]) <= 14 else None),
+            "goal2": {"goal": _member(members, uid).get("goal2", ""),
+                      "label": (GOALS.get(_member(members, uid).get("goal2") or "")
+                                or {}).get("label", "")},
             "papers": [{"label": r["label"], "exam": r["exam"],
                         "year": r["year"], "paper": r["paper"],
                         "topics": r.get("topics") or [],
@@ -571,7 +596,7 @@ def state(members, token):
                         "count": r["count"]} for r in paper_catalog()],
             "paper_progress": paper_progress(members, token),
             "goals": {k: v["label"] for k, v in GOALS.items()},
-            "notices": list_notices(3),
+            "notices": _nts[:3],
             "toppers": toppers_all(members),
             "daily": {"n": len(day["qs"]),
                       "pyq_count": sum(1 for q in day["qs"] if q.get("source") == "pyq"),
@@ -722,6 +747,44 @@ def mock_start(members, token, goal, neg=0.0, kind="mock"):
             pass
     if kind == "grand":
         picked = _paper(chans or None, 50, "grand-" + secrets.token_hex(4))
+    elif kind == "adaptive":
+        # 🧠 ADAPTIVE MOCK: Brain compose (due review + weak + level zone)
+        try:
+            from . import flags as _fl
+            _ad_on = _fl.enabled("adaptive_mock")
+        except Exception:
+            _ad_on = True
+        if _ad_on:
+            try:
+                from . import brain as _brain
+                pool = _bank_pool(chans or None)
+                if len(pool) < 5:
+                    pool = _bank_pool()
+                _m = _member(members, uid)
+                _rev = []
+                try:
+                    from .question_bank import Bank as _Bk
+                    _bk = _Bk()
+                    for r in (_m.get("review") or []):
+                        if str(r.get("due", "")) <= _today():
+                            _q = _bk.by_id(r.get("qid"))
+                            if _q:
+                                _rev.append(_q)
+                except Exception:
+                    _rev = []
+                picked = _brain.compose(pool, _m, uid, n=MOCK_N,
+                                        review_qs=_rev)
+            except Exception:
+                picked = []
+            if not picked:
+                pool = _bank_pool(chans or None)
+                picked = random.Random(secrets.token_hex(4)).sample(
+                    pool, min(MOCK_N, len(pool))) if pool else []
+        else:
+            kind = "mock"
+            pool = _bank_pool(chans or None)
+            picked = random.Random(secrets.token_hex(4)).sample(
+                pool, min(MOCK_N, len(pool))) if pool else []
     else:
         pool = _bank_pool(chans or None)
         if len(pool) < 5:
@@ -752,7 +815,8 @@ def mock_start(members, token, goal, neg=0.0, kind="mock"):
         d["mocks"].pop(k, None)
     _save(d)
     return True, {"run_id": run_id, "goal": goal, "neg": neg, "kind": kind,
-                  "label": ("🏛️ Grand Mock — " if kind == "grand" else "")
+                  "label": ("🏛️ Grand Mock — " if kind == "grand" else
+                            "🧠 Adaptive Mock — " if kind == "adaptive" else "")
                            + GOALS[goal]["label"],
                   "minutes": (60 if kind == "grand"
                               else max(5, len(picked) * 1)),
@@ -1380,13 +1444,14 @@ def exam_scorecard(members, token, exam_id):
 
 # ------------------------------------------------------------- notices
 @_locked
-def add_notice(title, body, link=""):
+def add_notice(title, body, link="", goal=""):
     """📢 Exam updates/notifications (admin dashboard nunchi) — portal home
     lo + public /updates page lo kanipisthayi."""
     d = _load()
     n = {"id": secrets.token_hex(4),
          "title": str(title or "")[:120], "body": str(body or "")[:600],
-         "link": str(link or "")[:300], "date": _today()}
+         "link": str(link or "")[:300], "date": _today(),
+         "goal": (goal if goal in GOALS else "")}
     if not n["title"]:
         return None
     d.setdefault("notices", []).insert(0, n)
@@ -1602,6 +1667,7 @@ def practice_answer(members, token, run_id, idx, choice):
     return True, {"correct": correct,
                   "answer_text": opts[q["answer_index"]] if 0 <= q["answer_index"] < len(opts) else "",
                   "explanation": q.get("explanation", ""),
+                  "explanation_te": q.get("explanation_te", ""),
                   "similar": similar,
                   "answered": len(run["answers"]), "total_q": len(run["qs"]),
                   "score": run["correct"],
@@ -2397,6 +2463,12 @@ def portal_analytics(members):
             "goals": dict(goals.most_common(8)),
             "challenge_today": len(((d.get("challenge") or {}).get(today)
                                      or {}).get("done") or {}),
+            "funnel": {
+                "registered": len(reg),
+                "attempted": len({a.get("uid") for a in arc}),
+                "active_today": len(led_today),
+                "attempt_rate": round(100 * len({a.get("uid") for a in arc})
+                                      / max(1, len(reg)))},
             "archive_size": len(arc),
             "sessions_live": len(d.get("sessions") or {}),
             "pyq_gaps": _pyq_gaps_safe(),
@@ -2842,6 +2914,113 @@ def admin_students(members, query=""):
                      "goal": m.get("exam_goal") or m.get("goal") or ""})
     rows.sort(key=lambda r: -r["points"])
     return rows[:20]
+
+
+# ------------------------------------------- 60X sprint + series cert
+def sprint_plan(members, token):
+    """🔥 SPRINT MODE: exam daggara (<=14 rojulu) unte intensive plan —
+    daily grand mock + revision + paper rotation."""
+    try:
+        from . import flags as _fl
+        if not _fl.enabled("sprint_mode"):
+            return None
+    except Exception:
+        pass
+    cd = exam_countdowns(members, token) or {}
+    mine = cd.get("mine") or {}
+    days = mine.get("days")
+    if days is None or days < 0 or days > 14:
+        return {"active": False, "days": days, "label": mine.get("label", "")}
+    tasks = ["🏛️ Grand Mock (50Q) — daily okati",
+             "🔁 Revision due anni clear",
+             "📜 Previous Paper — daily okka set",
+             "📉 Mistake patterns chusi weak topic drill"]
+    if days <= 3:
+        tasks = ["📜 Previous Papers matrame (kotthavi vaddu)",
+                 "🔁 Revision + formula/notes quick rounds",
+                 "😴 Exam mundhu roju light ga — nidra mukhyam"]
+    return {"active": True, "days": days, "label": mine.get("label", ""),
+            "date": mine.get("date", ""), "tasks": tasks,
+            "text": f"{mine.get('label', 'Exam')} ki {days} rojule — "
+                    "sprint mode ON 🔥"}
+
+
+def set_goal2(members, token, goal):
+    """🎯 SECOND GOAL: rendu exams ki prepare ayye students kosam
+    (primary goal maaradu, quick-access kosam goal2)."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return False, "Session expired."
+    if goal and goal not in GOALS:
+        return False, "Invalid exam selection."
+    m = _member(members, uid)
+    if goal:
+        m["goal2"] = goal
+    else:
+        m.pop("goal2", None)
+    _kv_save(members)
+    return True, {"goal2": m.get("goal2", ""),
+                  "label": (GOALS.get(goal) or {}).get("label", "")}
+
+
+def weekly_report_text(members, token):
+    """📲 WEEKLY REPORT (parents ki share cheyyadaniki): ee week
+    progress neat text — WhatsApp share ready."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return False, "Session expired."
+    prof = _profile(members, uid)
+    cal = activity_calendar(members, token, days=7) or []
+    pts_week = sum(a["pts"] for a in cal)
+    active = sum(1 for a in cal if a["active"])
+    tr = score_trend(members, token, limit=7)
+    sr = test_series(members, token) or {}
+    lines = [f"🎓 {prof.get('name', 'Student')} — Weekly Report (StudentUp)",
+             f"🎯 Goal: {(GOALS.get(prof.get('goal') or '') or {}).get('label', prof.get('goal', ''))}",
+             f"📅 Ee week: {active} active days · {pts_week} points earn chesaru",
+             f"⭐ Total points: {prof.get('points', 0)} · 🔥 Streak: {prof.get('streak', 0)} days",
+             f"🎯 Overall accuracy: {prof.get('accuracy', 0)}%"]
+    if tr:
+        last = tr[-1]
+        lines.append(f"📊 Last test: {last.get('title', '')} — {last.get('pct', 0)}%")
+    if sr.get("attempted"):
+        lines.append(f"📚 Test Series: {sr['attempted']} tests ayyayi "
+                     f"(avg {sr.get('avg_pct')}%)")
+    weak = (prof.get("weak_topics") or [])
+    if weak:
+        lines.append(f"⚠️ Focus: {weak[0]['topic']} inka practice kavali")
+    lines.append("💪 Consistency undi — ilaage continue chesthe rank pakka!")
+    lines.append("— StudentUp (studentup.in)")
+    return True, {"filename": f"StudentUp-Weekly-{_today()}.txt",
+                  "text": "\n".join(lines)}
+
+
+def series_certificate(members, token):
+    """🏅 TEST SERIES CERTIFICATE: series lo 10 tests complete
+    chesthe certificate PNG (certcard engine)."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return None
+    sr = test_series(members, token) or {}
+    if int(sr.get("attempted") or 0) < 10:
+        return None
+    try:
+        from . import certcard
+        prof = _profile(members, uid)
+        rows = [{"name": prof.get("name", "Student"), "rank": 1,
+                 "score": f"{sr.get('attempted')} tests",
+                 "pct": int(sr.get("avg_pct") or 0)}]
+        return certcard.render_certificate(
+            "TEST SERIES COMPLETE",
+            f"StudentUp {sr.get('label', '')} — 10-Test Series",
+            rows,
+            footer=f"{prof.get('name', '')} · Avg {sr.get('avg_pct')}% "
+                   f"· Best {sr.get('best_pct')}% · studentup.in")
+    except Exception:
+        return None
 
 
 # ------------------------------------------------- referrals + my report

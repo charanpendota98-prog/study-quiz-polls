@@ -211,7 +211,7 @@ class TestExpertFeatures(_Base):
         self.assertGreaterEqual(an["attempt_kinds"].get("grand", 0), 1)
 
     def test_flags_13(self):
-        self.assertEqual(len(flags.DEFAULTS), 13)
+        self.assertEqual(len(flags.DEFAULTS), 15)
         self.assertIn("grand_mock", flags.DEFAULTS)
         self.assertIn("sectional_tests", flags.DEFAULTS)
 
