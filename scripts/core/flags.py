@@ -96,6 +96,21 @@ DEFAULTS = {
         "label": "😤 Revenge Mode practice",
         "desc": "Last attempt lo tappu chesina questions ne malli practice cheyyinche mode.",
     },
+    "focus_timer": {
+        "default": True,
+        "label": "⏱️ Focus Timer (study sessions)",
+        "desc": "Portal lo pomodoro focus timer + study minutes logging (daily/weekly focus stats).",
+    },
+    "goal_hub": {
+        "default": True,
+        "label": "🎓 Exam-wise Goal Hub",
+        "desc": "Portal lo exam-wise hub: goal PYQ stock, repeat topics, mee best score, next best action.",
+    },
+    "mistake_notebook": {
+        "default": True,
+        "label": "📕 Mistake Notebook download",
+        "desc": "Student tappu chesina questions anni okka downloadable notebook (correct answer + explanation).",
+    },
 }
 
 

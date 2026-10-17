@@ -354,6 +354,16 @@ def _kv_save(members):
         pass
 
 
+def _kv_save_flush(members):
+    """💾 User-initiated rare writes (goal2/focus) — debounced save valla
+    immediate next read stale (≤2s window) kanipisthundi; anduke ee
+    writes matrame ventane flush (per-answer hot path ki kadu)."""
+    try:
+        members.kv.save()
+    except Exception:
+        _kv_save(members)
+
+
 def _ref_code(uid):
     return "SU" + str(uid)[-6:]
 
@@ -589,6 +599,7 @@ def state(members, token):
             "goal2": {"goal": _member(members, uid).get("goal2", ""),
                       "label": (GOALS.get(_member(members, uid).get("goal2") or "")
                                 or {}).get("label", "")},
+            "focus": _focus_stats(_member(members, uid)),
             "papers": [{"label": r["label"], "exam": r["exam"],
                         "year": r["year"], "paper": r["paper"],
                         "topics": r.get("topics") or [],
@@ -1073,6 +1084,7 @@ def _exam_view(e, members, uid, now):
             "ends_in_min": (max(0, int((en - now).total_seconds() // 60))
                             if status == "live" else None),
             "n_q": len(e["qs"]), "status": status, "joined": len(entries),
+            "remind": uid in ((_load().get("exam_reminds") or {}).get(e["id"]) or []),
             "neg": float(e.get("neg") or 0),
             "pyq_count": sum(1 for q in e["qs"] if q.get("source") == "pyq"),
             "my": {"joined": bool(ent),
@@ -2959,7 +2971,7 @@ def set_goal2(members, token, goal):
         m["goal2"] = goal
     else:
         m.pop("goal2", None)
-    _kv_save(members)
+    _kv_save_flush(members)
     return True, {"goal2": m.get("goal2", ""),
                   "label": (GOALS.get(goal) or {}).get("label", "")}
 
@@ -3230,3 +3242,178 @@ def winners_text(exam_id):
     lines += ["", "🎉 Congratulations winners! Certificate portal lo ready undi.",
               "📝 Meeru kuda Daily Quiz + Weekly Grand Test lo participate cheyyandi!"]
     return "\n".join(lines)
+
+
+# ------------------------------------------- 70X advanced student tools
+def _flag_on(name):
+    try:
+        from . import flags as _fl
+        return _fl.enabled(name)
+    except Exception:
+        return True
+
+
+def _focus_stats(m):
+    """⏱️ Focus minutes (member['focus_log'] = {date: minutes} — daylog
+    [answered, correct] list shape ni disturb cheyyakunda separate)."""
+    fl = (m or {}).get("focus_log") or {}
+    week = 0
+    for i in range(7):
+        day = (_now() - timedelta(days=i)).strftime("%Y-%m-%d")
+        try:
+            week += int(fl.get(day) or 0)
+        except Exception:
+            pass
+    return {"today_min": int(fl.get(_today()) or 0), "week_min": week}
+
+
+def log_study(members, token, minutes):
+    """⏱️ FOCUS TIMER: oka study session complete ayyaka minutes log
+    chesthundi (1–240 clamp). Daily/weekly focus stats return."""
+    if not _flag_on("focus_timer"):
+        return False, "Focus timer off chesaru."
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return False, "Session expired."
+    try:
+        minutes = int(float(minutes))
+    except Exception:
+        minutes = 0
+    minutes = max(1, min(240, minutes))
+    m = _member(members, uid)
+    fl = m.setdefault("focus_log", {})
+    fl[_today()] = int(fl.get(_today()) or 0) + minutes
+    for old in sorted(fl)[:-14]:
+        fl.pop(old, None)
+    _kv_save_flush(members)
+    return True, {"logged": minutes, **_focus_stats(m)}
+
+
+def mistake_notebook(members, token):
+    """📕 MISTAKE NOTEBOOK: student tappu chesina questions anni (archive
+    attempts + practice runs nunchi, dedupe) correct answer + bilingual
+    explanation tho downloadable text."""
+    if not _flag_on("mistake_notebook"):
+        return False, "Mistake notebook off chesaru."
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return False, "Session expired."
+    wrong = {}
+
+    def _scan(qs, answers):
+        for si, a in (answers or {}).items():
+            try:
+                i = int(si)
+            except Exception:
+                continue
+            if not (0 <= i < len(qs or [])):
+                continue
+            q = qs[i]
+            if a != q.get("answer_index"):
+                key = (q.get("q_en") or "")[:120]
+                if key and key not in wrong:
+                    wrong[key] = q
+
+    for a in (d.get("archive") or []):
+        if a.get("uid") == uid:
+            _scan(a.get("qs"), a.get("answers"))
+    for run in (d.get("practice") or {}).values():
+        if run.get("uid") == uid:
+            _scan(run.get("qs"), run.get("answers"))
+    rows = list(wrong.values())[:100]
+    prof = _profile(members, uid)
+    lines = [f"📕 {prof.get('name', 'Student')} — Mistake Notebook (StudentUp)",
+             f"📅 {_today()} · Total mistakes: {len(rows)}",
+             "Ee questions malli revise cheyyandi — correct answer + "
+             "explanation tho unnaayi.", ""]
+    if not rows:
+        lines.append("🎉 Inka mistakes levu — attempts ayyaka tappu aina "
+                     "questions ikkada automatic ga add avthayi!")
+    by_topic = {}
+    for q in rows:
+        by_topic.setdefault(q.get("topic") or "general", []).append(q)
+    n = 0
+    for topic in sorted(by_topic):
+        lines.append(f"—— {topic} ——")
+        for q in by_topic[topic]:
+            n += 1
+            opts = q.get("options_en") or []
+            ai = int(q.get("answer_index") or 0)
+            lines.append(f"{n}. {q.get('q_en', '')}")
+            if 0 <= ai < len(opts):
+                lines.append(f"   ✅ Correct: {opts[ai]}")
+            if q.get("explanation"):
+                lines.append(f"   💡 {q['explanation']}")
+            if q.get("explanation_te"):
+                lines.append(f"   💡 {q['explanation_te']}")
+            lines.append("")
+    return True, {"filename": f"StudentUp-Mistakes-{_today()}.txt",
+                  "text": "\n".join(lines), "count": len(rows)}
+
+
+def notices_for(members, token, limit=20):
+    """📢 NOTICE CENTER: student goal ki sambandinchina notices anni
+    (home lo 3 matrame kanipisthayi — ikkada full list)."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return False, "Session expired."
+    goal = _profile(members, uid).get("goal")
+    out = [n for n in list_notices(limit)
+           if not n.get("goal") or n.get("goal") == goal]
+    return True, {"notices": out}
+
+
+def goal_hub(members, token, goal):
+    """🎓 EXAM-WISE HUB: okka goal ki PYQ stock, repeat topics, paper
+    sets, mee attempts/best mariyu next best action — exam-wise quiz
+    entry point."""
+    if not _flag_on("goal_hub"):
+        return False, "Goal hub off chesaru."
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return False, "Session expired."
+    if goal not in GOALS:
+        return False, "Invalid exam selection."
+    stock = exam_stock().get(goal, {"pyq": 0, "total": 0})
+    chans = set(GOALS[goal].get("channels") or [])
+    papers = [r for r in paper_catalog()
+              if not chans or chans & set(r.get("channels") or [])]
+    mine = [r for r in (d.get("mock_board") or [])
+            if r.get("uid") == uid and r.get("goal") == goal]
+    best = max((round(100 * (r.get("correct", 0) / max(1, r.get("total", 0))))
+                for r in mine), default=0)
+    if not mine:
+        nxt = "Meeru inka ee exam mock rayaledu — first mock start cheyyandi!"
+    elif best < 50:
+        nxt = "Weak topics drill + PYQ practice tho score penchandi."
+    elif best < 75:
+        nxt = "Sectional tests + maroka mock — 75%+ target!"
+    else:
+        nxt = "🏛️ Grand Mock (50Q) tho full-exam simulation ki ready!"
+    trends = pyq_trends(goal)
+    return True, {"goal": goal, "label": GOALS[goal].get("label", goal),
+                  "pyq": stock.get("pyq", 0), "total": stock.get("total", 0),
+                  "papers": len(papers), "attempts": len(mine), "best": best,
+                  "topics": (trends or {}).get("topics", [])[:5],
+                  "next": nxt}
+
+
+def set_exam_reminder(members, token, exam_id, on=True):
+    """🔔 LIVE EXAM REMINDER: exam start ki mundhu interest mark —
+    state live rows lo 'remind' flag ga reflect avthundi."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return False, "Session expired."
+    rem = d.setdefault("exam_reminds", {})
+    uids = rem.setdefault(str(exam_id or ""), [])
+    if on and uid not in uids:
+        uids.append(uid)
+    if not on and uid in uids:
+        uids.remove(uid)
+    _save(d)
+    return True, {"exam_id": str(exam_id or ""), "remind": uid in uids}

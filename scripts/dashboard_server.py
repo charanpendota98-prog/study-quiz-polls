@@ -918,6 +918,8 @@ PORTAL_HTML = """<!DOCTYPE html>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="startGrand()">🏛️ Grand Mock 50Q</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="startAdaptive()">🧠 Adaptive Mock</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="weeklyReport()">📲 Weekly Report</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="downloadMistakes()">📕 Mistake Notebook</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="showAllNotices()">📢 Anni Notices</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="seriesCert()">🏅 Series Certificate</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="loadSections()">🧩 Sections</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="loadPatterns()">📉 Mistakes</button>
@@ -929,6 +931,28 @@ PORTAL_HTML = """<!DOCTYPE html>
       <div id="series-chip" style="margin-top:7px;"></div>
       <div id="challenge-card" style="margin-top:9px;"></div>
       <div id="adv-out" style="margin-top:9px;"></div>
+    </div>
+
+    <div class="card" id="focus-card">
+      <h3>⏱️ Focus Timer — Deep Study</h3>
+      <p class="muted" id="focus-stats">Ee roju focus: 0 min · Ee week: 0 min</p>
+      <div id="focus-clock" style="font-size:34px; font-weight:800; text-align:center; margin:8px 0;">25:00</div>
+      <div class="row" style="justify-content:center; gap:6px;">
+        <button class="tchip" onclick="focusPreset(15)">15 min</button>
+        <button class="tchip" onclick="focusPreset(25)">25 min</button>
+        <button class="tchip" onclick="focusPreset(50)">50 min</button>
+      </div>
+      <div class="row" style="margin-top:9px;">
+        <button class="btn-main" style="flex:1;" id="focus-btn" onclick="focusToggle()">▶️ Start Focus</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="focusReset()">↺ Reset</button>
+      </div>
+      <p class="muted" style="margin-top:7px; text-align:center;">Timer complete aythe mee study minutes automatic ga log avthayi 📈</p>
+    </div>
+
+    <div class="card" id="goal-hub-card">
+      <h3>🎓 Exam-wise Quiz Hub</h3>
+      <div class="row" id="hub-chips" style="flex-wrap:wrap; gap:6px;"></div>
+      <div id="goal-hub" style="margin-top:9px;"><p class="muted">Meeru prepare ayye exam select cheyyandi — PYQ stock, repeat topics, mee best score, next step anni ikkade.</p></div>
     </div>
 
     <div class="card">
@@ -1171,6 +1195,13 @@ async function loadHome() {
     '<button class="tchip' + (k === s.goal ? ' on' : '') + '" onclick="setGoal(\'' + k + '\')">' + esc(v) + '</button>').join('') +
     '<br><span class="muted" style="font-size:12px;">🎯 Also preparing (2nd goal):</span>' + Object.entries(d.goals || {}).map(([k, v]) =>
     '<button class="tchip' + (d.goal2 && k === d.goal2.goal ? ' on' : '') + '" onclick="setGoal2(\'' + k + '\')">' + esc(v) + '</button>').join('');
+  const hubEl = document.getElementById('hub-chips');
+  if (hubEl) hubEl.innerHTML = Object.entries(d.goals || {}).map(([k, v]) =>
+    '<button class="tchip" onclick="loadGoalHub(\'' + k + '\')">' + esc(v) + '</button>').join('');
+  if (d.focus) {
+    const fst = document.getElementById('focus-stats');
+    if (fst) fst.textContent = 'Ee roju focus: ' + d.focus.today_min + ' min · Ee week: ' + d.focus.week_min + ' min';
+  }
   const st = (d.stock || {})[s.goal] || {};
   document.getElementById('goal-stock').textContent = '📚 Mee exam bank lo ' + (st.pyq || 0) + ' real previous-year (PYQ) questions + ' + (st.total || 0) + ' practice questions ready ga unnayi — backend lo scraping continue avthundi!';
   renderHistory(d.history || []);
@@ -1466,6 +1497,76 @@ function seriesCert() {
 async function setGoal2(g) {
   const d = await api('/api/portal/goal2', {token, goal: g});
   if (d.ok) { alert('🎯 Second goal: ' + (d.label || 'cleared')); loadState(); }
+}
+async function downloadMistakes() {
+  const d = await api('/api/portal/mistakes?token=' + encodeURIComponent(token));
+  if (!d.ok || !d.text) { alert('❌ ' + (d.error || '')); return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([d.text], {type: 'text/plain;charset=utf-8'}));
+  a.download = d.filename || 'StudentUp-Mistakes.txt'; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+async function showAllNotices() {
+  const out = document.getElementById('adv-out');
+  const d = await api('/api/portal/notices?token=' + encodeURIComponent(token));
+  if (!d.ok) { alert('❌ ' + (d.error || '')); return; }
+  out.innerHTML = '<h4 style="margin-bottom:6px;">📢 Anni Notices</h4>' + ((d.notices || []).map(n =>
+    '<div style="padding:7px 10px; background:#0f1e38; border:1px solid #24466e; border-radius:9px; margin-top:6px;"><b>' + esc(n.title || '') + '</b><div class="muted">' + esc(n.body || '') + '</div></div>').join('')
+    || '<div class="muted">Notices levu.</div>');
+  out.scrollIntoView({behavior: 'smooth', block: 'center'});
+}
+let _focusTotal = 25 * 60, _focusLeft = 25 * 60, _focusTimer = null;
+function _focusDraw() {
+  const el = document.getElementById('focus-clock'); if (!el) return;
+  const m = String(Math.floor(_focusLeft / 60)).padStart(2, '0'), s = String(_focusLeft % 60).padStart(2, '0');
+  el.textContent = m + ':' + s;
+}
+function focusPreset(min) { focusReset(); _focusTotal = _focusLeft = min * 60; _focusDraw(); }
+function focusReset() {
+  clearInterval(_focusTimer); _focusTimer = null;
+  _focusLeft = _focusTotal; _focusDraw();
+  const b = document.getElementById('focus-btn'); if (b) b.textContent = '▶️ Start Focus';
+}
+async function _focusDone() {
+  focusReset();
+  const mins = Math.round(_focusTotal / 60);
+  const d = await api('/api/portal/focus', {token, minutes: mins});
+  if (d.ok) {
+    const st = document.getElementById('focus-stats');
+    if (st) st.textContent = 'Ee roju focus: ' + d.today_min + ' min · Ee week: ' + d.week_min + ' min';
+    alert('🎉 ' + mins + ' min focus complete! Study minutes log ayyayi 📈');
+    loadHome();
+  }
+}
+function focusToggle() {
+  const b = document.getElementById('focus-btn');
+  if (_focusTimer) { clearInterval(_focusTimer); _focusTimer = null; if (b) b.textContent = '▶️ Resume Focus'; return; }
+  if (b) b.textContent = '⏸️ Pause';
+  _focusTimer = setInterval(() => {
+    _focusLeft -= 1; _focusDraw();
+    if (_focusLeft <= 0) _focusDone();
+  }, 1000);
+}
+async function loadGoalHub(g) {
+  const box = document.getElementById('goal-hub'); if (!box) return;
+  box.innerHTML = '<p class="muted">Loading…</p>';
+  const d = await api('/api/portal/goal_hub?goal=' + encodeURIComponent(g) + '&token=' + encodeURIComponent(token));
+  if (!d.ok) { box.innerHTML = '<p class="muted">❌ ' + esc(d.error || '') + '</p>'; return; }
+  box.innerHTML =
+    '<b style="font-size:15px;">' + esc(d.label) + '</b>' +
+    '<div class="row" style="margin-top:7px; flex-wrap:wrap; gap:6px;">' +
+    '<span class="chip">📜 ' + d.pyq + ' real PYQ</span><span class="chip">🧠 ' + d.total + ' questions</span>' +
+    '<span class="chip">📄 ' + d.papers + ' paper sets</span><span class="chip gold">✍️ Mee attempts: ' + d.attempts + ' · Best ' + d.best + '%</span></div>' +
+    ((d.topics || []).length ? '<p class="muted" style="margin-top:7px;">📈 Repeat ayye topics: ' + d.topics.map(t => esc(t.topic) + ' (' + t.pyq + ')').join(' · ') + '</p>' : '') +
+    '<p style="margin-top:7px;">👉 ' + esc(d.next) + '</p>' +
+    '<div class="row" style="margin-top:8px; gap:6px;"><button class="btn-main" style="flex:1;" onclick="startMock(\'' + d.goal + '\')">📝 Start Mock</button>' +
+    '<button class="btn-alt" style="width:auto; margin:0;" onclick="startPractice(\'pyq\')">📜 PYQ Drill</button></div>';
+}
+async function remindExam(id, el) {
+  const on = !(el && el.dataset && el.dataset.on === '1');
+  const d = await api('/api/portal/exam/remind', {token, exam_id: id, on});
+  if (!d.ok) { alert('❌ ' + (d.error || '')); return; }
+  if (el) { el.dataset.on = d.remind ? '1' : '0'; el.textContent = d.remind ? '🔔 Reminder ON' : '🔕 Notify Me'; }
 }
 async function loadStudyPlan() {
   const out = document.getElementById('adv-out');
@@ -1855,7 +1956,7 @@ async function pollRank() {
   } catch (e) {}
 }
 function examBtn(e) {
-  if (e.status === 'scheduled') return e.my.joined ? '<span class="chip">✅ Joined — wait for start</span>' : '<button class="btn-main" style="margin-top:8px;" onclick="joinExam(\'' + e.id + '\')">🔔 Join Exam</button>';
+  if (e.status === 'scheduled') return (e.my.joined ? '<span class="chip">✅ Joined — wait for start</span>' : '<button class="btn-main" style="margin-top:8px;" onclick="joinExam(\'' + e.id + '\')">🔔 Join Exam</button>') + ' <button class="btn-alt" style="width:auto; margin:8px 0 0;" data-on="' + (e.remind ? '1' : '0') + '" onclick="remindExam(\'' + e.id + '\', this)">' + (e.remind ? '🔔 Reminder ON' : '🔕 Notify Me') + '</button>';
   if (e.status === 'live') return e.my.joined ? '<button class="btn-main" style="margin-top:8px;" onclick="enterExam(\'' + e.id + '\')">▶️ Enter Live Exam</button>' : '<button class="btn-main" style="margin-top:8px;" onclick="joinExam(\'' + e.id + '\', true)">🚪 Join &amp; Enter</button>';
   return '<button class="btn-alt" onclick="showExamResult(\'' + e.id + '\')">📊 Result &amp; Winners</button>';
 }
@@ -2935,6 +3036,17 @@ HTML_PAGE = """<!DOCTYPE html>
         <div id="pt-analytics" style="font-size:12.5px; margin-top:8px; color:var(--text-muted);">Loading…</div>
         <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
           <button class="btn btn-outline" onclick="loadPortalAnalytics()">🔄 Refresh Analytics</button>
+        </div>
+        <h3 style="font-size:13px; margin-top:16px;">👥 Students Search</h3>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+          <input id="pt-q" type="text" placeholder="Name / district / phone…" style="flex:1; min-width:170px;">
+          <button class="btn btn-outline" onclick="searchAdminStudents()">🔍 Search</button>
+        </div>
+        <div id="pt-students" style="font-size:12.5px; margin-top:8px; color:var(--text-muted);">Student search cheyyandi.</div>
+        <h3 style="font-size:13px; margin-top:16px;">🚩 Question Flags (student reports)</h3>
+        <div id="pt-flags" style="font-size:12.5px; margin-top:8px; color:var(--text-muted);">Loading…</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+          <button class="btn btn-outline" onclick="loadAdminFlags()">🔄 Refresh Flags</button>
         </div>
       </div>
 
@@ -6186,6 +6298,7 @@ All candidates must join today before 9:00 PM!"></textarea>
       loadCampusLeague();
       loadPortalExams();
       loadPortalAnalytics();
+      loadAdminFlags();
       loadPyqStatus();
       loadNotices();
     }
@@ -6364,6 +6477,37 @@ All candidates must join today before 9:00 PM!"></textarea>
           '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🧪 Attempts by Kind</h4><div>' + chips(d.attempt_kinds) + '</div>' +
           ((d.pyq_gaps || []).length ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">📜 PYQ Coverage Gaps (target 50/channel)</h4>' +
             (d.pyq_gaps || []).map(g => '<div style="margin-top:3px;">' + (g.channel || g.exam || '?') + ': <b style="color:#facc15;">' + (g.gap != null ? g.gap + ' to go' : '') + '</b> <span>(' + (g.pyq || 0) + ' PYQ now)</span></div>').join('') : '');
+      } catch (e) { box.textContent = '❌ ' + e; }
+    }
+
+    async function searchAdminStudents() {
+      const box = document.getElementById('pt-students');
+      const q = (document.getElementById('pt-q') || {}).value || '';
+      try {
+        const d = await fetch('/api/portal/admin/students?q=' + encodeURIComponent(q)).then(r => r.json());
+        const rows = d.students || [];
+        box.innerHTML = rows.length ? rows.map(s =>
+          '<div style="padding:6px 9px; background:#050811; border:1px solid var(--border); border-radius:8px; margin-top:5px;">' +
+          '<b style="color:#e2e8f0;">' + (s.name || '') + '</b> · ' + (s.district || '') + ' · 🎯 ' + (s.goal || '') +
+          ' · ⭐ ' + (s.points || 0) + ' pts' +
+          (s.mobile ? ' · 📱 ' + s.mobile : '') + '</div>').join('')
+          : 'Students dorakaledu.';
+      } catch (e) { box.textContent = '❌ ' + e; }
+    }
+
+    async function loadAdminFlags() {
+      const box = document.getElementById('pt-flags');
+      if (!box) return;
+      try {
+        const d = await fetch('/api/portal/admin/flags').then(r => r.json());
+        const rows = d.flags || [];
+        box.innerHTML = rows.length ? rows.map(f =>
+          '<div style="padding:6px 9px; background:#050811; border:1px solid var(--border); border-radius:8px; margin-top:5px;">' +
+          '🚩 <b style="color:#e2e8f0;">' + (f.qid || '') + '</b>' +
+          (f.question ? ' · ' + f.question : '') +
+          (f.topic ? ' · 🏷️ ' + f.topic : '') +
+          (f.reason ? ' · ' + f.reason : '') + (f.date ? ' · ' + f.date : '') + '</div>').join('')
+          : '🚩 Flags levu — bank clean!';
       } catch (e) { box.textContent = '❌ ' + e; }
     }
 
@@ -7719,6 +7863,22 @@ class DashboardHandler(BaseHTTPRequestHandler):
             ok, info = portal.weekly_report_text(Members(), query.get("token", [""])[0])
             self._send_json({"ok": ok, **(info if ok else {"error": info})})
             return
+        if p.path == "/api/portal/mistakes":
+            query = urllib.parse.parse_qs(p.query)
+            ok, info = portal.mistake_notebook(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/notices":
+            query = urllib.parse.parse_qs(p.query)
+            ok, info = portal.notices_for(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/goal_hub":
+            query = urllib.parse.parse_qs(p.query)
+            ok, info = portal.goal_hub(Members(), query.get("token", [""])[0],
+                                       query.get("goal", [""])[0])
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
         if p.path == "/api/portal/series/certificate":
             query = urllib.parse.parse_qs(p.query)
             png = portal.series_certificate(Members(), query.get("token", [""])[0])
@@ -8543,6 +8703,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if p.path == "/api/portal/goal2":
             ok, info = portal.set_goal2(Members(), body.get("token", ""),
                                         body.get("goal", ""))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/focus":
+            ok, info = portal.log_study(Members(), body.get("token", ""),
+                                        body.get("minutes", 0))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/exam/remind":
+            ok, info = portal.set_exam_reminder(
+                Members(), body.get("token", ""), body.get("exam_id", ""),
+                bool(body.get("on", True)))
             self._send_json({"ok": ok, **(info if ok else {"error": info})})
             return
         if p.path == "/api/portal/lang":
