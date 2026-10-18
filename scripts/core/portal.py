@@ -1046,6 +1046,30 @@ def _section_rows(qs, correct_flags):
     return rows
 
 
+def _with_section_timing(rows, qs, times):
+    """⏱️ 230X SECTIONAL TIMING (real-exam style): _section_rows ki
+    per-section seconds + budget (60s/question) + over-budget flag
+    add chesthundi. Times leni attempts ki rows as-is (submit ==
+    analysis invariant eppudu nilusthundi)."""
+    try:
+        from . import syllabus as _sy
+        secs = {}
+        for _i, _q in enumerate(qs or []):
+            _s = _sy.subject_of_topic(_q.get("topic") or "")
+            secs[_s] = secs.get(_s, 0.0) + float((times or {}).get(str(_i), 0.0) or 0.0)
+        if not any(secs.values()):
+            return rows
+        for _r in rows or []:
+            _budget = int(_r["total"] * 60)
+            _spent = int(round(secs.get(_r["subject"], 0.0)))
+            _r["seconds"] = _spent
+            _r["budget_sec"] = _budget
+            _r["over"] = bool(_spent > _budget)
+    except Exception:
+        pass
+    return rows
+
+
 def mock_submit(members, token, run_id, answers, times=None):
     d = _load()
     uid = _sess(d, token)
@@ -1120,7 +1144,8 @@ def mock_submit(members, token, run_id, answers, times=None):
                      run["qs"], run.get("answers") or {}, correct)
     _save(d, flush=True)
     return True, {"correct": correct, "total": len(run["qs"]), "wrong": wrong,
-                  "sections": _section_rows(run["qs"], _flags),
+                  "sections": _with_section_timing(
+                      _section_rows(run["qs"], _flags), run["qs"], _times),
                   "avg_sec": run.get("avg_sec"), "slow": run.get("slow") or [],
                   "neg": neg, "pts": pts,
                   "accuracy": round(correct / max(1, len(run["qs"])) * 100),
@@ -2607,7 +2632,9 @@ def attempt_analysis(members, token, run_id):
     return {"title": cur.get("title"), "kind": cur.get("kind"),
             "date": cur.get("date"), "correct": cur.get("correct"),
             "total": cur.get("total"), "topics": rows,
-            "sections": _section_rows(cur.get("qs") or [], _flags),
+            "sections": _with_section_timing(
+                _section_rows(cur.get("qs") or [], _flags),
+                cur.get("qs") or [], cur.get("times") or {}),
             "weakest": rows[0]["topic"] if rows else "",
             "delta_vs_prev": delta,
             "wrong_topics": [t for t, _n in sorted(
@@ -2981,6 +3008,7 @@ def portal_analytics(members):
             "sessions_live": len(d.get("sessions") or {}),
             "pyq_gaps": _pyq_gaps_safe(),
             "bank_gaps210": bank_gap_plan(8),
+            "harvest_targets230": harvest_targets(6),
             "attempt_kinds": dict(collections.Counter(
                 a.get("kind") or "?" for a in arc).most_common(8)),
             "backup": _backup_safe()}
@@ -3829,6 +3857,201 @@ def bank_gap_plan(limit=12):
         seen.add(k)
         uniq.append(r)
     return uniq[:int(limit or 12)]
+
+
+def score_intelligence(members, token):
+    """🏆 SCORE INTELLIGENCE (230X): forecast v2 (subject-shrunk) +
+    rank predictor v2 + weakest section advice — okka composite
+    card kosam. Components fail ayina card empty ga radu."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return None
+    out = {"forecast": None, "rank": None, "weak_section": None,
+           "advice": ""}
+    try:
+        out["forecast"] = score_forecast(members, token)
+    except Exception:
+        pass
+    try:
+        out["rank"] = rank_predict(members, token)
+    except Exception:
+        pass
+    try:
+        plan = (revision_planner(members, token) or {}).get("plan") or []
+        sec = next((p for p in plan if p.get("type") == "section"), None)
+        if sec:
+            out["weak_section"] = sec
+    except Exception:
+        pass
+    f = out.get("forecast") or {}
+    _v2 = f.get("v2") or {}
+    _score = _v2.get("expected_pct", f.get("expected_pct"))
+    tips = []
+    if out["weak_section"]:
+        tips.append(f"Weak section {out['weak_section'].get('subject')} "
+                    "meda sectional test rayandi — score ikkade jump avthundi.")
+    if _score is not None:
+        tips.append(f"Forecast score ~{_score}% "
+                    f"({_v2.get('confidence', 'low')} confidence) — mocks "
+                    "continue chesthe confidence peruguthundi.")
+    rk = (out.get("rank") or {}).get("goal_cohort") or {}
+    if rk.get("next"):
+        tips.append(f"Next rank ki {rk['next'].get('gap')} points — "
+                    "daily quiz + oka mock tho easy ga cover avthundi.")
+    out["advice"] = " ".join(tips)
+    return out
+
+
+def harvest_targets(limit=6):
+    """🎯 EXAM HARVEST TARGETS (230X): bank_gap_plan (every exam's
+    reasoning/aptitude + other sections weight x thinness) nunchi
+    ready-to-run pyq.harvest jobs — each job = ONE channel with the
+    top missing subject as focus. Sandbox/tests lo dry matrame;
+    production lo admin button deeni fire chesthundi."""
+    # 🎯 230X subject focus: reasoning/aptitude + thin sections first
+    # (student request: every exam ki reasoning/aptitude scrape).
+    _SUBJ_BOOST = {"reasoning": 1.6, "quant": 1.5, "aptitude": 1.5,
+                   "english": 1.2}
+    gaps = bank_gap_plan(24)
+    gaps.sort(key=lambda g: (-(g["priority"]
+                               * _SUBJ_BOOST.get(g["subject"], 1.0)),
+                             -g["weight"]))
+    jobs = []
+    for g in gaps:
+        jobs.append({"channel": g["channel"], "goal": g["goal"],
+                     "subject": g["subject"], "weight": g["weight"],
+                     "bank_q": g["bank_q"], "need": g["need"],
+                     "priority": g["priority"],
+                     "cmd": f"pyq harvest --only {g['channel']}"})
+        if len(jobs) >= int(limit or 6):
+            break
+    return jobs
+
+
+def run_harvest_job(dry=True, limit_jobs=1):
+    """🚜 Execute the top harvest target(s) via pyq.harvest.
+    dry=True (default, sandbox-safe): em download cheyyadu."""
+    from . import pyq as _pyq
+    jobs = harvest_targets(int(limit_jobs or 1))
+    results = []
+    for j in jobs:
+        try:
+            stats = _pyq.harvest(dry=bool(dry), only=j["channel"], limit=2)
+        except Exception as e:
+            stats = {"error": str(e)[:160]}
+        results.append({**j, "dry": bool(dry), "stats": stats})
+    return results
+
+
+MATERIALS_FILE_EXTS = (".pdf", ".txt", ".md", ".png", ".jpg", ".jpeg")
+
+
+def materials_catalog(members, token):
+    """📚 MATERIALS VAULT (230X): student goal ki sambandhinchina
+    study materials (bot voucher materials tho same store data:
+    portal store 'materials230' list). Points unlock = permanent;
+    spend pattern rewards.deliver_material tho same honesty."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return None
+    prof = _profile(members, uid)
+    m = _member(members, uid)
+    owned = set(m.get("materials_owned230") or [])
+    items = []
+    for it in (d.get("materials230") or []):
+        goal = str(it.get("goal") or "")
+        if goal and goal not in (prof.get("goal"), "all"):
+            continue
+        cost = int(it.get("cost") or 0)
+        ext = "." + str(it.get("file") or "").rsplit(".", 1)[-1].lower()             if "." in str(it.get("file") or "") else ""
+        items.append({"id": str(it.get("id") or ""), "title": it.get("title") or "",
+                      "topic": it.get("topic") or "", "subject": it.get("subject") or "",
+                      "cost": cost, "owned": str(it.get("id")) in owned or cost == 0,
+                      "kind": "file" if ext in MATERIALS_FILE_EXTS else "link",
+                      "file_ready": ext in MATERIALS_FILE_EXTS})
+    return {"items": items, "points": int(prof.get("points") or 0),
+            "goal": prof.get("goal") or ""}
+
+
+def materials_unlock(members, token, mid):
+    """🔓 Points tho material unlock (once, permanent). Insufficient
+    points ayithe honest error — points eppudu negative avvavu."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return False, "Session expired."
+    item = next((x for x in (d.get("materials230") or [])
+                 if str(x.get("id")) == str(mid)), None)
+    if not item:
+        return False, "Material dorakaledu."
+    m = _member(members, uid)
+    owned = list(m.get("materials_owned230") or [])
+    if str(mid) in owned:
+        return True, "Already unlocked."
+    cost = int(item.get("cost") or 0)
+    pts = int(m.get("points") or 0)
+    if pts < cost:
+        return False, f"Points saripovu: {cost} kavali, meeku {pts} unnayi."
+    if cost:
+        m["points"] = pts - cost
+        m["points_redeemed"] = int(m.get("points_redeemed") or 0) + cost
+        m["redemptions"] = int(m.get("redemptions") or 0) + 1
+    owned.append(str(mid))
+    m["materials_owned230"] = owned
+    try:
+        members.kv.save()
+    except Exception:
+        pass
+    return True, "Unlocked."
+
+
+def materials_file(members, token, mid):
+    """📥 Owned/free material file data (bytes) — path traversal
+    impossible (basename + allowlist ext + materials dir only)."""
+    from pathlib import Path as _P
+    cat = materials_catalog(members, token)
+    if cat is None:
+        return None, ""
+    d = _load()
+    item = next((x for x in (d.get("materials230") or [])
+                 if str(x.get("id")) == str(mid)), None)
+    entry = next((x for x in cat["items"] if x["id"] == str(mid)), None)
+    if not item or not entry or not entry["owned"]:
+        return None, ""
+    fname = _P(str(item.get("file") or "")).name
+    if not fname or not fname.lower().endswith(MATERIALS_FILE_EXTS):
+        return None, ""
+    try:
+        from . import config as _cfg
+        base = _P(_cfg.DATA) / "materials"
+    except Exception:
+        base = _P("data") / "materials"
+    fp = base / fname
+    try:
+        if not fp.is_file():
+            return None, ""
+        return fp.read_bytes(), fname
+    except Exception:
+        return None, ""
+
+
+def materials_add(members, title, file_or_url, goal="all", topic="",
+                  subject="", cost=0):
+    """🛠️ Admin: Materials Vault loki item add (file name =
+    data/materials/ lo upload chesina file, leda https link)."""
+    d = _load()
+    items = d.setdefault("materials230", [])
+    mid = "m" + str(len(items) + 1) + "-" + str(abs(hash(
+        (title or "") + str(file_or_url or ""))) % 99999)
+    item = {"id": mid, "title": str(title or "")[:120],
+            "file": str(file_or_url or "")[:300], "goal": str(goal or "all"),
+            "topic": str(topic or ""), "subject": str(subject or ""),
+            "cost": max(0, int(cost or 0))}
+    items.append(item)
+    _save(d, flush=True)
+    return item
 
 
 def winners_public(limit=8):

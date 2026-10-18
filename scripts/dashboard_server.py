@@ -1001,6 +1001,8 @@ PORTAL_HTML = """<!DOCTYPE html>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="loadDistrict()">🏙️ District Deep-Dive</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="loadRevision()">🧠 Revision Planner</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="loadRank2()">🎯 Rank Predictor</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadMaterials()">📚 Materials Vault</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadScoreIntel()">🏆 Score Intelligence</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="loadBookmarks()">🔖 Saved Questions</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="downloadWorksheet()">🖨️ Worksheet</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="loadStudyPlan()">📅 7-Day Plan</button>
@@ -1578,6 +1580,19 @@ async function loadPercentile() {
     ? '<div class="muted">📈 ' + esc(d.note || 'Inka data ledu') + '</div>'
     : '<b>📈 Goal Percentile</b> <span class="chip gold">Top ' + (100 - d.percentile) + '%</span><div class="muted">Rank #' + d.rank + ' / ' + d.students + ' students · Mee best: ' + d.my_best + ' · Top score: ' + d.top + ' (honest estimate — mock scores nunchi)</div>';
 }
+async function addMaterial230() {
+  const body = { title: (document.getElementById('mat-title') || {}).value || '',
+                 file: (document.getElementById('mat-file') || {}).value || '',
+                 goal: (document.getElementById('mat-goal') || {}).value || 'all',
+                 cost: parseInt((document.getElementById('mat-cost') || {}).value || '0', 10) || 0 };
+  const d = await api('/api/admin/materials_add', 'POST', JSON.stringify(body));
+  alert(d.ok ? '✅ Material added: ' + (d.item || {}).title : ('❌ ' + (d.error || 'failed')));
+}
+async function runHarvest230() {
+  if (!confirm('Top harvest target run cheyyala? (production lo real PYQ download avthundi)')) return;
+  const d = await api('/api/admin/harvest_run', 'POST', '{}');
+  alert((d && d.message) || 'done');
+}
 async function loadDistrict() {
   const out = document.getElementById('adv-out');
   out.innerHTML = '<div class="muted">Loading district…</div>';
@@ -1608,6 +1623,40 @@ async function loadRank2() {
   const coh = (c, label) => c ? '<div style="margin-top:4px;"><b>' + label + '</b>: Rank <b>#' + c.my_rank + '</b> / ' + c.students + ' · Percentile <b>' + c.percentile + '%</b>' + (c.next ? ' <span class="muted">· Next rank ki ' + c.next.gap + ' pts gap</span>' : ' <span class="muted">· 🏆 Meeru #1!</span>') + '</div>' : '';
   out.innerHTML = '<b>🎯 Rank Predictor v2</b><div class="muted">Naa points: <b>' + d.my_points + '</b> · Goal: ' + esc(d.goal || '') + '</div>' +
     coh(d.goal_cohort, '🎓 Naa Goal Cohort') + coh(d.district_cohort, '🏙️ Naa District') + coh(d.overall, '🌐 Overall');
+}
+async function loadMaterials() {
+  const out = document.getElementById('adv-out');
+  out.innerHTML = '<div class="muted">Loading materials…</div>';
+  const d = await api('/api/portal/materials?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  out.innerHTML = '<b>📚 Materials Vault</b> <span class="muted">· ⭐ ' + d.points + ' pts · Goal: ' + esc(d.goal || '') + '</span>' +
+    ((d.items || []).length ? d.items.map(it =>
+      '<div style="display:flex; justify-content:space-between; align-items:center; margin:5px 0; gap:8px;"><span>' + esc(it.title) + (it.subject ? ' <span class="muted">' + esc(it.subject) + '</span>' : '') + '</span>' +
+      (it.owned
+        ? (it.kind === 'file'
+            ? '<a class="btn-alt" style="width:auto; margin:0; padding:2px 10px;" href="/api/portal/material_file?token=' + encodeURIComponent(token) + '&id=' + encodeURIComponent(it.id) + '">⬇️ Download</a>'
+            : '<span class="chip">✅ Unlocked</span>')
+        : '<button class="btn-alt" style="width:auto; margin:0;" onclick="unlockMaterial(\'' + it.id + '\')">🔓 ' + it.cost + ' pts</button>') +
+      '</div>').join('')
+      : '<div class="muted" style="margin-top:4px;">Meeru goal ki materials inka levu — th్వరలో vasthayi!</div>');
+}
+async function unlockMaterial(id) {
+  const d = await api('/api/portal/materials_unlock', 'POST', JSON.stringify({ token: token, id: id }));
+  alert(d.message || (d.ok ? 'Unlocked!' : 'Failed'));
+  if (d.ok) loadMaterials();
+}
+async function loadScoreIntel() {
+  const out = document.getElementById('adv-out');
+  out.innerHTML = '<div class="muted">Loading score intelligence…</div>';
+  const d = await api('/api/portal/score_intel?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  const f = (d.forecast || {}).v2 || d.forecast || {};
+  const rk = d.rank || {};
+  out.innerHTML = '<b>🏆 Score Intelligence</b>' +
+    (f.expected_pct != null ? '<div style="margin-top:4px;">🔮 Forecast: <b>' + f.expected_pct + '%</b> <span class="muted">(' + (f.low != null ? f.low + '–' + f.high + '% · ' : '') + esc(f.confidence || '') + ' confidence)</span></div>' : '') +
+    (rk.goal_cohort ? '<div>🎯 Goal rank: <b>#' + rk.goal_cohort.my_rank + '</b> / ' + rk.goal_cohort.students + ' · Percentile ' + rk.goal_cohort.percentile + '%' + (rk.goal_cohort.next ? ' <span class="muted">· next rank ' + rk.goal_cohort.next.gap + ' pts</span>' : '') + '</div>' : '') +
+    (d.weak_section ? '<div>🧩 Weak section: <b>' + esc(d.weak_section.subject) + '</b></div>' : '') +
+    (d.advice ? '<div class="muted" style="margin-top:4px;">' + esc(d.advice) + '</div>' : '');
 }
 async function loadBookmarks() {
   const out = document.getElementById('adv-out');
@@ -2168,7 +2217,7 @@ async function submitMock() {
     const delta = an.delta_vs_prev == null ? '' : ' · Previous kante ' + (an.delta_vs_prev >= 0 ? '+' : '') + an.delta_vs_prev;
     box.insertAdjacentHTML('afterbegin', '<div class="rrow"><b>🔬 Attempt Analysis</b>' + delta +
       (an.weakest ? '<br><span class="muted">Weakest: ' + esc(an.weakest) + ' — ' + (an.wrong_topics || []).map(esc).join(', ') + '</span>' : '') +
-      ((an.sections || []).length ? '<br><span class="muted">🧩 Sections: ' + an.sections.map(s => esc(s.subject) + ' ' + s.correct + '/' + s.total + ' (' + s.accuracy + '%)').join(' · ') + '</span>' : '') +
+      ((an.sections || []).length ? '<br><span class="muted">🧩 Sections: ' + an.sections.map(s => esc(s.subject) + ' ' + s.correct + '/' + s.total + ' (' + s.accuracy + '%' + (s.budget_sec ? ', ⏱' + Math.round((s.seconds || 0) / 60) + '/' + Math.round(s.budget_sec / 60) + 'm' + (s.over ? ' ⚠️over' : '') : '') + ')').join(' · ') + '</span>' : '') +
       (an.topics || []).map(t => '<br><span class="muted">' + esc(t.topic) + ': ' + t.correct + '/' + t.total + ' (' + t.accuracy + '%)</span>').join('') + '</div>');
   });
   show('view-result');
@@ -6833,6 +6882,15 @@ All candidates must join today before 9:00 PM!"></textarea>
           '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🧪 Attempts by Kind</h4><div>' + chips(d.attempt_kinds) + '</div>' +
           ((d.pyq_gaps || []).length ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">📜 PYQ Coverage Gaps (target 50/channel)</h4>' +
             (d.pyq_gaps || []).map(g => '<div style="margin-top:3px;">' + (g.channel || g.exam || '?') + ': <b style="color:#facc15;">' + (g.gap != null ? g.gap + ' to go' : '') + '</b> <span>(' + (g.pyq || 0) + ' PYQ now)</span></div>').join('') : '') +
+          ((d.harvest_targets230 || []).length ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🚜 Exam Harvest Targets — reasoning/aptitude focus (weight × need)</h4>' +
+            (d.harvest_targets230 || []).map(g => '<div style="margin-top:3px;">' + esc(g.channel + ' · ' + g.subject) + ': <b style="color:#facc15;">' + g.cmd + '</b> <span class="muted">(need ' + g.need + ')</span></div>').join('') +
+            '<button class="btn-alt" style="width:auto; margin-top:6px;" onclick="runHarvest230()">🚜 Run #1 Harvest (production)</button> <span class="muted">sandbox lo dry-run matrame</span>' : '') +
+          '<div style="margin-top:10px;"><b style="font-size:12px;">📚 Materials Vault — add item</b><br>' +
+          '<input id="mat-title" placeholder="Title (eg Reasoning Tricks PDF)" style="width:220px;"> ' +
+          '<input id="mat-file" placeholder="file name (data/materials/) or https link" style="width:240px;"> ' +
+          '<input id="mat-goal" placeholder="goal: railway/ssc/banking/all" style="width:170px;"> ' +
+          '<input id="mat-cost" placeholder="points" style="width:70px;"> ' +
+          '<button class="btn-alt" style="width:auto;" onclick="addMaterial230()">➕ Add Material</button></div>' +
           ((d.bank_gaps210 || []).length ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🎯 Bank-Gap Harvest Priorities (exam weight × need)</h4>' +
             (d.bank_gaps210 || []).map(g => '<div style="margin-top:3px;">' + esc(g.channel + ' · ' + g.subject) + ' <span class="muted">(goal ' + esc(g.goal) + ', weight ' + Math.round((g.weight || 0) * 100) + '%)</span>: <b style="color:#facc15;">need ' + g.need + '</b> <span class="muted">(' + g.bank_q + ' bank now · priority ' + g.priority + ')</span></div>').join('') : '');
         const bbg = document.getElementById('bb-goal');
@@ -8225,6 +8283,30 @@ class DashboardHandler(BaseHTTPRequestHandler):
             rk = portal.rank_predict(Members(), query.get("token", [""])[0])
             self._send_json({"ok": rk is not None, **(rk or {"error": "session expired"})})
             return
+        if p.path == "/api/portal/materials":
+            query = urllib.parse.parse_qs(p.query)
+            mc = portal.materials_catalog(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": mc is not None, **(mc or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/material_file":
+            query = urllib.parse.parse_qs(p.query)
+            data, fname = portal.materials_file(Members(), query.get("token", [""])[0], query.get("id", [""])[0])
+            if not data:
+                self._send_json({"ok": False, "error": "file ready ledu / unlock cheyyaledu"}, code=404)
+                return
+            ctype = "application/pdf" if fname.lower().endswith(".pdf") else "application/octet-stream"
+            self.send_response(200)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Disposition", "attachment; filename=" + fname)
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
+        if p.path == "/api/portal/score_intel":
+            query = urllib.parse.parse_qs(p.query)
+            si = portal.score_intelligence(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": si is not None, **(si or {"error": "session expired"})})
+            return
         if p.path == "/api/portal/coach":
             query = urllib.parse.parse_qs(p.query)
             co = portal.coach_today(Members(), query.get("token", [""])[0])
@@ -9197,6 +9279,33 @@ class DashboardHandler(BaseHTTPRequestHandler):
                                          neg=float(body.get("neg") or 0),
                                          kind=str(body.get("kind") or "mock"))
             self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/materials_unlock":
+            uok, umsg = portal.materials_unlock(Members(), str(body.get("token") or ""), str(body.get("id") or ""))
+            self._send_json({"ok": uok, "message": umsg})
+            return
+        if p.path == "/api/admin/harvest_run":
+            # 🚜 230X: run top bank-gap harvest target. Production =
+            # real PYQ harvest; SANDBOX/CI env forces dry (no downloads).
+            _dry = bool(os.environ.get("STUDYUP_SANDBOX") or os.environ.get("CI"))
+            res = portal.run_harvest_job(dry=_dry, limit_jobs=1)
+            _t = (res or [{}])[0]
+            self._send_json({"ok": True, "dry": _dry, "job": _t,
+                             "message": ("🚜 Harvest target: " + str(_t.get("channel", "?")) +
+                                         " · " + str(_t.get("subject", "")) +
+                                         (" (DRY — sandbox)" if _dry else " — production run started"))})
+            return
+        if p.path == "/api/admin/materials_add":
+            if not self._authed():
+                self._send_json({"ok": False, "error": "admin login kavali"}, code=401)
+                return
+            item = portal.materials_add(Members(), str(body.get("title") or ""),
+                                        str(body.get("file") or ""),
+                                        str(body.get("goal") or "all"),
+                                        str(body.get("topic") or ""),
+                                        str(body.get("subject") or ""),
+                                        int(body.get("cost") or 0))
+            self._send_json({"ok": True, "item": item})
             return
         if p.path == "/api/portal/bookmark":
             ok, info = portal.bookmark_toggle(Members(), body.get("token", ""),
