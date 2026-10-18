@@ -711,6 +711,7 @@ def daily_questions(members, token):
     run = (day.setdefault("runs", {})).get(uid)
     answers = (run or {}).get("answers") or {}
     return {"questions": _serve(day["qs"], f"{uid}:{_today()}", answers),
+            "date": _today(),
             "done": bool(run and run.get("done"))}
 
 
@@ -3926,18 +3927,34 @@ def bot_outbox_jobs(members, limit=500):
         return []
     inv = {v: k for k, v in (d.get("tg_map") or {}).items()}
     jobs = []
+    keep = []
     for ent in box:
         goal = ent.get("goal") or ""
+        sent_to = set(ent.get("sent_to") or [])
+        targets = []
         for uid, tg in inv.items():
+            if tg in sent_to:
+                continue
             gm = _member(members, uid)
             if goal and gm.get("goal") != goal and gm.get("exam_goal") != goal:
                 continue
+            targets.append(tg)
+        room = max(0, limit - len(jobs))
+        take, rest = targets[:room], targets[room:]
+        for tg in take:
             jobs.append({"tg_id": tg, "kind": "broadcast",
                          "text": "📣 StudentUp:\n" + ent.get("text", "")})
-    d["bot_outbox"] = []
+            sent_to.add(tg)
+        if rest:
+            # 🛠️ 190X FIX: limit daatithe entry ni delete cheyyam —
+            # migilina targets next drain lo velthayi (message loss fix).
+            ent = dict(ent)
+            ent["sent_to"] = sorted(sent_to)
+            keep.append(ent)
+    d["bot_outbox"] = keep
     _bot_msgs_bump(d, len(jobs))
     _save(d)
-    return jobs[:limit]
+    return jobs
 
 
 @_locked

@@ -614,12 +614,15 @@ def _bot_username():
         return config.BOT_USERNAME
     if _BOT_USERNAME_CACHE["name"] and time.time() - _BOT_USERNAME_CACHE["ts"] < 3600:
         return _BOT_USERNAME_CACHE["name"]
+    if _BOT_USERNAME_CACHE.get("tried") and time.time() - _BOT_USERNAME_CACHE["ts"] < 300:
+        return "StudentUpBot"   # 🛠️ 190X: failed lookup 5-min cache (prathi request ki API hit avvadhu) — fallback tho consistent
     name = ""
     try:
         r = Telegram()._call("getMe", {}) or {}
         name = (r.get("result") or {}).get("username", "") or ""
     except Exception:
         name = ""
+    _BOT_USERNAME_CACHE.update(ts=time.time(), tried=True)
     if name:
         _BOT_USERNAME_CACHE.update(name=name, ts=time.time())
         try:
@@ -1392,6 +1395,12 @@ async function flushOffline() {
   if (!q.length || !token) return;
   const left = [];
   for (const a of q) {
+    if (a.day) {
+      // 🛠️ 190X FIX: ninna queue aina answer ni ee roju paper ki
+      // sync cheyyam (verey paper — wrong record avuthundi). Drop.
+      const todayStr = new Date().toLocaleDateString('en-CA', {timeZone: 'Asia/Kolkata'});
+      if (a.day !== todayStr) continue;
+    }
     try { const d = await api('/api/portal/answer', {token, idx: a.idx, choice: a.choice}); if (!d.ok && !d.already) left.push(a); }
     catch (e) { left.push(a); }
   }
@@ -1410,7 +1419,8 @@ async function openQuiz() {
   }
   if (!d.ok) { logout(); return; }
   QUESTIONS = d.questions || []; score = 0;
-  try { JSON.parse(localStorage.getItem('su_offq') || '[]').forEach(a => { if (QUESTIONS[a.idx]) QUESTIONS[a.idx].answered = true; }); } catch (e) {}
+  window._qDay = d.date || '';
+  try { JSON.parse(localStorage.getItem('su_offq') || '[]').forEach(a => { if ((!a.day || a.day === window._qDay) && QUESTIONS[a.idx]) QUESTIONS[a.idx].answered = true; }); } catch (e) {}
   cur = QUESTIONS.findIndex(q => !q.answered);
   if (cur < 0) { loadHome(); return; }
   show('view-quiz'); renderQ();
@@ -1441,7 +1451,7 @@ async function ansDaily(i, btn) {
   } catch (e) {
     let q = [];
     try { q = JSON.parse(localStorage.getItem('su_offq') || '[]'); } catch (e2) {}
-    q.push({idx: cur, choice: i});
+    q.push({idx: cur, choice: i, day: window._qDay || ''});
     try { localStorage.setItem('su_offq', JSON.stringify(q)); } catch (e3) {}
     if (QUESTIONS[cur]) QUESTIONS[cur].answered = true;
     fb.innerHTML = '📴 Offline — answer save ayyindi. Net ragane auto-sync avuthundi.';
