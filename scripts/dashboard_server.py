@@ -91,6 +91,54 @@ def _wp_quiz_export():
             "questions": [_wp_quiz_item(q) for q in day["qs"]]}
 
 
+def _golive_checks():
+    """🚀 160X GO-LIVE CHECKS (subdomain launch readiness). Secrets
+    eppudu bayataki ravu — only set/unset booleans matrame."""
+    checks = []
+    base = config.env("PUBLIC_BASE_URL", "").strip().rstrip("/")
+    checks.append({
+        "name": "PUBLIC_BASE_URL",
+        "status": "ok" if base.startswith("https://") else "warn",
+        "detail": base or "set ledu — request host nunchi derive avthundi (production lo https://quiz.studentup.in set cheyyandi)"})
+    pbase = config.env("PORTAL_BASE_URL", "").strip()
+    checks.append({
+        "name": "Portal URL",
+        "status": "ok",
+        "detail": pbase or ((base + "/portal") if base else "/portal")})
+    checks.append({
+        "name": "BOT_TOKEN",
+        "status": "ok" if getattr(config, "BOT_TOKEN", "") else "fail",
+        "detail": "configured" if getattr(config, "BOT_TOKEN", "") else "bot features (WebApp login, broadcasts) pani cheyyavu"})
+    try:
+        bu = _bot_username()
+    except Exception:
+        bu = ""
+    checks.append({
+        "name": "Bot username",
+        "status": "ok" if bu else "warn",
+        "detail": ("@" + bu) if bu else "BOT_USERNAME .env lo set cheyyandi (deep links kosam)"})
+    try:
+        snippet = Path(__file__).resolve().parent.parent / "integrations" / "wordpress" / "studentup-portal-icon.html"
+        snip_ok = snippet.exists()
+    except Exception:
+        snip_ok = False
+    checks.append({
+        "name": "WP portal icon snippet",
+        "status": "ok" if snip_ok else "warn",
+        "detail": "integrations/wordpress/studentup-portal-icon.html ready" if snip_ok else "snippet missing"})
+    checks.append({
+        "name": "PWA (manifest + SW v4)",
+        "status": "ok",
+        "detail": "/manifest.json + /sw.js routes active"})
+    ads = config.env("ADSENSE_CLIENT_ID", "").strip()
+    checks.append({
+        "name": "AdSense (optional)",
+        "status": "ok" if ads else "warn",
+        "detail": "configured" if ads else "set ledu — ads off (public pages matrame, exam pages lo eppudu levu)"})
+    overall = "ready" if all(c["status"] != "fail" for c in checks) else "pending"
+    return {"overall": overall, "checks": checks}
+
+
 def _public_base(handler=None):
     """🌐 Student-facing links ki base URL: PUBLIC_BASE_URL env (meeru
     subdomain point cheste adhe vastundi) → lekapothe request Host
@@ -566,12 +614,15 @@ def _bot_username():
         return config.BOT_USERNAME
     if _BOT_USERNAME_CACHE["name"] and time.time() - _BOT_USERNAME_CACHE["ts"] < 3600:
         return _BOT_USERNAME_CACHE["name"]
+    if _BOT_USERNAME_CACHE.get("tried") and time.time() - _BOT_USERNAME_CACHE["ts"] < 300:
+        return "StudentUpBot"   # 🛠️ 190X: failed lookup 5-min cache (prathi request ki API hit avvadhu) — fallback tho consistent
     name = ""
     try:
         r = Telegram()._call("getMe", {}) or {}
         name = (r.get("result") or {}).get("username", "") or ""
     except Exception:
         name = ""
+    _BOT_USERNAME_CACHE.update(ts=time.time(), tried=True)
     if name:
         _BOT_USERNAME_CACHE.update(name=name, ts=time.time())
         try:
@@ -801,7 +852,9 @@ PORTAL_HTML = """<!DOCTYPE html>
       <div id="level-bar" style="margin-top:8px;"></div>
       <div class="row" id="goal-chips" style="margin-top:9px;"></div>
       <p class="muted" id="goal-stock" style="margin-top:6px;"></p>
+      <div id="offline-bar" style="display:none; margin-top:8px; font-size:12.5px;">📴 Offline mode — last saved data chupisthunnam. Net ragane answers auto-sync avthayi.</div>
       <div id="bot-link-card" style="margin-top:10px;"></div>
+      <button class="btn-alt" style="width:100%; margin-top:8px;" onclick="shareProgress()">📤 Naa Progress Share Chey</button>
       <div class="row" style="margin-top:10px;">
         <button class="btn-alt" style="flex:1;" onclick="logout()">↩️ Logout / Number Change</button>
       </div>
@@ -1108,7 +1161,7 @@ async function init() {
   (meta.topics || []).forEach(t => { const o = document.createElement('option'); o.value = t; o.textContent = t; ts.appendChild(o); });
   const gl = document.getElementById('r-goal');
   Object.entries(GOALS).forEach(([k, v]) => { const o = document.createElement('option'); o.value = k; o.textContent = v; gl.appendChild(o); });
-  if (token) { loadHome(); } else { show('view-reg'); }
+  if (token) { flushOffline(); loadHome(); } else { show('view-reg'); }
 }
 function copyRef() {
   const el = document.getElementById('ref-link');
@@ -1208,8 +1261,15 @@ function showToppers(period) {
     : '<div class="muted">Ee period lo inka points levu — practice chesi first topper avvandi! 🔥</div>';
 }
 async function loadHome() {
-  const d = await api('/api/portal/state?token=' + encodeURIComponent(token));
-  if (!d.ok) { logout(); return; }
+  let d;
+  try {
+    d = await api('/api/portal/state?token=' + encodeURIComponent(token));
+    if (d.ok) { try { localStorage.setItem('su_offline_state', JSON.stringify(d)); } catch (e) {} }
+  } catch (e) {
+    try { d = JSON.parse(localStorage.getItem('su_offline_state') || 'null'); } catch (e2) { d = null; }
+    if (d) d._offline = true;
+  }
+  if (!d || !d.ok) { logout(); return; }
   const s = d.student; STATE = d;
   document.getElementById('hello').textContent = '👋 ' + s.name;
   document.getElementById('mychips').innerHTML =
@@ -1218,6 +1278,7 @@ async function loadHome() {
     '<span class="chip gold">⭐ ' + s.points + ' pts</span>' +
     (d.my_rank_today ? '<span class="chip">🏆 Today Rank #' + d.my_rank_today + '</span>' : '') +
     (s.streak ? '<span class="chip">🔥 ' + s.streak + '-day streak</span>' : '') +
+    (s.shields ? '<span class="chip">🛡️ ' + s.shields + ' streak shield' + (s.shields > 1 ? 's' : '') + '</span>' : '') +
     (s.badges || []).map(b => '<span class="chip gold">🏅 ' + esc(b) + '</span>').join('');
   document.getElementById('goal-chips').innerHTML = '<span class="muted" style="font-size:12px;">🏆 Mee Exam:</span>' + Object.entries(d.goals || {}).map(([k, v]) =>
     '<button class="tchip' + (k === s.goal ? ' on' : '') + '" onclick="setGoal(\'' + k + '\')">' + esc(v) + '</button>').join('') +
@@ -1316,18 +1377,56 @@ async function loadHome() {
   document.getElementById('winners-wall').innerHTML = (d.winners_wall || []).map(w =>
     '<div style="margin-top:8px;"><b style="font-size:13px;">' + esc(w.title) + '</b>' + rows(w.winners, '') + '</div>').join('') || '<div class="muted">Inka winners leru — Weekly Grand Test (Sunday 10 AM) first!</div>';
   show('view-home');
+  const ob = document.getElementById('offline-bar');
+  if (ob) ob.style.display = d._offline ? 'block' : 'none';
   _applyGo();
 }
 function backHome() { clearInterval(mockTimer); clearInterval(rankTimer); clearInterval(exTimer); loadHome(); }
+function shareProgress() {
+  const s = (STATE || {}).student || {};
+  const lv = s.level || {};
+  const text = '🏆 Nenu StudentUp lo ' + (s.points || 0) + ' points, ' + (lv.title || 'Newcomer') + ' level, ' + (s.streak || 0) + '-day streak! Daily Quiz + PYQ Mocks FREE: ' + location.origin + '/portal';
+  if (navigator.share) { navigator.share({title: 'StudentUp Progress', text}).catch(() => {}); }
+  else if (navigator.clipboard) { navigator.clipboard.writeText(text).then(() => alert('✅ Copied! WhatsApp lo paste cheyyandi.')); }
+}
+async function flushOffline() {
+  let q = [];
+  try { q = JSON.parse(localStorage.getItem('su_offq') || '[]'); } catch (e) {}
+  if (!q.length || !token) return;
+  const left = [];
+  for (const a of q) {
+    if (a.day) {
+      // 🛠️ 190X FIX: ninna queue aina answer ni ee roju paper ki
+      // sync cheyyam (verey paper — wrong record avuthundi). Drop.
+      const todayStr = new Date().toLocaleDateString('en-CA', {timeZone: 'Asia/Kolkata'});
+      if (a.day !== todayStr) continue;
+    }
+    try { const d = await api('/api/portal/answer', {token, idx: a.idx, choice: a.choice}); if (!d.ok && !d.already) left.push(a); }
+    catch (e) { left.push(a); }
+  }
+  try { localStorage.setItem('su_offq', JSON.stringify(left)); } catch (e) {}
+}
+window.addEventListener('online', flushOffline);
+let qShownAt = 0;
 async function openQuiz() {
-  const d = await api('/api/portal/quiz?token=' + encodeURIComponent(token));
+  let d;
+  try {
+    d = await api('/api/portal/quiz?token=' + encodeURIComponent(token));
+    try { localStorage.setItem('su_offline_daily', JSON.stringify(d)); } catch (e) {}
+  } catch (e) {
+    try { d = JSON.parse(localStorage.getItem('su_offline_daily') || 'null'); } catch (e2) { d = null; }
+    if (!d || !d.ok) { alert('📴 Offline — munde okasari online lo quiz open cheste save avuthundi.'); return; }
+  }
   if (!d.ok) { logout(); return; }
   QUESTIONS = d.questions || []; score = 0;
+  window._qDay = d.date || '';
+  try { JSON.parse(localStorage.getItem('su_offq') || '[]').forEach(a => { if ((!a.day || a.day === window._qDay) && QUESTIONS[a.idx]) QUESTIONS[a.idx].answered = true; }); } catch (e) {}
   cur = QUESTIONS.findIndex(q => !q.answered);
   if (cur < 0) { loadHome(); return; }
   show('view-quiz'); renderQ();
 }
 function renderQ() {
+  qShownAt = Date.now();
   const q = QUESTIONS[cur];
   document.getElementById('q-pos').textContent = 'Q ' + (cur + 1) + '/' + QUESTIONS.length;
   document.getElementById('q-topic').textContent = qMeta(q);
@@ -1338,20 +1437,33 @@ function renderQ() {
   document.getElementById('q-next').style.display = 'none';
   const box = document.getElementById('opts'); box.innerHTML = '';
   q.options.forEach((opt, i) => {
-    const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+    const b = document.createElement('button'); b.className = 'opt'; b.textContent = optText(q, i, opt);
+    b.dataset.qref = regQ(q); b.dataset.oi = i;
     b.onclick = () => ansDaily(i, b); box.appendChild(b);
   });
 }
 async function ansDaily(i, btn) {
   document.querySelectorAll('#opts .opt').forEach(b => { b.disabled = true; });
   btn.classList.add('picked');
-  const d = await api('/api/portal/answer', {token, idx: cur, choice: i});
   const fb = document.getElementById('q-fb');
+  let d;
+  try {
+    d = await api('/api/portal/answer', {token, idx: cur, choice: i, sec: Math.round((Date.now() - (qShownAt || Date.now())) / 1000)});
+  } catch (e) {
+    let q = [];
+    try { q = JSON.parse(localStorage.getItem('su_offq') || '[]'); } catch (e2) {}
+    q.push({idx: cur, choice: i, day: window._qDay || ''});
+    try { localStorage.setItem('su_offq', JSON.stringify(q)); } catch (e3) {}
+    if (QUESTIONS[cur]) QUESTIONS[cur].answered = true;
+    fb.innerHTML = '📴 Offline — answer save ayyindi. Net ragane auto-sync avuthundi.';
+    document.getElementById('q-next').style.display = 'block';
+    return;
+  }
   if (!d.ok) { fb.textContent = d.error || ''; return; }
   if (d.correct) { score = d.score; fb.innerHTML = '✅ Correct! ' + (d.explanation ? '<span class="muted">' + esc(d.explanation) + '</span>' : ''); }
   else { fb.innerHTML = '❌ Wrong. Correct: <b>' + esc(d.answer_text) + '</b>' + (d.explanation ? '<br><span class="muted">' + esc(d.explanation) + '</span>' : ''); }
   document.getElementById('q-score').textContent = '✅ ' + (d.score || score);
-  if (d.done) { fb.innerHTML += '<br>🎉 Daily Quiz complete! Home lo rank chudandi.'; document.getElementById('q-next').textContent = '🏠 Home'; }
+  if (d.done) { fb.innerHTML += '<br>🎉 Daily Quiz complete! Home lo rank chudandi.' + (d.avg_sec ? '<br>⏱ Mee speed: avg ' + d.avg_sec + 's/question' : ''); document.getElementById('q-next').textContent = '🏠 Home'; }
   document.getElementById('q-next').style.display = 'block';
 }
 function nextQ() {
@@ -1403,10 +1515,12 @@ async function loadCoach() {
 async function loadSyllabus() {
   const out = document.getElementById('adv-out');
   out.innerHTML = '<div class="muted">Loading syllabus…</div>';
-  const d = await api('/api/portal/syllabus?token=' + encodeURIComponent(token));
+  const d = await api('/api/portal/syllabus2?token=' + encodeURIComponent(token));
   if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || 'Syllabus ready ledu') + '</div>'; return; }
-  out.innerHTML = '<b>🗺️ ' + esc(d.exam || 'Syllabus') + '</b> <span class="chip gold">Coverage ' + d.coverage + '%</span> <span class="muted">' + d.topics_done + '/' + d.topics_total + ' topics</span>' +
-    (d.subjects || []).map(s => '<div style="display:flex; justify-content:space-between; margin:4px 0;"><span>' + esc(s.subject) + ' <span class="muted">(' + s.done_topics + '/' + s.topics + ' topics)</span></span><span>' + esc(s.status) + (s.mastery != null ? ' · ' + Math.round(s.mastery * 100) + '%' : '') + '</span></div>').join('');
+  out.innerHTML = '<b>🗺️ ' + esc(d.exam || 'Syllabus') + '</b> <span class="chip gold">Coverage ' + d.coverage + '% (exam-weighted)</span> <span class="muted">' + d.topics_done + '/' + d.topics_total + ' topics</span>' +
+    (d.subjects || []).map(s => '<div style="display:flex; justify-content:space-between; margin:4px 0;"><span>' + esc(s.subject) + ' <span class="muted">(' + s.done_topics + '/' + s.topics + ' topics · weight ' + Math.round((s.weight || 0) * 100) + '% · bank ' + (s.bank_q || 0) + ' Qs' + (s.bank_gap ? ' · ⚠️ bank gap' : '') + ')</span></span><span>' + esc(s.status) + (s.mastery != null ? ' · ' + Math.round(s.mastery * 100) + '%' : '') + '</span></div>').join('') +
+    (d.note ? '<div class="muted" style="margin-top:6px;">' + esc(d.note) + '</div>' : '') +
+    (d.next_subject ? '<div class="muted">➡️ Next: <b>' + esc(d.next_subject) + '</b> topics cover cheyyandi</div>' : '');
 }
 async function loadPercentile() {
   const out = document.getElementById('adv-out');
@@ -1454,7 +1568,8 @@ async function resumeMock() {
     const div = document.createElement('div'); div.id = 'mq' + q.i;
     div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
     q.options.forEach((opt, oi) => {
-      const b = document.createElement('button'); b.className = 'opt' + ((d.mock.answers || {})[q.i] === oi ? ' picked' : ''); b.textContent = opt;
+      const b = document.createElement('button'); b.className = 'opt' + ((d.mock.answers || {})[q.i] === oi ? ' picked' : ''); b.textContent = optText(q, oi, opt);
+      b.dataset.qref = regQ(q); b.dataset.oi = oi;
       if ((d.mock.answers || {})[q.i] === oi) MOCK.times = MOCK.times || {}; if (MOCK.times[q.i] == null) MOCK.times[q.i] = Math.round((Date.now() - (MOCK.t0 || Date.now())) / 1000); MOCK.answers[q.i] = oi;
       b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.times = MOCK.times || {}; if (MOCK.times[q.i] == null) MOCK.times[q.i] = Math.round((Date.now() - (MOCK.t0 || Date.now())) / 1000); MOCK.answers[q.i] = oi; markPalette(q.i); };
       div.appendChild(b);
@@ -1558,7 +1673,8 @@ function renderMockRun(d) {
     const div = document.createElement('div'); div.id = 'mq' + q.i;
     div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
     q.options.forEach((opt, oi) => {
-      const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+      const b = document.createElement('button'); b.className = 'opt'; b.textContent = optText(q, oi, opt);
+      b.dataset.qref = regQ(q); b.dataset.oi = oi;
       b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.times = MOCK.times || {}; if (MOCK.times[q.i] == null) MOCK.times[q.i] = Math.round((Date.now() - (MOCK.t0 || Date.now())) / 1000); MOCK.answers[q.i] = oi; markPalette(q.i); };
       div.appendChild(b);
     });
@@ -1686,6 +1802,14 @@ async function loadForecast() {
   const out = document.getElementById('adv-out');
   const d = await api('/api/portal/forecast?token=' + encodeURIComponent(token));
   if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  if (d.v2) {
+    const v = d.v2;
+    out.innerHTML = '<b>🔮 Score Forecast v2</b> <span class="chip gold">~' + v.expected_pct + '%</span> <span class="muted">confidence: ' + esc(v.confidence) + ' (' + v.answers_seen + ' answers)</span><div class="muted">Next mock expected range: ' + v.low + '–' + v.high + '% · Syllabus coverage: ' + (v.coverage != null ? v.coverage + '%' : '—') + '</div>' +
+      (v.subjects || []).map(s => '<div style="display:flex; justify-content:space-between; margin:4px 0;"><span>' + esc(s.subject) + ' <span class="muted">(weight ' + Math.round((s.weight || 0) * 100) + '%' + (s.bank_gap ? ' · ⚠️ bank gap' : '') + ')</span></span><span>~' + s.expected_pct + '%' + (s.mastery != null ? ' · mastery ' + Math.round(s.mastery * 100) + '%' : '') + '</span></div>').join('') +
+      (v.drivers || []).map(t => '<div class="muted" style="margin-top:4px;">' + esc(t) + '</div>').join('') +
+      '<div class="muted" style="margin-top:6px;">' + esc(v.note || '') + '</div>';
+    return;
+  }
   out.innerHTML = '<b>🔮 Score Forecast</b> <span class="chip gold">~' + d.expected_pct + '%</span><div class="muted">Next mock expected range: ' + d.low + '–' + d.high + '% · Band: ' + esc(d.band || '') + '<br>' + esc(d.note || '') + '</div>';
 }
 async function loadTrend() {
@@ -1727,7 +1851,8 @@ async function startGrand() {
     const div = document.createElement('div'); div.id = 'mq' + q.i;
     div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
     q.options.forEach((opt, oi) => {
-      const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+      const b = document.createElement('button'); b.className = 'opt'; b.textContent = optText(q, oi, opt);
+      b.dataset.qref = regQ(q); b.dataset.oi = oi;
       b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.times = MOCK.times || {}; if (MOCK.times[q.i] == null) MOCK.times[q.i] = Math.round((Date.now() - (MOCK.t0 || Date.now())) / 1000); MOCK.answers[q.i] = oi; markPalette(q.i); };
       div.appendChild(b);
     });
@@ -1802,6 +1927,21 @@ async function loadRival() {
   out.innerHTML = '<b>🥊 Rival Race (ee week)</b><div>Nenu: <b>' + d.my_pts + ' pts</b> · ' + esc(d.rival) + ': <b>' + d.rival_pts + ' pts</b><br>' +
     (d.leading === 'you' ? '🔥 Meeru mundhu unnaru (+' + d.diff + ') — maintain cheyyandi!' : '⚠️ Rival mundhu unnadu (' + d.diff + ') — oka mock raasi overtake cheyyandi!') + '</div>';
 }
+// 🌐 200X full-toggle: single-language option text (fallback merged)
+window.__qpool = window.__qpool || {};
+function regQ(q) {
+  if (!q) return 'q' + (q && q.i);
+  const key = 'k' + String(q.qid || '') + ':' + String(q.i);
+  window.__qpool[key] = q;
+  return key;
+}
+function optText(q, i, fallback) {
+  const en = document.body.classList.contains('lang-en');
+  const te = document.body.classList.contains('lang-te');
+  if (en && q.options_en && q.options_en[i]) return q.options_en[i];
+  if (te && q.options_te && q.options_te[i]) return q.options_te[i];
+  return fallback;
+}
 let LANGS = ['both', 'te', 'en'];
 async function cycleLang() {
   const cur = (STATE && STATE.student && STATE.student.lang) || localStorage.getItem('su_lang') || 'both';
@@ -1811,6 +1951,13 @@ async function cycleLang() {
   if (nxt !== 'both') document.body.classList.add('lang-' + nxt);
   if (STATE && STATE.student) STATE.student.lang = nxt;
   await api('/api/portal/lang', {token, lang: nxt});
+  document.querySelectorAll('.opt').forEach(b => {
+    if (b.dataset.qref != null && b.dataset.oi != null) {
+      const pool = (window.__qpool || {});
+      const q = pool[b.dataset.qref];
+      if (q) b.textContent = optText(q, +b.dataset.oi, b.textContent);
+    }
+  });
   alert('🌐 Language: ' + (nxt === 'both' ? 'Telugu + English' : nxt === 'te' ? 'Telugu matrame' : 'English matrame'));
 }
 function applyLang() {
@@ -1869,7 +2016,8 @@ async function startPaper(exam, year, paper) {
     const div = document.createElement('div'); div.id = 'mq' + q.i;
     div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
     q.options.forEach((opt, oi) => {
-      const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+      const b = document.createElement('button'); b.className = 'opt'; b.textContent = optText(q, oi, opt);
+      b.dataset.qref = regQ(q); b.dataset.oi = oi;
       b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.times = MOCK.times || {}; if (MOCK.times[q.i] == null) MOCK.times[q.i] = Math.round((Date.now() - (MOCK.t0 || Date.now())) / 1000); MOCK.answers[q.i] = oi; markPalette(q.i); };
       div.appendChild(b);
     });
@@ -1897,7 +2045,8 @@ async function startMock(goal, kind) {
     const div = document.createElement('div'); div.id = 'mq' + q.i;
     div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
     q.options.forEach((opt, oi) => {
-      const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+      const b = document.createElement('button'); b.className = 'opt'; b.textContent = optText(q, oi, opt);
+      b.dataset.qref = regQ(q); b.dataset.oi = oi;
       b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.times = MOCK.times || {}; if (MOCK.times[q.i] == null) MOCK.times[q.i] = Math.round((Date.now() - (MOCK.t0 || Date.now())) / 1000); MOCK.answers[q.i] = oi; markPalette(q.i); };
       div.appendChild(b);
     });
@@ -2013,7 +2162,8 @@ function renderPr() {
   document.getElementById('p-next').style.display = 'none';
   const box = document.getElementById('p-opts'); box.innerHTML = '';
   q.options.forEach((opt, i) => {
-    const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+    const b = document.createElement('button'); b.className = 'opt'; b.textContent = optText(q, i, opt);
+    b.dataset.qref = regQ(q); b.dataset.oi = i;
     b.onclick = () => ansPr(i, b); box.appendChild(b);
   });
 }
@@ -2111,7 +2261,8 @@ async function enterExam(id) {
     const div = document.createElement('div');
     div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
     q.options.forEach((opt, oi) => {
-      const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+      const b = document.createElement('button'); b.className = 'opt'; b.textContent = optText(q, oi, opt);
+      b.dataset.qref = regQ(q); b.dataset.oi = oi;
       if (q.answered) { b.disabled = true; }
       else b.onclick = async () => {
         div.querySelectorAll('.opt').forEach(x => { x.disabled = true; });
@@ -2335,7 +2486,8 @@ function renderQ(s) {
     q.options.forEach((opt, i) => {
       const b = document.createElement('button');
       b.className = 'opt';
-      b.textContent = opt;
+      b.dataset.qref = regQ(q); b.dataset.oi = i;
+      b.textContent = optText(q, i, opt);
       if (q.answered) { b.disabled = true; }
       else { b.onclick = () => answer(i, b); }
       box.appendChild(b);
@@ -6591,6 +6743,7 @@ All candidates must join today before 9:00 PM!"></textarea>
           bar('Attempted (≥1 test)', f.attempted || 0, f.registered || 0) +
           bar('Active today', f.active_today || 0, f.registered || 0) +
           ((d.retention) ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🔁 Retention</h4><div>🆕 Last 7d registered: <b style="color:#e2e8f0;">' + (d.retention.new_7d || 0) + '</b> · 🟢 Active 7d: <b style="color:#e2e8f0;">' + (d.retention.active_7d || 0) + '</b> (' + (d.retention.active_7d_pct || 0) + '% of students)</div>' : '') +
+          ((d.churn) ? '<div style="margin-top:5px;">⚠️ At-risk (7d+ inactive): <b style="color:#facc15;">' + (d.churn.at_risk_7d || 0) + '</b> · 💌 Win-back sent: <b style="color:#e2e8f0;">' + (d.churn.winback_sent || 0) + '</b> · 🏆 Result blasts: <b style="color:#e2e8f0;">' + (d.churn.result_blasts || 0) + '</b> <span>(bot auto)</span></div>' : '') +
           ((d.bot) ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🤖 Bot Funnel (120X)</h4><div>🔗 Linked: <b style="color:#e2e8f0;">' + (d.bot.linked || 0) + '</b> (' + (d.bot.link_pct || 0) + '% of students) · 🪪 Link claims: <b style="color:#e2e8f0;">' + (d.bot.claims || 0) + '</b> · 🔐 WebApp logins: <b style="color:#e2e8f0;">' + (d.bot.logins || 0) + '</b> · 📬 Bot msgs sent: <b style="color:#e2e8f0;">' + (d.bot.msgs || 0) + '</b></div>' +
           '<div style="margin-top:8px;"><div class="muted" style="font-size:11.5px;">📣 Bot Broadcast (linked students ki Telegram):</div>' +
           '<textarea id="bb-text" rows="2" style="width:100%; margin-top:4px;" placeholder="Ee roju 7 PM ki Grand Mock LIVE! Ready ga undandi 🔥"></textarea>' +
@@ -7439,6 +7592,12 @@ All candidates must join today before 9:00 PM!"></textarea>
           ' · uptime ' + (h.uptime_min || 0) + ' min · Python ' + (h.system ? h.system.python : '?') + ' · ' + (h.generated_at || '') + '</div>' +
           (h.checks || []).map(c => '<div style="padding:4px 8px; background:rgba(255,255,255,0.03); border-radius:6px; margin-top:4px;">' +
             dot(c.status) + ' <b>' + c.name + '</b> <span style="color:var(--text-muted);">' + c.detail + '</span></div>').join('');
+        if (h.golive) {
+          document.getElementById('proops-health').innerHTML +=
+            '<div style="margin-top:12px; margin-bottom:4px;">🚀 Subdomain Go-Live: <b>' + String(h.golive.overall || '').toUpperCase() + '</b> <span style="color:var(--text-muted);">(docs/SUBDOMAIN_GO_LIVE.md)</span></div>' +
+            (h.golive.checks || []).map(c => '<div style="padding:4px 8px; background:rgba(255,255,255,0.03); border-radius:6px; margin-top:4px;">' +
+              dot(c.status) + ' <b>' + c.name + '</b> <span style="color:var(--text-muted);">' + c.detail + '</span></div>').join('');
+        }
         const c = m.counters || {}, d = m.delivery || {};
         const card = (label, val, sub) => '<div class="stat-card"><div class="label">' + label + '</div><div class="val">' + val + '</div><div style="font-size:11px; color:var(--text-muted);">' + (sub || '') + '</div></div>';
         document.getElementById('proops-metrics').innerHTML =
@@ -7845,10 +8004,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
         # 📱 PWA assets — login అవసరం లేదు (browser install కోసం), IP lock apply అవుతుంది
         if p.path == "/sw.js":
             self._send_text(
-                "const C='studentup-v3';"
+                "const C='studentup-v4';"
                 "self.addEventListener('install',e=>{self.skipWaiting();"
-                "e.waitUntil(caches.open(C).then(c=>c.addAll(['/portal','/','/icon.svg'])))});"
-                "self.addEventListener('activate',e=>{e.waitUntil(self.clients.claim())});"
+                "e.waitUntil(caches.open(C).then(c=>c.addAll(['/portal','/','/icon.svg','/manifest.json'])))});"
+                "self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});"
                 "self.addEventListener('fetch',e=>{const u=new URL(e.request.url);"
                 "if(e.request.method!=='GET'||u.pathname.startsWith('/api/'))return;"
                 "e.respondWith(fetch(e.request).then(r=>{const cp=r.clone();"
@@ -7963,6 +8122,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
             query = urllib.parse.parse_qs(p.query)
             sy = portal.my_syllabus(Members(), query.get("token", [""])[0])
             self._send_json({"ok": sy is not None, **(sy or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/syllabus2":
+            query = urllib.parse.parse_qs(p.query)
+            sy = portal.syllabus_plan(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": sy is not None, **(sy or {"error": "syllabus ready ledu"})})
             return
         if p.path == "/api/portal/coach":
             query = urllib.parse.parse_qs(p.query)
@@ -8399,9 +8563,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
                                  "active_today": _pa.get("active_today")}
             except Exception:
                 rep["portal"] = {}
+            try:
+                rep["golive"] = _golive_checks()
+            except Exception:
+                rep["golive"] = {}
             self._send_json(rep)
             return
 
+        if p.path == "/api/health/golive":
+            self._send_json({"ok": True, **_golive_checks()})
+            return
         if p.path == "/api/flags":
             from core import flags as _fl
             self._send_json({"ok": True, "flags": _fl.all_flags()})
@@ -8918,7 +9089,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 ok, info = portal.daily_answer(
                     Members(), body.get("token", ""),
                     int(body.get("idx") or 0),
-                    int(body.get("choice") if body.get("choice") is not None else -1))
+                    int(body.get("choice") if body.get("choice") is not None else -1),
+                    body.get("sec"))
             except Exception as ex:
                 ok, info = False, str(ex)
             self._send_json({"ok": ok, **(info if ok and isinstance(info, dict) else {"error": info})})

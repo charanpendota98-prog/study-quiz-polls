@@ -346,16 +346,45 @@ def _daily_paper(d):
     return d["days"][day]
 
 
-def _display(q, seed):
-    """Per-student shuffled options; returns (display_texts, perm)."""
+def _display(q, seed, lang="both"):
+    """Per-student shuffled options; returns (display_texts, perm).
+
+    🌐 200X: lang='en' → English-first options (build_options
+    telugu_first=False). Default 'both'/'te' = Telugu-first merge —
+    boy-gen-approved behaviour unchanged."""
     from .content import build_options
-    raw = build_options(q, telugu_first=True)
+    raw = build_options(q, telugu_first=(lang != "en"))
     perm = list(range(len(raw)))
     random.Random(seed).shuffle(perm)
     return [raw[i] for i in perm if i < len(raw)], perm
 
 
-def _serve(qs, seed_prefix, answers):
+_LETTERS200 = ["🅰️", "🅱️", "🅲️", "🅳"]
+
+
+def _display_split(q, perm):
+    """🌐 200X FULL TE/EN TOGGLE: perm display-order ki saripoyina
+    single-language option arrays. 'options' merged (both) behaviour
+    unchanged; SPA lang-te/lang-en mode lo ee arrays vaduthundi —
+    toggle nijanga full (stems matrame kadu). Letter = original-index
+    letter (merged options tho consistent)."""
+    en = q.get("options_en") or []
+    te = [str(t).lstrip("⤷").strip() for t in (q.get("options_te") or [])]
+    out_en, out_te = [], []
+    for orig in perm:
+        e = (en[orig] if 0 <= orig < len(en) else "") or ""
+        t = (te[orig] if 0 <= orig < len(te) else "") or ""
+        e, t = str(e).strip(), str(t).strip()
+        import re as _re
+        e = _re.sub(r"^[A-D][\)\.\:]\s*", "", e)
+        t = _re.sub(r"^[A-D][\)\.\:]\s*", "", t)
+        L = _LETTERS200[orig] if 0 <= orig < len(_LETTERS200) else ""
+        out_en.append(f"{L} {e or t}".strip())
+        out_te.append(f"{L} {t or e}".strip())
+    return out_en, out_te
+
+
+def _serve(qs, seed_prefix, answers, lang="both"):
     out = []
     try:
         from . import blueprint as _bp
@@ -363,13 +392,15 @@ def _serve(qs, seed_prefix, answers):
     except Exception:
         _lvl = lambda q: ""  # noqa: E731
     for i, q in enumerate(qs):
-        opts, _perm = _display(q, f"{seed_prefix}:{i}")
+        opts, _perm = _display(q, f"{seed_prefix}:{i}", lang=lang)
+        _en_arr, _te_arr = _display_split(q, _perm)
         out.append({"i": i, "qid": q.get("id"), "topic": q["topic"], "channel": q["channel"],
                     "te": q.get("q_te", ""), "en": q.get("q_en", ""),
                     "level": _lvl(q),
                     "source": q.get("source") or "",
                     "exam": q.get("exam") or "", "year": q.get("year") or "",
-                    "options": opts, "answered": str(i) in (answers or {})})
+                    "options": opts, "options_en": _en_arr, "options_te": _te_arr,
+                    "answered": str(i) in (answers or {})})
     return out
 
 
@@ -600,6 +631,7 @@ def _profile(members, uid):
             "goal": m.get("exam_goal") or m.get("goal") or "mixed",
             "points": m.get("points", 0), "level": _lvl,
             "streak": m.get("streak", 0), "best_streak": m.get("best_streak", 0),
+            "shields": int(m.get("shields") or 0),
             "ref_code": _ref_code(uid), "referrals": m.get("referrals", 0),
             "badges": _badge_labels(m.get("badges") or []),
             "lang": m.get("lang") or "both",
@@ -654,7 +686,13 @@ def state(members, token):
         _cd = None
     _nts = [n for n in list_notices(10)
             if not n.get("goal") or n.get("goal") == prof.get("goal")]
+    _sy1 = None
+    try:
+        _sy1 = syllabus_plan(members, token)
+    except Exception:
+        _sy1 = None
     return {"student": prof, "brain": _brain_card, "today_plan": _plan,
+            "syllabus_v1": _sy1,
             "countdown": _cd,
             "sprint": (sprint_plan(members, token)
                        if _cd and (_cd.get("mine") or {}).get("days") is not None
@@ -675,6 +713,7 @@ def state(members, token):
             "daily": {"n": len(day["qs"]),
                       "pyq_count": sum(1 for q in day["qs"] if q.get("source") == "pyq"),
                       "done": bool(run and run.get("done")),
+                      "avg_sec": (run or {}).get("avg_sec"),
                       "correct": (run or {}).get("correct", 0),
                       "answered": len((run or {}).get("answers") or {})},
             "daily_board": _board(t_rows, members),
@@ -708,12 +747,15 @@ def daily_questions(members, token):
     day = _daily_paper(d)
     run = (day.setdefault("runs", {})).get(uid)
     answers = (run or {}).get("answers") or {}
-    return {"questions": _serve(day["qs"], f"{uid}:{_today()}", answers),
+    lang = _profile(members, uid).get("lang", "both")
+    return {"questions": _serve(day["qs"], f"{uid}:{_today()}", answers,
+                                lang=lang),
+            "date": _today(), "lang": lang,
             "done": bool(run and run.get("done"))}
 
 
 @_locked
-def daily_answer(members, token, idx, choice):
+def daily_answer(members, token, idx, choice, sec=None):
     d = _load()
     uid = _sess(d, token)
     if not uid:
@@ -726,8 +768,16 @@ def daily_answer(members, token, idx, choice):
         uid, {"uid": uid, "answers": {}, "done": False, "correct": 0, "pts": 0})
     if str(idx) in run["answers"]:
         return True, {"already": True}
+    # ⏱ 150X daily pacing: prathi question seconds (clamp) save.
+    if sec is not None:
+        try:
+            run.setdefault("times", {})[str(idx)] = max(
+                0.0, min(3600.0, float(sec)))
+        except Exception:
+            pass
     q = qs[int(idx)]
-    _opts, perm = _display(q, f"{uid}:{_today()}:{int(idx)}")
+    _lang = _profile(members, uid).get("lang", "both")
+    _opts, perm = _display(q, f"{uid}:{_today()}:{int(idx)}", lang=_lang)
     ch = int(choice)
     orig = perm[ch] if 0 <= ch < len(perm) else ch
     correct = orig == q["answer_index"]
@@ -739,6 +789,10 @@ def daily_answer(members, token, idx, choice):
         run["pts"] += PTS_DAILY
     if len(run["answers"]) >= len(qs):
         run["done"] = True
+        _secs = [v for k, v in (run.get("times") or {}).items()
+                 if k in run["answers"]]
+        run["avg_sec"] = (round(sum(_secs) / len(_secs), 1)
+                          if _secs else None)
         run["finished"] = _now().isoformat()
         # 🗄️ Permanent archive — 3-day window tarvatha kuda key paper!
         _archive_attempt(d, uid, "daily", _today(), "📅 Daily Quiz",
@@ -752,7 +806,8 @@ def daily_answer(members, token, idx, choice):
                   "answer_text": opts[q["answer_index"]] if 0 <= q["answer_index"] < len(opts) else "",
                   "explanation": q.get("explanation", ""),
                   "answered": len(run["answers"]), "total_q": len(qs),
-                  "done": run["done"], "score": run["correct"]}
+                  "done": run["done"], "avg_sec": run.get("avg_sec"),
+                  "score": run["correct"]}
 
 
 # ------------------------------------------------------- attempt archive
@@ -2010,6 +2065,131 @@ def my_syllabus(members, token):
         return None
 
 
+def syllabus_plan(members, token):
+    """🗺️ SYLLABUS % v2 (200X): goal channels ANNI kalipina merged
+    syllabus graph mida EXAM-WEIGHTED coverage. v1 flaws fix:
+    (1) single-channel matrame chudatam (Groups lo TSPSC ignore),
+    (2) case-variant topics ('Number Series'/'number series') double
+    count, (3) blueprint weight unna subject ki bank lo questions
+    lekunda silent ga missing (BANKING Reasoning 35%!) — ippudu
+    bank_gap honesty tho kanipisthundi. Coverage = Σ weight×(subject
+    topics done / subject topics); raw topics count kuda isthamu."""
+    try:
+        from . import flags as _fl
+        if not _fl.enabled("syllabus_tracker"):
+            return None
+    except Exception:
+        pass
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return None
+    m = _member(members, uid)
+    prof = _profile(members, uid)
+    goal = prof.get("goal") or "mixed"
+    chans = list((GOALS.get(goal) or {}).get("channels") or [])
+    try:
+        from .question_bank import Bank
+        from . import syllabus as _sy
+        bank = Bank()
+        if not chans:
+            import collections as _c
+            _cnt = _c.Counter(q.get("channel") for q in _bank_pool())
+            chans = [(_cnt.most_common(1) or [("CURRENT", 0)])[0][0]]
+        graphs = [_sy.exam_graph(bank, ch) for ch in chans]
+        # merged graph: subject -> {topic_lower: (display, bank_q)}
+        merged, weight_sum, exam_labels = {}, {}, []
+        for g in graphs:
+            if g.get("exam"):
+                exam_labels.append(g["exam"])
+            for s, w in (g.get("weights") or {}).items():
+                weight_sum[s] = weight_sum.get(s, 0.0) + float(w or 0)
+            for s, it in (g.get("subjects") or {}).items():
+                slot = merged.setdefault(s, {})
+                for t, c in (it or {}).items():
+                    key = str(t or "").strip().lower()
+                    if not key:
+                        continue
+                    if key not in slot or c > slot[key][1]:
+                        slot[key] = (str(t), slot.get(key, ("", 0))[1] + int(c or 0)
+                                     if key in slot else int(c or 0))
+        n_ch = max(1, len(graphs))
+        weights = {s: wsum / n_ch for s, wsum in weight_sum.items()}
+        for s in merged:
+            weights.setdefault(s, 0.0)
+        tot_w = sum(weights.values()) or 1.0
+        weights = {s: w / tot_w for s, w in weights.items()}
+        # student topic stats (case-merged)
+        stu = {}
+        for t, v in ((m.get("topics") or {}).items()):
+            key = str(t or "").strip().lower()
+            if not key:
+                continue
+            a = stu.setdefault(key, {"seen": 0, "correct": 0})
+            a["seen"] += int((v or {}).get("total", 0) or 0)
+            a["correct"] += int((v or {}).get("correct", 0) or 0)
+        topic_subj = {}
+        for s, slot in merged.items():
+            for key in slot:
+                topic_subj.setdefault(key, s)
+        subj_seen = {}
+        for key, a in stu.items():
+            s = topic_subj.get(key) or _sy.subject_of_topic(key)
+            if s not in merged:
+                continue
+            agg = subj_seen.setdefault(s, {"seen": 0, "correct": 0})
+            agg["seen"] += a["seen"]
+            agg["correct"] += a["correct"]
+        for _ws in weights:
+            merged.setdefault(_ws, {})  # blueprint subject, bank empty
+        rows, cov_w, done_tot, tot_topics, gaps = [], 0.0, 0, 0, []
+        for s in sorted(merged, key=lambda x: (-weights.get(x, 0), x)):
+            slot = merged[s]
+            topics_n = len(slot)
+            bank_q = sum(c for _t, c in slot.values())
+            done = sum(1 for key in slot if stu.get(key, {}).get("seen", 0) > 0)
+            agg = subj_seen.get(s) or {"seen": 0, "correct": 0}
+            rate = (agg["correct"] / agg["seen"]) if agg["seen"] else None
+            w = weights.get(s, 0.0)
+            cov_w += w * (done / topics_n if topics_n else 0.0)
+            done_tot += done
+            tot_topics += topics_n
+            gap = bool(topics_n == 0 or (w >= 0.15 and bank_q == 0))
+            if w >= 0.15 and bank_q == 0:
+                gaps.append(s)
+            rows.append({
+                "subject": s, "weight": round(w, 3),
+                "topics": topics_n, "done_topics": done,
+                "bank_q": bank_q, "seen": agg["seen"],
+                "correct": agg["correct"],
+                "mastery": (round(rate, 2) if rate is not None else None),
+                "status": ("not started" if not agg["seen"] else
+                           "weak" if (rate or 0) < 0.5 else
+                           "growing" if (rate or 0) < 0.75 else "strong"),
+                "coverage_pct": round(100 * done / topics_n) if topics_n else 0,
+                "bank_gap": gap})
+        weak = sorted(
+            ({"topic": t, "seen": a["seen"], "correct": a["correct"],
+              "rate": round(a["correct"] / a["seen"], 2)}
+             for t, a in stu.items() if a["seen"] >= 2),
+            key=lambda r: (r["rate"], -r["seen"]))[:3]
+        nxt = next((r["subject"] for r in rows
+                    if r["done_topics"] < r["topics"]), None)
+        return {"goal": goal, "channels": chans,
+                "exam": (exam_labels[0] if len(graphs) == 1
+                         else (GOALS.get(goal) or {}).get("label", goal)),
+                "coverage": round(100 * cov_w),
+                "topics_done": done_tot, "topics_total": tot_topics,
+                "subjects": rows, "weak_topics": weak,
+                "bank_gaps": gaps, "next_subject": nxt,
+                "note": ("⚠️ Bank lo konni weight-unna subjects ki "
+                         "questions takkuva — PYQ harvest avthondi; "
+                         "syllabus % bank stock mida adharam."
+                         if gaps else "")}
+    except Exception:
+        return None
+
+
 def coach_today(members, token):
     """🧑‍🏫 PERSONAL COACH: brain + syllabus + review kalipi ee roju
     student cheyyalsina ONE clear action plan (3 steps)."""
@@ -2451,13 +2631,77 @@ def score_forecast(members, token):
     except Exception:
         cov = 0.0
     expected = round(100 * (0.75 * p + 0.25 * cov))
-    return {"expected_pct": expected,
-            "low": max(0, expected - 8), "high": min(100, expected + 8),
-            "theta": ab.get("theta"), "band": ab.get("band", ""),
-            "answers": ab.get("answers", 0),
-            "note": "Estimate matrame — Brain ability + syllabus "
-                    "coverage nunchi. Ekkuva mocks rayyandi, forecast "
-                    "accurate avuthundi."}
+    out = {"expected_pct": expected,
+           "low": max(0, expected - 8), "high": min(100, expected + 8),
+           "theta": ab.get("theta"), "band": ab.get("band", ""),
+           "answers": ab.get("answers", 0),
+           "note": "Estimate matrame — Brain ability + syllabus "
+                   "coverage nunchi. Ekkuva mocks rayyandi, forecast "
+                   "accurate avuthundi."}
+    # 🔮 200X FORECAST v2: subject-weighted expected score. Per-subject
+    # mastery ni ability prior (p) vaipu Bayesian shrink (k=4) chesi,
+    # exam weights tho combine; data takkuvaithe guessing baseline
+    # (28%) vaipu confidence-shrink — no-data student ki kuda 38%
+    # cheppadam (v1) honest kadu.
+    try:
+        plan = syllabus_plan(members, token)
+        m = _member(members, uid)
+        n_obs = sum(int((v or {}).get("total", 0) or 0)
+                    for v in ((m.get("topics") or {}).values()))
+        n_obs = max(n_obs, int(ab.get("answers", 0) or 0))
+        conf = min(1.0, n_obs / 40.0)
+        if plan and plan.get("subjects"):
+            wsum = sum(r["weight"] for r in plan["subjects"]) or 1.0
+            wrate, srows = 0.0, []
+            for r in plan["subjects"]:
+                seen = int(r.get("seen") or 0)
+                corr = int(r.get("correct") or 0)
+                shrunk = (corr + 4.0 * p) / (seen + 4.0)
+                wrate += (r["weight"] / wsum) * shrunk
+                srows.append({
+                    "subject": r["subject"], "weight": r["weight"],
+                    "mastery": r.get("mastery"), "seen": seen,
+                    "expected_pct": round(100 * shrunk),
+                    "bank_gap": bool(r.get("bank_gap"))})
+            cov_w = (plan.get("coverage") or 0) / 100.0
+            x_val = 0.85 * wrate + 0.15 * cov_w
+            exp2 = round(100 * (conf * x_val + (1 - conf) * 0.28))
+            band_w = 15 if n_obs < 10 else 11 if n_obs < 40 else 8
+            seen_rows = [r for r in srows if r["seen"] >= 2]
+            weakest = (min(seen_rows, key=lambda r: r["expected_pct"])
+                       if seen_rows else None)
+            strongest = (max(seen_rows, key=lambda r: r["expected_pct"])
+                         if seen_rows else None)
+            drivers = []
+            if weakest:
+                drivers.append(
+                    f"Weakest: {weakest['subject']} "
+                    f"({weakest['expected_pct']}%) — deeni mida focus "
+                    f"chesthe forecast vese vidham ga peruguthundi")
+            if strongest and strongest is not weakest:
+                drivers.append(
+                    f"Strongest: {strongest['subject']} "
+                    f"({strongest['expected_pct']}%) ✅")
+            if plan.get("bank_gaps"):
+                drivers.append(
+                    "⚠️ Bank gap subjects: "
+                    + ", ".join(plan["bank_gaps"])
+                    + " — akkada questions takkuva, numbers bank "
+                      "stock mida adharam")
+            out["v2"] = {
+                "expected_pct": exp2,
+                "low": max(0, exp2 - band_w),
+                "high": min(100, exp2 + band_w),
+                "confidence": ("low" if n_obs < 10 else
+                               "medium" if n_obs < 40 else "high"),
+                "answers_seen": n_obs, "coverage": plan.get("coverage"),
+                "subjects": srows, "drivers": drivers,
+                "bank_gaps": plan.get("bank_gaps") or [],
+                "note": "Forecast v2: subject mastery (exam-weight) + "
+                        "coverage. Data perige koddi band tagguthundi."}
+    except Exception:
+        pass
+    return out
 
 
 def pyq_trends(goal=""):
@@ -2681,6 +2925,13 @@ def portal_analytics(members):
                     "msgs": int((d.get("tg_stats") or {}).get("bot_msgs") or 0),
                     "link_pct": round(100 * len(d.get("tg_map") or {})
                                       / max(1, len(reg)), 1)},
+            "churn": {"at_risk_7d": sum(
+                1 for m in reg
+                if not str(m.get("last_active") or "")
+                or str(m.get("last_active"))[:10]
+                < (_now() - timedelta(days=7)).strftime("%Y-%m-%d")),
+                    "winback_sent": int((d.get("tg_stats") or {}).get("winback") or 0),
+                    "result_blasts": int((d.get("tg_stats") or {}).get("result_blasts") or 0)},
             "archive_size": len(arc),
             "sessions_live": len(d.get("sessions") or {}),
             "pyq_gaps": _pyq_gaps_safe(),
@@ -3905,18 +4156,34 @@ def bot_outbox_jobs(members, limit=500):
         return []
     inv = {v: k for k, v in (d.get("tg_map") or {}).items()}
     jobs = []
+    keep = []
     for ent in box:
         goal = ent.get("goal") or ""
+        sent_to = set(ent.get("sent_to") or [])
+        targets = []
         for uid, tg in inv.items():
+            if tg in sent_to:
+                continue
             gm = _member(members, uid)
             if goal and gm.get("goal") != goal and gm.get("exam_goal") != goal:
                 continue
+            targets.append(tg)
+        room = max(0, limit - len(jobs))
+        take, rest = targets[:room], targets[room:]
+        for tg in take:
             jobs.append({"tg_id": tg, "kind": "broadcast",
                          "text": "📣 StudentUp:\n" + ent.get("text", "")})
-    d["bot_outbox"] = []
+            sent_to.add(tg)
+        if rest:
+            # 🛠️ 190X FIX: limit daatithe entry ni delete cheyyam —
+            # migilina targets next drain lo velthayi (message loss fix).
+            ent = dict(ent)
+            ent["sent_to"] = sorted(sent_to)
+            keep.append(ent)
+    d["bot_outbox"] = keep
     _bot_msgs_bump(d, len(jobs))
     _save(d)
-    return jobs[:limit]
+    return jobs
 
 
 @_locked
@@ -4009,6 +4276,69 @@ def due_bot_reminders(members):
             acc = round(100 * cor / max(1, ans))
             jobs.append({"tg_id": tg, "kind": "weekly_report",
                          "text": f"📋 Mee Week Report: {ans} answers · ✅ {cor} correct ({acc}%) · ⭐ {_member(members, uid).get('points', 0)} pts. Next week target: accuracy +5%! 💪"})
+    # 🏆 180X WAR ROOM — EXAM RESULTS BLAST: exam done ayyaka
+    # reminded + goal-match linked students ki winners ONCE matrame.
+    for e in (d.get("exams") or {}).values():
+        try:
+            if exam_status(e, now) != "done":
+                continue
+        except Exception:
+            continue
+        _rows = sorted((e.get("entries") or {}).values(),
+                       key=lambda r: (-r.get("correct", 0),
+                                      -r.get("pts", 0),
+                                      r.get("joined_at", "")))
+        _scored = [r for r in _rows if int(r.get("correct") or 0) > 0]
+        if not _scored:
+            continue
+        _pool = set((d.get("exam_reminds") or {}).get(e.get("id")) or [])
+        _pool |= set((e.get("entries") or {}).keys())  # rasina vallu andaru
+        _med = ["🥇", "🥈", "🥉"]
+        _txt = " · ".join(
+            f"{_med[i]} {w.get('name', 'Student')} "
+            f"{w.get('correct', 0)}/{len(e.get('qs') or [])}"
+            for i, w in enumerate(_scored[:3]))
+        for uid, tg in inv.items():
+            gm = _member(members, uid)
+            if uid not in _pool and gm.get("goal") != e.get("goal") \
+                    and gm.get("exam_goal") != e.get("goal"):
+                continue
+            key = f"{e.get('id')}:{uid}:result"
+            if key in sent:
+                continue
+            sent.add(key)
+            _mine = next((r for r in _rows if r.get("uid") == uid), None)
+            _extra = ""
+            if _mine:
+                _extra = (f"\n📍 Mee result: {_mine.get('correct', 0)}"
+                          f"/{len(e.get('qs') or [])} correct. "
+                          "Portal lo rank + certificate chudandi!")
+            jobs.append({"tg_id": tg, "kind": "exam_result",
+                         "text": f"🏆 {e.get('title', 'Live Exam')} RESULTS: {_txt}{_extra}"})
+            _st180 = d.setdefault("tg_stats", {})
+            _st180["result_blasts"] = int(_st180.get("result_blasts") or 0) + 1
+    # 💌 170X WIN-BACK: 7+ days inactive linked students ki week ki
+    # okkasari matrame personal win-back (points/streak hook tho).
+    _cut170 = (now - timedelta(days=7)).strftime("%Y-%m-%d")
+    _wk170 = now.strftime("%G-W%V")
+    _wb = 0
+    for uid, tg in inv.items():
+        if _wb >= 20:
+            break
+        gm = _member(members, uid)
+        la = str(gm.get("last_active") or "")
+        if la and la[:10] >= _cut170:
+            continue                      # recent ga active — disturb cheyyam
+        key = f"winback:{_wk170}:{uid}"
+        if key in sent:
+            continue
+        sent.add(key)
+        _wb += 1
+        jobs.append({"tg_id": tg, "kind": "winback",
+                     "text": f"👋 {gm.get('name', 'Student')} garu, miss ayyam! Mee {gm.get('points', 0)} points + rank wait chesthunnayi. Ee roju Daily Quiz okka 10 min — streak malli start cheddam! 🔥📚"})
+    if _wb:
+        _st170 = d.setdefault("tg_stats", {})
+        _st170["winback"] = int(_st170.get("winback") or 0) + _wb
     if jobs:
         d["bot_remind_sent"] = sorted(sent)[-2000:]
         _bot_msgs_bump(d, len(jobs))
