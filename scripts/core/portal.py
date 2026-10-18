@@ -2662,6 +2662,11 @@ def portal_analytics(members):
                      if str(r.get("date") or "")
                      >= (_now() - timedelta(days=7)).strftime("%Y-%m-%d")})
                     / max(1, len(reg)))},
+            "bot": {"linked": len(d.get("tg_map") or {}),
+                    "claims": int((d.get("tg_stats") or {}).get("claims") or 0),
+                    "logins": int((d.get("tg_stats") or {}).get("logins") or 0),
+                    "link_pct": round(100 * len(d.get("tg_map") or {})
+                                      / max(1, len(reg)), 1)},
             "archive_size": len(arc),
             "sessions_live": len(d.get("sessions") or {}),
             "pyq_gaps": _pyq_gaps_safe(),
@@ -3702,6 +3707,8 @@ def tg_link_claim(members, tg_uid, code):
         if k == str(tg_uid) or v == uid:
             tm.pop(k, None)
     tm[str(tg_uid)] = uid
+    _st110 = d.setdefault("tg_stats", {})
+    _st110["claims"] = int(_st110.get("claims") or 0) + 1
     _save(d)
     m = _member(members, uid)
     if m:
@@ -3747,6 +3754,8 @@ def tg_auth(members, init_data):
     token = secrets.token_urlsafe(18)
     d.setdefault("sessions", {})[token] = {"uid": uid,
                                            "ts": _now().isoformat()}
+    _st111 = d.setdefault("tg_stats", {})
+    _st111["logins"] = int(_st111.get("logins") or 0) + 1
     _save(d)
     return True, {"token": token, "uid": uid}
 
@@ -3760,3 +3769,79 @@ def bot_link_state(members, token):
     m = _member(members, uid)
     return True, {"linked": bool(m.get("tg_id")),
                   "tg_id": str(m.get("tg_id") or "")}
+
+
+# ------------------------------------------------------- 120X bot commands
+@_locked
+def tg_unlink_bot(members, tg_uid):
+    """🤖 Bot /unlink: Telegram <-> portal sambandham remove."""
+    d = _load()
+    uid = (d.get("tg_map") or {}).pop(str(tg_uid or ""), None)
+    if not uid:
+        return False, "not_linked"
+    _save(d)
+    m = _member(members, uid)
+    if m:
+        m["tg_id"] = ""
+        _kv_save_flush(members)
+    return True, {"uid": uid}
+
+
+def tg_daily_pack(members, tg_uid):
+    """🤖 Bot /portal + /today data pack: link aina student ki daily
+    status, streak, readiness, rank, weak topics, next live exam."""
+    d = _load()
+    uid = (d.get("tg_map") or {}).get(str(tg_uid or ""))
+    if not uid:
+        return False, "not_linked"
+    _refresh(d, _now())
+    day = _daily_paper(d)
+    run = (day.get("runs") or {}).get(uid) or {}
+    prof = _profile(members, uid)
+    rows = sorted((day.get("runs") or {}).values(),
+                  key=lambda r: (-r.get("correct", 0), -r.get("pts", 0)))
+    rank = next((i + 1 for i, r in enumerate(rows)
+                 if r.get("uid") == uid), None)
+    _ready = {}
+    try:
+        from . import brain as _brain
+        _bc = _brain.profile_for(_member(members, uid), uid) or {}
+        _ready = {"score": _bc.get("score", 0), "band": _bc.get("band", "")}
+    except Exception:
+        _ready = {}
+    nxt = None
+    for e in sorted((d.get("exams") or {}).values(),
+                    key=lambda x: x.get("starts_at") or ""):
+        if (e.get("starts_at") or "") >= _now().isoformat():
+            nxt = {"title": e.get("title", ""), "id": e.get("id", ""),
+                   "starts_at": e.get("starts_at", "")}
+            break
+    return True, {"name": prof.get("name", "Student"),
+                  "goal": prof.get("goal", ""),
+                  "goal_label": (GOALS.get(prof.get("goal") or "")
+                                 or {}).get("label", ""),
+                  "points": prof.get("points", 0),
+                  "streak": prof.get("streak", 0),
+                  "accuracy": prof.get("accuracy", 0),
+                  "review_due": prof.get("review_due", 0),
+                  "weak_topics": (prof.get("weak_topics") or [])[:3],
+                  "daily": {"n": len(day["qs"]),
+                            "answered": len(run.get("answers") or {}),
+                            "correct": run.get("correct", 0),
+                            "done": bool(run.get("done"))},
+                  "rank_today": rank, "readiness": _ready,
+                  "next_exam": nxt}
+
+
+def bot_leaders(members, tg_uid, limit=10):
+    """🤖 Bot /top: ee roju daily leaderboard + naa rank."""
+    d = _load()
+    uid = (d.get("tg_map") or {}).get(str(tg_uid or ""))
+    _refresh(d, _now())
+    day = _daily_paper(d)
+    rows = sorted((day.get("runs") or {}).values(),
+                  key=lambda r: (-r.get("correct", 0), -r.get("pts", 0)))
+    return True, {"leaders": _board(rows, members, limit),
+                  "my_rank": next((i + 1 for i, r in enumerate(rows)
+                                   if r.get("uid") == uid), None),
+                  "total_players": len(rows), "linked": bool(uid)}

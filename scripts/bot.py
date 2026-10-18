@@ -154,6 +154,18 @@ LEVELS_TEXT = (
 )
 
 
+def _portal_base120():
+    """🌐 120X: student-facing portal base (PUBLIC_BASE_URL env wins)."""
+    try:
+        from core import config as _c
+        b = _c.env("PUBLIC_BASE_URL", "").strip().rstrip("/")
+        if b:
+            return b
+    except Exception:
+        pass
+    return "https://quiz.studentup.in"
+
+
 class Bot:
     def __init__(self, dry=False):
         self.tg = Telegram(dry=dry)
@@ -2325,6 +2337,68 @@ class Bot:
             txt = growth.weekly_report(self.members, uid) or \
                 "📋 ఈ వారం ఇంకా rounds ఆడలేదు — /quiz ఆడండి, ఆదివారం రాత్రి report వస్తుంది."
             self.tg.send_message(chat_id, txt)
+        elif low.startswith("/portal") or low.startswith("/today"):
+            from core import portal as _p120
+            ok120, pack120 = _p120.tg_daily_pack(self.members, uid)
+            base120 = _portal_base120()
+            if not ok120:
+                self.tg.send_message(
+                    chat_id,
+                    "🔗 Mee Telegram inka Portal account tho link kaledu.\n"
+                    "1) Portal open cheyyandi 👇\n"
+                    "2) Home lo «🤖 Telegram Bot tho Link Chey» nokkandi\n"
+                    "3) Bot ki vachina link nokkithe connect ayipothundi!",
+                    buttons=[[("🌐 Portal Open", "url:" + base120)]])
+                return
+            dy = pack120["daily"]
+            lines120 = [
+                f"👋 {pack120['name']} · 🎯 {pack120['goal_label'] or pack120['goal']}",
+                f"⭐ {pack120['points']} pts · 🔥 {pack120['streak']}-day streak · 🎯 Accuracy {pack120['accuracy']}%",
+                f"📅 Daily Quiz: {dy['answered']}/{dy['n']} answered"
+                + (f" · ✅ {dy['correct']} correct" if dy["answered"] else "")
+                + (" · 🏁 Done!" if dy["done"] else " · inka pending!"),
+            ]
+            if pack120.get("rank_today"):
+                lines120.append(f"🏆 Ee roju mee rank: #{pack120['rank_today']}")
+            if pack120.get("readiness"):
+                lines120.append(f"🧠 Readiness: {pack120['readiness'].get('score', 0)}/100 {pack120['readiness'].get('band', '')}")
+            if pack120.get("review_due"):
+                lines120.append(f"🔁 Revision due: {pack120['review_due']} questions")
+            if pack120.get("weak_topics"):
+                lines120.append("📌 Weak topics: " + ", ".join(pack120["weak_topics"]))
+            if pack120.get("next_exam"):
+                lines120.append(f"📢 Next Live Exam: {pack120['next_exam']['title']} · {pack120['next_exam']['starts_at']}")
+            self.tg.send_message(
+                chat_id, "\n".join(lines120),
+                buttons=[[("📝 Daily Quiz", "url:" + base120 + "/?go=quiz"),
+                          ("🧪 Mocks", "url:" + base120 + "/?go=mocks")],
+                         [("🎯 Exam Hub", "url:" + base120 + "/?go=hub&goal=" + str(pack120["goal"]))]])
+            return
+        elif low.startswith("/top"):
+            from core import portal as _p121
+            _ok121, lb121 = _p121.bot_leaders(self.members, uid)
+            base121 = _portal_base120()
+            rows121 = lb121.get("leaders") or []
+            if not rows121:
+                self.tg.send_message(chat_id, "🏆 Ee roju inka evaru daily quiz start cheyyaledu — meeru first avvandi!",
+                                     buttons=[[("📝 Daily Quiz", "url:" + base121 + "/?go=quiz")]])
+                return
+            txt121 = "🏆 Ee Roju Top Students:\n" + "\n".join(
+                f"{['🥇','🥈','🥉'][i] if i < 3 else str(i + 1) + '.'} {r['name']} ({r['district']}) — ✅ {r['correct']}/{r['total']} · ⭐{r['pts']}"
+                for i, r in enumerate(rows121))
+            if lb121.get("my_rank"):
+                txt121 += f"\n\n📍 Mee rank: #{lb121['my_rank']} / {lb121['total_players']}"
+            elif not lb121.get("linked"):
+                txt121 += "\n\n🔗 Meeru inka link kaledu — /portal chudandi."
+            self.tg.send_message(chat_id, txt121,
+                                 buttons=[[("📝 Daily Quiz", "url:" + base121 + "/?go=quiz")]])
+            return
+        elif low.startswith("/unlink"):
+            from core import portal as _p122
+            ok122, _r122 = _p122.tg_unlink_bot(self.members, uid)
+            self.tg.send_message(chat_id, "🔓 Unlinked. Portal malli link cheyyali ante Home lo Bot Link button undi."
+                                 if ok122 else "ℹ️ Ee Telegram ki portal link ledu.")
+            return
         elif low.startswith("/invite") or low.startswith("/refer"):
             bu = config.BOT_USERNAME or (self._me_username() or "")
             link = f"https://t.me/{bu}?start=ref{uid}" if bu else "(set BOT_USERNAME in .env)"

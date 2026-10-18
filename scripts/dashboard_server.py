@@ -1517,7 +1517,7 @@ async function loadBotLink() {
     const d = await api('/api/portal/bot_link?token=' + encodeURIComponent(token));
     if (!d.ok) { el.innerHTML = ''; return; }
     if (d.linked) {
-      el.innerHTML = '<div class="muted" style="font-size:12.5px;">🤖 Telegram Bot: <b style="color:#34d399;">✅ Linked</b> — bot lopala portal one-tap login!</div>' +
+      el.innerHTML = '<div class="muted" style="font-size:12.5px;">🤖 Telegram Bot: <b style="color:#34d399;">✅ Linked</b> — bot lopala portal one-tap login!<br>⌨️ Bot commands: /portal · /today · /top · /unlink</div>' +
         (d.bot ? '<a href="https://t.me/' + esc(d.bot) + '" target="_blank" rel="noopener"><button class="btn-alt" style="width:100%; margin-top:6px;">🤖 Bot Open Chey</button></a>' : '');
     } else {
       el.innerHTML = '<button class="btn-alt" style="width:100%;" onclick="linkBot()">🤖 Telegram Bot tho Link Chey (one-tap login)</button>';
@@ -6580,6 +6580,7 @@ All candidates must join today before 9:00 PM!"></textarea>
           bar('Attempted (≥1 test)', f.attempted || 0, f.registered || 0) +
           bar('Active today', f.active_today || 0, f.registered || 0) +
           ((d.retention) ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🔁 Retention</h4><div>🆕 Last 7d registered: <b style="color:#e2e8f0;">' + (d.retention.new_7d || 0) + '</b> · 🟢 Active 7d: <b style="color:#e2e8f0;">' + (d.retention.active_7d || 0) + '</b> (' + (d.retention.active_7d_pct || 0) + '% of students)</div>' : '') +
+          ((d.bot) ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🤖 Bot Funnel (120X)</h4><div>🔗 Linked: <b style="color:#e2e8f0;">' + (d.bot.linked || 0) + '</b> (' + (d.bot.link_pct || 0) + '% of students) · 🪪 Link claims: <b style="color:#e2e8f0;">' + (d.bot.claims || 0) + '</b> · 🔐 WebApp logins: <b style="color:#e2e8f0;">' + (d.bot.logins || 0) + '</b></div>' : '') +
           '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🎯 Students by Goal</h4><div>' + chips(d.goals) + '</div>' +
           '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🧪 Attempts by Kind</h4><div>' + chips(d.attempt_kinds) + '</div>' +
           ((d.pyq_gaps || []).length ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">📜 PYQ Coverage Gaps (target 50/channel)</h4>' +
