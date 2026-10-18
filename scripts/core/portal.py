@@ -2700,7 +2700,8 @@ def portal_analytics(members):
                 if not str(m.get("last_active") or "")
                 or str(m.get("last_active"))[:10]
                 < (_now() - timedelta(days=7)).strftime("%Y-%m-%d")),
-                    "winback_sent": int((d.get("tg_stats") or {}).get("winback") or 0)},
+                    "winback_sent": int((d.get("tg_stats") or {}).get("winback") or 0),
+                    "result_blasts": int((d.get("tg_stats") or {}).get("result_blasts") or 0)},
             "archive_size": len(arc),
             "sessions_live": len(d.get("sessions") or {}),
             "pyq_gaps": _pyq_gaps_safe(),
@@ -4029,6 +4030,47 @@ def due_bot_reminders(members):
             acc = round(100 * cor / max(1, ans))
             jobs.append({"tg_id": tg, "kind": "weekly_report",
                          "text": f"📋 Mee Week Report: {ans} answers · ✅ {cor} correct ({acc}%) · ⭐ {_member(members, uid).get('points', 0)} pts. Next week target: accuracy +5%! 💪"})
+    # 🏆 180X WAR ROOM — EXAM RESULTS BLAST: exam done ayyaka
+    # reminded + goal-match linked students ki winners ONCE matrame.
+    for e in (d.get("exams") or {}).values():
+        try:
+            if exam_status(e, now) != "done":
+                continue
+        except Exception:
+            continue
+        _rows = sorted((e.get("entries") or {}).values(),
+                       key=lambda r: (-r.get("correct", 0),
+                                      -r.get("pts", 0),
+                                      r.get("joined_at", "")))
+        _scored = [r for r in _rows if int(r.get("correct") or 0) > 0]
+        if not _scored:
+            continue
+        _pool = set((d.get("exam_reminds") or {}).get(e.get("id")) or [])
+        _pool |= set((e.get("entries") or {}).keys())  # rasina vallu andaru
+        _med = ["🥇", "🥈", "🥉"]
+        _txt = " · ".join(
+            f"{_med[i]} {w.get('name', 'Student')} "
+            f"{w.get('correct', 0)}/{len(e.get('qs') or [])}"
+            for i, w in enumerate(_scored[:3]))
+        for uid, tg in inv.items():
+            gm = _member(members, uid)
+            if uid not in _pool and gm.get("goal") != e.get("goal") \
+                    and gm.get("exam_goal") != e.get("goal"):
+                continue
+            key = f"{e.get('id')}:{uid}:result"
+            if key in sent:
+                continue
+            sent.add(key)
+            _mine = next((r for r in _rows if r.get("uid") == uid), None)
+            _extra = ""
+            if _mine:
+                _extra = (f"\n📍 Mee result: {_mine.get('correct', 0)}"
+                          f"/{len(e.get('qs') or [])} correct. "
+                          "Portal lo rank + certificate chudandi!")
+            jobs.append({"tg_id": tg, "kind": "exam_result",
+                         "text": f"🏆 {e.get('title', 'Live Exam')} RESULTS: {_txt}{_extra}"})
+            _st180 = d.setdefault("tg_stats", {})
+            _st180["result_blasts"] = int(_st180.get("result_blasts") or 0) + 1
     # 💌 170X WIN-BACK: 7+ days inactive linked students ki week ki
     # okkasari matrame personal win-back (points/streak hook tho).
     _cut170 = (now - timedelta(days=7)).strftime("%Y-%m-%d")
