@@ -3653,3 +3653,110 @@ def topic_notes(members, token, topic=""):
                              "en": l.get("en", ""), "te": l.get("te", "")}
                             for l in sel[:6]],
                   "total": len(lessons)}
+
+
+# ------------------------------------------------------------- 110X bot link
+TG_LINK_TTL_MIN = 10
+
+
+def tg_link_code(members, token):
+    """🤖 BOT-LINK (110X): portal student ki one-time code — bot lo
+    /start plink_<CODE> tho Telegram account ni ee portal account ki
+    link chestaru. Tarvatha bot lopala nunchi one-tap auto-login."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return False, "Session expired."
+    now = _now()
+    links = {c: v for c, v in (d.get("tg_links") or {}).items()
+             if (v or {}).get("exp", "") >= now.isoformat()}
+    code = secrets.token_urlsafe(6).replace("-", "x").replace("_", "y")[:8].upper()
+    links[code] = {"uid": uid,
+                   "exp": (now + timedelta(minutes=TG_LINK_TTL_MIN)).isoformat()}
+    d["tg_links"] = links
+    _save(d)
+    m = _member(members, uid)
+    return True, {"code": code, "param": "plink_" + code,
+                  "expires_min": TG_LINK_TTL_MIN,
+                  "linked": bool(m.get("tg_id"))}
+
+
+@_locked
+def tg_link_claim(members, tg_uid, code):
+    """Bot /start plink_<CODE> nunchi: code validate chesi Telegram id
+    ni portal uid ki link chestundi. Code single-use + 10 min TTL."""
+    d = _load()
+    code = str(code or "").strip().upper()
+    links = d.setdefault("tg_links", {})
+    ent = links.get(code)
+    if not ent:
+        return False, "❌ Link code dorakaledu / expire ayyindi. Portal lo malli try cheyyandi."
+    if (ent.get("exp") or "") < _now().isoformat():
+        links.pop(code, None)
+        _save(d)
+        return False, "⏰ Link code expire ayyindi (10 min). Portal lo kottha code tiskondi."
+    uid = ent.get("uid")
+    links.pop(code, None)                     # single-use
+    tm = d.setdefault("tg_map", {})
+    for k, v in list(tm.items()):             # oka tg <-> oka portal uid
+        if k == str(tg_uid) or v == uid:
+            tm.pop(k, None)
+    tm[str(tg_uid)] = uid
+    _save(d)
+    m = _member(members, uid)
+    if m:
+        m["tg_id"] = str(tg_uid)
+        _kv_save_flush(members)
+    return True, {"uid": uid, "name": (m or {}).get("name", "")}
+
+
+def tg_auth(members, init_data):
+    """🔐 TELEGRAM WEBAPP AUTO-LOGIN (110X): bot lopala portal open
+    cheste initData HMAC verify chesi (BOT_TOKEN tho), link aina
+    student ki direct session token isthundi — login form ledu."""
+    import hashlib as _hl
+    import hmac as _hm
+    import urllib.parse as _up
+    tok = getattr(config, "BOT_TOKEN", "") or ""
+    if not tok:
+        return False, "bot_not_configured"
+    pairs = dict(_up.parse_qsl(str(init_data or ""), keep_blank_values=True))
+    recv = pairs.pop("hash", "")
+    if not recv:
+        return False, "bad_init_data"
+    dcs = "\n".join(f"{k}={pairs[k]}" for k in sorted(pairs))
+    secret = _hm.new(b"WebAppData", tok.encode(), _hl.sha256).digest()
+    calc = _hm.new(secret, dcs.encode(), _hl.sha256).hexdigest()
+    if not _hm.compare_digest(calc, recv):
+        return False, "bad_hash"
+    try:
+        age = int(time.time()) - int(pairs.get("auth_date") or 0)
+    except Exception:
+        age = 999999
+    if age > 86400:
+        return False, "expired"
+    try:
+        user = json.loads(pairs.get("user") or "{}")
+    except Exception:
+        user = {}
+    tg_id = str(user.get("id") or "")
+    d = _load()
+    uid = (d.get("tg_map") or {}).get(tg_id)
+    if not uid:
+        return False, "not_linked"
+    token = secrets.token_urlsafe(18)
+    d.setdefault("sessions", {})[token] = {"uid": uid,
+                                           "ts": _now().isoformat()}
+    _save(d)
+    return True, {"token": token, "uid": uid}
+
+
+def bot_link_state(members, token):
+    """Profile card: bot link ayyinda leda."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return False, "Session expired."
+    m = _member(members, uid)
+    return True, {"linked": bool(m.get("tg_id")),
+                  "tg_id": str(m.get("tg_id") or "")}

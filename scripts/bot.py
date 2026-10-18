@@ -1334,6 +1334,29 @@ class Bot:
                         self.tg.send_message(arg[3:], "🎁 Your friend joined via your link — +20 points!\n⤷ మీ ఫ్రెండ్ join అయ్యారు — +20 పాయింట్లు!")
                     except TelegramError:
                         pass
+            # 🤖 110X portal link: t.me/<bot>?start=plink_<CODE>
+            if arg.startswith("plink_") and uid:
+                from core import portal as _portal110
+                ok110, res110 = _portal110.tg_link_claim(
+                    self.members, uid, arg[6:])
+                if ok110:
+                    base110 = ""
+                    try:
+                        from core import config as _cfg110
+                        base110 = _cfg110.env(
+                            "PUBLIC_BASE_URL", "").strip().rstrip("/")
+                    except Exception:
+                        base110 = ""
+                    url110 = (base110 or "https://quiz.studentup.in") + "/?go=quiz"
+                    self.tg.send_message(
+                        chat_id,
+                        f"✅ Linked! {res110.get('name', '')} — mee Telegram ippudu StudentUp Portal account tho connect ayyindi.\n"
+                        "🌐 Bot lopala nunchi portal open cheste direct login avuthundi (form ledu).\n"
+                        "Daily Quiz, Mocks, Reports anni akkade 👇",
+                        buttons=[[("🌐 Portal Open Chey", "url:" + url110)]])
+                else:
+                    self.tg.send_message(chat_id, str(res110))
+                return
             camp = None
             try:
                 from core import campus

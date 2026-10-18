@@ -707,6 +707,7 @@ PORTAL_HTML = """<!DOCTYPE html>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>StudentUp Portal — Daily Quiz & Mock Tests</title>
 <link rel="manifest" href="/manifest.json">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
   body { min-height: 100vh; background: radial-gradient(circle at 30% 10%, #12315e 0%, #050811 70%); color: #e2e8f0; padding: 16px 12px 50px; }
@@ -800,6 +801,7 @@ PORTAL_HTML = """<!DOCTYPE html>
       <div id="level-bar" style="margin-top:8px;"></div>
       <div class="row" id="goal-chips" style="margin-top:9px;"></div>
       <p class="muted" id="goal-stock" style="margin-top:6px;"></p>
+      <div id="bot-link-card" style="margin-top:10px;"></div>
       <div class="row" style="margin-top:10px;">
         <button class="btn-alt" style="flex:1;" onclick="logout()">↩️ Logout / Number Change</button>
       </div>
@@ -1084,6 +1086,14 @@ function rows(list, emptyMsg) {
 }
 async function init() {
   setTheme(localStorage.getItem('su_theme') || '');
+  try {
+    const wa = window.Telegram && window.Telegram.WebApp;
+    if (wa && wa.initData) {
+      wa.ready(); wa.expand();
+      const d = await api('/api/portal/tg_auth', {init_data: wa.initData});
+      if (d.ok && d.token) { token = d.token; localStorage.setItem('su_portal', token); }
+    }
+  } catch (e) {}
   const _ref = new URLSearchParams(location.search).get('ref');
   if (_ref) localStorage.setItem('su_ref', _ref.toUpperCase());
   const _go = new URLSearchParams(location.search).get('go');
@@ -1217,6 +1227,7 @@ async function loadHome() {
   const lvEl = document.getElementById('level-bar');
   if (lvEl && lv.title) lvEl.innerHTML = '<div style="font-size:12px;">' + (lv.icon || '') + ' <b>' + esc(lv.title) + '</b>' + (lv.next ? ' · Next level ki ' + lv.next + ' pts' : ' · 👑 Top level!') + '</div>' +
     '<div style="height:8px; background:rgba(255,255,255,0.08); border-radius:4px; margin-top:4px;"><div style="height:8px; width:' + (lv.progress || 0) + '%; background:linear-gradient(90deg,#f59e0b,#34d399); border-radius:4px;"></div></div>';
+  loadBotLink();
   const hubEl = document.getElementById('hub-chips');
   if (hubEl) hubEl.innerHTML = Object.entries(d.goals || {}).map(([k, v]) =>
     '<button class="tchip" onclick="loadGoalHub(\'' + k + '\')">' + esc(v) + '</button>').join('');
@@ -1499,6 +1510,26 @@ document.addEventListener('keydown', (e) => {
     if (nb && nb.style.display !== 'none') nb.click();
   }
 });
+async function loadBotLink() {
+  const el = document.getElementById('bot-link-card');
+  if (!el || !token) return;
+  try {
+    const d = await api('/api/portal/bot_link?token=' + encodeURIComponent(token));
+    if (!d.ok) { el.innerHTML = ''; return; }
+    if (d.linked) {
+      el.innerHTML = '<div class="muted" style="font-size:12.5px;">🤖 Telegram Bot: <b style="color:#34d399;">✅ Linked</b> — bot lopala portal one-tap login!</div>' +
+        (d.bot ? '<a href="https://t.me/' + esc(d.bot) + '" target="_blank" rel="noopener"><button class="btn-alt" style="width:100%; margin-top:6px;">🤖 Bot Open Chey</button></a>' : '');
+    } else {
+      el.innerHTML = '<button class="btn-alt" style="width:100%;" onclick="linkBot()">🤖 Telegram Bot tho Link Chey (one-tap login)</button>';
+    }
+  } catch (e) { el.innerHTML = ''; }
+}
+async function linkBot() {
+  const d = await api('/api/portal/tg_link', {token});
+  if (!d.ok) { alert(d.error || 'Try again'); return; }
+  if (!d.bot) { alert('Bot inka configure cheyyaledu — koddi sepatilo try cheyyandi.'); return; }
+  window.open('https://t.me/' + d.bot + '?start=' + d.param, '_blank');
+}
 function speakCurrent(which) {
   try {
     const q = which === 'prc' ? (PR && PR.questions[PR.cur]) : QUESTIONS[cur];
@@ -7984,6 +8015,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
                                           query.get("topic", [""])[0])
             self._send_json({"ok": ok, **(info if ok else {"error": info})})
             return
+        if p.path == "/api/portal/bot_link":
+            query = urllib.parse.parse_qs(p.query)
+            ok, info = portal.bot_link_state(Members(), query.get("token", [""])[0])
+            if ok:
+                info = {**info, "bot": _bot_username()}
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
         if p.path == "/api/portal/series/certificate":
             query = urllib.parse.parse_qs(p.query)
             png = portal.series_certificate(Members(), query.get("token", [""])[0])
@@ -8820,6 +8858,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
             ok, info = portal.set_exam_reminder(
                 Members(), body.get("token", ""), body.get("exam_id", ""),
                 bool(body.get("on", True)))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/tg_link":
+            ok, info = portal.tg_link_code(Members(), body.get("token", ""))
+            if ok:
+                info = {**info, "bot": _bot_username()}
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/tg_auth":
+            ok, info = portal.tg_auth(Members(), body.get("init_data", ""))
             self._send_json({"ok": ok, **(info if ok else {"error": info})})
             return
         if p.path == "/api/portal/lang":
