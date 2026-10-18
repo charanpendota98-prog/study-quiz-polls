@@ -84,6 +84,36 @@ class Engine:
             print(f"   [quiz] {channel_key} {q['id']} FAILED: {e}")
             return False
 
+    def _send_channel_question(self, channel_key, q):
+        """📣 Channel ki okka question — style switch:
+        default = DIRECT native poll (owner rule); `channel_reaction_polls`
+        flag ON aite matrame emoji reaction text-poll (WhatsApp-Channel style)."""
+        try:
+            from . import flags as _flags
+            reaction = _flags.enabled("channel_reaction_polls")
+        except Exception:
+            reaction = False
+        if not reaction:
+            return self.send_quiz(channel_key, q)
+        cfg = config.CHANNELS[channel_key]
+        chat = config.channel_chat_id(channel_key)
+        tf = bool(getattr(config, "TELUGU_FIRST", True))
+        from .content import build_reaction_text
+        text = build_reaction_text(q, cfg, telugu_first=tf)
+        try:
+            res = self.tg.send_message(chat, text)
+            mid = (res.get("result") or {}).get("message_id")
+            if mid:
+                try:
+                    from . import reaction_polls
+                    reaction_polls.register(chat, mid, q, channel_key)
+                except Exception:
+                    pass
+            return bool(res.get("ok", True))
+        except TelegramError as e:
+            print(f"   [reaction-poll] {channel_key} {q.get('id')} FAILED: {e}")
+            return False
+
     def run_quiz_slot(self, slot=None, channels=None, round_label=""):
         channels = channels or config.PUBLIC_CHANNELS
         total = 0
@@ -101,7 +131,14 @@ class Engine:
         # 1) compose every channel's round up front
         rounds = {}
         for ch in channels:
-            qs = self.bank.pick(ch, config.POLLS_PER_SLOT)
+            try:
+                from . import flags as _fl
+                _smart = _fl.enabled("smart_rounds")
+            except Exception:
+                _smart = True
+            qs = (self.bank.pick_smart(ch, config.POLLS_PER_SLOT)
+                  if _smart and hasattr(self.bank, "pick_smart")
+                  else self.bank.pick(ch, config.POLLS_PER_SLOT))
             # Send-time safety: never expose the key (markers / answer-in-stem)
             # and balance the correct option across A-D for this round.
             from .content import poll_safe
@@ -205,6 +242,26 @@ class Engine:
                     print(f"   [gate] {e}")
                 if top:
                     self.tg.send_message(config.channel_chat_id(ch), top, buttons=_gbtn)
+                    try:      # 🏆 WINNERS CERTIFICATE (fully-English PNG)
+                        from . import certcard as _cc
+                        _rows, _n = mem.round_top(round_id, ch, limit=5)
+                        if _rows:
+                            _crows = [{
+                                "rank": int(r.get("rank") or i + 1),
+                                "name": r.get("name") or "Topper",
+                                "score": f"{r.get('correct', 0)}/{len(qs)}",
+                                "pct": int(r.get("pct") or 0),
+                            } for i, r in enumerate(_rows[:5])]
+                            _png = _cc.render_certificate(
+                                f"{round_label or 'Daily Quiz'} — Winners",
+                                config.CHANNELS[ch].get("subject", ch),
+                                _crows, footer="StudentUp")
+                            if _png:
+                                self.tg.send_photo(
+                                    config.channel_chat_id(ch), _png,
+                                    caption=f"🏆 *WINNERS CERTIFICATE* — Top {min(5, len(_rows))} of this round 🎉 Congratulations!")
+                    except Exception as e:
+                        print(f"   [cert] {e}")
                     self._dm_round_cards(mem, round_id, ch, round_label or "")
                     self._rank_cards(mem, round_id, ch, f"{round_label or 'Round'}")
                     self._share_posters(mem, round_id, ch, round_label or "Round")

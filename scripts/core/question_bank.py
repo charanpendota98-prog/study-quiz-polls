@@ -225,8 +225,39 @@ def load_dynamic_questions():
         return []
 
 
+_BANK_CACHE = {"sig": None, "qs": None}
+
+
+def _bank_sig():
+    try:
+        st = config.BANK_JSON.stat()
+        sig = [st.st_mtime_ns, st.st_size]
+    except Exception:
+        sig = [0, 0]
+    for extra in ("pyq_bank.json", "pyq_bank_2.json", "pyq_bank_3.json",
+                  "pyq_bank_4_ssc.json", "notebook_bank.json",
+                  "curated_extra.json", "question_bank_extra.json",
+                  "scraped_bank.json", "dynamic_generated_bank.json"):
+        try:
+            st = (config.DATA / extra).stat()
+            sig += [st.st_mtime_ns, st.st_size]
+        except Exception:
+            sig += [0, 0]
+    return tuple(sig)
+
+
 def load_bank(force_rebuild=False):
-    """Load canonical bank; rebuild from MD if missing or forced."""
+    """Load canonical bank; rebuild from MD if missing or forced.
+
+    ⚡ PERF (50X): bank files maarithe thappa cached parse vadatham —
+    portal/bot prathi request ki full JSON parse avvadhu. File
+    size/mtime maarithe automatic fresh load."""
+    if not force_rebuild and _BANK_CACHE["qs"] is not None:
+        try:
+            if _bank_sig() == _BANK_CACHE["sig"]:
+                return list(_BANK_CACHE["qs"])
+        except Exception:
+            pass
     if force_rebuild or not config.BANK_JSON.exists():
         rebuild_json()
     data = load_json(config.BANK_JSON, {"questions": []})
@@ -243,7 +274,11 @@ def load_bank(force_rebuild=False):
     if dyn:
         existing_ids = {q.get("id") for q in qs}
         qs = list(qs) + [q for q in dyn if q.get("id") not in existing_ids]
-    return qs
+    try:
+        _BANK_CACHE.update({"sig": _bank_sig(), "qs": qs})
+    except Exception:
+        pass
+    return list(qs)
 
 
 class Bank:
@@ -270,8 +305,17 @@ class Bank:
             from .verifier import postable
         except Exception:
             postable = None
+        _fresh, _retired = [], []
+        try:
+            from . import item_intel as _ii
+            _retired_ids = _ii.retired_ids()
+        except Exception:
+            _retired_ids = set()
         for q in self.by_channel(channel):
             if q["id"] in used:
+                continue
+            if q["id"] in _retired_ids:
+                _retired.append(q)          # too-easy — fresh pool nunchi pakku
                 continue
             if postable and not postable(q):
                 continue
@@ -283,7 +327,11 @@ class Bank:
             # option set already posted -> treat as repeat
             if self._near_posted(q):
                 continue
-            out.append(q)
+            _fresh.append(q)
+        out = _fresh
+        # 🚰 Valve: fresh pool healthy ga unte retired pakku; pool thin aithe
+        # round fill avvadaniki retired ni kuda vadatham (never go short).
+        out.extend(_retired if len(_fresh) < 10 else [])
         return out
 
     def _near_posted(self, q: dict, threshold: float = 0.72) -> bool:
@@ -325,6 +373,40 @@ class Bank:
         self.shown_sigs["sigs"] = sorted(self._sig_set)
         save_json_atomic(config.STORE_USED, self.used)
         save_json_atomic(config.DATA / "shown_signatures.json", self.shown_sigs)
+
+    def pick_smart(self, channel: str, n: int = 10, weak_below: float = 0.6,
+                   min_answers: int = 5):
+        """🧠 Smart Rounds: normal pick + channel WEAK topics nunchi fresh
+        questions ni non-PYQ slots loki swap (PYQ slot eppudu protected,
+        PYQ floor safe). Weak data lekapothe normal pick ye."""
+        picked = self.pick(channel, n)
+        try:
+            from . import item_intel
+            rates = item_intel.channel_topic_rates(channel)
+        except Exception:
+            rates = {}
+        weak = {(t or "").strip().lower() for t, r in (rates or {}).items()
+                if (r or {}).get("attempts", (r or {}).get("total", 0)) >= min_answers
+                and (r or {}).get("rate", 1.0) < weak_below}
+        if not weak or not picked:
+            return picked
+        have = {q.get("id") for q in picked}
+        fresh = [q for q in self.questions
+                 if q.get("channel") == channel
+                 and (q.get("topic") or "").strip().lower() in weak
+                 and q.get("id") not in have
+                 and not q.get("retired")]
+        if not fresh:
+            return picked
+        out = list(picked)
+        fi = 0
+        for i in range(len(out) - 1, -1, -1):
+            if fi >= len(fresh):
+                break
+            if out[i].get("source") != "pyq":      # PYQ slot protected
+                out[i] = fresh[fi]
+                fi += 1
+        return out
 
     def pick(self, channel: str, n: int = 10):
         """
@@ -423,6 +505,33 @@ class Bank:
             out[ch] = {"total": len(allq), "unused": len(self.unused(ch)),
                        "posted": len(used)}
         return out
+
+
+def bank_quality() -> dict:
+    """🏦 BANK QUALITY v2 (admin): totals, PYQ share, duplicates,
+    explanation coverage, channel mix — content engine health."""
+    import collections
+    import re as _re
+    qs = load_bank()
+    norm = collections.Counter()
+    for q in qs:
+        t = _re.sub(r"\s+", " ", (q.get("q_en") or "").strip().lower())
+        if t:
+            norm[t] += 1
+    dups = sum(1 for _t, n in norm.items() if n > 1)
+    chans = collections.Counter(q.get("channel") or "?" for q in qs)
+    return {"total": len(qs),
+            "pyq": sum(1 for q in qs if q.get("source") == "pyq"),
+            "pyq_pct": round(100 * sum(1 for q in qs
+                                      if q.get("source") == "pyq")
+                             / max(1, len(qs))),
+            "duplicate_texts": dups,
+            "no_explanation": sum(1 for q in qs
+                                  if not (q.get("explanation")
+                                          or q.get("explanation_en")
+                                          or q.get("exp"))),
+            "no_telugu": sum(1 for q in qs if not q.get("q_te")),
+            "channels": dict(chans.most_common(12))}
 
 
 def q_signature(q: dict) -> str:

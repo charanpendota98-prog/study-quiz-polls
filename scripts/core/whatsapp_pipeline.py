@@ -50,13 +50,16 @@ ZERO_WIDTH_CHARS = ["\u200B", "\u200C", "\u200D", "\uFEFF"]
 WA_BRIDGE_URL = os.environ.get("WA_BRIDGE_URL", "http://127.0.0.1:3900").rstrip("/")
 
 
-def _bridge_call(path: str, payload: dict = None, method: str = None, timeout: int = 40):
+def _bridge_call(path: str, payload: dict = None, method: str = None, timeout: int = 40, base_url: str = None):
     """Call the Node WhatsApp bridge. Returns dict or None if bridge is down."""
-    url = f"{WA_BRIDGE_URL}{path}"
+    url = f"{(base_url or WA_BRIDGE_URL).rstrip('/')}{path}"
     try:
         if payload is not None or (method or "").upper() == "POST":
             data = json.dumps(payload or {}).encode("utf-8")
-            req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+            _hdrs = {"Content-Type": "application/json"}
+            if os.environ.get("WA_BRIDGE_TOKEN"):
+                _hdrs["x-bridge-token"] = os.environ["WA_BRIDGE_TOKEN"]
+            req = urllib.request.Request(url, data=data, headers=_hdrs)
         else:
             req = urllib.request.Request(url)
         with urllib.request.urlopen(req, timeout=timeout) as r:
@@ -755,7 +758,11 @@ def build_question_only_post(
     q_en = (q.get("q_en") or "").strip()
 
     header = random.choice(HEADERS)
-    lines = [f"{header} — *{category}*", f"📍 *Q {q_index}/{total_q}*", ""]
+    lines = [f"{header} — *{category}*", f"📍 *Q {q_index}/{total_q}*"]
+    if q.get("source") == "pyq" and q.get("exam"):
+        lines.append(f"📜 *{q['exam']}*" + (f" · {q['year']}" if q.get("year") else "")
+                     + (f" · {q['paper']}" if q.get("paper") else ""))
+    lines.append("")
 
     if english_first:
         if q_en:
@@ -813,6 +820,9 @@ def build_native_poll_payload(
     q_te = (q.get("q_te") or "").strip()
 
     parts = [f"🎯 Q {q_index}/{total_q} • {category}"]
+    if q.get("source") == "pyq" and q.get("exam"):
+        parts.append(f"📜 {q['exam']}" + (f" · {q['year']}" if q.get("year") else "")
+                     + (f" · {q['paper']}" if q.get("paper") else ""))
     primary, secondary = (q_en, q_te) if english_first else (q_te, q_en)
     if primary:
         parts.append(primary)
@@ -877,7 +887,7 @@ def build_answer_key_post(
     return apply_stealth_jitter("\n".join(lines))
 
 
-def _dispatch_raw(gateway_url: str, jid: str, text: str, attachment: str = "", poll: dict = None):
+def _dispatch_raw(gateway_url: str, jid: str, text: str, attachment: str = "", poll: dict = None, bridge_url: str = None, mentions: list = None):
     """Send for real through the Baileys bridge. Order of preference:
     1. Local bridge (gateway/wa_bridge.js) — text, media URL and native polls.
     2. Legacy external gateway webhook (if gateway_url configured).
@@ -888,9 +898,13 @@ def _dispatch_raw(gateway_url: str, jid: str, text: str, attachment: str = "", p
     if poll:
         payload["poll"] = poll
 
-    res = _bridge_call("/send", payload=payload, timeout=60)
+    if mentions:
+        payload["mentions"] = list(mentions)
+    res = _bridge_call("/send", payload=payload, timeout=60, base_url=bridge_url)
     if res is not None:
         if res.get("ok"):
+            if poll and res.get("poll_id"):
+                _LAST_WA_POLL[str(jid)] = res["poll_id"]   # 🏆 vote tracking
             return True, f"✅ REAL SEND via WhatsApp Web ({'+'.join(res.get('sent', []))})"
         return False, f"Bridge error: {res.get('error', 'unknown')}"
 
@@ -910,6 +924,9 @@ def _dispatch_raw(gateway_url: str, jid: str, text: str, attachment: str = "", p
     return False, "NOT SENT — WhatsApp bridge offline (start: cd gateway && node wa_bridge.js)"
 
 
+_BROADCAST_LOCK = threading.Lock()   # 🔒 oka broadcast at a time (busy = honest)
+
+
 def _log(msg: str):
     ts = datetime.now().strftime("%H:%M:%S")
     formatted = f"[{ts}] {msg}"
@@ -927,8 +944,8 @@ def start_interleaved_broadcast(
     custom_message: str = "",
     attachment_url: str = "",
     two_phase_answer: bool = True,
-    delay_min: int = 40,
-    delay_max: int = 60,
+    delay_min: int = 60,
+    delay_max: int = 80,
     subjects: list = None
 ) -> dict:
     """
@@ -940,8 +957,16 @@ def start_interleaved_broadcast(
     - Options formatted dual bilingual: English / Telugu (or Telugu / English).
     """
     global EXEC_STATE
+    # ⏱️ OWNER RULE: WhatsApp gaps eppudu 60-80s floor — kindaki vellakudadhu
+    delay_min = max(60, int(delay_min or 60))
+    delay_max = max(delay_min, int(delay_max or 80))
+    if not _BROADCAST_LOCK.acquire(blocking=False):
+        return {"ok": False, "busy": True,
+                "message": "Another broadcast is already running — will retry when free."}
     if EXEC_STATE["running"]:
-        return {"ok": False, "message": "Another broadcast process is currently running."}
+        _BROADCAST_LOCK.release()
+        return {"ok": False, "busy": True,
+                "message": "Another broadcast process is currently running."}
 
     reg = load_wa_registry()
     groups = [g for g in reg.get("groups", []) if g.get("active")]
@@ -960,6 +985,11 @@ def start_interleaved_broadcast(
             groups = [g for g in groups if g.get("shift", "ALL_DAY") in (shift_filter, "ALL_DAY")]
 
     if not groups:
+        if _BROADCAST_LOCK.locked():
+            try:
+                _BROADCAST_LOCK.release()
+            except RuntimeError:
+                pass
         return {"ok": False, "message": f"No active groups found for the selected filter."}
 
     total_polls_to_send = len(groups) * (questions_per_group or 1)
@@ -1005,8 +1035,15 @@ def start_interleaved_broadcast(
             else:
                 _log("⚪ Bridge offline — DRY-RUN mode (nothing actually sent, delays shortened).")
 
-            def _anti_ban_sleep(seconds: float):
-                time.sleep(seconds if real_mode else min(seconds, 2.0))
+            pacing_begin_broadcast()
+
+            _log(f"⏱️ Anti-Ban Timing: {delay_min}-{delay_max}s between polls (adaptive pacing ON)")
+
+            def _anti_ban_sleep(seconds: float, media: bool = False):
+                pacing_sleep(0 if media else seconds, media=media,
+                             real_mode=real_mode)
+
+            media_sleep_fn=lambda: _anti_ban_sleep(0, media=True)
 
             completed_groups_count = 0
 
@@ -1014,9 +1051,15 @@ def start_interleaved_broadcast(
                 if EXEC_STATE["stop_requested"]:
                     _log("🛑 Broadcast stopped by admin.")
                     break
+                if in_wa_quiet():
+                    # 🌙 Quiet hours (22:00–07:00) vachayi — mid-send graceful stop
+                    quiet_until = wa_quiet_until()
+                    _log(f"🌙 Quiet hours (22:00–07:00) vachayi — mid-send graceful stop. Next send after {quiet_until:%d %b %H:%M}")
+                    break
 
                 cat = grp.get("category", "CURRENT")
                 g_type = grp.get("group_type", "EXAM_SPECIFIC")
+                _grp_sent = _grp_failed = 0
                 EXEC_STATE["current_group"] = grp["name"]
 
                 # Language rotation: First 5 groups English first, next 5 groups Telugu first
@@ -1045,6 +1088,13 @@ def start_interleaved_broadcast(
                 for q_idx in range(q_count):
                     if EXEC_STATE["stop_requested"]:
                         break
+                    # 🔀 anti-fingerprint: group+question+day parity
+                    english_first = wa_english_first(grp_idx, q_idx)
+                    if in_wa_quiet():
+                        quiet_until = wa_quiet_until()
+                        _log(f"🌙 Quiet hours (22:00–07:00) vachayi — mid-send graceful stop. Next send after {quiet_until:%d %b %H:%M}")
+                        EXEC_STATE["stop_requested"] = True
+                        break
 
                     EXEC_STATE["current_stage"] = f"Posting Poll {q_idx + 1}/{q_count}"
 
@@ -1067,10 +1117,32 @@ def start_interleaved_broadcast(
                         txt = apply_stealth_jitter(custom_message)
 
                     _log(f"   📤 Poll {q_idx + 1}/{q_count} -> Dispatched: {pool_label}")
-                    ok, res = _dispatch_raw(gw, grp["jid"], txt, attachment=attachment_url, poll=poll_payload)
-                    if not ok and poll_payload:
+                    if is_question and qs and not attachment_url:
+                        # 📲 Smart delivery: channel=emoji text-poll, group=native poll
+                        res = deliver_whatsapp_question(
+                            bridge_for_group(grp), grp["jid"], q,
+                            grp.get("category", "CURRENT"),
+                            q_index=q_idx + 1, total_q=q_count,
+                            english_first=english_first,
+                            answer_delay_sec=random.uniform(delay_min, delay_max),
+                            sleep_fn=_anti_ban_sleep)
+                        _send_ok = isinstance(res, dict) and \
+                            res.get("status") in ("sent", "dry")
+                        pacing_note_result(_send_ok, res)
+                        if _send_ok:
+                            _grp_sent += 1
+                        else:
+                            _grp_failed += 1
+                        EXEC_STATE["progress"] += 1
+                        continue
+                    _send_ok, res = _dispatch_raw(gw, grp["jid"], txt, attachment=attachment_url, poll=poll_payload)
+                    pacing_note_result(_send_ok, res)
+                    if not _send_ok and poll_payload:
                         # Poll rejected (e.g. announcement-only community) → retry as plain text
-                        ok, res = _dispatch_raw(gw, grp["jid"], txt, attachment=attachment_url)
+                        _send_ok, res = _dispatch_raw(gw, grp["jid"], txt, attachment=attachment_url)
+                        pacing_note_result(_send_ok, res)
+                    if attachment_url:
+                        media_sleep_fn()  # 📎 extra breathing room after media sends
                     _log(f"      -> Gateway Status: {res}")
 
                     EXEC_STATE["progress"] += 1
@@ -1080,6 +1152,12 @@ def start_interleaved_broadcast(
                         poll_gap = random.uniform(delay_min, delay_max)
                         _log(f"   ⏳ Natural Human Anti-Ban Gap: waiting {poll_gap:.1f}s before next poll...")
                         _anti_ban_sleep(poll_gap)
+
+                # 🩺 per-group delivery health (dashboard Group Health panel)
+                _h = group_health_record(grp["jid"], sent=_grp_sent,
+                                         failed=_grp_failed,
+                                         name=grp.get("name", ""))
+                _log(f"🩺 Group health: {grp.get('name')} — {_h.get('status', 'weak')} ({_h.get('rate', 0)}% · sent {_grp_sent} · failed {_grp_failed})")
 
                 completed_groups_count += 1
 
@@ -1103,6 +1181,10 @@ def start_interleaved_broadcast(
             EXEC_STATE["running"] = False
             EXEC_STATE["current_group"] = ""
             EXEC_STATE["current_stage"] = "Idle"
+            try:
+                _BROADCAST_LOCK.release()
+            except RuntimeError:
+                pass
 
     th = threading.Thread(target=_worker, daemon=True)
     th.start()
@@ -1118,7 +1200,16 @@ def stop_broadcast() -> dict:
 
 
 def get_broadcast_status() -> dict:
-    return dict(EXEC_STATE)
+    st = dict(EXEC_STATE)
+    snap = pacing_snapshot()
+    st["pacing"] = {
+        "multiplier": snap["risk_multiplier"],
+        "fatigue": snap["fatigue"],
+        "mode": snap["mode"],
+        "consecutive_fails": snap["consecutive_fails"],
+        "crawl_until": snap["crawl_until"] or None,
+    }
+    return st
 
 
 # =====================================================================
@@ -1130,6 +1221,7 @@ def get_broadcast_status() -> dict:
 # =====================================================================
 _SCHEDULER_RUNNING = False
 _LAST_TRIGGERED_MIN = {}
+_PENDING_WA = {}          # 🔁 busy-aina WA jobs — next tick retry
 _LAST_BACKUP_DAY = [""]  # 🗄️ daily auto-backup gate
 _LAST_GUARDIAN_CHECK = [0.0]  # 🐶 connection guardian gate (every 2 min)
 
@@ -1184,6 +1276,22 @@ def start_scheduler_daemon():
                     except Exception:
                         pass
 
+                # 🔁 pending WA retries (busy valla aagipoyina jobs)
+                if _PENDING_WA and not _BROADCAST_LOCK.locked():
+                    for _pjid, _pj in list(_PENDING_WA.items()):
+                        _PENDING_WA.pop(_pjid, None)
+                        _log(f"🔁 Pending retry: relaunching '{_pj.get('label', _pjid)}'")
+                        _r = start_interleaved_broadcast(
+                            target_category=_pj.get("category", "ALL"),
+                            target_group_ids=_pj.get("target_group_ids", []),
+                            is_question=_pj.get("is_question", True),
+                            questions_per_group=_pj.get("questions_count", 5),
+                            two_phase_answer=True, delay_min=60, delay_max=80,
+                            subjects=_pj.get("subjects") or None)
+                        if _r.get("busy"):
+                            _PENDING_WA[_pjid] = _pj
+                        break
+
                 jobs = load_schedules()
                 for j in jobs:
                     if not j.get("enabled", True):
@@ -1201,7 +1309,9 @@ def start_scheduler_daemon():
 
                     job_time = j.get("time", "").strip()
                     jid = j.get("id")
-                    if job_time == now_str and _LAST_TRIGGERED_MIN.get(jid) != now_str:
+                    if _slot_due(job_time, today_str, datetime.now(), j.get("last_run", "")) and _LAST_TRIGGERED_MIN.get(jid) != now_str:
+                        if not _weekday_ok(j):
+                            continue    # ee weekday job kadhu — silent skip
                         _LAST_TRIGGERED_MIN[jid] = now_str
                         j["last_run"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         j["total_dispatches"] = j.get("total_dispatches", 0) + 1
@@ -1225,17 +1335,25 @@ def start_scheduler_daemon():
                                 _log(f"   [auto-pilot] telegram leg note: {_e}")
 
                         # 🛡️ WHATSAPP leg — anti-ban interleaved with smart gaps
-                        if jmode in ("wa", "both"):
-                            start_interleaved_broadcast(
+                        _gate = pacing_gate() if jmode in ("wa", "both") else {"allowed": True}
+                        if jmode in ("wa", "both") and not _gate.get("allowed", True):
+                            _PENDING_WA[jid] = {**j, "crawl_until": _gate.get("crawl_until")}
+                            _log(f"🚦 Pacing CRAWL — '{j.get('label', jid)}' defer (crawl_until {_gate.get('crawl_until')})")
+                        elif jmode in ("wa", "both"):
+                            res = start_interleaved_broadcast(
                                 target_category=j.get("category", "ALL"),
                                 target_group_ids=j.get("target_group_ids", []),
                                 is_question=j.get("is_question", True),
                                 questions_per_group=j.get("questions_count", 5),
                                 two_phase_answer=True,
-                                delay_min=40,
-                                delay_max=60,
+                                delay_min=60,
+                                delay_max=80,
                                 subjects=jsubjects,
                             )
+                            if res.get("busy"):
+                                # 🔁 busy = malli try — set chesina time miss avvakudadhu
+                                _PENDING_WA[jid] = dict(j)
+                                _log("⏳ Broadcast busy — job pending, will retry next tick.")
             except Exception:
                 pass
             time.sleep(20)
@@ -1244,5 +1362,693 @@ def start_scheduler_daemon():
     th.start()
 
 
-# Auto-start daemon on module import
-start_scheduler_daemon()
+# Auto-start daemon on module import — production (bot/dashboard)
+# matrame. 🛠️ FIX (50X bug hunt): test runs lo import avvagane
+# scheduler due-job catch-up broadcast start chesedi (lock hold
+# valla preflight tests time-dependent ga fail ayyevi, sandbox lo
+# real group names tho dry broadcast threads perigeyi). Test
+# context (unittest loaded / WA_SCHEDULER_AUTOSTART=0) lo daemon
+# start avvadhu — kavalsinappudu explicit ga start cheyyochu.
+import os as _os
+import sys as _sys
+if _os.environ.get("WA_SCHEDULER_AUTOSTART", "1") != "0" \
+        and "unittest" not in _sys.modules:
+    start_scheduler_daemon()
+
+
+# =====================================================================
+# 🚀 SCALE PACK — Adaptive Anti-Ban pacing · WA winners · bridge pool
+# · retry queue (Reliability + Scale rounds; tests ni spec ga rebuild)
+# =====================================================================
+_PACE = {"mult": 1.0, "fails": 0, "crawl_until": 0.0, "begin": None}
+_LAST_WA_POLL = {}
+WA_HOF_FILE = config.DATA / "wa_hall_of_fame.json"
+WA_RETRY_FILE = config.DATA / "wa_retry_queue.json"
+
+
+def reset_pacing_state():
+    _PACE.update({"mult": 1.0, "fails": 0, "crawl_until": 0.0, "begin": None})
+
+
+def pacing_begin_broadcast(now=None):
+    _PACE["begin"] = time.time() if now is None else float(now)
+
+
+def _pace_fatigue(now):
+    if _PACE.get("begin") is None:
+        return 1.0
+    hrs = max(0.0, (float(now) - _PACE["begin"]) / 3600.0)
+    return min(1.35, 1.0 + 0.12 * hrs)          # +12%/hour, cap +35%
+
+
+def pacing_snapshot(now=None):
+    now = time.time() if now is None else float(now)
+    crawling = now < _PACE["crawl_until"]
+    mode = "CRAWL" if crawling else ("CAUTIOUS" if _PACE["mult"] > 1.0 else "NORMAL")
+    return {"risk_multiplier": round(_PACE["mult"], 2), "mode": mode,
+            "consecutive_fails": _PACE["fails"],
+            "crawl_until": _PACE["crawl_until"], "fatigue": _pace_fatigue(now)}
+
+
+def pacing_note_result(ok, msg="", now=None):
+    """Send result batti risk adjust: fail +0.45 (cap x2.5), ban signal
+    → 30-min CRAWL (x3.0), success −0.15 relax (floor x1.0 — eppudu
+    base gap kanna speed avadu, owner rule)."""
+    now = time.time() if now is None else float(now)
+    if _PACE["crawl_until"] and now > _PACE["crawl_until"]:
+        _PACE["crawl_until"] = 0.0
+        _PACE["mult"] = min(_PACE["mult"], 2.35)   # crawl tarvatha cautious ceiling
+    if ok:
+        _PACE["fails"] = 0
+        if now >= _PACE["crawl_until"]:
+            _PACE["mult"] = max(1.0, _PACE["mult"] - 0.15)
+    else:
+        _PACE["fails"] += 1
+        m = str(msg or "").lower()
+        if any(k in m for k in ("block", "forbidden", "403", "ban",
+                                "suspend", "spam", "restrict")):
+            _PACE["mult"] = 3.0
+            _PACE["crawl_until"] = now + 1800
+        else:
+            _PACE["mult"] = min(2.5, _PACE["mult"] + 0.45)
+    return pacing_snapshot(now)
+
+
+def pacing_gate(now=None):
+    """🚦 Send cheyyacha leda: CRAWL lo wait, migithavi allow."""
+    now = time.time() if now is None else float(now)
+    snap = pacing_snapshot(now)
+    crawl_until = _PACE["crawl_until"] or 0.0
+    allowed = now >= crawl_until
+    return {"allowed": allowed, "mode": snap["mode"],
+            "multiplier": snap["risk_multiplier"], "fatigue": snap["fatigue"],
+            "wait_seconds": 0.0 if allowed else round(crawl_until - now, 1),
+            "crawl_until": crawl_until or None,
+            "consecutive_fails": snap["consecutive_fails"]}
+
+
+def pacing_plan(base_gap, media=False, now=None, rng=None):
+    now = time.time() if now is None else float(now)
+    rng = rng or random
+    snap = pacing_snapshot(now)
+    sleep = float(base_gap) * snap["risk_multiplier"] * snap["fatigue"]
+    media_extra = float(rng.uniform(2, 5)) if media else 0.0
+    interruption = float(rng.uniform(120, 300)) if rng.random() < 0.04 else 0.0
+    return {"sleep_seconds": sleep + media_extra + interruption,
+            "media_extra_seconds": media_extra,
+            "interruption_seconds": interruption,
+            "risk_multiplier": snap["risk_multiplier"], "mode": snap["mode"],
+            "fatigue": snap["fatigue"]}
+
+
+def pacing_sleep(base_gap, real_mode=True, media=False, sleep_fn=None,
+                 rng=None, now=None):
+    """Dry/test mode lo garijalo 2s — tests fast ga untayi."""
+    plan = pacing_plan(base_gap, media=media, now=now, rng=rng)
+    planned = plan["sleep_seconds"]
+    actual = planned if real_mode else min(planned, 2.0)
+    (sleep_fn or time.sleep)(actual)
+    plan["planned_seconds"] = planned
+    plan["slept_seconds"] = actual
+    return plan
+
+
+def _js_weekday(dt):
+    """JS getDay() convention: Sunday=0 … Saturday=6."""
+    return (dt.weekday() + 1) % 7
+
+
+def _weekday_ok(job, dt=None):
+    days = (job or {}).get("weekdays")
+    if not days:
+        return True
+    if dt is None:
+        dt = datetime.now()
+    return _js_weekday(dt) in [int(x) for x in days]
+
+
+def is_wa_channel(jid) -> bool:
+    return bool(jid) and str(jid).strip().endswith("@newsletter")
+
+
+def _phone_of(jid) -> str:
+    return str(jid or "").split("@")[0].split(":")[0]
+
+
+def tally_wa_round(polls, results):
+    """Bridge poll-results → per-voter correct count + standings."""
+    per = {}
+    for p in polls or []:
+        res = (results or {}).get(p.get("poll_id")) or {}
+        for jid, ch in (res.get("voters") or {}).items():
+            s = per.setdefault(str(jid), {"correct": 0, "answered": 0})
+            s["answered"] += 1
+            if ch == p.get("correct"):
+                s["correct"] += 1
+    standings = sorted(((j, s["correct"]) for j, s in per.items()),
+                       key=lambda x: -x[1])
+    return {"players": len(per), "standings": standings,
+            "total": len(polls or []), "scores": per}
+
+
+def render_wa_winners(title, polls, tally) -> str:
+    letters = "ABCDE"
+    key = " ".join(f"{i + 1}.{letters[int(p.get('correct', 0))]}"
+                   for i, p in enumerate(polls or []))
+    total = tally.get("total") or len(polls or [])
+    standings = tally.get("standings") or []
+    shown = standings[:5]
+    lines = [f"✅ *Answer Key — {title}*", f"*{key}*", "",
+             "🎉 *Congrats Top Scorers!*"]
+    distinct = sorted({sc for _j, sc in standings}, reverse=True)
+
+    def _medal(score):
+        rank = distinct.index(score) + 1 if score in distinct else 9
+        return {1: "🥇", 2: "🥈", 3: "🥉"}.get(rank, "🏅")
+
+    for jid, sc in shown:
+        lines.append(f"{_medal(sc)} @{_phone_of(jid)} — {sc}/{total}")
+    rest = standings[5:]
+    if shown and rest:
+        tail = sum(1 for _j, sc in rest if sc == shown[-1][1] and sc > 0)
+        if tail:
+            lines.append(f"🤝 మరో {tail} మంది కూడా {shown[-1][1]}/{total} score!")
+    tot_correct = sum(sc for _j, sc in standings)
+    denom = max(1, tally.get("players", 0) * max(1, total))
+    lines.append(f"👥 {tally.get('players', 0)} players · 🎯 {round(100 * tot_correct / denom)}% sariyina answers")
+    lines.append("📤 *Share with friends!*")
+    return "\n".join(lines)
+
+
+def _hof_add(jids):
+    try:
+        data = load_json(WA_HOF_FILE, {})
+        for jid in jids:
+            ph = _phone_of(jid)
+            row = data.setdefault(ph, {"phone": ph, "quizzes": 0})
+            row["quizzes"] = int(row.get("quizzes", 0)) + 1
+        save_json_atomic(WA_HOF_FILE, data)
+    except Exception:
+        pass
+
+
+def wa_hall_of_fame(limit=10):
+    try:
+        data = load_json(WA_HOF_FILE, {})
+    except Exception:
+        data = {}
+    rows = sorted(data.values(), key=lambda r: -int(r.get("quizzes", 0)))
+    return rows[: int(limit or 10)]
+
+
+def send_wa_winners(gateway_url, group, polls, title, sleep_fn=None):
+    """🏆 Group ki winners (top-5 @mentions + key). Channel ki eppudu
+    pampamu (mentions avavu — owner rule). Votes bridge /poll-results
+    nunchi; bridge lekapothe honest ga skip."""
+    jid = (group or {}).get("jid", "")
+    if is_wa_channel(jid):
+        return {"sent": False, "skipped": "channel"}
+    results = {}
+    for p in polls or []:
+        res = _bridge_call(f"/poll-results?poll={p.get('poll_id')}", timeout=20)
+        if res:
+            results[p.get("poll_id")] = res
+    tally = tally_wa_round(polls, results)
+    if not tally["players"]:
+        return {"sent": False, "skipped": "no_votes"}
+    msg = render_wa_winners(title, polls, tally)
+    mentions = [j for j, _sc in tally["standings"][:5]]
+    # 🏆 Winners Certificate (English PNG) — render fail aithe text only
+    cert_path = ""
+    try:
+        from core import certcard
+        total = max(1, tally.get("total") or len(polls or []))
+        _rows = [{"rank": i + 1, "name": f"@{_phone_of(j)}",
+                  "score": f"{sc}/{total}",
+                  "pct": int(round(100 * sc / total))}
+                 for i, (j, sc) in enumerate(tally["standings"][:5])]
+        _png = certcard.render_certificate(
+            f"{title} — Winners", (group or {}).get("name", ""), _rows,
+            footer="StudentUp · Daily Quiz Winners")
+        if _png:
+            _cf = config.DATA / "wa_winners_cert.png"
+            _cf.write_bytes(_png)
+            cert_path = str(_cf)
+    except Exception:
+        cert_path = ""
+    ok, _info = _dispatch_raw(gateway_url, jid, msg, attachment=cert_path,
+                              mentions=mentions)
+    if ok:
+        _hof_add(mentions)
+    return {"sent": bool(ok), "certificate": bool(cert_path),
+            "players": tally["players"]}
+
+
+def deliver_whatsapp_question(gateway_url, jid, q, category, q_index=1,
+                              total_q=1, english_first=True,
+                              two_phase_answer=True, answer_delay_sec=45,
+                              sleep_fn=None, collect=None):
+    """📲 Okka question deliver: Channel (@newsletter) ki 👍❤️😂😮 emoji
+    TEXT poll; Group ki native tappable poll. Phase-2 lo answer key.
+    Vote tracking kosam poll_id capture (collect list unte)."""
+    from core.content import build_reaction_text
+    sleep_fn = sleep_fn or time.sleep
+    out = {"sent_poll": False, "sent_key": False}
+    if is_wa_channel(jid):
+        text = build_reaction_text(q, {"name": category, "emoji": "🎯"},
+                                   telugu_first=not english_first,
+                                   position=f"Q {q_index}/{total_q}")
+        ok, _info = _dispatch_raw(gateway_url, jid, text)
+        out["sent_poll"] = bool(ok)
+    else:
+        payload = build_native_poll_payload(q, category, q_index, total_q,
+                                            english_first)
+        if payload is None:
+            return out
+        text = build_question_only_post(q, "", category, q_index, total_q,
+                                        english_first)
+        if two_phase_answer:
+            text += (f"\n\n🔑 *Answer Key* {int(answer_delay_sec)} seconds "
+                     "tarvatha vasthundi — mee answer vote cheyyandi!")
+        ok, _info = _dispatch_raw(gateway_url, jid, text, poll=payload)
+        if not ok:
+            # native poll reject (announcement-only group etc) → text question
+            ok, _info = _dispatch_raw(gateway_url, jid, text)
+        out["sent_poll"] = bool(ok)
+        if collect is not None and _LAST_WA_POLL.get(str(jid)):
+            collect.append({"poll_id": _LAST_WA_POLL[str(jid)],
+                            "qid": q.get("id"),
+                            "correct": int(q.get("answer_index", 0))})
+    if two_phase_answer and out["sent_poll"]:
+        sleep_fn(answer_delay_sec or 0)
+        key = build_answer_key_post(q, category, q_index, english_first)
+        ok2, _i2 = _dispatch_raw(gateway_url, jid, key)
+        out["sent_key"] = bool(ok2)
+    return out
+
+
+def _bridge_urls():
+    raw = os.environ.get("WA_BRIDGE_URLS", "").strip()
+    if raw:
+        urls = [u.strip().rstrip("/") for u in raw.split(",") if u.strip()]
+        if urls:
+            return urls
+    return [WA_BRIDGE_URL]
+
+
+def bridge_for_group(group):
+    urls = _bridge_urls()
+    try:
+        idx = int((group or {}).get("bridge") or 0)
+    except Exception:
+        idx = 0
+    return urls[idx] if 0 <= idx < len(urls) else urls[0]
+
+
+def bridges_status():
+    out = []
+    for url in _bridge_urls():
+        res = _bridge_call("/status", base_url=url, timeout=10)
+        row = {"url": url, "online": bool(res), "connected": False,
+               "phone": "", "session": "", "groups_count": 0}
+        if res:
+            row.update({"connected": bool(res.get("connected")),
+                        "phone": res.get("phone", ""),
+                        "session": res.get("session", ""),
+                        "groups_count": res.get("groups_count", 0)})
+        out.append(row)
+    return out
+
+
+def enqueue_retry(jid, q, category, **kw):
+    try:
+        from core import flags as _fl
+        if not _fl.enabled("wa_retry_queue"):
+            return {"ok": False, "disabled": True}   # kill-switch OFF
+    except Exception:
+        pass
+    try:
+        data = load_json(WA_RETRY_FILE, {"items": []})
+    except Exception:
+        data = {"items": []}
+    data.setdefault("items", []).append(
+        {"jid": jid, "q": q, "category": category, "attempts": 0,
+         "next_at": time.time()})
+    save_json_atomic(WA_RETRY_FILE, data)
+    try:
+        from core import metrics as _mx
+        _mx.incr("wa_retry_enqueued")
+    except Exception:
+        pass
+    return {"ok": True, "queued": len(data.get("items", []))}
+
+
+def process_retry_queue(now=None):
+    """🔁 Due retries deliver; CRAWL lo attempts burn cheyyakunda defer.
+    Backoff = 300s × attempts × risk multiplier (brain scales the wait)."""
+    now = time.time() if now is None else float(now)
+    try:
+        data = load_json(WA_RETRY_FILE, {"items": []})
+    except Exception:
+        data = {"items": []}
+    items = list(data.get("items") or [])
+    gate = pacing_gate(now)
+    tried = sent = deferred = dropped = 0
+    keep = []
+    for it in items:
+        if float(it.get("next_at") or 0) > now:
+            keep.append(it)
+            continue
+        if not gate["allowed"]:
+            it["next_at"] = max(float(it.get("next_at") or 0),
+                                 (_PACE["crawl_until"] or now) + 1.0)
+            deferred += 1
+            keep.append(it)
+            continue
+        tried += 1
+        res = deliver_whatsapp_question(
+            "", it.get("jid"), it.get("q") or {}, it.get("category") or "",
+            english_first=it.get("english_first", True),
+            answer_delay_sec=0, sleep_fn=lambda *_a: None)
+        if (res or {}).get("sent_poll") or (res or {}).get("status") in ("sent", "dry"):
+            pacing_note_result(True, "", now=now)
+            sent += 1
+            continue
+        pacing_note_result(False, (res or {}).get("status", ""), now=now)
+        it["attempts"] = int(it.get("attempts") or 0) + 1
+        if it["attempts"] >= 3:
+            dropped += 1
+            continue
+        mult = pacing_snapshot(now)["risk_multiplier"]
+        it["next_at"] = now + 300 * it["attempts"] * mult
+        keep.append(it)
+    data["items"] = keep
+    try:
+        save_json_atomic(WA_RETRY_FILE, data)
+    except Exception:
+        pass
+    return {"tried": tried, "sent": sent, "deferred": deferred,
+            "dropped": dropped, "pending": len(keep)}
+
+
+# =====================================================================
+# 🛡️ FULL SAFETY STACK — quiet hours, blast guard, caps, preflight
+# =====================================================================
+BLAST_GUARD_FILE = config.DATA / "wa_blast_guard.json"
+GROUP_HEALTH_FILE = config.DATA / "wa_group_health.json"
+WA_WARMUP_CAP = 10            # brand-new group: roju ki 10 polls max
+WA_DAILY_CAP = 40             # mature group daily cap
+WA_QUIET_START = 22
+WA_QUIET_END = 7
+_BLAST_WINDOW = 45 * 60       # duplicate blast guard window (seconds)
+
+
+def in_wa_quiet(now=None, start=WA_QUIET_START, end=WA_QUIET_END):
+    """🌙 Quiet window lo unna? (default 22:00–07:00, overnight wrap)."""
+    now = now or datetime.now()
+    h = now.hour
+    if start == end:
+        return False
+    if start < end:
+        return start <= h < end
+    return h >= start or h < end
+
+
+def wa_quiet_until(now=None, start=WA_QUIET_START, end=WA_QUIET_END):
+    """Quiet eppudu avuthundi (next end-of-quiet datetime)."""
+    now = now or datetime.now()
+    base = now + timedelta(days=1) if now.hour >= start else now
+    return base.replace(hour=end, minute=0, second=0, microsecond=0)
+
+
+def wa_english_first(grp_idx, q_idx, day_ordinal=None):
+    """🔀 Anti-fingerprint: group/question/day parity tho English↔Telugu
+    first alternate — anni groups okela kanipinchavu (dorakakunda)."""
+    if day_ordinal is None:
+        day_ordinal = datetime.now().toordinal()
+    return (int(grp_idx) + int(q_idx) + int(day_ordinal)) % 2 == 0
+
+
+def _slot_due(job_time, today_str, now_dt, last_run, window_min=30):
+    """⏰ Slot due aa? Set time nunchi 30-min catch-up window — okka
+    missed tick valla schedule miss avakudadhu (owner rule)."""
+    try:
+        hh, mm = (job_time or "").strip().split(":")
+        slot = now_dt.replace(hour=int(hh), minute=int(mm), second=0,
+                              microsecond=0)
+    except Exception:
+        return False
+    if last_run and str(last_run).startswith(f"{today_str} {job_time}"):
+        return False
+    return slot <= now_dt <= slot + timedelta(minutes=window_min)
+
+
+# ---------------- duplicate blast guard ----------------
+def _blast_load():
+    try:
+        d = load_json(BLAST_GUARD_FILE, {})
+    except Exception:
+        d = {}
+    return d if isinstance(d, dict) else {}
+
+
+def _blast_save(d):
+    try:
+        save_json_atomic(BLAST_GUARD_FILE, d)
+    except Exception:
+        pass
+
+
+def blast_signature(jids, category="ALL", questions_per_group=5):
+    import hashlib
+    raw = "|".join(sorted(str(j) for j in (jids or [])))
+    return hashlib.sha256(
+        f"{raw}|{category}|{questions_per_group}".encode()).hexdigest()[:16]
+
+
+def blast_pair_recent(jid, qid, now_ts=None, window=_BLAST_WINDOW):
+    now_ts = time.time() if now_ts is None else float(now_ts)
+    ts = (_blast_load().get("pairs") or {}).get(f"{jid}|{qid}")
+    return bool(ts and now_ts - float(ts) < window)
+
+
+def blast_record(jid, qid, now_ts=None):
+    now_ts = time.time() if now_ts is None else float(now_ts)
+    d = _blast_load()
+    pairs = d.setdefault("pairs", {})
+    pairs[f"{jid}|{qid}"] = now_ts
+    if len(pairs) > 4000:                      # prune oldest
+        for k in sorted(pairs, key=lambda k: pairs[k])[:1000]:
+            pairs.pop(k, None)
+    sent = d.setdefault("sent", {})
+    day = datetime.fromtimestamp(now_ts).strftime("%Y-%m-%d")
+    rec = sent.get(jid) or {"day": day, "count": 0, "first": now_ts}
+    if rec.get("day") != day:
+        rec = {"day": day, "count": 0, "first": rec.get("first", now_ts)}
+    rec["count"] = int(rec.get("count") or 0) + 1
+    sent[jid] = rec
+    _blast_save(d)
+
+
+def blast_record_blast(sig, jids, now_ts=None):
+    now_ts = time.time() if now_ts is None else float(now_ts)
+    d = _blast_load()
+    d.setdefault("blasts", {})[sig] = {"ts": now_ts,
+                                       "jids": [str(j) for j in (jids or [])]}
+    _blast_save(d)
+
+
+def blast_recent(sig, now_ts=None, window=_BLAST_WINDOW):
+    now_ts = time.time() if now_ts is None else float(now_ts)
+    rec = (_blast_load().get("blasts") or {}).get(sig) or {}
+    return bool(rec.get("ts") and now_ts - float(rec["ts"]) < window)
+
+
+def wa_sent_today(jid, now_ts=None):
+    now_ts = time.time() if now_ts is None else float(now_ts)
+    rec = (_blast_load().get("sent") or {}).get(jid) or {}
+    day = datetime.fromtimestamp(now_ts).strftime("%Y-%m-%d")
+    return int(rec.get("count") or 0) if rec.get("day") == day else 0
+
+
+def wa_group_daily_cap(jid, now_ts=None):
+    """Spam guard: warm-up (kottha) group ki chinna cap, mature ki full."""
+    now_ts = time.time() if now_ts is None else float(now_ts)
+    rec = (_blast_load().get("sent") or {}).get(jid) or {}
+    first = float(rec.get("first") or 0)
+    warm = (not first) or (now_ts - first < 3 * 86400)
+    return (WA_WARMUP_CAP, True) if warm else (WA_DAILY_CAP, False)
+
+
+# ---------------- group health ----------------
+def _health_load():
+    try:
+        d = load_json(GROUP_HEALTH_FILE, {})
+    except Exception:
+        d = {}
+    return d if isinstance(d, dict) else {}
+
+
+def _health_status(rec):
+    if int(rec.get("consec_fail") or 0) >= 5:
+        return "paused"
+    sent, failed = int(rec.get("sent") or 0), int(rec.get("failed") or 0)
+    if sent + failed >= 5 and sent / max(1, sent + failed) >= 0.7:
+        return "good"
+    return "weak"
+
+
+def group_health():
+    out = {}
+    for jid, rec in _health_load().items():
+        sent, failed = int(rec.get("sent") or 0), int(rec.get("failed") or 0)
+        out[jid] = dict(rec, rate=int(round(100 * sent / max(1, sent + failed))),
+                        status=_health_status(rec))
+    return out
+
+
+def group_health_record(jid, sent=0, failed=0, name=""):
+    d = _health_load()
+    rec = d.get(jid) or {"sent": 0, "failed": 0, "consec_fail": 0, "name": name}
+    rec["sent"] = int(rec.get("sent") or 0) + int(sent or 0)
+    rec["failed"] = int(rec.get("failed") or 0) + int(failed or 0)
+    rec["consec_fail"] = 0 if sent else int(rec.get("consec_fail") or 0) + int(failed or 0)
+    if name:
+        rec["name"] = name
+    rec["last"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    d[jid] = rec
+    try:
+        save_json_atomic(GROUP_HEALTH_FILE, d)
+    except Exception:
+        pass
+    return group_health().get(jid, {})
+
+
+def group_health_reset(jid):
+    d = _health_load()
+    if jid not in d:
+        return False
+    name = (d.get(jid) or {}).get("name", "")
+    d[jid] = {"sent": 0, "failed": 0, "consec_fail": 0, "name": name}
+    try:
+        save_json_atomic(GROUP_HEALTH_FILE, d)
+    except Exception:
+        pass
+    return True
+
+
+# ---------------- preflight + safety stack + preview ----------------
+def preflight_whatsapp(groups=None, category="ALL", questions_per_group=5,
+                       now=None):
+    """🔍 Broadcast mundu 9 checks. Bridge lekapothe DRY — blockers levu
+    (em send avadhu kabatti); real connected unte strict."""
+    now = now or datetime.now()
+    if groups is None:
+        reg = load_wa_registry()
+        groups = [g for g in reg.get("groups", []) if g.get("active")]
+    checks = []
+
+    def add(name, ok, block, detail):
+        checks.append({"name": name, "ok": bool(ok), "block": bool(block),
+                       "detail": detail})
+
+    bridge = _bridge_call("/status", timeout=5)
+    add("Bridge reachable", bool(bridge), False,
+        "connected" if bridge else "bridge offline — DRY MODE (em send avadhu)")
+    connected = bool(bridge) and (bridge.get("connected")
+                                   or bridge.get("status") == "connected")
+    add("WhatsApp session", connected, False,
+        "session connected" if connected else "session ledu — DRY MODE")
+    real = connected
+    quiet = in_wa_quiet(now)
+    add("Quiet hours (22:00–07:00)", not quiet, bool(quiet and real),
+        "quiet window lo unnam — sends defer" if quiet else "quiet hours kadhu")
+    jids = [g.get("jid") for g in groups if g.get("jid")]
+    sig = blast_signature(jids, category, questions_per_group)
+    dup = blast_recent(sig)
+    add("Duplicate Blast Guard (45m)", not dup, bool(dup and real),
+        "same blast 45-min lopa ayindi" if dup else "fresh blast")
+    add("Groups selected", len(groups) > 0, len(groups) == 0,
+        f"{len(groups)} active groups")
+    busy = bool(EXEC_STATE.get("running")) or _BROADCAST_LOCK.locked()
+    add("Broadcast lock free", not busy, busy,
+        "inkoka broadcast running" if busy else "lock free")
+    gate = pacing_gate()
+    add("Adaptive pacing gate", gate["allowed"], bool(not gate["allowed"] and real),
+        f"mode {gate['mode']} ×{gate['multiplier']}")
+    over = [j for j in jids if wa_sent_today(j) >= wa_group_daily_cap(j)[0]]
+    add("Daily caps", not over, False,
+        f"cap datina groups: {len(over)}" if over else "caps OK")
+    try:
+        bank = Bank()
+        total = sum(v.get("total", 0) for v in bank.stats().values())
+    except Exception:
+        total = 0
+    add("Questions available", total > 0, False, f"{total} questions bank lo")
+    blockers = [c["name"] for c in checks if c["block"]]
+    return {"ok": not blockers, "blockers": blockers, "checks": checks,
+            "dry": not real}
+
+
+def safety_stack(now=None):
+    """🛡️ 7-layer safety stack snapshot (dashboard card)."""
+    now = now or datetime.now()
+    snap = pacing_snapshot()
+    gate = pacing_gate()
+    layers = [
+        {"icon": "🌙", "name": "Quiet Hours 22:00–07:00",
+         "detail": "Rathri quiet lo sends defer; mid-send kuda graceful stop",
+         "ok": not in_wa_quiet(now)},
+        {"icon": "🛡️", "name": "Duplicate Blast Guard (45m)",
+         "detail": "Same group+question / same blast 45-min lopa repeat avadhu",
+         "ok": True},
+        {"icon": "🧠", "name": "Adaptive Anti-Ban Pacing",
+         "detail": f"×{snap['risk_multiplier']} · {snap['mode']} · fatigue {snap['fatigue']}",
+         "ok": gate["allowed"]},
+        {"icon": "🌡️", "name": "Warm-up Daily Caps",
+         "detail": f"kottha group {WA_WARMUP_CAP}/day → mature {WA_DAILY_CAP}/day (spam guard)",
+         "ok": True},
+        {"icon": "🔒", "name": "One-Broadcast Lock + 60–80s Gaps",
+         "detail": "Oka broadcast run avthunte inkoti start avadhu; poll gaps 60–80s floor",
+         "ok": not _BROADCAST_LOCK.locked()},
+        {"icon": "🔁", "name": "Smart Retry Queue",
+         "detail": "Failed sends risk-scaled backoff tho retry; CRAWL lo attempts burn avavu",
+         "ok": True},
+        {"icon": "🔀", "name": "Language Alternation",
+         "detail": "Group/question/day batti English-first ↔ Telugu-first (anti-fingerprint)",
+         "ok": True},
+    ]
+    return {"layers": layers, "pacing": snap, "gate": gate,
+            "quiet": in_wa_quiet(now),
+            "quiet_until": wa_quiet_until(now).strftime("%Y-%m-%d %H:%M"),
+            "running": bool(EXEC_STATE.get("running"))}
+
+
+def preview_broadcast(questions_per_group=2, target_category="ALL",
+                      target_group_ids=None):
+    """👀 Ey messages velthayo chupisthundi — EM SEND CHEYYADHU."""
+    reg = load_wa_registry()
+    groups = [g for g in reg.get("groups", []) if g.get("active")]
+    if target_group_ids:
+        ids = set(target_group_ids)
+        groups = [g for g in groups
+                  if g.get("id") in ids or g.get("jid") in ids]
+    elif target_category != "ALL":
+        groups = [g for g in groups
+                  if g.get("category", "").upper() == target_category.upper()]
+    bank = Bank()
+    samples = []
+    for grp in groups[:12]:
+        cat = grp.get("category", "CURRENT")
+        pool_cat = cat if cat.upper() not in ("GENERAL", "AUTO", "") else "SSC"
+        qs = pick_subject_questions(bank, pool_cat, questions_per_group or 2, None)
+        msgs = [build_question_only_post(q, grp.get("name", ""), pool_cat,
+                                         q_index=i + 1,
+                                         total_q=len(qs) or 1,
+                                         english_first=wa_english_first(0, i))
+                for i, q in enumerate(qs)]
+        samples.append({"group": grp.get("name", ""), "jid": grp.get("jid"),
+                        "category": cat, "messages": msgs})
+    return {"ok": bool(samples), "groups_total": len(groups),
+            "samples": samples,
+            "note": "👁️ Preview only — nothing was sent (Preview mode)."}

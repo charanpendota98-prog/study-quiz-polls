@@ -177,6 +177,63 @@ class Members:
             print(f"   [members] crm note: {e}")
         return m
 
+    def auto_register_from_poll(self, uid, user, exam=None):
+        """🎉 Poll answer → instant registration (owner rule).
+        Telegram profile nunchi name/username, source="poll_auto",
+        +25 bonus okkasari matrame, wizard clear, sheet sync.
+        Malli answer chesthe — exam overwrite / double bonus levu."""
+        user = user or {}
+        name = " ".join(x for x in (str(user.get("first_name") or ""),
+                                    str(user.get("last_name") or "")) if x).strip()
+        m = self._get(uid)
+        if not m.get("registered"):
+            m = self.register(uid, name=name or None, exam=exam,
+                              username=str(user.get("username") or ""),
+                              source="poll_auto")
+        else:
+            if name and not m.get("name"):
+                m["name"] = name
+            if user.get("username"):
+                m["username"] = str(user["username"])
+            if not m.get("source"):
+                m["source"] = "poll_auto"
+            self.kv.save()
+        # stale wizard state clear (pending_step None avvali)
+        self.pending.pop(str(uid), None)
+        self.pending.pop(uid, None)
+        self.kv.save()
+        return m
+
+    def update_profile(self, uid, exam=None, district=None, state=None,
+                       mobile=None, **kw):
+        """👆 One-tap profile enrichment (prof: buttons / commands).
+        Mobile unique guard: vere account ki unte None (refuse)."""
+        m = self._get(uid)
+        if mobile:
+            mb = norm_mobile(mobile)
+            if not mb:
+                return None
+            holder = self.find_by_mobile(mb)
+            if holder and str(holder) != str(uid):
+                return None
+            m["mobile"] = mb
+        if exam:
+            m["exam"] = exam
+        if district:
+            m["district"] = district
+        if state:
+            m["state"] = state
+        for k, v in kw.items():
+            if v:
+                m[k] = v
+        self.kv.save()
+        try:
+            from . import crm
+            crm.push_member(uid, m, members_dict=self.members)
+        except Exception:
+            pass
+        return m
+
     # ------------------------------------------------------------ points
     def award_answer(self, uid, username="", correct=True, topic="", qid=""):
         """Award points for a poll answer. Returns a dict describing the award."""
@@ -198,30 +255,36 @@ class Members:
             t = m["topics"].setdefault(topic.lower(), {"correct": 0, "total": 0})
             t["total"] += 1
 
+        # 🧠 Brain 3.0: difficulty-aware Elo ability (never breaks scoring)
+        try:
+            from . import brain as _brain
+            _brain.record(uid, qid, bool(correct), topic=topic)
+        except Exception:
+            pass
+
         # ---- spaced-repetition review queue
+        # 🛠️ FIX (bug hunt): card ni mundhu remove chesi tarvatha advance
+        # cheyyadam valla 3d->7d ladder eppudu jaragaledu (okka correct ke
+        # card delete ayyedi). Ippudu card ni capture chesi correct ga
+        # advance chestham: wrong -> interval 0 (due today), correct ->
+        # 0->3d -> 7d -> mastered (drop).
         if qid:
-            m["review"] = [r for r in m.get("review", []) if r.get("qid") != qid]
+            cards = [r for r in (m.get("review") or []) if r.get("qid") != qid]
+            old = next((r for r in (m.get("review") or [])
+                        if r.get("qid") == qid), None)
             if not correct:
-                # missed question -> due immediately (same-day /review), then
-                # spaced: 3d -> 7d as they answer it correctly.
-                m["review"].append({"qid": qid, "due": _day(),
-                                    "interval": 0, "topic": topic})
-            else:
-                # correct -> advance this spaced-repetition card
-                #   interval 0 (same-day) -> 3 days -> 7 days -> mastered (drop)
-                kept = []
-                for r in m.get("review", []):
-                    if r.get("qid") == qid:
-                        nxt = {0: 3, 3: 7}.get(r["interval"])
-                        if nxt:
-                            r["interval"] = nxt
-                            r["due"] = (datetime.now(config.IST) +
-                                       timedelta(days=nxt)).strftime("%Y-%m-%d")
-                            kept.append(r)
-                        # interval 7 correct -> mastered, drop
-                    else:
-                        kept.append(r)
-                m["review"] = kept
+                cards.append({"qid": qid, "due": _day(),
+                              "interval": 0, "topic": topic})
+            elif old is not None:
+                nxt = {0: 3, 3: 7}.get(int(old.get("interval") or 0))
+                if nxt:
+                    old = dict(old)
+                    old["interval"] = nxt
+                    old["due"] = (datetime.now(config.IST) +
+                                  timedelta(days=nxt)).strftime("%Y-%m-%d")
+                    cards.append(old)
+                # interval 7 correct -> mastered, drop
+            m["review"] = cards[-200:]
 
         if m["last_active"] != today:
             earned += P_DAILY_FIRST            # daily participation bonus

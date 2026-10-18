@@ -25,5 +25,6 @@ run_forever() {
 trap 'echo; echo "🛑 Stopping StudentUp..."; kill 0' INT TERM
 
 run_forever "Dashboard" python3 scripts/dashboard_server.py &
+run_forever "Collector" python3 scripts/watch.py &
 run_forever "WA-Bridge" node gateway/wa_bridge.js &
 wait

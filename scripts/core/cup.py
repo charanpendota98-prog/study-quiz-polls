@@ -87,7 +87,7 @@ def _make_match(cup, d, rnd_idx, a, b):
     if cup.get("double_big") and any(w in label for w in ("FINAL", "SEMI")):
         q_count = max(q_count, BIG_MATCH_Q)
     code = campus.new_event(name[:70], cup["district"], [a, b], q_count,
-                            MATCH_LEVEL, created_by=cup.get("by", ""), mode="college")
+                            MATCH_LEVEL, created_by=cup.get("by", ""), mode="college", shuffle=True)
     cd = campus._load()
     e = cd["events"].get(code)
     if e is not None:

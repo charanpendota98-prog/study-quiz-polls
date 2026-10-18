@@ -266,6 +266,7 @@ SCHEDULE = {
     "01:30": ("backfill", {}),     # deep archive sweep (3-month campaign; idle when done)
     "01:00": ("scout", {}),        # continuous source discovery → ready queue (time-boxed, capped)
     "02:15": ("pyq", {}),          # official previous-paper PDFs → provenance-stamped questions
+    "13:45": ("pyq", {}),          # 2nd daily harvest — papers keep growing
     "04:45": ("audit", {}),        # daily deep source audit (content-gated)
     "03:00": ("verify", {}),       # API-key answer + Telugu audit of new questions
     "05:30": ("collect", {"reason": "pre-dawn scrape"}),

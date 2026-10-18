@@ -24,8 +24,561 @@ sys.path.insert(0, str(ROOT))
 from core import config
 from core.members import Members
 from core.question_bank import Bank
-from core import hooks, districtwar, arena, campus, crm, whatsapp_pipeline, channel_router, bundle_manager, member_queue
+from core import hooks, districtwar, arena, campus, crm, whatsapp_pipeline, channel_router, bundle_manager, member_queue, planner, portal, pyq
+import threading as _threading
 from core.telegram import Telegram
+
+
+_BOT_USERNAME_CACHE = {"name": "", "ts": 0}
+
+
+_PYQ_JOB = {"running": False, "last": ""}
+_REPORT_JOB = {"running": False, "sent": 0, "failed": 0, "total": 0, "last": ""}
+_WP_CACHE = {"ts": 0, "posts": []}
+
+
+def _wp_base():
+    return config.env("WP_SITE_URL", "https://studentup.in").strip().rstrip("/")
+
+
+def _fetch_wp_posts(limit=12, force=False):
+    """📰 WordPress (studentup.in) nunchi published blog posts — 10 min
+    cache. Drafts REST lo public ga ravu (publish ayye varaku safe).
+    Site reach avakapothe [] (site eppudu crash avadu)."""
+    import html as _html
+    import re as _re
+    if not force and time.time() - _WP_CACHE["ts"] < 600 and _WP_CACHE["posts"]:
+        return _WP_CACHE["posts"][:limit]
+
+    def _clean(t):
+        return _html.unescape(_re.sub(r"<[^>]+>", "", str(t or ""))).strip()
+
+    try:
+        req = urllib.request.Request(
+            f"{_wp_base()}/wp-json/wp/v2/posts?per_page={int(limit)}&_fields=title,excerpt,link,date,slug",
+            headers={"User-Agent": "StudentUp-Bridge/1.0"})
+        with urllib.request.urlopen(req, timeout=6) as r:
+            raw = json.loads(r.read().decode("utf-8", "ignore"))
+        posts = [{"title": _clean(p.get("title", {}).get("rendered", "")),
+                  "excerpt": _clean(p.get("excerpt", {}).get("rendered", ""))[:240],
+                  "url": p.get("link", ""), "date": (p.get("date") or "")[:10],
+                  "slug": p.get("slug", "")} for p in raw if p.get("link")]
+        if posts:
+            _WP_CACHE.update({"ts": time.time(), "posts": posts})
+        return posts
+    except Exception:
+        return _WP_CACHE["posts"][:limit]
+
+
+_WP_EXAM_TAGS = {"APPSC": "appsc", "TSPSC": "tspsc", "SSC": "ssc",
+                 "BANKING": "banking", "RAILWAY": "rrb", "POLICE": "police",
+                 "DEFENCE": "defence", "CURRENT": "all"}
+
+
+def _wp_quiz_item(q):
+    """Mana bank question → WordPress quiz.php format (q, a[4], c, why, cat, src, exam)."""
+    return {"q": q.get("q_en", ""), "a": list(q.get("options_en") or []),
+            "c": int(q.get("answer_index") or 0),
+            "why": q.get("explanation") or "", "cat": q.get("topic") or "General",
+            "src": "StudentUp PYQ" if q.get("source") == "pyq" else "StudentUp",
+            "exam": _WP_EXAM_TAGS.get(q.get("channel") or "", "all")}
+
+
+def _wp_quiz_export():
+    d = portal._load()
+    day = portal._daily_paper(d)
+    return {"date": portal._today(), "source": "StudentUp Quiz Portal",
+            "questions": [_wp_quiz_item(q) for q in day["qs"]]}
+
+
+def _public_base(handler=None):
+    """🌐 Student-facing links ki base URL: PUBLIC_BASE_URL env (meeru
+    subdomain point cheste adhe vastundi) → lekapothe request Host
+    (preview / domain ఏదైనా) nunchi derive chestham — app host-agnostic."""
+    base = config.env("PUBLIC_BASE_URL", "").strip().rstrip("/")
+    if base:
+        return base
+    if handler is not None:
+        host = (handler.headers.get("X-Forwarded-Host")
+                or handler.headers.get("Host") or "")
+        if host:
+            proto = handler.headers.get("X-Forwarded-Proto") or (
+                "http" if host.split(":")[0] in ("127.0.0.1", "localhost") else "https")
+            return f"{proto}://{host}"
+    return ""
+
+
+# ================================================================== public site
+# 🌍 Public brand website (students/visitors + Google AdSense review కోసం).
+# Admin dashboard ilaage untundi — login leni vallaki "/" public site kanipisthundi.
+# ⚠️ Ads kevalam PUBLIC pages lone (exam/session pages lo bao — policy + focus).
+PUBLIC_PAGE_PATHS = {"/site": "home", "/about": "about", "/privacy": "privacy",
+                     "/terms": "terms", "/contact": "contact", "/study": "study",
+                     "/updates": "updates", "/winners": "winners",
+                     "/toppers": "toppers", "/materials": "materials",
+                     "/blog": "blog", "/papers": "papers",
+                     "/exams": "exams"}
+
+
+def _adsense_client():
+    return config.env("ADSENSE_CLIENT_ID", "").strip()
+
+
+def ads_txt_content():
+    """ads.txt — AdSense seller verification (root domain lo undali,
+    subdomains ki kuda ide valid). Env lekapothe empty (route 404)."""
+    pub = config.env("ADSENSE_PUBLISHER_ID", "").strip()
+    if not pub:
+        cid = _adsense_client()
+        pub = cid[3:] if cid.startswith("ca-pub-") else cid
+    if not pub.startswith("pub-"):
+        return ""
+    return f"google.com, {pub}, DIRECT, f08c47fec0942fa0\n"
+
+
+def _adsense_head():
+    cid = _adsense_client()
+    if not cid.startswith("ca-pub-"):
+        return ""
+    return (f'<script async src="https://pagead2.googlesyndication.com/pagead/js/'
+            f'adsbygoogle.js?client={cid}" crossorigin="anonymous"></script>')
+
+
+def _ad_slot(name):
+    cid = _adsense_client()
+    slot = config.env(f"ADSENSE_SLOT_{name}", "").strip()
+    if not cid.startswith("ca-pub-") or not slot:
+        return ""
+    return ('<div class="adbox"><ins class="adsbygoogle" style="display:block" '
+            f'data-ad-client="{cid}" data-ad-slot="{slot}" data-ad-format="auto" '
+            'data-full-width-responsive="true"></ins>'
+            '<script>(adsbygoogle = window.adsbygoogle || []).push({});</script></div>')
+
+
+_PUB_CSS = """
+  * { box-sizing: border-box; margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+  body { background: #050811; color: #e2e8f0; line-height: 1.65; }
+  a { color: #38bdf8; text-decoration: none; }
+  .nav { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; padding: 14px 20px; background: #0b1329; border-bottom: 1px solid #1e3a5f; position: sticky; top: 0; z-index: 9; }
+  .nav .logo { font-size: 19px; font-weight: 800; color: #f8fafc; margin-right: auto; }
+  .nav a { font-size: 13.5px; font-weight: 600; }
+  .nav .login { background: #12233f; border: 1px solid #24466e; padding: 6px 12px; border-radius: 999px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 26px 18px 60px; }
+  .hero { text-align: center; padding: 42px 14px 26px; }
+  .hero h1 { font-size: 32px; line-height: 1.25; color: #f8fafc; }
+  .hero h1 span { color: #10b981; }
+  .hero p { color: #94a3b8; max-width: 640px; margin: 12px auto 0; font-size: 15px; }
+  .cta { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 20px; }
+  .btn { padding: 12px 20px; border-radius: 11px; font-weight: 800; font-size: 14px; border: none; cursor: pointer; }
+  .btn-g { background: linear-gradient(90deg, #10b981, #38bdf8); color: #04121f; }
+  .btn-o { background: #12233f; color: #e2e8f0; border: 1px solid #24466e; }
+  .exambox { max-width: 460px; margin: 22px auto 0; background: #0b1329; border: 1px solid #1e3a5f; border-radius: 14px; padding: 16px; }
+  .exambox input { width: 100%; padding: 11px 13px; font-size: 16px; background: #050811; color: #fff; border: 1px solid #24466e; border-radius: 9px; text-transform: uppercase; margin: 8px 0; }
+  h2.sec { font-size: 21px; margin: 38px 0 14px; color: #f8fafc; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+  .card { background: #0b1329; border: 1px solid #1e3a5f; border-radius: 13px; padding: 16px; }
+  .card h3 { font-size: 15px; margin-bottom: 6px; }
+  .card p, .txt p { color: #94a3b8; font-size: 13.5px; }
+  .txt p { margin-bottom: 12px; }
+  .txt h3 { margin: 20px 0 8px; font-size: 16px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { background: #12233f; border: 1px solid #24466e; padding: 6px 13px; border-radius: 999px; font-size: 13px; font-weight: 700; }
+  .steps { counter-reset: st; }
+  .steps .card b { color: #10b981; }
+  .faq .card { margin-bottom: 10px; }
+  .adbox { margin: 26px auto; max-width: 970px; min-height: 90px; }
+  footer { border-top: 1px solid #1e3a5f; padding: 22px; text-align: center; color: #64748b; font-size: 12.5px; }
+  footer a { margin: 0 8px; }
+  .tchip { padding: 4px 10px; border-radius: 999px; border: 1px solid #24466e; background: #12233f; color: #e2e8f0; font-size: 12px; cursor: pointer; font-weight: 700; }
+  .appgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .apptile { display: block; background: #0b1329; border: 1px solid #1e3a5f; border-radius: 14px; padding: 18px 12px; text-align: center; }
+  .apptile .ic { font-size: 30px; display: block; }
+  .apptile b { color: #f8fafc; font-size: 14px; display: block; margin-top: 6px; }
+  .apptile span.tx { color: #94a3b8; font-size: 12px; display: block; margin-top: 3px; }
+  .apptile:hover { border-color: #10b981; }
+  body.theme-ocean { background: #02141a; }
+  body.theme-ocean .card, body.theme-ocean .nav { background: #06222b; border-color: #0e4a56; }
+  body.theme-sunset { background: #170a1e; }
+  body.theme-sunset .card, body.theme-sunset .nav { background: #22102e; border-color: #572a63; }
+  body.theme-forest { background: #04150a; }
+  body.theme-forest .card, body.theme-forest .nav { background: #0a2013; border-color: #1d4d2e; }
+  body.theme-light { background: #eef2f7; color: #16233a; }
+  body.theme-light .card, body.theme-light .nav { background: #ffffff; border-color: #c9d6e8; }
+  body.theme-light .nav .logo, body.theme-light h1, body.theme-light h2.sec { color: #12233f; }
+  body.theme-light .card p, body.theme-light .txt p { color: #5a6b84; }
+"""
+
+
+def _pub_bodies(bot, contact_email):
+    home = """
+  <div class="hero">
+    <h1>Free Quiz Practice &amp; College Exams for <span>AP &amp; Telangana</span> Students</h1>
+    <p>StudentUp helps students prepare for EAMCET, NEET, SSC, RRB and APPSC/TSPSC Group exams with daily quiz polls, previous-year questions and instant results — on Telegram, WhatsApp and right here in your browser.</p>
+    <div class="cta">
+      <a class="btn btn-g" href="__PORTAL__">🚀 Start Daily Quiz</a>
+      <a class="btn btn-o" href="__BOT__" target="_blank" rel="noopener">🤖 Telegram Bot</a>
+      <a class="btn btn-o" href="/study">📚 Study Guide</a>
+    </div>
+    <div class="exambox" id="exam-entry">
+      <b>🏫 College Exam?</b>
+      <div style="color:#94a3b8;font-size:13px;">Your teacher/organiser gave you an exam code? Enter it here — no app download needed.</div>
+      <input id="exam-code" placeholder="e.g. CE-K7P2" maxlength="12">
+      <button class="btn btn-g" style="width:100%;" onclick="var c=document.getElementById('exam-code').value.trim().toUpperCase(); if(c) location.href='/exam/'+c;">🚀 Open My Exam</button>
+    </div>
+  </div>
+  __AD_HOME__
+  <h2 class="sec">🚀 StudentUp Portal — Anni Okka Chota</h2>
+  <div class="appgrid">
+    <a class="apptile" href="__PORTAL__?go=quiz"><span class="ic">🧠</span><b>Smart Advanced Quiz</b><span class="tx">Daily Quiz · PYQ-first · Mee level ki taggattu adaptive questions</span></a>
+    <a class="apptile" href="__PORTAL__?go=exams"><span class="ic">🔴</span><b>Live Exams</b><span class="tx">Real-time Live Exams + Weekly Grand Test (Sunday 10 AM) + Winners</span></a>
+    <a class="apptile" href="__PORTAL__?go=mocks"><span class="ic">🎓</span><b>Exam-wise Quiz &amp; Mocks</b><span class="tx">SSC · RRB · Banking · Groups · Police — exam-wise mock tests</span></a>
+    <a class="apptile" href="/papers"><span class="ic">📜</span><b>Previous Papers (PYQ)</b><span class="tx">Real previous-year paper sets — full test attempt cheyyandi</span></a>
+    <a class="apptile" href="/exams"><span class="ic">🏛️</span><b>Exams Hub</b><span class="tx">Anni exam goals, PYQ counts mariyu repeat-topic trends</span></a>
+    <a class="apptile" href="__PORTAL__"><span class="ic">🌟</span><b>All Portal Features</b><span class="tx">Personal Report · Toppers · Certificates · Answer Key Papers</span></a>
+  </div>
+  <h2 class="sec">✨ What you get</h2>
+  <div class="grid">
+    <div class="card"><h3>📊 Daily Quiz Polls</h3><p>Fresh practice questions every day on Telegram and WhatsApp channels — answer the poll, see the explanation, earn points.</p></div>
+    <div class="card"><h3>📚 Previous-Year Questions</h3><p>A growing bank of 1,400+ previous-year and curated questions with sujet-wise and topic-wise practice.</p></div>
+    <div class="card"><h3>🏫 College Exams in Browser</h3><p>Teachers create an exam, share one link or QR — students join with name + mobile and write the exam in the browser. No app needed.</p></div>
+    <div class="card"><h3>🏆 Winners &amp; Certificates</h3><p>Daily winners, top-scorer certificates and district rankings keep practice fun and competitive.</p></div>
+    <div class="card"><h3>🎯 Know Your Weak Topics</h3><p>Your profile shows accuracy and weak topics so you revise exactly what costs you marks.</p></div>
+    <div class="card"><h3>⚡ Instant Results</h3><p>Speed points, negative-marking practice and instant answer review after every round and exam.</p></div>
+  </div>
+  <h2 class="sec">🚀 How it works</h2>
+  <div class="grid steps">
+    <div class="card"><b>Step 1</b><h3>Join free</h3><p>Open the Telegram bot or join a WhatsApp group through your college/class group link. Answering a quiz poll registers you automatically.</p></div>
+    <div class="card"><b>Step 2</b><h3>Practice daily</h3><p>Attempt the daily polls and quizzes. Every correct answer earns points; fast correct answers earn bonus speed points.</p></div>
+    <div class="card"><b>Step 3</b><h3>Write college exams</h3><p>Scan the QR your teacher shares, enter your name and mobile, and write the exam live in your browser.</p></div>
+    <div class="card"><b>Step 4</b><h3>Track &amp; improve</h3><p>Check your rank, review every answer, and focus revision on your weak topics.</p></div>
+  </div>
+  <h2 class="sec">📖 Subjects we cover</h2>
+  <div class="chips">
+    <span class="chip">Mathematics</span><span class="chip">Physics</span><span class="chip">Chemistry</span>
+    <span class="chip">Biology / Botany / Zoology</span><span class="chip">Indian Polity</span><span class="chip">History</span>
+    <span class="chip">Geography</span><span class="chip">Economy</span><span class="chip">English</span>
+    <span class="chip">Reasoning &amp; Aptitude</span><span class="chip">Current Affairs</span><span class="chip">General Science</span>
+  </div>
+  <h2 class="sec">❓ Frequently asked questions</h2>
+  <div class="faq">
+    <div class="card"><h3>Is StudentUp free?</h3><p>Yes. Daily practice, quizzes and college practice exams on StudentUp are free for students.</p></div>
+    <div class="card"><h3>Do I need to install Telegram for college exams?</h3><p>No. College exams open directly in your mobile browser from the link or QR your organiser shares. Telegram is only an optional alternative.</p></div>
+    <div class="card"><h3>Which exams does it help with?</h3><p>EAMCET (Engineering &amp; Medical streams), NEET basics, SSC, RRB and APPSC/TSPSC Group services — with subject-wise and topic-wise PYQs.</p></div>
+    <div class="card"><h3>How do winners and points work?</h3><p>Correct answers earn points, faster correct answers earn bonus points, and toppers of each round are announced with certificates. Practice exams may include negative marking when the organiser enables it.</p></div>
+  </div>
+"""
+    study = """
+  <h2 class="sec">📚 Study Guide — how to prepare smart</h2>
+  <div class="txt">
+    <h3>🎓 EAMCET (AP &amp; TS)</h3>
+    <p>EAMCET rewards speed with accuracy. Mathematics carries the highest weight in the engineering stream, so daily problem practice matters more than re-reading theory. Solve previous-year questions topic by topic, note the formulas you miss, and revise them weekly. StudentUp's topic-wise PYQ polls are built exactly for this routine.</p>
+    <h3>🩺 NEET basics</h3>
+    <p>Biology is half the paper. Read NCERT line by line, then test yourself with factual one-liners — Botany and Zoology diagrams included. Physics and Chemistry need formula + concept clarity; short daily quizzes beat one long weekly session.</p>
+    <h3>🏛️ SSC, RRB &amp; APPSC/TSPSC Groups</h3>
+    <p>Polity, History, Geography, Economy and Current Affairs decide these papers. Learn Polity article by article, keep a one-page timeline for History, and revise maps for Geography. Attempt mocks under time pressure — our polls simulate exactly that.</p>
+    <h3>⏱️ Five habits that raise scores</h3>
+    <p>1) Attempt questions daily, even if only ten. 2) Review every wrong answer the same day. 3) Track your weak topics and attack one per week. 4) Practise with negative marking so guessing becomes disciplined. 5) Sleep before the exam — memory consolidates at night.</p>
+  </div>
+  __AD_STUDY__
+"""
+    about = """
+  <h2 class="sec">ℹ️ About StudentUp</h2>
+  <div class="txt">
+    <p>StudentUp is a free learning companion for students of Andhra Pradesh and Telangana preparing for competitive and entrance examinations. It began as a simple idea: students already spend time on Telegram and WhatsApp — why not turn those same apps into a daily study habit?</p>
+    <p>Today StudentUp runs daily quiz polls, previous-year-question practice, district competitions, and full college exams that students can write in a mobile browser without installing any app. Teachers and colleges use it to conduct quick tests and get instant marks reports.</p>
+    <p>Our question bank is built from previous-year papers and carefully curated items, organised by subject and topic, with explanations. We keep the experience simple: advanced preparation tools, presented in a way any student can use in the first minute.</p>
+    <p>Questions about StudentUp? See the <a href="/contact">Contact</a> page.</p>
+  </div>
+"""
+    privacy = """
+  <h2 class="sec">🔐 Privacy Policy</h2>
+  <div class="txt">
+    <p><i>Last updated: 2026. This page explains what data StudentUp collects and why.</i></p>
+    <h3>What we collect</h3>
+    <p>When you use the Telegram bot, we receive your Telegram user id, display name and username. When you register or write a college web exam, you provide your name, mobile number and college. We record your quiz answers, scores and ranks to run competitions and exams.</p>
+    <h3>How we use it</h3>
+    <p>Data is used only to operate the service: registering you, delivering questions, computing scores, announcing winners, and giving organisers their marks reports. We do not sell personal data.</p>
+    <h3>Cookies &amp; local storage</h3>
+    <p>The web exam stores a session token in your browser's local storage so you can rejoin after a refresh. The organiser dashboard uses a login cookie. When advertising is enabled on our public pages, Google AdSense may set cookies to serve and measure ads; you can control this in your browser settings and via Google's ad settings.</p>
+    <h3>Third parties</h3>
+    <p>Messages are delivered through Telegram and WhatsApp, whose own privacy policies apply. Advertising on public pages (when enabled) is provided by Google AdSense.</p>
+    <h3>Your choices</h3>
+    <p>You may ask for your registration data to be corrected or deleted through the <a href="/contact">Contact</a> page or your college organiser.</p>
+  </div>
+"""
+    terms = """
+  <h2 class="sec">📜 Terms of Use</h2>
+  <div class="txt">
+    <p>By using StudentUp you agree to these simple terms.</p>
+    <h3>Service</h3>
+    <p>StudentUp provides free practice questions, quizzes and college practice exams for educational purposes. Scores on StudentUp are practice indicators only and are not official results of any examination board.</p>
+    <h3>Fair use</h3>
+    <p>Write exams yourself, without impersonating others. Organisers are responsible for the exams they create and for sharing links only with their intended students. Abuse, spam or attempts to disrupt the service may lead to removal.</p>
+    <h3>Content</h3>
+    <p>Previous-year questions remain the property of their respective examination boards and are used here for students' practice. Explanations and original content belong to StudentUp.</p>
+    <h3>Changes</h3>
+    <p>We may improve or change features over time. Continued use means you accept the updated terms.</p>
+  </div>
+"""
+    contact = """
+  <h2 class="sec">✉️ Contact</h2>
+  <div class="txt">
+    __CONTACT__
+    <p>Students: for exam-related help (join problems, marks queries), contact your college organiser first — they created your exam and can see your report. For bot help, message the admin through the Telegram bot.</p>
+    <p><a href="__BOT__" target="_blank" rel="noopener">🤖 Open the Telegram Bot</a></p>
+  </div>
+"""
+    updates = """
+  <h2 class="sec">📢 Exam Updates &amp; Notifications</h2>
+  <div class="txt"><p>Official exam announcements, application dates and StudentUp news. Always verify dates on the official board website linked in each notice.</p></div>
+  __NOTICES__
+"""
+    winners = """
+  <h2 class="sec">🏆 Hall of Fame — StudentUp Winners</h2>
+  <div class="txt"><p>Top scorers of our Weekly Grand Tests and Live Exams. Practice daily, rank daily — your name could be here next week.</p></div>
+  __WINNERS__
+"""
+    toppers_pg = """
+  <h2 class="sec">🏆 Toppers — Week · Month · Year</h2>
+  <div class="txt"><p>StudentUp lo daily quiz, mock tests mariyu live exams raasi earn chesina points tho ee rankings vasthayi. Meeru kuda practice chesi ee list loki randi!</p></div>
+  <h3 style="margin:18px 0 8px;">📅 Toppers of the Week</h3>
+  __TOP_WEEK__
+  <h3 style="margin:18px 0 8px;">🗓️ Toppers of the Month</h3>
+  __TOP_MONTH__
+  <h3 style="margin:18px 0 8px;">👑 Toppers of the Year</h3>
+  __TOP_YEAR__
+"""
+    blog = """
+  <h2 class="sec">📰 StudentUp Blog</h2>
+  <div class="txt"><p>Exam guides, notifications mariyu study articles — mana main site <a href="__WPBASE__" target="_blank" rel="noopener">studentup.in</a> nunchi fresh ga ikkada kuda kanipisthayi.</p></div>
+  __BLOG__
+  <div class="card" style="margin-top:12px;"><p>Anni articles kosam: <a href="__WPBASE__" target="_blank" rel="noopener">studentup.in → Blog</a></p></div>
+"""
+    materials = """
+  <h2 class="sec">📚 Study Materials &amp; Exam Plans</h2>
+  <div class="txt"><p>StudentUp lo practice chese topics mariyu stream-wise study plans. Prati plan kinda unna topics ni portal lo Topic Practice tho daily revise cheyyandi.</p></div>
+  __MATERIALS__
+  <div class="card" style="margin-top:14px;"><h3>🚀 Ippude Start Cheyyandi</h3><p>Daily Quiz + Topic Practice + Weekly Grand Test — anni free. Portal open chesi, register ayyi, mee goal select cheskondi.</p><p style="margin-top:8px;"><a href="/portal">🎓 Student Portal Open Cheyyandi →</a></p></div>
+"""
+    papers = """
+  <h2 class="sec">📜 Previous Year Papers (Real PYQ)</h2>
+  <div class="txt"><p>Nijamaina previous-year exam questions — anni StudentUp bank lo nunche vastayi, counts kuda nijame (unna papers matrame chupistam). Full paper ni timer tho attempt chesi score, answer key, review teeskovachu.</p></div>
+  __PAPERS__
+  <div class="card" style="margin-top:14px;"><h3>🚀 Paper Attempt Cheyyandi</h3><p>Portal lo register ayyi — Previous Papers card lo Start nokkandi. Weekly Grand Test (Sunday 10 AM) kuda PYQ-first papers eh.</p><p style="margin-top:8px;"><a href="/portal">🎓 Student Portal →</a></p></div>
+"""
+    exams = """
+  <h2 class="sec">🎓 Exams Hub — anni goals okka chota</h2>
+  <div class="txt"><p>TSPSC, APPSC, SSC, Banking, Railway, Police, Defence — prathi goal ki daily quiz, mocks, live exams, previous papers. Mee goal select cheskunte paper aa exam pattern lone vasthundi.</p></div>
+  __EXAMS__
+  <div class="card" style="margin-top:14px;"><h3>🧠 Smart ga Start Cheyyandi</h3><p>Exam goal select cheyyandi → Daily Quiz → Smart Practice (mee level ki) → Weekly Grand Test. Brain readiness score mee preparation ni measure chestundi.</p><p style="margin-top:8px;"><a href="/portal">🎓 Portal Open Cheyyandi →</a></p></div>
+"""
+    return {"home": home, "study": study, "about": about,
+            "papers": papers, "exams": exams,
+            "privacy": privacy, "terms": terms, "contact": contact,
+            "updates": updates, "winners": winners, "toppers": toppers_pg,
+            "materials": materials}
+
+
+def public_page(handler, page):
+    """Full public page HTML (ads ONLY here — never on exam/session pages)."""
+    bot = ("https://t.me/" + _bot_username()) if page in ("home", "about", "contact") else "#"
+    email = config.env("PUBLIC_CONTACT_EMAIL", "").strip()
+    contact_line = (f'<p>Email: <a href="mailto:{email}">{email}</a></p>' if email
+                    else "<p>Reach the StudentUp team through the Telegram bot admin or your college organiser.</p>")
+    titles = {"home": "StudentUp — Free Quiz Practice & College Exams (AP & Telangana)",
+              "study": "Study Guide — StudentUp",
+              "about": "About — StudentUp",
+              "privacy": "Privacy Policy — StudentUp",
+              "terms": "Terms of Use — StudentUp",
+              "contact": "Contact — StudentUp",
+              "updates": "Exam Updates & Notifications — StudentUp",
+              "winners": "Hall of Fame — StudentUp Winners",
+              "toppers": "Toppers of Week, Month & Year — StudentUp",
+              "materials": "Study Materials & Exam Plans — StudentUp",
+              "blog": "Blog — StudentUp Exam Guides & Articles",
+              "papers": "Previous Year Papers (PYQ) — StudentUp",
+              "exams": "Exams Hub — StudentUp"}
+    bodies = _pub_bodies(bot, email)
+    body = bodies.get(page, bodies["home"])
+    try:
+        _wf = portal.winners_public(8)
+        _whtml = "".join(
+            f'<div class="card" style="margin-bottom:10px;"><h3>🏆 {_w["title"]}</h3>'
+            + "".join(
+                f'<p>{["🥇","🥈","🥉"][i] if i < 3 else ""} <b>{ww["name"]}</b> · {ww["district"]} · ✅ {ww["correct"]}/{ww["total"]}</p>'
+                for i, ww in enumerate(_w["winners"])) + "</div>"
+            for _w in _wf) or '<div class="card"><p>First Weekly Grand Test winners ikkade vastaru — Sunday 10 AM ready ga undandi!</p></div>'
+    except Exception:
+        _whtml = '<div class="card"><p>Winners coming soon.</p></div>'
+    try:
+        _tops = portal.toppers_all(Members())
+
+        def _trows(rows):
+            if not rows:
+                return '<div class="card"><p>Inka ee period lo points levu — first topper meeru avvandi!</p></div>'
+            return "".join(
+                f'<div class="card" style="margin-bottom:8px;"><p>{["🥇", "🥈", "🥉"][i] if i < 3 else "#" + str(i + 1)} <b>{r["name"]}</b> · {r["district"]} · ⭐ {r["pts"]} points · ✍️ {r["answers"]} correct</p></div>'
+                for i, r in enumerate(rows))
+        body = (body.replace("__TOP_WEEK__", _trows(_tops["week"]))
+                    .replace("__TOP_MONTH__", _trows(_tops["month"]))
+                    .replace("__TOP_YEAR__", _trows(_tops["year"])))
+    except Exception:
+        body = (body.replace("__TOP_WEEK__", '<div class="card"><p>Loading…</p></div>')
+                    .replace("__TOP_MONTH__", "").replace("__TOP_YEAR__", ""))
+    try:
+        _posts = _fetch_wp_posts(12)
+        _bhtml = "".join(
+            f'<div class="card" style="margin-bottom:10px;"><h3><a href="{_p["url"]}" target="_blank" rel="noopener">{_p["title"]}</a></h3>'
+            f'<p>{_p["excerpt"]}…</p><p class="muted" style="margin-top:6px;">{_p["date"]} · studentup.in lo chadavandi ↗</p></div>'
+            for _p in _posts) or '<div class="card"><p>Articles loading… main site lo chudandi: <a href="' + _wp_base() + '">studentup.in</a></p></div>'
+    except Exception:
+        _bhtml = '<div class="card"><p>Articles loading…</p></div>'
+    body = body.replace("__BLOG__", _bhtml).replace("__WPBASE__", _wp_base())
+    try:
+        _topics = portal.topics_list(24)
+        _plans = [("🏛️ Groups (APPSC/TSPSC)", "Polity articles, AP/TG History, Geography maps, Economy basics, Current Affairs — daily 20 questions chalu."),
+                  ("📄 SSC", "Reasoning speed, Maths shortcuts, English vocab, GK — mock tests tho time management nerchukondi."),
+                  ("🏦 Banking", "Quant + Reasoning daily practice, English, Banking awareness — topic-wise ga strong avvandi."),
+                  ("🚆 Railway (RRB)", "Maths, Reasoning, General Science — PYQs repeat avthayi, previous papers must."),
+                  ("👮 Police & Defence", "GK, Maths, Reasoning + physical preparation parallel ga plan cheskondi.")]
+        _mhtml = "".join(f'<div class="card" style="margin-bottom:10px;"><h3>{t}</h3><p>{dsc}</p></div>' for t, dsc in _plans)
+        _mhtml += '<h3 style="margin:16px 0 8px;">🏷️ Portal lo Practice Cheyyagalige Topics</h3><div class="chips">' + "".join(f'<a class="chip" href="/portal">{t}</a>' for t in _topics) + '</div>'
+    except Exception:
+        _mhtml = '<div class="card"><p>Materials loading…</p></div>'
+    body = body.replace("__MATERIALS__", _mhtml)
+    try:
+        _papers = portal.paper_catalog()
+        _phtml = "".join(
+            f'<div class="card" style="margin-bottom:10px;"><h3>📜 {r["label"]}</h3>'
+            f'<p>{r["count"]} real previous-year questions · {", ".join(r["channels"]) or r["exam"]}'
+            + (f'<br>🏷️ {", ".join(r.get("topics") or [])}' if r.get("topics") else "")
+            + (' · <b>Mini set</b>' if r.get("size") == "mini" else "")
+            + '</p>'
+            f'<p style="margin-top:6px;"><a href="/portal">Full Paper Attempt Cheyyandi →</a></p></div>'
+            for r in _papers) or '<div class="card"><p>Papers harvest avuthunnayi — prathi roju kottha sets add avuthayi. First sets thondaralo ikkade!</p></div>'
+        _cov = portal.pyq_coverage_public() if hasattr(portal, "pyq_coverage_public") else {}
+        _total_pyq = sum(r["count"] for r in _papers)
+        _phtml = (f'<div class="card" style="margin-bottom:10px;"><h3>📊 Bank lo ippudu {_total_pyq} real PYQ questions · {len(_papers)} paper sets</h3>'
+                  '<p>Harvest prathi roju (02:15 + 13:45) kottha official papers testhundi — count daily ga peruguthundi. Portal lo Syllabus Tracker, Personal Coach, Negative-marking mocks kuda unnayi!</p></div>') + _phtml
+    except Exception:
+        _phtml = '<div class="card"><p>Papers loading…</p></div>'
+    body = body.replace("__PAPERS__", _phtml)
+    try:
+        _goals = portal.GOALS
+        _stock = portal.exam_stock()
+        _trends = {k: portal.pyq_trends(k) for k in _goals}
+        _ehtml = "".join(
+            f'<div class="card" style="margin-bottom:10px;"><h3>{v["label"]}</h3>'
+            f'<p>📜 {_stock.get(k, {}).get("pyq", 0)} real PYQ questions in bank · Daily Quiz + Mocks + Live Exams</p>'
+            + (f'<p style="margin-top:4px;">📈 Repeat ayye topics: '
+               + ", ".join(f'{t["topic"]} ({t["pyq"]})'
+                           for t in _trends.get(k, {}).get("topics", [])[:3])
+               + '</p>' if _trends.get(k, {}).get("topics") else '')
+            + f'<p style="margin-top:6px;"><a href="__PORTAL__?go=hub&goal={k}">🎓 {v["label"]} Hub — PYQ Mock & Drill →</a> · <a href="/papers">📜 Papers</a></p></div>'
+            for k, v in _goals.items())
+    except Exception:
+        _ehtml = '<div class="card"><p>Exams loading…</p></div>'
+    body = body.replace("__EXAMS__", _ehtml)
+    body = body.replace("__WINNERS__", _whtml)
+    try:
+        _nts = portal.list_notices(20)
+        _nhtml = "".join(
+            f'<div class="card" style="margin-bottom:10px;"><h3>📢 {_nt["title"]}</h3>'
+            f'<p>{_nt["body"]}</p><p style="margin-top:6px;"><span class="muted">{_nt["date"]}</span>'
+            + (f' · <a href="{_nt["link"]}" target="_blank" rel="noopener">Official link \u2197</a>' if _nt.get("link") else "") + "</p></div>"
+            for _nt in _nts) or '<div class="card"><p>No updates yet.</p></div>'
+    except Exception:
+        _nhtml = '<div class="card"><p>No updates yet.</p></div>'
+    body = (body.replace("__NOTICES__", _nhtml)
+            .replace("__BOT__", bot).replace("__CONTACT__", contact_line)
+                .replace("__AD_HOME__", _ad_slot("HOME"))
+                .replace("__AD_STUDY__", _ad_slot("STUDY")))
+    base = _public_base(handler)
+    canonical = (base + ("/" if page == "home" else "/" + page)) if base else ""
+    shell = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>__TITLE__</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0b1329">
+<meta name="description" content="StudentUp: free quiz polls, previous-year questions and browser-based college exams for AP & Telangana students (EAMCET, NEET, SSC, RRB, APPSC/TSPSC).">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"StudentUp","url":"https://studentup.in","description":"Free daily quiz, previous-year questions (PYQ), mock tests and live exams for AP & Telangana students.","potentialAction":{"@type":"SearchAction","target":"https://studentup.in/papers","query-input":"required name=query"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"StudentUp lo previous-year questions (PYQ) unnaya?","acceptedAnswer":{"@type":"Answer","text":"Avunu — bank lo real previous-year questions unnayi, prathi paper exam-wise sets ga attempt cheyyavachu, counts kuda open ga chupistam."}},{"@type":"Question","name":"StudentUp free aa?","acceptedAnswer":{"@type":"Answer","text":"Avunu, Daily Quiz, Mock Tests, Previous Papers, Live Exams anni free."}},{"@type":"Question","name":"Weekly Grand Test eppudu?","acceptedAnswer":{"@type":"Answer","text":"Prathi Sunday 10:00 AM — 40 questions, 60 minutes, PYQ-first paper, winners certificate tho."}}]}</script>
+__CANONICAL____ADSHEAD__
+<style>__CSS__</style>
+</head>
+<body>
+<div class="nav">
+  <span class="logo">🎓 StudentUp</span>
+  <a href="/">🏠 Home</a><a href="/study">📚 Study Guide</a><a href="/about">ℹ️ About</a>
+  <a href="/privacy">🔐 Privacy</a><a href="/blog">📰 Blog</a><a href="/materials">📚 Materials</a><a href="/updates">📢 Updates</a><a href="/winners">🏆 Winners</a><a href="/toppers">👑 Toppers</a><a href="/papers">📜 Papers</a><a href="/exams">🎓 Exams</a><a href="/contact">✉️ Contact</a>
+  <a class="login" href="/portal">🚀 Student Portal</a>
+  <a class="login" href="/login">🔑 Organiser Login</a>
+  <span>🎨 <button class="tchip" onclick="setSiteTheme('')">🌙</button> <button class="tchip" onclick="setSiteTheme('ocean')">🌊</button> <button class="tchip" onclick="setSiteTheme('sunset')">🌅</button> <button class="tchip" onclick="setSiteTheme('forest')">🌲</button> <button class="tchip" onclick="setSiteTheme('light')">☀️</button></span>
+</div>
+<div class="wrap">__BODY__</div>
+<script>
+function setSiteTheme(t) { document.body.className = t ? ('theme-' + t) : ''; localStorage.setItem('su_theme', t); }
+(function () { var t = localStorage.getItem('su_theme'); if (t) document.body.className = 'theme-' + t; })();
+setInterval(cdTick, 30000);
+if ('serviceWorker' in navigator) { try { navigator.serviceWorker.register('/sw.js'); } catch (e) {} }
+</script>
+<footer>
+  © StudentUp · Free study practice for AP &amp; Telangana students<br>
+  <a href="/about">About</a><a href="/privacy">Privacy Policy</a><a href="/terms">Terms</a><a href="/contact">Contact</a>
+</footer>
+</body>
+</html>"""
+    portal_url = config.env("PORTAL_BASE_URL", "").strip() or "/portal"
+    body = body.replace("__PORTAL__", portal_url)
+    return (shell.replace("__TITLE__", titles.get(page, titles["home"]))
+                 .replace("__CANONICAL__", f'<link rel="canonical" href="{canonical}">' if canonical else "")
+                 .replace("__ADSHEAD__", _adsense_head())
+                 .replace("__CSS__", _PUB_CSS)
+                 .replace("__BODY__", body))
+
+
+def robots_txt(handler):
+    base = _public_base(handler)
+    lines = ["User-agent: *", "Allow: /", "Disallow: /api/", "Disallow: /exam/"]
+    if base:
+        lines.append(f"Sitemap: {base}/sitemap.xml")
+    return "\n".join(lines) + "\n"
+
+
+def sitemap_xml(handler):
+    base = _public_base(handler)
+    urls = ["/", "/study", "/blog", "/materials", "/updates", "/winners",
+            "/toppers", "/papers", "/exams", "/about", "/privacy", "/terms",
+            "/contact"]
+    items = "".join(f"<url><loc>{base}{u}</loc></url>" for u in urls)
+    return ('<?xml version="1.0" encoding="UTF-8"?>'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+            + items + "</urlset>")
+
+
+def _bot_username():
+    """The bot students must land on: .env BOT_USERNAME → live getMe lookup
+    (cached 1h) → legacy fallback. QR/join links built with a wrong bot name
+    are the #1 on-site failure, so never guess silently."""
+    if getattr(config, "BOT_USERNAME", ""):
+        return config.BOT_USERNAME
+    if _BOT_USERNAME_CACHE["name"] and time.time() - _BOT_USERNAME_CACHE["ts"] < 3600:
+        return _BOT_USERNAME_CACHE["name"]
+    name = ""
+    try:
+        r = Telegram()._call("getMe", {}) or {}
+        name = (r.get("result") or {}).get("username", "") or ""
+    except Exception:
+        name = ""
+    if name:
+        _BOT_USERNAME_CACHE.update(name=name, ts=time.time())
+        try:
+            config.BOT_USERNAME = name
+        except Exception:
+            pass
+    return name or "StudentUpBot"
 
 PORT = int(config.env("DASHBOARD_PORT", "5000"))
 
@@ -148,6 +701,1710 @@ async function doLogin() {
 </body>
 </html>"""
 
+PORTAL_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StudentUp Portal — Daily Quiz & Mock Tests</title>
+<link rel="manifest" href="/manifest.json">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+  body { min-height: 100vh; background: radial-gradient(circle at 30% 10%, #12315e 0%, #050811 70%); color: #e2e8f0; padding: 16px 12px 50px; }
+  .wrap { max-width: 560px; margin: 0 auto; }
+  .brand { text-align: center; font-size: 22px; font-weight: 800; color: #f8fafc; margin: 6px 0 14px; }
+  .brand span { display: block; font-size: 11px; color: #38bdf8; font-weight: 600; letter-spacing: 1.5px; margin-top: 3px; }
+  .card { background: #0b1329; border: 1px solid #1e3a5f; border-radius: 16px; padding: 18px 16px; margin-bottom: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+  h2 { font-size: 17px; margin-bottom: 8px; }
+  h3 { font-size: 13.5px; color: #38bdf8; margin: 4px 0 8px; }
+  .muted { color: #94a3b8; font-size: 12.5px; line-height: 1.6; }
+  label { display: block; font-size: 12.5px; font-weight: 700; margin: 12px 0 5px; }
+  input, select { width: 100%; padding: 12px 14px; font-size: 16px; background: #050811; color: #f8fafc; border: 1px solid #1e3a5f; border-radius: 10px; outline: none; }
+  .btn-main { width: 100%; margin-top: 14px; padding: 14px; font-size: 15.5px; font-weight: 800; border: none; border-radius: 11px; background: linear-gradient(90deg, #10b981, #38bdf8); color: #04121f; cursor: pointer; }
+  .btn-alt { width: 100%; margin-top: 9px; padding: 11px; font-size: 14px; font-weight: 700; border: 1px solid #24466e; border-radius: 11px; background: #12233f; color: #e2e8f0; cursor: pointer; }
+  .err { color: #f87171; font-size: 13px; font-weight: 700; min-height: 18px; margin-top: 8px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .chip { background: #12233f; border: 1px solid #24466e; padding: 5px 11px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .chip.gold { border-color: #a16207; color: #facc15; }
+  .chip.weak { border-color: #7f1d1d; color: #fca5a5; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  .mockbtn { padding: 13px 8px; border-radius: 12px; border: 1.5px solid #24466e; background: #0f1e38; color: #e2e8f0; font-size: 13.5px; font-weight: 700; cursor: pointer; }
+  .mockbtn.mine { border-color: #10b981; }
+  .trow { display: flex; gap: 8px; align-items: center; padding: 7px 10px; background: #0f1e38; border-radius: 10px; margin-top: 6px; font-size: 13px; }
+  .trow b { flex: 1; }
+  .qte { font-size: 16.5px; font-weight: 700; line-height: 1.55; }
+  body.lang-te .qen { display: none; }
+  body.lang-en .qte { display: none; }
+  .qen { font-size: 14px; color: #a5c4e8; line-height: 1.55; margin-top: 5px; }
+  .opt { display: block; width: 100%; text-align: left; margin-top: 9px; padding: 13px 14px; font-size: 14.5px; font-weight: 600; background: #0f1e38; color: #e2e8f0; border: 1.5px solid #24466e; border-radius: 12px; cursor: pointer; }
+  .opt.picked { border-color: #38bdf8; background: #12315e; }
+  .opt.right { border-color: #10b981; }
+  .opt.wrong { border-color: #ef4444; }
+  .opt:disabled { opacity: .8; cursor: default; }
+  .feedback { min-height: 22px; margin-top: 11px; font-size: 13.5px; font-weight: 700; }
+  .score-big { font-size: 42px; font-weight: 800; text-align: center; color: #10b981; }
+  .rrow { padding: 9px 11px; border-radius: 10px; margin-top: 6px; font-size: 12.5px; line-height: 1.55; background: #0f1e38; }
+  .rrow.ok { border-left: 4px solid #10b981; } .rrow.bad { border-left: 4px solid #ef4444; }
+  .timer { color: #facc15; font-weight: 800; }
+  .tchip { padding: 6px 11px; border-radius: 999px; border: 1px solid #24466e; background: #12233f; color: #e2e8f0; font-size: 13px; cursor: pointer; }
+  .tchip.on { border-color: #10b981; color: #10b981; }
+  body.theme-ocean { background: radial-gradient(circle at 30% 10%, #065a60 0%, #02141a 70%); }
+  body.theme-ocean .card { background: #06222b; border-color: #0e4a56; }
+  body.theme-sunset { background: radial-gradient(circle at 30% 10%, #7c2d12 0%, #170a1e 70%); }
+  body.theme-sunset .card { background: #22102e; border-color: #572a63; }
+  body.theme-forest { background: radial-gradient(circle at 30% 10%, #14532d 0%, #04150a 70%); }
+  body.theme-forest .card { background: #0a2013; border-color: #1d4d2e; }
+  body.theme-light { background: #eef2f7; color: #16233a; }
+  body.theme-light .card { background: #ffffff; border-color: #c9d6e8; }
+  body.theme-light .brand, body.theme-light h2, body.theme-light .qte { color: #12233f; }
+  body.theme-light .muted { color: #5a6b84; }
+  body.theme-light input, body.theme-light select { background: #ffffff; color: #16233a; border-color: #b9c9de; }
+  body.theme-light .opt, body.theme-light .trow, body.theme-light .rrow { background: #f2f6fc; color: #16233a; border-color: #b9c9de; }
+  body.theme-light .chip { background: #e4edf8; border-color: #b9c9de; color: #26436b; }
+  body.theme-light .qen { color: #3c5a80; }
+  .tbar { height: 8px; background: #12233f; border-radius: 99px; overflow: hidden; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">🎓 StudentUp <span>DAILY QUIZ · MOCK TESTS · LEADERS</span></div>
+  <div class="row" style="justify-content:center; margin-bottom:12px;">
+    <span class="muted">🎨 Theme:</span>
+    <button class="tchip" data-th="" onclick="setTheme('')">🌙 Midnight</button>
+    <button class="tchip" data-th="ocean" onclick="setTheme('ocean')">🌊 Ocean</button>
+    <button class="tchip" data-th="sunset" onclick="setTheme('sunset')">🌅 Sunset</button>
+    <button class="tchip" data-th="forest" onclick="setTheme('forest')">🌲 Forest</button>
+    <button class="tchip" data-th="light" onclick="setTheme('light')">☀️ Light</button>
+  </div>
+
+  <!-- register -->
+  <div id="view-reg" class="card" style="display:none;">
+    <h2>👋 StudentUp loki welcome!</h2>
+    <p class="muted">Okka sari register avandi — Daily Quiz, Mock Tests, mee personal report & leaderboards anni ready. Data mee bot account tho kuda link avthundi.</p>
+    <label>🏆 Meeru Ae Exam Kosam Prepare Avthunnaru?</label>
+    <select id="r-goal"></select>
+    <label>Mee Peru (Full Name)</label>
+    <input id="r-name" placeholder="e.g. Priya Sharma" autocomplete="name">
+    <label>Mee District</label>
+    <select id="r-district"><option value="">— District select cheyyandi —</option></select>
+    <label>Mobile Number (WhatsApp)</label>
+    <input id="r-phone" inputmode="numeric" maxlength="13" placeholder="10-digit mobile" autocomplete="tel">
+    <button class="btn-main" onclick="doRegister()">🚀 Register & Start</button>
+    <div id="reg-err" class="err"></div>
+  </div>
+
+  <!-- home -->
+  <div id="view-home" style="display:none;">
+    <div class="card">
+      <h2 id="hello">👋</h2>
+      <div class="row" id="mychips"></div>
+      <div id="level-bar" style="margin-top:8px;"></div>
+      <div class="row" id="goal-chips" style="margin-top:9px;"></div>
+      <p class="muted" id="goal-stock" style="margin-top:6px;"></p>
+      <div id="bot-link-card" style="margin-top:10px;"></div>
+      <div class="row" style="margin-top:10px;">
+        <button class="btn-alt" style="flex:1;" onclick="logout()">↩️ Logout / Number Change</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <button class="btn-main" style="flex:1; font-size:17px; padding:16px;" onclick="scrollDoor('sec-exams')">🎓 Exams</button>
+        <button class="btn-main" style="flex:1; font-size:17px; padding:16px; background:linear-gradient(90deg,#0e7490,#06b6d4);" onclick="scrollDoor('sec-quiz')">📝 Quiz</button>
+      </div>
+      <p class="muted" style="margin-top:8px; text-align:center;">🎓 Exams = Live Exams · Weekly Test · Mock Tests &nbsp;|&nbsp; 📝 Quiz = Daily Quiz (anni exams PYQ-first!)</p>
+    </div>
+
+    <div class="card" id="install-card" style="display:none; border-color:#10b981;">
+      <h3>📲 StudentUp App Install Cheyyandi</h3>
+      <p class="muted">Home screen meeda app laaga untundi — Daily Quiz ki okka tap lo vellachu!</p>
+      <button class="btn-main" id="install-btn">📲 Install App</button>
+      <p class="muted" id="install-hint" style="margin-top:8px;"></p>
+    </div>
+
+    <div class="card" id="notice-card" style="display:none; border-color:#a16207;">
+      <h3>📢 Exam Updates</h3>
+      <div id="notices"></div>
+    </div>
+
+    <div class="card" id="sec-quiz">
+      <h3>📅 Today's Daily Quiz</h3>
+      <p class="muted" id="daily-info"></p>
+      <button class="btn-main" id="daily-btn" onclick="openQuiz()">▶️ Start Daily Quiz</button>
+    </div>
+
+    <div class="card" id="sec-exams">
+      <h3>🔴 Live &amp; Upcoming Exams</h3>
+      <div id="live-exams"></div>
+      <p class="muted">📚 Paper PYQ-first (real previous-year questions). Start time ki mundhe Join nokki ready ga undandi — Live avvagane rank board update avthune untundi!</p>
+    </div>
+
+    <div class="card">
+      <h3>🏆 Winners Wall</h3>
+      <div id="winners-wall"></div>
+    </div>
+
+    <div class="card">
+      <h3>👑 Toppers — Week · Month · Year</h3>
+      <div class="row">
+        <button class="tchip" id="tt-week" onclick="showToppers('week')">📅 Week</button>
+        <button class="tchip" id="tt-month" onclick="showToppers('month')">🗓️ Month</button>
+        <button class="tchip" id="tt-year" onclick="showToppers('year')">👑 Year</button>
+      </div>
+      <div id="toppers-list" style="margin-top:6px;"></div>
+    </div>
+
+    <div class="card">
+      <h3>🏙️ District League — mee district vs migatha districts</h3>
+      <div id="district-league"></div>
+    </div>
+
+    <div class="card">
+      <h3>📝 Mock Tests — mee exam select cheskondi</h3>
+      <p class="muted">Real exam pattern practice: 15 questions, timer tho. Ayyaka instant score + full answer review.</p>
+      <div class="grid" id="mock-grid"></div>
+    </div>
+
+    <div class="card">
+      <h3>🎯 Practice — weak topics meeda focus, pressure ledu</h3>
+      <p class="muted">Instant answers tho nerchukondi. Smart Practice mee weak topics + revision nunchi questions testhundi.</p>
+      <button class="btn-main" onclick="startPractice('smart')">🧠 Smart Practice</button>
+      <button class="btn-alt" id="rev-btn" onclick="startPractice('review')">🔁 Revision</button>
+      <div class="row" style="margin-top:9px; flex-wrap:wrap; gap:6px;">
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="startPractice('weak')">🎯 Weak Drill</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="startPractice('revenge')">😤 Revenge</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="startPractice('speed')">⚡ Speed 45s</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="startPractice('marathon')">🏃 Marathon 25</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="startPractice('bookmarks')">🔖 Saved</button>
+      </div>
+      <div class="row" style="margin-top:9px;">
+        <select id="topic-sel" style="flex:1;"></select>
+        <button class="btn-alt" style="width:auto; margin-top:0;" onclick="startPractice('topic')">Topic ▶</button>
+      </div>
+      <div class="row" style="margin-top:9px;">
+        <input id="search-q" type="text" placeholder="🔍 Question search (eg: photosynthesis, article 370)" style="flex:1;">
+        <button class="btn-alt" style="width:auto; margin-top:0;" onclick="searchPractice()">Search ▶</button>
+      </div>
+      <div class="row" style="margin-top:9px;">
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadDailyReview()">📅 Daily Review</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="resumeMock()">▶️ Resume Aapina Mock</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="downloadMyData()">📦 Naa Data Download</button>
+      </div>
+      <div class="row" style="margin-top:9px;">
+        <span class="muted">🏁 Real-exam negative marking tho mock:</span>
+        <select id="neg-sel" style="width:auto;">
+          <option value="0">No negative</option>
+          <option value="0.25">−0.25</option>
+          <option value="0.5">−0.5</option>
+          <option value="1">−1</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card" id="sprint-card" style="display:none; border-color:#f59e0b;"></div>
+
+    <div class="card">
+      <h3>🚀 Advanced Study Tools</h3>
+      <div id="countdown-card" style="margin-bottom:8px;"></div>
+      <div id="coach-card" style="margin-bottom:8px;"></div>
+      <div class="row" style="flex-wrap:wrap; gap:6px;">
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadSyllabus()">🗺️ Syllabus Tracker</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadPercentile()">📈 Naa Percentile</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadBookmarks()">🔖 Saved Questions</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="downloadWorksheet()">🖨️ Worksheet</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadStudyPlan()">📅 7-Day Plan</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadForecast()">🔮 Score Forecast</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadTrend()">📊 Naa Trend</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadTrends()">📈 PYQ Trends</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadGoalBoard()">🏆 Goal Board</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="downloadRevisionPack()">🎁 Revision Pack</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="startGrand()">🏛️ Grand Mock 50Q</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="startAdaptive()">🧠 Adaptive Mock</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="startBlueprint()">🧩 Blueprint Mock (Exam Pattern)</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="weeklyReport()">📲 Weekly Report</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="downloadMistakes()">📕 Mistake Notebook</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="showAllNotices()">📢 Anni Notices</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="seriesCert()">🏅 Series Certificate</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadSections()">🧩 Sections</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadPatterns()">📉 Mistakes</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadRetention()">🧠 Retention</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadRecords()">🏆 Records + Series</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadRival()">🥊 Rival Race</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="cycleLang()">🌐 Language</button>
+      </div>
+      <div id="series-chip" style="margin-top:7px;"></div>
+      <div id="challenge-card" style="margin-top:9px;"></div>
+      <div id="adv-out" style="margin-top:9px;"></div>
+    </div>
+
+    <div class="card" id="focus-card">
+      <h3>⏱️ Focus Timer — Deep Study</h3>
+      <p class="muted" id="focus-stats">Ee roju focus: 0 min · Ee week: 0 min</p>
+      <div id="focus-clock" style="font-size:34px; font-weight:800; text-align:center; margin:8px 0;">25:00</div>
+      <div class="row" style="justify-content:center; gap:6px;">
+        <button class="tchip" onclick="focusPreset(15)">15 min</button>
+        <button class="tchip" onclick="focusPreset(25)">25 min</button>
+        <button class="tchip" onclick="focusPreset(50)">50 min</button>
+      </div>
+      <div class="row" style="margin-top:9px;">
+        <button class="btn-main" style="flex:1;" id="focus-btn" onclick="focusToggle()">▶️ Start Focus</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="focusReset()">↺ Reset</button>
+      </div>
+      <p class="muted" style="margin-top:7px; text-align:center;">Timer complete aythe mee study minutes automatic ga log avthayi 📈</p>
+    </div>
+
+    <div class="card" id="goal-hub-card">
+      <h3>🎓 Exam-wise Quiz Hub</h3>
+      <div class="row" id="hub-chips" style="flex-wrap:wrap; gap:6px;"></div>
+      <div id="goal-hub" style="margin-top:9px;"><p class="muted">Meeru prepare ayye exam select cheyyandi — PYQ stock, repeat topics, mee best score, next step anni ikkade.</p></div>
+    </div>
+
+    <div class="card">
+      <h3>🧠 Student Brain 3.0</h3>
+      <div id="brain-card"></div>
+    </div>
+    <div class="card" id="sec-papers">
+      <h3>📜 Previous Papers (Real PYQ)</h3>
+      <div id="plan-card" style="margin-bottom:10px;"></div>
+      <div id="papers-list"><div class="muted">Loading papers…</div></div>
+    </div>
+
+    <div class="card">
+      <h3>🎯 Naa Personal Report</h3>
+      <div id="report"></div>
+      <div id="report-full" style="margin-top:10px;"></div>
+      <div class="row">
+        <button class="btn-alt" style="flex:1;" onclick="loadReport()">📊 Full Report Chudu</button>
+        <button class="btn-alt" style="flex:1;" id="wa-share">📲 Report WhatsApp ki</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🤝 Friends ni Invite Cheyyi — Points Pondi</h3>
+      <p class="muted">Mee link tho join ayina prati friend ki meeru <b>+50 points</b> bonus! Rank ki help avthundi.</p>
+      <div class="row" style="margin-top:8px;">
+        <input id="ref-link" readonly style="flex:1; font-size:13px;">
+        <button class="btn-main" style="width:auto; margin-top:0; padding:11px 14px;" onclick="copyRef()">📋 Copy</button>
+        <button class="btn-alt" style="width:auto; margin-top:0;" id="ref-share">📲 Share</button>
+      </div>
+      <div id="my-invites" class="muted" style="margin-top:8px;"></div>
+      <h3 style="margin-top:12px;">👥 Top Referrers</h3>
+      <div id="board-ref"></div>
+    </div>
+
+    <div class="card">
+      <h3>🏆 Daily Quiz Leaders (Today)</h3>
+      <div id="board-daily"></div>
+      <h3 style="margin-top:16px;">📝 Mock Test Leaders</h3>
+      <div id="board-mock"></div>
+      <h3 style="margin-top:16px;">👑 Yesterday's Winners</h3>
+      <div id="board-win"></div>
+    </div>
+
+    <div class="card">
+      <h3>📋 Naa Exams &amp; Answer Keys</h3>
+      <div id="history-list"></div>
+      <p class="muted" style="margin-top:8px;">📄 Key Paper = anni questions + mee answers (right ✅/wrong ❌) + correct answer + 💡 explanation. Okka saari download cheste phone lo save avthundi — History lo nunchi <b>eppudaina malli</b> download chesukovachu!</p>
+    </div>
+
+    <div class="card">
+      <h3>🏫 College Exam (Private)</h3>
+      <p class="muted">College exams ikkada list avavu — mee teacher ichhina code/link tho maatrame open avthayi (privacy kosam).</p>
+      <div class="row">
+        <input id="ccode" placeholder="Exam code e.g. CE-K7P2" style="flex:1; text-transform:uppercase;">
+        <button class="btn-main" style="width:auto; margin-top:0; padding:12px 18px;" onclick="var c=document.getElementById('ccode').value.trim().toUpperCase(); if(c) location.href='/exam/'+c;">Open</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- daily quiz -->
+  <div id="view-quiz" class="card" style="display:none;">
+    <div class="row"><span id="q-pos" class="chip"></span><span id="q-topic" class="chip"></span><span id="q-score" class="chip gold"></span></div>
+    <div id="q-te" class="qte" style="margin-top:12px;"></div>
+    <div id="q-en" class="qen"></div>
+    <div id="opts"></div>
+    <div id="q-fb" class="feedback"></div>
+    <div class="row"><button class="btn-alt" style="width:auto; margin:0;" onclick="speakCurrent('daily')">🔊 Listen</button></div>
+    <button class="btn-main" id="q-next" style="display:none;" onclick="nextQ()">Next ➡️</button>
+  </div>
+
+  <!-- practice -->
+  <div id="view-prc" class="card" style="display:none;">
+    <div class="row"><span id="p-pos" class="chip"></span><span id="p-topic" class="chip"></span><span id="p-score" class="chip gold"></span><button class="btn-alt" style="width:auto; margin-top:0; padding:5px 12px;" onclick="backHome()">🏠 Exit</button></div>
+    <div id="p-te" class="qte" style="margin-top:12px;"></div>
+    <div id="p-en" class="qen"></div>
+    <div id="p-opts"></div>
+    <div id="p-fb" class="feedback"></div>
+    <div class="row"><button class="btn-alt" style="width:auto; margin:0;" id="p-bm" onclick="bmCurrent()">🔖 Save Question</button><button class="btn-alt" style="width:auto; margin:0;" onclick="flagCurrent()">🚩 Wrong Question?</button><button class="btn-alt" style="width:auto; margin:0;" onclick="speakCurrent('prc')">🔊 Listen</button><button class="btn-alt" style="width:auto; margin:0;" onclick="loadTopicNotes()">📖 Topic Notes</button><span id="p-timer" class="chip" style="display:none;"></span></div>
+    <button class="btn-main" id="p-next" style="display:none;" onclick="nextPr()">Next ➡️</button>
+  </div>
+
+  <!-- mock -->
+  <div id="view-mock" class="card" style="display:none;">
+    <div class="row"><span id="m-title" class="chip"></span><span class="chip timer" id="m-timer"></span></div>
+    <div id="m-palette" style="display:flex; flex-wrap:wrap; gap:4px; margin:8px 0;"></div>
+    <div id="m-qs"></div>
+    <button class="btn-main" onclick="submitMock()">✅ Submit Mock Test</button>
+    <div id="m-err" class="err"></div>
+  </div>
+
+  <!-- live exam runner -->
+  <div id="view-exam" class="card" style="display:none;">
+    <div class="row"><span id="x-title" class="chip"></span><span class="chip timer" id="x-timer"></span><span id="x-prog" class="chip gold"></span></div>
+    <p class="muted" style="margin-top:8px;">⚠️ Live exam lo answers save avthayi kaani correct/wrong result ayye varaku teliyadu — real exam feel! Back vellina, refresh chesina answers safe.</p>
+    <div id="x-qs"></div>
+    <button class="btn-main" onclick="backHome()">✔️ Finish (Result exam ayyaka ikkade)</button>
+  </div>
+
+  <!-- mock result -->
+  <div id="view-result" class="card" style="display:none;">
+    <h2 style="text-align:center;">📝 Mock Result</h2>
+    <div class="score-big" id="res-score"></div>
+    <p class="muted" id="res-sub" style="text-align:center;"></p>
+    <h3>📋 Answer Review</h3>
+    <div id="res-review"></div>
+    <button class="btn-main" onclick="backHome()">🏠 Home ki vellu</button>
+  </div>
+</div>
+
+<script>
+let token = localStorage.getItem('su_portal') || '';
+let GOALS = {}, QUESTIONS = [], cur = 0, score = 0, MOCK = null, mockTimer = null;
+const esc = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+async function api(path, body) {
+  const opt = body ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)} : {};
+  const r = await fetch(path, opt); return await r.json();
+}
+function show(id) {
+  ['view-reg', 'view-home', 'view-quiz', 'view-mock', 'view-result', 'view-exam', 'view-prc'].forEach(v => {
+    const el = document.getElementById(v); if (el) el.style.display = (v === id ? 'block' : 'none');
+  });
+}
+function rows(list, emptyMsg) {
+  if (!list || !list.length) return '<div class="muted">' + emptyMsg + '</div>';
+  return list.map((t, i) => '<div class="trow"><span>' + (['🥇','🥈','🥉'][i] || (i + 1)) + '</span><b>' + esc(t.name) + '</b><span class="muted">' + esc(t.district || '') + '</span><span>✅ ' + t.correct + '/' + (t.total || 10) + ' · ⭐' + t.pts + '</span></div>').join('');
+}
+async function init() {
+  setTheme(localStorage.getItem('su_theme') || '');
+  try {
+    const wa = window.Telegram && window.Telegram.WebApp;
+    if (wa && wa.initData) {
+      wa.ready(); wa.expand();
+      const d = await api('/api/portal/tg_auth', {init_data: wa.initData});
+      if (d.ok && d.token) { token = d.token; localStorage.setItem('su_portal', token); }
+    }
+  } catch (e) {}
+  const _ref = new URLSearchParams(location.search).get('ref');
+  if (_ref) localStorage.setItem('su_ref', _ref.toUpperCase());
+  const _go = new URLSearchParams(location.search).get('go');
+  if (_go) localStorage.setItem('su_go', _go);
+  const _hg = new URLSearchParams(location.search).get('goal');
+  if (_hg) localStorage.setItem('su_hub_goal', _hg);
+  const meta = await api('/api/portal/meta');
+  GOALS = meta.goals || {};
+  const dg = document.getElementById('r-district');
+  (meta.districts || []).forEach(d => { const o = document.createElement('option'); o.value = d.name; o.textContent = d.name + ' (' + d.state + ')'; dg.appendChild(o); });
+  const ts = document.getElementById('topic-sel');
+  (meta.topics || []).forEach(t => { const o = document.createElement('option'); o.value = t; o.textContent = t; ts.appendChild(o); });
+  const gl = document.getElementById('r-goal');
+  Object.entries(GOALS).forEach(([k, v]) => { const o = document.createElement('option'); o.value = k; o.textContent = v; gl.appendChild(o); });
+  if (token) { loadHome(); } else { show('view-reg'); }
+}
+function copyRef() {
+  const el = document.getElementById('ref-link');
+  el.select(); navigator.clipboard.writeText(el.value).then(() => alert('✅ Link copied!'));
+}
+let _deferredInstall = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault(); _deferredInstall = e;
+  document.getElementById('install-card').style.display = 'block';
+});
+function qMeta(q) {
+  if (!q) return '';
+  let m = '🏷️ ' + (q.topic || '') + (q.level ? ' · ' + q.level : '');
+  if (q.source === 'pyq') m += ' · 📜 PYQ' + (q.exam ? ' · ' + q.exam : '') + (q.year ? ' ' + q.year : '');
+  return m;
+}
+function scrollDoor(id) {
+  const el = document.getElementById(id);
+  if (el) { el.scrollIntoView({behavior: 'smooth', block: 'start'}); el.style.borderColor = '#facc15'; setTimeout(() => el.style.borderColor = '', 1600); }
+}
+function _applyGo() {
+  const go = new URLSearchParams(location.search).get('go') || localStorage.getItem('su_go') || '';
+  if (!go) return;
+  localStorage.removeItem('su_go');
+  const map = {quiz: 'sec-quiz', smart: 'sec-quiz', exams: 'sec-exams', live: 'sec-exams', mocks: 'mock-grid', mock: 'mock-grid', papers: 'sec-papers', pyq: 'sec-papers', hub: 'goal-hub-card'};
+  setTimeout(() => {
+    scrollDoor(map[go] || 'sec-quiz');
+    if (go === 'hub') {
+      const hg = new URLSearchParams(location.search).get('goal') || localStorage.getItem('su_hub_goal') || '';
+      localStorage.removeItem('su_hub_goal');
+      if (hg) setTimeout(() => loadGoalHub(hg), 450);
+    }
+  }, 350);
+}
+async function setGoal(k) {
+  const d = await api('/api/portal/goal', {token, goal: k});
+  if (d.ok) loadHome(); else alert('❌ ' + (d.error || ''));
+}
+async function downloadKey(kind, ref) {
+  const d = await api('/api/portal/key?kind=' + encodeURIComponent(kind) + '&ref=' + encodeURIComponent(ref) + '&token=' + encodeURIComponent(token));
+  if (!d.ok) { alert('❌ ' + (d.error || 'Key dorakaledu')); return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([d.text], {type: 'text/plain;charset=utf-8'}));
+  a.download = d.filename || 'StudentUp-Key.txt'; a.click();
+}
+function renderHistory(list) {
+  document.getElementById('history-list').innerHTML = (list || []).length ? list.map(h =>
+    '<div class="trow"><span>' + (h.kind === 'exam' ? '🔴' : (h.kind === 'mock' ? '📝' : '📅')) + '</span><b style="flex:1;">' + esc(h.title) + '</b><span class="muted">' + esc(h.date || '') + '</span><span>✅ ' + h.correct + '/' + h.total + '</span>' +
+    (h.key ? '<button class="btn-alt" style="width:auto; margin-top:0; padding:6px 10px;" onclick="downloadKey(\'' + h.kind + '\',\'' + esc(h.ref) + '\')">⬇️ Key</button>'
+           : '<span class="chip">⏳ ' + esc(h.status || '') + '</span>') + '</div>').join('')
+    : '<div class="muted">Inka meeru exams rayaledu — Daily Quiz tho start cheyyandi, ikkada key papers ready avthayi!</div>';
+}
+async function loadReport() {
+  const d = await api('/api/portal/report?token=' + encodeURIComponent(token));
+  const box = document.getElementById('report-full');
+  if (!d.ok) { box.innerHTML = '<div class="muted">Report load avvaledu.</div>'; return; }
+  const bars = (d.topics || []).map(t =>
+    '<div style="margin-top:7px;"><div class="row"><span style="flex:1; font-size:12.5px;">' + esc(t.topic) + '</span><span class="chip">' + t.correct + '/' + t.total + ' · ' + t.accuracy + '%</span></div>' +
+    '<div class="tbar" style="margin:4px 0 0;"><div style="height:100%; width:' + t.accuracy + '%; background:' + (t.accuracy >= 60 ? '#10b981' : (t.accuracy >= 40 ? '#facc15' : '#ef4444')) + ';"></div></div></div>').join('');
+  const mocks = (d.mocks || []).map(m => '<div class="trow"><span>📝</span><b>' + esc(GOALS[m.goal] || m.goal) + '</b><span class="muted">' + esc(m.date) + '</span><span>✅ ' + m.correct + '/' + m.total + '</span></div>').join('');
+  const heat = (d.activity || []).map(a =>
+    '<span title="' + a.date + ' · ' + a.pts + ' pts" style="display:inline-block; width:15px; height:15px; margin:2px; border-radius:4px; background:' +
+    (a.pts >= 50 ? '#10b981' : (a.pts >= 20 ? '#34d399' : (a.pts > 0 ? '#065f46' : '#12233f'))) + '; border:1px solid #1e3a5f;"></span>').join('');
+  const exams = (d.exams || []).map(e => '<div class="trow"><span>🔴</span><b>' + esc(e.title) + '</b><span>✅ ' + e.correct + '/' + e.total + '</span></div>').join('');
+  box.innerHTML = (heat ? '<h3>📅 Last 28 Days Activity</h3><div style="margin:8px 0 4px;">' + heat + '</div><div class="muted" style="margin-bottom:10px;">Prati roju color square = aa roju earn chesina points. Gap leni streak = topper sign!</div>' : '') +
+    '<h3>📚 Topic-wise Performance</h3>' + (bars || '<div class="muted">Inka topic data ledu.</div>') +
+    (mocks ? '<h3 style="margin-top:12px;">📝 Recent Mocks</h3>' + mocks : '') +
+    (exams ? '<h3 style="margin-top:12px;">🔴 My Live Exams</h3>' + exams : '');
+}
+async function doRegister() {
+  const err = document.getElementById('reg-err'); err.textContent = '';
+  const d = await api('/api/portal/register', {
+    name: document.getElementById('r-name').value.trim(),
+    phone: document.getElementById('r-phone').value.trim(),
+    district: document.getElementById('r-district').value,
+    goal: document.getElementById('r-goal').value,
+    ref: localStorage.getItem('su_ref') || ''});
+  if (!d.ok) { err.textContent = '❌ ' + (d.error || 'Register avvaledu'); return; }
+  token = d.token; localStorage.setItem('su_portal', token);
+  loadHome();
+}
+function logout() { localStorage.removeItem('su_portal'); token = ''; show('view-reg'); }
+function setTheme(t) {
+  document.body.className = t ? ('theme-' + t) : '';
+  localStorage.setItem('su_theme', t);
+  document.querySelectorAll('.tchip[data-th]').forEach(b => b.classList.toggle('on', (b.dataset.th || '') === t));
+}
+let TOPP = {};
+function showToppers(period) {
+  ['week', 'month', 'year'].forEach(k => {
+    const el = document.getElementById('tt-' + k);
+    if (el) el.classList.toggle('on', k === period);
+  });
+  const list = (TOPP || {})[period] || [];
+  document.getElementById('toppers-list').innerHTML = list.length ? list.map((t, i) =>
+    '<div class="trow"><span>' + (['🥇','🥈','🥉'][i] || (i + 1)) + '</span><b>' + esc(t.name) + '</b><span class="muted">📍 ' + esc(t.district || '') + '</span><span>⭐ ' + t.pts + ' pts</span></div>').join('')
+    : '<div class="muted">Ee period lo inka points levu — practice chesi first topper avvandi! 🔥</div>';
+}
+async function loadHome() {
+  const d = await api('/api/portal/state?token=' + encodeURIComponent(token));
+  if (!d.ok) { logout(); return; }
+  const s = d.student; STATE = d;
+  document.getElementById('hello').textContent = '👋 ' + s.name;
+  document.getElementById('mychips').innerHTML =
+    '<span class="chip">🎯 ' + esc(GOALS[s.goal] || s.goal) + '</span>' +
+    '<span class="chip">📍 ' + esc(s.district) + '</span>' +
+    '<span class="chip gold">⭐ ' + s.points + ' pts</span>' +
+    (d.my_rank_today ? '<span class="chip">🏆 Today Rank #' + d.my_rank_today + '</span>' : '') +
+    (s.streak ? '<span class="chip">🔥 ' + s.streak + '-day streak</span>' : '') +
+    (s.badges || []).map(b => '<span class="chip gold">🏅 ' + esc(b) + '</span>').join('');
+  document.getElementById('goal-chips').innerHTML = '<span class="muted" style="font-size:12px;">🏆 Mee Exam:</span>' + Object.entries(d.goals || {}).map(([k, v]) =>
+    '<button class="tchip' + (k === s.goal ? ' on' : '') + '" onclick="setGoal(\'' + k + '\')">' + esc(v) + '</button>').join('') +
+    '<br><span class="muted" style="font-size:12px;">🎯 Also preparing (2nd goal):</span>' + Object.entries(d.goals || {}).map(([k, v]) =>
+    '<button class="tchip' + (d.goal2 && k === d.goal2.goal ? ' on' : '') + '" onclick="setGoal2(\'' + k + '\')">' + esc(v) + '</button>').join('');
+  const lv = s.level || {};
+  const lvEl = document.getElementById('level-bar');
+  if (lvEl && lv.title) lvEl.innerHTML = '<div style="font-size:12px;">' + (lv.icon || '') + ' <b>' + esc(lv.title) + '</b>' + (lv.next ? ' · Next level ki ' + lv.next + ' pts' : ' · 👑 Top level!') + '</div>' +
+    '<div style="height:8px; background:rgba(255,255,255,0.08); border-radius:4px; margin-top:4px;"><div style="height:8px; width:' + (lv.progress || 0) + '%; background:linear-gradient(90deg,#f59e0b,#34d399); border-radius:4px;"></div></div>';
+  loadBotLink();
+  const hubEl = document.getElementById('hub-chips');
+  if (hubEl) hubEl.innerHTML = Object.entries(d.goals || {}).map(([k, v]) =>
+    '<button class="tchip" onclick="loadGoalHub(\'' + k + '\')">' + esc(v) + '</button>').join('');
+  if (d.focus) {
+    const fst = document.getElementById('focus-stats');
+    if (fst) fst.textContent = 'Ee roju focus: ' + d.focus.today_min + ' min · Ee week: ' + d.focus.week_min + ' min';
+  }
+  const st = (d.stock || {})[s.goal] || {};
+  document.getElementById('goal-stock').textContent = '📚 Mee exam bank lo ' + (st.pyq || 0) + ' real previous-year (PYQ) questions + ' + (st.total || 0) + ' practice questions ready ga unnayi — backend lo scraping continue avthundi!';
+  renderHistory(d.history || []);
+  const nts = d.notices || [];
+  document.getElementById('notice-card').style.display = nts.length ? 'block' : 'none';
+  document.getElementById('notices').innerHTML = nts.map(n =>
+    '<div style="margin-bottom:9px;"><b>' + esc(n.title) + '</b><div class="muted">' + esc(n.body) + '</div>' +
+    (n.link ? '<a href="' + esc(n.link) + '" target="_blank" rel="noopener" style="font-size:12.5px;">Official link ↗</a>' : '') + '</div>').join('');
+  document.getElementById('rev-btn').textContent = '🔁 Revision' + (s.review_due ? ' (' + s.review_due + ' due)' : '');
+  const di = document.getElementById('daily-info'), db = document.getElementById('daily-btn');
+  if (d.daily.done) { di.textContent = '✅ Ee roju quiz complete! Score: ' + d.daily.correct + '/' + d.daily.n + ' — repu malli randi.'; db.style.display = 'none'; }
+  else { di.textContent = d.daily.n + ' questions · 📜 ' + (d.daily.pyq_count || 0) + ' real PYQ (previous-year) questions ee paper lo · andari ki okkate paper.'; db.textContent = d.daily.answered ? '▶️ Continue Quiz (' + d.daily.answered + '/' + d.daily.n + ')' : '▶️ Start Daily Quiz'; db.style.display = 'block'; }
+  document.getElementById('mock-grid').innerHTML = Object.entries(GOALS).map(([k, v]) => {
+    const gst = (d.stock || {})[k] || {};
+    return '<button class="mockbtn' + (k === s.goal ? ' mine' : '') + '" onclick="startMock(\'' + k + '\')">' + esc(v) + '<br><span class="muted">15 Qs · Mock · 📜 ' + (gst.pyq || 0) + ' PYQ bank lo</span></button>';
+  }).join('');
+  const weak = (s.weak_topics || []).map(w => '<span class="chip weak">⚠️ ' + esc(w.topic) + ' · ' + w.accuracy + '%</span>').join('');
+  document.getElementById('report').innerHTML =
+    '<div class="row"><span class="chip">✅ Accuracy ' + s.accuracy + '%</span><span class="chip">✍️ ' + s.answered + ' answered</span><span class="chip gold">⭐ ' + s.points + ' pts</span></div>' +
+    (weak ? '<div style="margin-top:9px;"><span class="muted">Mee weak topics — ivvi ekkuva practice cheyyandi:</span><div class="row" style="margin-top:6px;">' + weak + '</div></div>'
+          : '<p class="muted" style="margin-top:8px;">Inka data ledu — Daily Quiz & Mocks raasthe mee weak topics ikkada kanipisthayi, personal ga improve avutharu.</p>');
+  const BN = d.brain;
+  const brainEl = document.getElementById('brain-card');
+  if (brainEl) {
+    if (BN && BN.answers > 0) {
+      const comp = BN.components || {};
+      const bar = (label, v) => '<div style="margin:3px 0;"><span class="muted">' + label + '</span><div style="background:rgba(255,255,255,.08); border-radius:6px; height:8px;"><div style="width:' + Math.min(100, v * 4) + '%; height:8px; border-radius:6px; background:linear-gradient(90deg,#38bdf8,#a78bfa);"></div></div></div>';
+      brainEl.innerHTML = '<b>' + esc(BN.band) + '</b> · Ability θ ' + BN.theta + ' · Target level: ' + esc(BN.target_level || '') +
+        '<div style="margin-top:6px;"><span style="font-size:27px; font-weight:800;">' + BN.score + '%</span> <span class="muted">Exam Readiness</span></div>' +
+        bar('Ability', comp.ability || 0) + bar('Coverage', comp.coverage || 0) + bar('Practice', comp.volume || 0) + bar('Streak', comp.streak || 0) +
+        (BN.weak_topics && BN.weak_topics.length ? '<div style="margin-top:6px;" class="muted">Focus topics: ' + BN.weak_topics.map(esc).join(', ') + '</div>' : '') +
+        '<button class="btn-alt" style="width:auto; margin-top:9px;" onclick="startPractice(\'smart\')">🧠 Smart Practice (mee level)</button>' +
+        (BN.reviews_due ? ' <span class="chip">🔁 ' + BN.reviews_due + ' revision due</span>' : '');
+    } else {
+      brainEl.innerHTML = '<div class="muted">Daily Quiz / Practice start cheyyandi — mee ability (θ), exam readiness, level-wise smart practice ikkada kanipistundi.</div><button class="btn-alt" style="width:auto; margin-top:8px;" onclick="startPractice(\'smart\')">🧠 Smart Practice Start</button>';
+    }
+  }
+  const ib = document.getElementById('install-btn');
+  if (ib) ib.onclick = async () => {
+    if (_deferredInstall) { _deferredInstall.prompt(); await _deferredInstall.userChoice; _deferredInstall = null; document.getElementById('install-card').style.display = 'none'; }
+  };
+  if (/iphone|ipad/i.test(navigator.userAgent) && !window.navigator.standalone) {
+    document.getElementById('install-card').style.display = 'block';
+    document.getElementById('install-hint').textContent = 'iPhone: Share button ⬆️ → "Add to Home Screen" nokkandi.';
+    ib.style.display = 'none';
+  }
+  const rl = location.origin + '/portal?ref=' + (s.ref_code || '');
+  document.getElementById('ref-link').value = rl;
+  document.getElementById('my-invites').textContent = '👥 Meeru invite chesina friends: ' + (s.referrals || 0) + ' · Bonus earned: ⭐ ' + ((s.referrals || 0) * 50);
+  document.getElementById('ref-share').onclick = () => window.open('https://wa.me/?text=' + encodeURIComponent('🎓 StudentUp lo Daily Quiz + Mocks FREE! Na link tho join avvu: ' + rl), '_blank');
+  document.getElementById('board-ref').innerHTML = rows(d.top_referrers, 'Inka referrals levu — first invite meere cheyyandi!');
+  const rtext = '🎓 ' + s.name + ' — naa StudentUp Report\n⭐ Points: ' + s.points + ' · 🔥 Streak: ' + (s.streak || 0) + ' days\n🎯 Accuracy: ' + s.accuracy + '%\n' +
+    ((s.weak_topics || []).length ? '⚠️ Weak topics: ' + s.weak_topics.map(w => w.topic + ' ' + w.accuracy + '%').join(', ') + '\n' : '') +
+    '📝 Daily Quiz ikkade: ' + location.origin + '/portal';
+  document.getElementById('wa-share').onclick = () => window.open('https://wa.me/?text=' + encodeURIComponent(rtext), '_blank');
+  const dl = d.district_league || {rows: []};
+  document.getElementById('district-league').innerHTML =
+    (dl.my_rank ? '<div class="muted" style="margin-bottom:6px;">Mee district <b>' + esc(dl.my_district) + '</b> rank <b>#' + dl.my_rank + '</b> / ' + dl.districts + ' districts 🏙️</div>' : '') +
+    (dl.rows || []).map((t, i) => '<div class="trow"><span>' + (['🥇','🥈','🥉'][i] || (i + 1)) + '</span><b>' + esc(t.name) + '</b><span class="muted">👥 ' + t.students + ' students</span><span>⭐ ' + t.pts + ' pts</span></div>').join('') || '<div class="muted">Inka district data ledu — points earn cheste league start avthundi!</div>';
+  TOPP = d.toppers || {};
+  showToppers('week');
+  document.getElementById('board-daily').innerHTML = rows(d.daily_board, 'Inka evaru ee roju quiz complete cheyyaledu — meeru first avandi! 🔥');
+  document.getElementById('board-mock').innerHTML = rows(d.mock_board, 'Inka mock leaders leru — okka mock raasi board meeda vacheyyandi!');
+  document.getElementById('board-win').innerHTML = rows(d.yesterday_winners, 'Ninna winners inka leru.');
+  renderPlan(d.today_plan); renderPapers(d.papers || [], d.paper_progress || {});
+  renderCountdown(d.countdown); loadCoach(); loadChallenge(); applyLang();
+  const sprintEl = document.getElementById('sprint-card');
+  if (sprintEl) {
+    if (d.sprint && d.sprint.active) {
+      sprintEl.innerHTML = '<b>🔥 SPRINT MODE</b> <span class="chip gold">' + d.sprint.days + ' rojulu</span><div>' + esc(d.sprint.text) + '</div>' + (d.sprint.tasks || []).map(t => '<div>• ' + esc(t) + '</div>').join('');
+      sprintEl.style.display = 'block';
+    } else sprintEl.style.display = 'none';
+  }
+  api('/api/portal/records?token=' + encodeURIComponent(token)).then(rd => {
+    const sc = document.getElementById('series-chip');
+    if (sc && rd.ok && rd.series) sc.innerHTML = '<span class="muted">📚 Test Series: ' + (rd.series.attempted || 0) + '/' + (rd.series.target || 10) + ' ayyayi — Test #' + (rd.series.next_no || 1) + ' ready!</span>';
+  });
+  renderLiveExams(d.live_exams || []); cdTick();
+  document.getElementById('winners-wall').innerHTML = (d.winners_wall || []).map(w =>
+    '<div style="margin-top:8px;"><b style="font-size:13px;">' + esc(w.title) + '</b>' + rows(w.winners, '') + '</div>').join('') || '<div class="muted">Inka winners leru — Weekly Grand Test (Sunday 10 AM) first!</div>';
+  show('view-home');
+  _applyGo();
+}
+function backHome() { clearInterval(mockTimer); clearInterval(rankTimer); clearInterval(exTimer); loadHome(); }
+async function openQuiz() {
+  const d = await api('/api/portal/quiz?token=' + encodeURIComponent(token));
+  if (!d.ok) { logout(); return; }
+  QUESTIONS = d.questions || []; score = 0;
+  cur = QUESTIONS.findIndex(q => !q.answered);
+  if (cur < 0) { loadHome(); return; }
+  show('view-quiz'); renderQ();
+}
+function renderQ() {
+  const q = QUESTIONS[cur];
+  document.getElementById('q-pos').textContent = 'Q ' + (cur + 1) + '/' + QUESTIONS.length;
+  document.getElementById('q-topic').textContent = qMeta(q);
+  document.getElementById('q-score').textContent = '✅ ' + score;
+  document.getElementById('q-te').textContent = q.te || '';
+  document.getElementById('q-en').textContent = q.en || '';
+  document.getElementById('q-fb').textContent = '';
+  document.getElementById('q-next').style.display = 'none';
+  const box = document.getElementById('opts'); box.innerHTML = '';
+  q.options.forEach((opt, i) => {
+    const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+    b.onclick = () => ansDaily(i, b); box.appendChild(b);
+  });
+}
+async function ansDaily(i, btn) {
+  document.querySelectorAll('#opts .opt').forEach(b => { b.disabled = true; });
+  btn.classList.add('picked');
+  const d = await api('/api/portal/answer', {token, idx: cur, choice: i});
+  const fb = document.getElementById('q-fb');
+  if (!d.ok) { fb.textContent = d.error || ''; return; }
+  if (d.correct) { score = d.score; fb.innerHTML = '✅ Correct! ' + (d.explanation ? '<span class="muted">' + esc(d.explanation) + '</span>' : ''); }
+  else { fb.innerHTML = '❌ Wrong. Correct: <b>' + esc(d.answer_text) + '</b>' + (d.explanation ? '<br><span class="muted">' + esc(d.explanation) + '</span>' : ''); }
+  document.getElementById('q-score').textContent = '✅ ' + (d.score || score);
+  if (d.done) { fb.innerHTML += '<br>🎉 Daily Quiz complete! Home lo rank chudandi.'; document.getElementById('q-next').textContent = '🏠 Home'; }
+  document.getElementById('q-next').style.display = 'block';
+}
+function nextQ() {
+  if (cur + 1 >= QUESTIONS.length) { loadHome(); return; }
+  cur++; renderQ();
+}
+function renderPlan(plan) {
+  const el = document.getElementById('plan-card');
+  if (!el) return;
+  if (!plan) { el.innerHTML = ''; return; }
+  const rows = (plan.tasks || []).map(t =>
+    '<div style="display:flex; gap:8px; align-items:center; margin:4px 0;"><span>' + (t.done ? '✅' : '⬜') + '</span><span>' + t.icon + ' <b>' + esc(t.label) + '</b>' + (t.count ? ' (' + t.count + ')' : '') + '</span><span class="muted">' + esc(t.hint || '') + '</span></div>').join('');
+  el.innerHTML = '<b>🧭 Today\'s Smart Plan</b> <span class="chip">' + plan.done_count + '/' + plan.total + ' done</span>' +
+    (plan.readiness != null ? ' <span class="chip gold">Readiness ' + plan.readiness + '%</span>' : '') + rows;
+}
+let PAPER_PROG = {};
+function renderPapers(papers, progress) {
+  const el = document.getElementById('papers-list');
+  if (!el) return;
+  PAPER_PROG = progress || PAPER_PROG || {};
+  if (!papers.length) { el.innerHTML = '<div class="muted">Inka real PYQ papers load avuthunnayi — Daily Quiz lo daily ga vastundi, harvest prathi roju papers penchuthundi.</div>'; return; }
+  el.innerHTML = papers.map(pp => {
+    const pg = PAPER_PROG[pp.label] || {};
+    const badge = pg.attempts ? ' <span class="chip gold">Best ' + pg.best + '/' + (pg.total || pp.count) + ' · ' + pg.attempts + '× rayaru</span>' : '';
+    const topics = (pp.topics || []).length ? '<br><span class="muted">🏷️ ' + esc(pp.topics.join(', ')) + '</span>' : '';
+    const size = pp.size === 'mini' ? ' <span class="chip">Mini set</span>' : '';
+    return '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin:6px 0; padding:8px 10px; background:rgba(56,189,248,0.07); border-radius:9px;"><span>📜 <b>' + esc(pp.label) + '</b> <span class="muted">' + pp.count + ' questions</span>' + size + badge + topics + '</span>' +
+    '<button class="btn-alt" style="width:auto; margin:0;" onclick="startPaper(\'' + esc(pp.exam) + '\',\'' + esc(pp.year || '') + '\',\'' + esc(pp.paper || '') + '\')">' + (pg.attempts ? '↻ Malli' : 'Start ▶') + '</button></div>';
+  }).join('') +
+    '<div class="muted" style="margin-top:6px;">Full paper = timer test. Submit taruvatha score + answer key + review vastundi.</div>';
+}
+function renderCountdown(cd) {
+  const el = document.getElementById('countdown-card');
+  if (!el) return;
+  if (!cd || !cd.mine) { el.innerHTML = ''; return; }
+  const m = cd.mine;
+  el.innerHTML = '<b>⏳ Exam Countdown</b> <span class="chip gold">' + esc(m.label) + '</span> ' +
+    '<span style="font-size:15px;"><b>' + m.days + ' rojulu</b> unnayi · ' + esc(m.date) + ' · ' + esc(m.phase) + '</span>';
+}
+async function loadCoach() {
+  const el = document.getElementById('coach-card');
+  if (!el) return;
+  const d = await api('/api/portal/coach?token=' + encodeURIComponent(token));
+  if (!d.ok) { el.innerHTML = ''; return; }
+  el.innerHTML = '<b>🧑‍🏫 Personal Coach — Today</b>' +
+    (d.readiness != null ? ' <span class="chip gold">Readiness ' + d.readiness + '%</span>' : '') +
+    (d.steps || []).map(s => '<div style="margin:4px 0;">' + s.icon + ' ' + esc(s.text) + '</div>').join('');
+}
+async function loadSyllabus() {
+  const out = document.getElementById('adv-out');
+  out.innerHTML = '<div class="muted">Loading syllabus…</div>';
+  const d = await api('/api/portal/syllabus?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || 'Syllabus ready ledu') + '</div>'; return; }
+  out.innerHTML = '<b>🗺️ ' + esc(d.exam || 'Syllabus') + '</b> <span class="chip gold">Coverage ' + d.coverage + '%</span> <span class="muted">' + d.topics_done + '/' + d.topics_total + ' topics</span>' +
+    (d.subjects || []).map(s => '<div style="display:flex; justify-content:space-between; margin:4px 0;"><span>' + esc(s.subject) + ' <span class="muted">(' + s.done_topics + '/' + s.topics + ' topics)</span></span><span>' + esc(s.status) + (s.mastery != null ? ' · ' + Math.round(s.mastery * 100) + '%' : '') + '</span></div>').join('');
+}
+async function loadPercentile() {
+  const out = document.getElementById('adv-out');
+  const d = await api('/api/portal/percentile?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  out.innerHTML = d.percentile == null
+    ? '<div class="muted">📈 ' + esc(d.note || 'Inka data ledu') + '</div>'
+    : '<b>📈 Goal Percentile</b> <span class="chip gold">Top ' + (100 - d.percentile) + '%</span><div class="muted">Rank #' + d.rank + ' / ' + d.students + ' students · Mee best: ' + d.my_best + ' · Top score: ' + d.top + ' (honest estimate — mock scores nunchi)</div>';
+}
+async function loadBookmarks() {
+  const out = document.getElementById('adv-out');
+  const d = await api('/api/portal/bookmarks?token=' + encodeURIComponent(token));
+  const bm = d.bookmarks || [];
+  out.innerHTML = '<b>🔖 Saved Questions (' + bm.length + ')</b>' + (bm.length ? '' : '<div class="muted">Inka em save cheyyaledu — practice lo 🔖 nokkandi.</div>') +
+    bm.slice(0, 10).map(q => '<div class="rrow"><b>' + esc(q.topic || '') + '</b> ' + esc(q.q_en || q.q_te || '') + '<br><button class="btn-alt" style="width:auto; margin-top:4px;" onclick="toggleBookmark(\'' + esc(q.id) + '\')">✖ Remove</button></div>').join('');
+}
+async function toggleBookmark(qid) {
+  const d = await api('/api/portal/bookmark', {token, qid});
+  if (d.ok) loadBookmarks();
+}
+async function searchPractice() {
+  const q = (document.getElementById('search-q').value || '').trim();
+  if (q.length < 3) { alert('Kammi 3 letters ivvandi'); return; }
+  const d = await api('/api/portal/search', {token, q});
+  if (!d.ok) { alert('❌ ' + (d.error || 'Search avvaledu')); return; }
+  PR = {run_id: d.run_id, questions: d.questions || [], cur: 0, score: 0, per_q: 0};
+  show('view-prc'); renderPr();
+}
+async function loadDailyReview() {
+  const out = document.getElementById('adv-out');
+  const d = await api('/api/portal/daily_review?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  out.innerHTML = '<b>📅 Daily Review</b> <span class="chip">' + (d.correct || 0) + ' correct</span>' +
+    (d.rows || []).map(r => '<div class="rrow ' + (r.right ? 'ok' : 'bad') + '"><b>Q' + (r.i + 1) + '.</b> ' + esc(r.en || r.te || '') +
+      '<br><span class="muted">Meeru: ' + esc(r.given_text) + (r.right ? ' ✅' : ' ❌ · Correct: ' + esc(r.answer_text)) + '</span>' +
+      (r.explanation ? '<br><span class="muted">💡 ' + esc(r.explanation) + '</span>' : '') + '</div>').join('');
+}
+async function resumeMock() {
+  const d = await api('/api/portal/resume?token=' + encodeURIComponent(token));
+  if (!d.ok || !d.mock) { alert('Resume cheyyadaniki aapina mock ledu'); return; }
+  MOCK = {run_id: d.mock.run_id, answers: {}, t0: Date.now(), times: {}};
+  document.getElementById('m-title').textContent = '▶️ Resume: ' + d.mock.label;
+  const box = document.getElementById('m-qs'); box.innerHTML = '';
+  d.mock.questions.forEach((q) => {
+    const div = document.createElement('div'); div.id = 'mq' + q.i;
+    div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
+    q.options.forEach((opt, oi) => {
+      const b = document.createElement('button'); b.className = 'opt' + ((d.mock.answers || {})[q.i] === oi ? ' picked' : ''); b.textContent = opt;
+      if ((d.mock.answers || {})[q.i] === oi) MOCK.times = MOCK.times || {}; if (MOCK.times[q.i] == null) MOCK.times[q.i] = Math.round((Date.now() - (MOCK.t0 || Date.now())) / 1000); MOCK.answers[q.i] = oi;
+      b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.times = MOCK.times || {}; if (MOCK.times[q.i] == null) MOCK.times[q.i] = Math.round((Date.now() - (MOCK.t0 || Date.now())) / 1000); MOCK.answers[q.i] = oi; markPalette(q.i); };
+      div.appendChild(b);
+    });
+    box.appendChild(div);
+  });
+  show('view-mock');
+  alert('▶️ ' + d.mock.answered + ' answers restore ayyayi — migithavi complete cheyyandi!');
+}
+async function downloadMyData() {
+  const d = await api('/api/portal/mydata?token=' + encodeURIComponent(token));
+  if (!d.ok || !d.text) { alert('❌ ' + (d.error || '')); return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([d.text], {type: 'application/json;charset=utf-8'}));
+  a.download = d.filename || 'StudentUp-MyData.json'; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+async function startBlueprint() {
+  const goal = (STATE && STATE.student && STATE.student.goal) || 'mixed';
+  const negEl = document.getElementById('neg-sel');
+  const neg = negEl ? parseFloat(negEl.value || '0') : 0;
+  const d = await api('/api/portal/mock/start', {token, goal, neg, kind: 'blueprint'});
+  if (!d.ok) { alert('❌ ' + (d.error || 'Blueprint Mock start avvaledu')); return; }
+  MOCK = d; MOCK.t0 = Date.now(); MOCK.times = {};
+  document.getElementById('m-title').textContent = '🧩 ' + d.label;
+  renderMockRun(d);
+}
+async function loadTopicNotes() {
+  const q = PR && PR.questions[PR.cur];
+  const topic = q ? (q.topic || '') : '';
+  const d = await api('/api/portal/notes?topic=' + encodeURIComponent(topic) + '&token=' + encodeURIComponent(token));
+  const fb = document.getElementById('p-fb');
+  if (!d.ok) { fb.textContent = '❌ ' + (d.error || ''); return; }
+  fb.innerHTML = (d.notes || []).length ? (d.notes || []).map(n =>
+    '<div style="margin-top:7px; padding:8px 10px; background:#0f1e38; border:1px solid #24466e; border-radius:9px;"><b>📖 ' + esc(n.topic || '') + '</b><div style="margin-top:4px;">' + esc(n.en || '') + '</div>' +
+    (n.te ? '<div class="muted" style="margin-top:4px;">' + esc(n.te) + '</div>' : '') + '</div>').join('')
+    : '<div class="muted">Ee topic ki notes levu.</div>';
+}
+document.addEventListener('keydown', (e) => {
+  // ⌨️ 100X keyboard shortcuts: 1-4 answer, N/Enter next (practice/quiz)
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) return;
+  const prc = document.getElementById('view-prc');
+  const quiz = document.getElementById('view-quiz');
+  const inPrc = prc && prc.style.display !== 'none';
+  const inQuiz = quiz && quiz.style.display !== 'none';
+  if (!inPrc && !inQuiz) return;
+  const box = document.getElementById(inPrc ? 'p-opts' : 'opts');
+  if (['1', '2', '3', '4'].includes(e.key) && box) {
+    const b = box.children[parseInt(e.key, 10) - 1];
+    if (b && !b.disabled) b.click();
+  } else if ((e.key === 'n' || e.key === 'N' || e.key === 'Enter')) {
+    const nb = document.getElementById(inPrc ? 'p-next' : 'q-next');
+    if (nb && nb.style.display !== 'none') nb.click();
+  }
+});
+async function loadBotLink() {
+  const el = document.getElementById('bot-link-card');
+  if (!el || !token) return;
+  try {
+    const d = await api('/api/portal/bot_link?token=' + encodeURIComponent(token));
+    if (!d.ok) { el.innerHTML = ''; return; }
+    if (d.linked) {
+      el.innerHTML = '<div class="muted" style="font-size:12.5px;">🤖 Telegram Bot: <b style="color:#34d399;">✅ Linked</b> — bot lopala portal one-tap login!<br>⌨️ Bot commands: /portal · /today · /top · /unlink</div>' +
+        (d.bot ? '<a href="https://t.me/' + esc(d.bot) + '" target="_blank" rel="noopener"><button class="btn-alt" style="width:100%; margin-top:6px;">🤖 Bot Open Chey</button></a>' : '');
+    } else {
+      el.innerHTML = '<button class="btn-alt" style="width:100%;" onclick="linkBot()">🤖 Telegram Bot tho Link Chey (one-tap login)</button>';
+    }
+  } catch (e) { el.innerHTML = ''; }
+}
+async function linkBot() {
+  const d = await api('/api/portal/tg_link', {token});
+  if (!d.ok) { alert(d.error || 'Try again'); return; }
+  if (!d.bot) { alert('Bot inka configure cheyyaledu — koddi sepatilo try cheyyandi.'); return; }
+  window.open('https://t.me/' + d.bot + '?start=' + d.param, '_blank');
+}
+function speakCurrent(which) {
+  try {
+    const q = which === 'prc' ? (PR && PR.questions[PR.cur]) : QUESTIONS[cur];
+    if (!q || !window.speechSynthesis) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance((q.te || '') + '. ' + (q.en || ''));
+    u.lang = q.te ? 'te-IN' : 'en-IN';
+    u.rate = 0.95;
+    speechSynthesis.speak(u);
+  } catch (e) { /* device support lekapothe silent */ }
+}
+async function startAdaptive() {
+  const goal = (STATE && STATE.student && STATE.student.goal) || 'mixed';
+  const negEl = document.getElementById('neg-sel');
+  const neg = negEl ? parseFloat(negEl.value || '0') : 0;
+  const d = await api('/api/portal/mock/start', {token, goal, neg, kind: 'adaptive'});
+  if (!d.ok) { alert('❌ ' + (d.error || 'Adaptive Mock start avvaledu')); return; }
+  MOCK = d; MOCK.t0 = Date.now(); MOCK.times = {};
+  document.getElementById('m-title').textContent = '🧠 ' + d.label;
+  renderMockRun(d);
+}
+function renderMockRun(d) {
+  const box = document.getElementById('m-qs'); box.innerHTML = '';
+  renderPalette(d.questions);
+  d.questions.forEach((q) => {
+    const div = document.createElement('div'); div.id = 'mq' + q.i;
+    div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
+    q.options.forEach((opt, oi) => {
+      const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+      b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.times = MOCK.times || {}; if (MOCK.times[q.i] == null) MOCK.times[q.i] = Math.round((Date.now() - (MOCK.t0 || Date.now())) / 1000); MOCK.answers[q.i] = oi; markPalette(q.i); };
+      div.appendChild(b);
+    });
+    box.appendChild(div);
+  });
+  renderPalette(d.questions);
+  show('view-mock');
+  let left = (d.minutes || 15) * 60;
+  const tEl = document.getElementById('m-timer');
+  clearInterval(mockTimer);
+  mockTimer = setInterval(() => {
+    left--; tEl.textContent = '⏱ ' + Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
+    if (left <= 0) { clearInterval(mockTimer); submitMock(); }
+  }, 1000);
+}
+function renderPalette(questions) {
+  let pal = document.getElementById('m-palette');
+  if (!pal) return;
+  pal.innerHTML = (questions || []).map(q =>
+    '<button class="tchip" id="pal' + q.i + '" style="min-width:30px;" onclick="jumpQ(' + q.i + ')">' + (q.i + 1) + '</button>').join('');
+}
+function markPalette(i) {
+  const el = document.getElementById('pal' + i);
+  if (el) el.classList.add('on');
+}
+function jumpQ(i) {
+  const el = document.getElementById('mq' + i);
+  if (el) el.scrollIntoView({behavior: 'smooth', block: 'center'});
+}
+async function weeklyReport() {
+  const d = await api('/api/portal/weekly_report?token=' + encodeURIComponent(token));
+  if (!d.ok || !d.text) { alert('❌ ' + (d.error || '')); return; }
+  window.open('https://wa.me/?text=' + encodeURIComponent(d.text), '_blank');
+}
+function seriesCert() {
+  window.open('/api/portal/series/certificate?token=' + encodeURIComponent(token), '_blank');
+}
+async function setGoal2(g) {
+  const d = await api('/api/portal/goal2', {token, goal: g});
+  if (d.ok) { alert('🎯 Second goal: ' + (d.label || 'cleared')); loadState(); }
+}
+async function downloadMistakes() {
+  const d = await api('/api/portal/mistakes?token=' + encodeURIComponent(token));
+  if (!d.ok || !d.text) { alert('❌ ' + (d.error || '')); return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([d.text], {type: 'text/plain;charset=utf-8'}));
+  a.download = d.filename || 'StudentUp-Mistakes.txt'; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+async function showAllNotices() {
+  const out = document.getElementById('adv-out');
+  const d = await api('/api/portal/notices?token=' + encodeURIComponent(token));
+  if (!d.ok) { alert('❌ ' + (d.error || '')); return; }
+  out.innerHTML = '<h4 style="margin-bottom:6px;">📢 Anni Notices</h4>' + ((d.notices || []).map(n =>
+    '<div style="padding:7px 10px; background:#0f1e38; border:1px solid #24466e; border-radius:9px; margin-top:6px;"><b>' + esc(n.title || '') + '</b><div class="muted">' + esc(n.body || '') + '</div></div>').join('')
+    || '<div class="muted">Notices levu.</div>');
+  out.scrollIntoView({behavior: 'smooth', block: 'center'});
+}
+let _focusTotal = 25 * 60, _focusLeft = 25 * 60, _focusTimer = null;
+function _focusDraw() {
+  const el = document.getElementById('focus-clock'); if (!el) return;
+  const m = String(Math.floor(_focusLeft / 60)).padStart(2, '0'), s = String(_focusLeft % 60).padStart(2, '0');
+  el.textContent = m + ':' + s;
+}
+function focusPreset(min) { focusReset(); _focusTotal = _focusLeft = min * 60; _focusDraw(); }
+function focusReset() {
+  clearInterval(_focusTimer); _focusTimer = null;
+  _focusLeft = _focusTotal; _focusDraw();
+  const b = document.getElementById('focus-btn'); if (b) b.textContent = '▶️ Start Focus';
+}
+async function _focusDone() {
+  focusReset();
+  const mins = Math.round(_focusTotal / 60);
+  const d = await api('/api/portal/focus', {token, minutes: mins});
+  if (d.ok) {
+    const st = document.getElementById('focus-stats');
+    if (st) st.textContent = 'Ee roju focus: ' + d.today_min + ' min · Ee week: ' + d.week_min + ' min';
+    alert('🎉 ' + mins + ' min focus complete! Study minutes log ayyayi 📈');
+    loadHome();
+  }
+}
+function focusToggle() {
+  const b = document.getElementById('focus-btn');
+  if (_focusTimer) { clearInterval(_focusTimer); _focusTimer = null; if (b) b.textContent = '▶️ Resume Focus'; return; }
+  if (b) b.textContent = '⏸️ Pause';
+  _focusTimer = setInterval(() => {
+    _focusLeft -= 1; _focusDraw();
+    if (_focusLeft <= 0) _focusDone();
+  }, 1000);
+}
+async function loadGoalHub(g) {
+  const box = document.getElementById('goal-hub'); if (!box) return;
+  box.innerHTML = '<p class="muted">Loading…</p>';
+  const d = await api('/api/portal/goal_hub?goal=' + encodeURIComponent(g) + '&token=' + encodeURIComponent(token));
+  if (!d.ok) { box.innerHTML = '<p class="muted">❌ ' + esc(d.error || '') + '</p>'; return; }
+  box.innerHTML =
+    '<b style="font-size:15px;">' + esc(d.label) + '</b>' +
+    '<div class="row" style="margin-top:7px; flex-wrap:wrap; gap:6px;">' +
+    '<span class="chip">📜 ' + d.pyq + ' real PYQ</span><span class="chip">🎯 ' + (d.pyq_exam != null ? d.pyq_exam : d.pyq) + ' ' + esc(d.label) + ' PYQ</span><span class="chip">🧠 ' + d.total + ' questions</span>' +
+    '<span class="chip">📄 ' + d.papers + ' paper sets</span><span class="chip gold">✍️ Mee attempts: ' + d.attempts + ' · Best ' + d.best + '%</span>' +
+    ((d.readiness && d.readiness.score != null) ? '<span class="chip" style="border-color:#34d399;">🎯 Readiness: ' + d.readiness.score + '/100' + (d.readiness.band ? ' · ' + esc(d.readiness.band) : '') + '</span>' : '') + '</div>' +
+    ((d.paper_labels || []).length ? '<p class="muted" style="margin-top:7px;">📜 Papers: ' + d.paper_labels.map(esc).join(' · ') + '</p>' : '') +
+    ((d.topics || []).length ? '<p class="muted" style="margin-top:7px;">📈 Repeat ayye topics: ' + d.topics.map(t => esc(t.topic) + ' (' + t.pyq + ')').join(' · ') + '</p>' : '') +
+    '<p style="margin-top:7px;">👉 ' + esc(d.next) + '</p>' +
+    '<div class="row" style="margin-top:8px; gap:6px;"><button class="btn-main" style="flex:1;" onclick="startMock(\'' + d.goal + '\', \'exam\')">📜 ' + esc(d.label) + ' PYQ Mock</button>' +
+    '<button class="btn-alt" style="width:auto; margin:0;" onclick="startMock(\'' + d.goal + '\', \'blueprint\')">🧩 Blueprint</button>' +
+    '<button class="btn-alt" style="width:auto; margin:0;" onclick="startMock(\'' + d.goal + '\')">📝 Mixed Mock</button>' +
+    '<button class="btn-alt" style="width:auto; margin:0;" onclick="startPractice(\'pyq\', \'\', \'' + d.goal + '\')">🎯 PYQ Drill</button></div>';
+}
+async function remindExam(id, el) {
+  const on = !(el && el.dataset && el.dataset.on === '1');
+  const d = await api('/api/portal/exam/remind', {token, exam_id: id, on});
+  if (!d.ok) { alert('❌ ' + (d.error || '')); return; }
+  if (el) { el.dataset.on = d.remind ? '1' : '0'; el.textContent = d.remind ? '🔔 Reminder ON' : '🔕 Notify Me'; }
+}
+async function loadStudyPlan() {
+  const out = document.getElementById('adv-out');
+  out.innerHTML = '<div class="muted">Plan tayaru avuthondi…</div>';
+  const d = await api('/api/portal/study_plan?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  out.innerHTML = '<b>📅 7-Day Study Plan</b>' + (d.exam_in ? ' <span class="chip gold">' + esc(d.exam_in.label) + ' — ' + d.exam_in.days + ' rojulu</span>' : '') +
+    (d.days || []).map(x => '<div style="margin:5px 0;"><b>Day ' + x.day + '</b> <span class="muted">' + x.date + '</span> — 🎯 ' + esc(x.focus) + '<br><span class="muted">' + (x.tasks || []).map(esc).join(' · ') + '</span></div>').join('');
+}
+async function loadForecast() {
+  const out = document.getElementById('adv-out');
+  const d = await api('/api/portal/forecast?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  out.innerHTML = '<b>🔮 Score Forecast</b> <span class="chip gold">~' + d.expected_pct + '%</span><div class="muted">Next mock expected range: ' + d.low + '–' + d.high + '% · Band: ' + esc(d.band || '') + '<br>' + esc(d.note || '') + '</div>';
+}
+async function loadTrend() {
+  const out = document.getElementById('adv-out');
+  const d = await api('/api/portal/trend?token=' + encodeURIComponent(token));
+  const tr = d.trend || [];
+  if (!tr.length) { out.innerHTML = '<div class="muted">📊 Inka attempts levu — okka mock rayandi, trend ikkada kanipisthundi.</div>'; return; }
+  out.innerHTML = '<b>📊 Score Trend</b>' + tr.map(r => {
+    const w = Math.max(4, r.pct);
+    return '<div style="display:flex; align-items:center; gap:7px; margin:4px 0;"><span class="muted" style="width:118px; font-size:11px;">' + esc((r.title || r.kind || '').slice(0, 20)) + '</span><span style="flex:1; background:rgba(56,189,248,.15); border-radius:5px;"><span style="display:block; width:' + w + '%; height:13px; border-radius:5px; background:#38bdf8;"></span></span><b>' + r.pct + '%</b></div>';
+  }).join('') + '<div class="muted">' + (d.activity || []).filter(a => a.active).length + ' active days (last 14)</div>';
+}
+async function loadTrends() {
+  const out = document.getElementById('adv-out');
+  const goal = (STATE && STATE.student && STATE.student.goal) || '';
+  const d = await api('/api/portal/pyq_trends?goal=' + encodeURIComponent(goal));
+  if (!d.ok) { out.innerHTML = '<div class="muted">Trends ready ledu</div>'; return; }
+  out.innerHTML = '<b>📈 PYQ Trends</b> <span class="chip">' + d.pyq_total + ' PYQ questions</span><div class="muted">Previous papers lo ekkuva repeat ayye topics — ive master ayithe marks:</div>' +
+    (d.topics || []).map(t => '<div style="display:flex; justify-content:space-between; margin:3px 0;"><span>' + esc(t.topic) + '</span><b>' + t.pyq + ' Qs · ' + t.share + '%</b></div>').join('');
+}
+async function loadGoalBoard() {
+  const out = document.getElementById('adv-out');
+  const goal = (STATE && STATE.student && STATE.student.goal) || 'mixed';
+  const d = await api('/api/portal/goal_board?goal=' + encodeURIComponent(goal));
+  const rows = d.board || [];
+  out.innerHTML = '<b>🏆 Goal Leaderboard</b>' + (rows.length ? '' : '<div class="muted">Ee goal lo inka scores levu — first meeru avvandi!</div>') +
+    rows.map((r, i) => '<div style="display:flex; justify-content:space-between; margin:3px 0;"><span>' + (i + 1) + '. ' + esc(r.name) + ' <span class="muted">' + esc(r.district || '') + '</span></span><b>' + r.correct + '/' + r.total + '</b></div>').join('');
+}
+async function startGrand() {
+  const goal = (STATE && STATE.student && STATE.student.goal) || 'mixed';
+  const negEl = document.getElementById('neg-sel');
+  const neg = negEl ? parseFloat(negEl.value || '0') : 0;
+  const d = await api('/api/portal/mock/start', {token, goal, neg, kind: 'grand'});
+  if (!d.ok) { alert('❌ ' + (d.error || 'Grand Mock start avvaledu')); return; }
+  MOCK = d; MOCK.t0 = Date.now(); MOCK.times = {};
+  document.getElementById('m-title').textContent = '🏛️ ' + d.label;
+  const box = document.getElementById('m-qs'); box.innerHTML = '';
+  d.questions.forEach((q) => {
+    const div = document.createElement('div'); div.id = 'mq' + q.i;
+    div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
+    q.options.forEach((opt, oi) => {
+      const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+      b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.times = MOCK.times || {}; if (MOCK.times[q.i] == null) MOCK.times[q.i] = Math.round((Date.now() - (MOCK.t0 || Date.now())) / 1000); MOCK.answers[q.i] = oi; markPalette(q.i); };
+      div.appendChild(b);
+    });
+    box.appendChild(div);
+  });
+  show('view-mock');
+  let left = (d.minutes || 60) * 60;
+  const tEl = document.getElementById('m-timer');
+  clearInterval(mockTimer);
+  mockTimer = setInterval(() => {
+    left--; tEl.textContent = '⏱ ' + Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
+    if (left <= 0) { clearInterval(mockTimer); submitMock(); }
+  }, 1000);
+}
+async function loadSections() {
+  const out = document.getElementById('adv-out');
+  const d = await api('/api/portal/sections?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  out.innerHTML = '<b>🧩 Sectional Tests</b>' + (d.sections || []).map(x =>
+    '<div style="display:flex; justify-content:space-between; align-items:center; margin:5px 0;"><span>' + esc(x.label) + ' <span class="muted">' + x.total + ' Qs · ' + x.pyq + ' PYQ</span></span>' +
+    '<button class="btn-alt" style="width:auto; margin:0;" onclick="startSection(\'' + x.subject + '\')">Start ▶</button></div>').join('');
+}
+function startSection(subject) {
+  const sel = document.getElementById('topic-sel');
+  PR_MODE_OVERRIDE = subject;
+  startPractice('section', subject);
+}
+async function loadPatterns() {
+  const out = document.getElementById('adv-out');
+  const d = await api('/api/portal/patterns?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  out.innerHTML = '<b>📉 Mistake Patterns</b><div class="muted">Concept gaps: ' +
+    ((d.concept_gaps || []).map(g => esc(g.topic) + ' ×' + g.wrongs).join(', ') || 'levu') +
+    '<br>Slips: ' + ((d.slips || []).map(g => esc(g.topic)).join(', ') || 'levu') +
+    ' · Skipped: ' + (d.skipped || 0) + '</div>' +
+    (d.advice || []).map(a => '<div>' + esc(a) + '</div>').join('');
+}
+async function loadRetention() {
+  const out = document.getElementById('adv-out');
+  const d = await api('/api/portal/retention?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  const r = d.retention || {};
+  out.innerHTML = '<b>🧠 Memory Retention</b> <span class="chip gold">' + (r.retention_score ?? '-') + '%</span>' +
+    '<div class="muted">Cards: ' + (r.cards || 0) + ' · Today due: ' + (r.due_today || 0) +
+    ' · Fresh ' + ((r.intervals || {}).fresh_0d || 0) + ' / 3d ' + ((r.intervals || {}).spaced_3d || 0) + ' / Strong 7d ' + ((r.intervals || {}).strong_7d || 0) + '</div>' +
+    '<div class="muted">Next 7 days due: ' + (r.forecast || []).map(f => f.due).join(' · ') + '</div>' +
+    (d.weekly_goal ? '<div>🎯 Weekly Goal: ' + esc(d.weekly_goal.text || '') + '</div>' : '');
+}
+async function loadRecords() {
+  const out = document.getElementById('adv-out');
+  const d = await api('/api/portal/records?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  const r = d.records || {}, sr = d.series || {};
+  out.innerHTML = '<b>🏆 Personal Records</b><div class="muted">Attempts: ' + (r.attempts || 0) +
+    ' · Best: ' + (r.best_pct != null ? r.best_pct + '% (' + esc(r.best_title || '') + ')' : '—') +
+    '<br>Accuracy: ' + (r.accuracy || 0) + '% · Answered: ' + (r.answered || 0) +
+    ' · 🔥 Streak ' + (r.streak || 0) + ' (best ' + (r.best_streak || 0) + ')</div>' +
+    '<div>📚 Test Series: Test #' + (sr.next_no || 1) + ' ready · Progress ' + (sr.progress_pct || 0) + '%' +
+    (sr.avg_pct != null ? ' · Avg ' + sr.avg_pct + '%' : '') + '</div>';
+}
+async function loadRival() {
+  const out = document.getElementById('adv-out');
+  const d = await api('/api/portal/rival?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  if (!d.rival) {
+    const code = prompt('🥊 Rival student SU code ivvandi (friend ref code):');
+    if (!code) { out.innerHTML = '<div class="muted">Rival set cheyyaledu.</div>'; return; }
+    const r = await api('/api/portal/rival/set', {token, ref: code});
+    out.innerHTML = r.ok ? '<div>🥊 Rival: <b>' + esc(r.rival) + '</b> — ee week race start!</div>' : '<div class="muted">' + esc(r.error || '') + '</div>';
+    return;
+  }
+  out.innerHTML = '<b>🥊 Rival Race (ee week)</b><div>Nenu: <b>' + d.my_pts + ' pts</b> · ' + esc(d.rival) + ': <b>' + d.rival_pts + ' pts</b><br>' +
+    (d.leading === 'you' ? '🔥 Meeru mundhu unnaru (+' + d.diff + ') — maintain cheyyandi!' : '⚠️ Rival mundhu unnadu (' + d.diff + ') — oka mock raasi overtake cheyyandi!') + '</div>';
+}
+let LANGS = ['both', 'te', 'en'];
+async function cycleLang() {
+  const cur = (STATE && STATE.student && STATE.student.lang) || localStorage.getItem('su_lang') || 'both';
+  const nxt = LANGS[(LANGS.indexOf(cur) + 1) % LANGS.length];
+  localStorage.setItem('su_lang', nxt);
+  document.body.classList.remove('lang-te', 'lang-en');
+  if (nxt !== 'both') document.body.classList.add('lang-' + nxt);
+  if (STATE && STATE.student) STATE.student.lang = nxt;
+  await api('/api/portal/lang', {token, lang: nxt});
+  alert('🌐 Language: ' + (nxt === 'both' ? 'Telugu + English' : nxt === 'te' ? 'Telugu matrame' : 'English matrame'));
+}
+function applyLang() {
+  const l = localStorage.getItem('su_lang') || (STATE && STATE.student && STATE.student.lang) || 'both';
+  document.body.classList.remove('lang-te', 'lang-en');
+  if (l !== 'both') document.body.classList.add('lang-' + l);
+}
+async function downloadRevisionPack() {
+  const d = await api('/api/portal/revision_pack?token=' + encodeURIComponent(token));
+  if (!d.ok || !d.text) { alert('❌ ' + (d.error || 'Revision pack avvaledu')); return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([d.text], {type: 'text/plain;charset=utf-8'}));
+  a.download = d.filename || 'StudentUp-RevisionPack.txt'; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+let CHQ = null;
+async function loadChallenge() {
+  const el = document.getElementById('challenge-card');
+  if (!el) return;
+  const d = await api('/api/portal/challenge?token=' + encodeURIComponent(token));
+  if (!d.ok) { el.innerHTML = ''; return; }
+  if (d.done) { el.innerHTML = '<b>🏆 Challenge of the Day</b> <span class="chip gold">' + (d.correct ? '✅ +20 bonus!' : 'Ayipoyindi — repu malli') + '</span>'; return; }
+  CHQ = d.question;
+  if (!CHQ) { el.innerHTML = ''; return; }
+  el.innerHTML = '<b>🏆 Challenge of the Day</b> <span class="chip">Correct ayithe +20 pts</span>' +
+    '<div class="qte" style="margin-top:8px;">' + esc(CHQ.te || CHQ.en) + '</div>' + (CHQ.te && CHQ.en ? '<div class="qen">' + esc(CHQ.en) + '</div>' : '') +
+    '<div id="ch-opts"></div><div id="ch-fb" class="feedback"></div>';
+  const box = document.getElementById('ch-opts'); box.innerHTML = '';
+  (CHQ.options || []).forEach((opt, i) => {
+    const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+    b.onclick = () => ansChallenge(i); box.appendChild(b);
+  });
+}
+async function ansChallenge(i) {
+  document.querySelectorAll('#ch-opts .opt').forEach(b => { b.disabled = true; });
+  const d = await api('/api/portal/challenge/answer', {token, choice: i});
+  const fb = document.getElementById('ch-fb');
+  if (!d.ok) { fb.textContent = d.error || ''; return; }
+  fb.innerHTML = d.correct ? '✅ Correct! +20 bonus points 🎉 ' + esc(d.explanation || '') : '❌ Correct: <b>' + esc(d.answer_text || '') + '</b> ' + esc(d.explanation || '');
+}
+async function downloadWorksheet() {
+  const d = await api('/api/portal/worksheet?token=' + encodeURIComponent(token));
+  if (!d.ok || !d.text) { alert('❌ ' + (d.error || 'Worksheet avvaledu')); return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([d.text], {type: 'text/plain;charset=utf-8'}));
+  a.download = d.filename || 'StudentUp-Worksheet.txt'; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+async function startPaper(exam, year, paper) {
+  const d = await api('/api/portal/paper/start', {token, exam, year, paper});
+  if (!d.ok) { alert('❌ ' + (d.error || 'Paper start avvaledu')); return; }
+  MOCK = d; MOCK.t0 = Date.now(); MOCK.times = {};
+  document.getElementById('m-title').textContent = '📜 ' + d.label;
+  const box = document.getElementById('m-qs'); box.innerHTML = '';
+  d.questions.forEach((q) => {
+    const div = document.createElement('div'); div.id = 'mq' + q.i;
+    div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
+    q.options.forEach((opt, oi) => {
+      const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+      b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.times = MOCK.times || {}; if (MOCK.times[q.i] == null) MOCK.times[q.i] = Math.round((Date.now() - (MOCK.t0 || Date.now())) / 1000); MOCK.answers[q.i] = oi; markPalette(q.i); };
+      div.appendChild(b);
+    });
+    box.appendChild(div);
+  });
+  renderPalette(d.questions);
+  show('view-mock');
+  let left = (d.minutes || 15) * 60;
+  const tEl = document.getElementById('m-timer');
+  clearInterval(mockTimer);
+  mockTimer = setInterval(() => {
+    left--; tEl.textContent = '⏱ ' + Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
+    if (left <= 0) { clearInterval(mockTimer); submitMock(); }
+  }, 1000);
+}
+async function startMock(goal, kind) {
+  const negEl = document.getElementById('neg-sel');
+  const neg = negEl ? parseFloat(negEl.value || '0') : 0;
+  const d = await api('/api/portal/mock/start', {token, goal, neg, kind: kind || 'mock'});
+  if (!d.ok) { alert('❌ ' + (d.error || 'Mock start avvaledu')); return; }
+  MOCK = d; MOCK.t0 = Date.now(); MOCK.times = {};
+  document.getElementById('m-title').textContent = '📝 ' + d.label;
+  const box = document.getElementById('m-qs'); box.innerHTML = '';
+  d.questions.forEach((q) => {
+    const div = document.createElement('div'); div.id = 'mq' + q.i;
+    div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
+    q.options.forEach((opt, oi) => {
+      const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+      b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.times = MOCK.times || {}; if (MOCK.times[q.i] == null) MOCK.times[q.i] = Math.round((Date.now() - (MOCK.t0 || Date.now())) / 1000); MOCK.answers[q.i] = oi; markPalette(q.i); };
+      div.appendChild(b);
+    });
+    box.appendChild(div);
+  });
+  renderPalette(d.questions);
+  show('view-mock');
+  let left = (d.minutes || 15) * 60;
+  const tEl = document.getElementById('m-timer');
+  clearInterval(mockTimer);
+  mockTimer = setInterval(() => {
+    left--; tEl.textContent = '⏱ ' + Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
+    if (left <= 0) { clearInterval(mockTimer); submitMock(); }
+  }, 1000);
+}
+async function submitMock() {
+  clearInterval(mockTimer);
+  if (!MOCK) return;
+  const answers = {};
+  Object.entries(MOCK.answers || {}).forEach(([k, v]) => { answers[k] = v; });
+  const d = await api('/api/portal/mock/submit', {token, run_id: MOCK.run_id, answers, times: MOCK.times || {}});
+  if (!d.ok) { document.getElementById('m-err').textContent = d.error || ''; return; }
+  document.getElementById('res-score').textContent = d.correct + '/' + d.total;
+  document.getElementById('res-sub').textContent = '🎯 Accuracy ' + d.accuracy + '% · Leaderboard update ayindi!' +
+    (d.neg ? ' 🏁 Negative −' + d.neg + ' apply ayyindi: Points ' + d.pts + ' (correct ' + d.correct + ', wrong ' + (d.wrong || 0) + ')' : '') +
+    (d.avg_sec ? ' · ⏱ Avg ' + d.avg_sec + 's/question' + ((d.slow || []).length ? ' · 🐢 Slow: Q' + d.slow.map(i => i + 1).join(', Q') : '') : '');
+  document.getElementById('res-review').innerHTML = (d.review || []).map(r => {
+    const q = (d.questions || [])[r.i] || {};
+    const opts = q.options || [];
+    return '<div class="rrow ' + (r.right ? 'ok' : 'bad') + '"><b>Q' + (r.i + 1) + '.</b> ' + esc(q.en || q.te || '') +
+      '<br><span class="muted">Meeru: ' + esc(opts[r.given] || '— (attempt cheyyaledu)') + (r.right ? ' ✅' : ' ❌ · Correct: ' + esc(opts[r.answer] || '')) + '</span>' +
+      ((d.slow || []).includes(r.i) ? '<br><span class="muted">⏱ Ee question ki ekkuva time pattindi — shortcut practice cheyyandi.</span>' : '') +
+      (q.explanation ? '<br><span class="muted">💡 ' + esc(q.explanation) + '</span>' : '') + '</div>';
+  }).join('');
+  const _mrun = MOCK.run_id;
+  MOCK = null;
+  api('/api/portal/attempt?token=' + encodeURIComponent(token) + '&run_id=' + encodeURIComponent(_mrun)).then(an => {
+    if (!an.ok) return;
+    const box = document.getElementById('res-review');
+    const delta = an.delta_vs_prev == null ? '' : ' · Previous kante ' + (an.delta_vs_prev >= 0 ? '+' : '') + an.delta_vs_prev;
+    box.insertAdjacentHTML('afterbegin', '<div class="rrow"><b>🔬 Attempt Analysis</b>' + delta +
+      (an.weakest ? '<br><span class="muted">Weakest: ' + esc(an.weakest) + ' — ' + (an.wrong_topics || []).map(esc).join(', ') + '</span>' : '') +
+      (an.topics || []).map(t => '<br><span class="muted">' + esc(t.topic) + ': ' + t.correct + '/' + t.total + ' (' + t.accuracy + '%)</span>').join('') + '</div>');
+  });
+  show('view-result');
+  document.getElementById('res-sub').insertAdjacentHTML('beforeend',
+    '<br><button class="btn-alt" style="width:auto; margin-top:10px;" onclick="downloadKey(\'mock\',\'' + _mrun + '\')">⬇️ Answer Key Paper Download 📄</button>');
+}
+var STATE = null;
+let PR = null;
+let prTimer = null;
+let PR_MODE_OVERRIDE = '';
+async function startPractice(mode, subject, goal) {
+  const topic = subject || PR_MODE_OVERRIDE || document.getElementById('topic-sel').value || '';
+  PR_MODE_OVERRIDE = '';
+  const d = await api('/api/portal/practice/start', {token, mode, topic, goal: goal || ''});
+  if (!d.ok) { alert('❌ ' + (d.error || 'Practice start avvaledu')); return; }
+  PR = {run_id: d.run_id, questions: d.questions || [], cur: 0, score: 0, per_q: d.per_q || 0};
+  show('view-prc'); renderPr();
+}
+async function flagCurrent() {
+  const q = PR && PR.questions[PR.cur];
+  if (!q || !q.qid) return;
+  const reason = prompt('🚩 Ee question lo emi tappu undi? (optional)') || '';
+  const d = await api('/api/portal/flag', {token, qid: q.qid, reason});
+  alert(d.ok ? '🚩 Report vellindi — team check chestundi, thanks!' : '❌ ' + (d.error || ''));
+}
+function bmCurrent() {
+  const q = PR && PR.questions[PR.cur];
+  if (!q || !q.qid) return;
+  toggleBookmark(q.qid);
+  const b = document.getElementById('p-bm');
+  if (b) b.textContent = '🔖 Saved ✓';
+}
+function startPrTimer() {
+  clearInterval(prTimer);
+  const el = document.getElementById('p-timer');
+  if (!PR || !PR.per_q) { if (el) el.style.display = 'none'; return; }
+  let left = PR.per_q;
+  el.style.display = 'inline-block'; el.textContent = '⚡ ' + left + 's';
+  prTimer = setInterval(() => {
+    left--;
+    el.textContent = '⚡ ' + left + 's';
+    if (left <= 0) {
+      clearInterval(prTimer);
+      // time ayipoyindi — correct answer chupinchi next ki ready
+      const q = PR.questions[PR.cur];
+      document.querySelectorAll('#p-opts .opt').forEach(b => { b.disabled = true; });
+      api('/api/portal/practice/answer', {token, run_id: PR.run_id, idx: PR.cur, choice: -1}).then(d => {
+        const fb = document.getElementById('p-fb');
+        if (d && d.ok) {
+          fb.innerHTML = '⏰ Time over! Correct: <b>' + esc(d.answer_text || '') + '</b>' + (d.explanation ? '<br><span class="muted">' + esc(d.explanation) + '</span>' : '');
+          document.getElementById('p-score').textContent = '✅ ' + (d.score || PR.score);
+        }
+        const nb = document.getElementById('p-next');
+        nb.textContent = (d && d.done) ? '🏠 Finish' : 'Next ➡️';
+        nb.style.display = 'block';
+      });
+    }
+  }, 1000);
+}
+function renderPr() {
+  const q = PR.questions[PR.cur];
+  const bmB = document.getElementById('p-bm');
+  if (bmB) bmB.textContent = '🔖 Save Question';
+  startPrTimer();
+  document.getElementById('p-pos').textContent = 'Q ' + (PR.cur + 1) + '/' + PR.questions.length;
+  document.getElementById('p-topic').textContent = qMeta(q);
+  document.getElementById('p-score').textContent = '✅ ' + PR.score;
+  document.getElementById('p-te').textContent = q.te || '';
+  document.getElementById('p-en').textContent = q.en || '';
+  document.getElementById('p-fb').textContent = '';
+  document.getElementById('p-next').style.display = 'none';
+  const box = document.getElementById('p-opts'); box.innerHTML = '';
+  q.options.forEach((opt, i) => {
+    const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+    b.onclick = () => ansPr(i, b); box.appendChild(b);
+  });
+}
+async function ansPr(i, btn) {
+  clearInterval(prTimer);
+  document.querySelectorAll('#p-opts .opt').forEach(b => { b.disabled = true; });
+  btn.classList.add('picked');
+  const d = await api('/api/portal/practice/answer', {token, run_id: PR.run_id, idx: PR.cur, choice: i});
+  const fb = document.getElementById('p-fb');
+  if (!d.ok) { fb.textContent = d.error || ''; return; }
+  PR.score = d.score || PR.score;
+  const _exp = (d.explanation ? '<br><span class="muted">💡 ' + esc(d.explanation) + '</span>' : '') + (d.explanation_te ? '<br><span class="muted">💡 ' + esc(d.explanation_te) + '</span>' : '');
+  fb.innerHTML = d.correct ? '✅ Correct! ' + _exp
+    : '❌ Wrong. Correct: <b>' + esc(d.answer_text) + '</b>' + _exp +
+      (d.similar ? '<br><button class="btn-alt" style="width:auto; margin-top:6px;" onclick="trySimilar(\'' + esc(d.similar.topic || '') + '\')">🔗 Similar Question Try Chey (' + esc(d.similar.topic || '') + ')</button>' : '');
+  document.getElementById('p-score').textContent = '✅ ' + PR.score;
+  const nb = document.getElementById('p-next');
+  nb.textContent = d.done ? '🏠 Finish' : 'Next ➡️';
+  nb.style.display = 'block';
+}
+function trySimilar(topic) {
+  const sel = document.getElementById('topic-sel');
+  if (sel && topic) {
+    for (const o of sel.options) { if (o.value.toLowerCase() === String(topic).toLowerCase()) { sel.value = o.value; break; } }
+  }
+  backHome();
+  setTimeout(() => startPractice('topic'), 60);
+}
+function nextPr() {
+  clearInterval(prTimer);
+  if (PR.cur + 1 >= PR.questions.length) { backHome(); return; }
+  PR.cur++; renderPr();
+}
+let EX = null, exTimer = null, rankTimer = null;
+async function pollRank() {
+  if (!EX) return;
+  try {
+    const d = await api('/api/portal/exam/result?id=' + encodeURIComponent(EX.id) + '&token=' + encodeURIComponent(token));
+    if (!d.ok) return;
+    if (d.status === 'done') {
+      clearInterval(rankTimer);
+      document.getElementById('x-prog').textContent = '✅ Exam done!';
+      showExamResult(EX.id);
+      return;
+    }
+    if (d.my) document.getElementById('x-prog').textContent =
+      '✍️ ' + (d.my.answered || 0) + '/' + d.n_q + (d.my.rank ? ' · 🏆 Live Rank #' + d.my.rank + ' / ' + (d.joined || '') : '');
+  } catch (e) {}
+}
+function examBtn(e) {
+  if (e.status === 'scheduled') return (e.my.joined ? '<span class="chip">✅ Joined — wait for start</span>' : '<button class="btn-main" style="margin-top:8px;" onclick="joinExam(\'' + e.id + '\')">🔔 Join Exam</button>') + ' <button class="btn-alt" style="width:auto; margin:8px 0 0;" data-on="' + (e.remind ? '1' : '0') + '" onclick="remindExam(\'' + e.id + '\', this)">' + (e.remind ? '🔔 Reminder ON' : '🔕 Notify Me') + '</button>';
+  if (e.status === 'live') return e.my.joined ? '<button class="btn-main" style="margin-top:8px;" onclick="enterExam(\'' + e.id + '\')">▶️ Enter Live Exam</button>' : '<button class="btn-main" style="margin-top:8px;" onclick="joinExam(\'' + e.id + '\', true)">🚪 Join &amp; Enter</button>';
+  return '<button class="btn-alt" onclick="showExamResult(\'' + e.id + '\')">📊 Result &amp; Winners</button>';
+}
+function cdTick() {
+  document.querySelectorAll('.cd').forEach(el => {
+    const t = new Date(el.dataset.ts) - new Date();
+    if (isNaN(t)) return;
+    if (t < 0) { el.textContent = '🔴 LIVE NOW!'; return; }
+    const h = Math.floor(t / 36e5), m = Math.floor(t % 36e5 / 6e4);
+    el.textContent = '⏰ ' + (h >= 24 ? Math.floor(h / 24) + 'd ' + (h % 24) + 'h' : h + 'h ' + m + 'm') + ' lo start avthundi';
+  });
+}
+function renderLiveExams(list) {
+  const box = document.getElementById('live-exams');
+  if (!list.length) { box.innerHTML = '<div class="muted">Upcoming exams ikkade kanipisthayi.</div>'; return; }
+  box.innerHTML = list.map(e => {
+    const when = (e.starts_at || '').replace('T', ' ').slice(0, 16);
+    const st = e.status === 'live' ? '<span style="color:#f87171; font-weight:800;">🔴 LIVE NOW</span>'
+      : e.status === 'done' ? '<span class="muted">✅ Completed</span>'
+      : '<span class="cd" data-ts="' + e.starts_at + '" style="color:#facc15; font-weight:700;">⏰ ' + when + ' ki start</span>';
+    return '<div style="padding:11px; background:#0f1e38; border:1px solid #24466e; border-radius:12px; margin-top:9px;">' +
+      '<b>' + esc(e.title) + '</b> ' + (e.kind === 'weekly' ? '<span class="chip gold">WEEKLY</span>' : '') + '<br>' +
+      '<span class="muted">' + esc(e.goal_label) + ' · ' + e.n_q + ' Qs (' + e.pyq_count + ' real PYQs) · ' + e.duration_min + ' min · 👥 ' + e.joined + ' joined</span><br>' + st +
+      (e.my && e.my.joined ? '<br><span class="muted">Mee progress: ' + e.my.answered + '/' + e.n_q + ' answered' + (e.my.rank ? ' · Rank #' + e.my.rank : '') + '</span>' : '') +
+      (e.board ? rows(e.board.slice(0, 5), '') : '') +
+      examBtn(e) + '</div>';
+  }).join('');
+}
+async function joinExam(id, enter) {
+  const d = await api('/api/portal/exam/join', {token, exam_id: id});
+  if (!d.ok) { alert('❌ ' + (d.error || 'Join avvaledu')); return; }
+  if (enter) { enterExam(id); } else { loadHome(); }
+}
+async function enterExam(id) {
+  const d = await api('/api/portal/exam?id=' + encodeURIComponent(id) + '&token=' + encodeURIComponent(token));
+  if (!d.ok) { alert('❌ Session expired'); logout(); return; }
+  if (d.status !== 'live') { alert(d.status === 'scheduled' ? '⏰ Exam inka start avvaledu!' : 'Exam ayipoyindi / join avvaledu.'); loadHome(); return; }
+  EX = {id, answers: {}};
+  clearInterval(rankTimer);
+  rankTimer = setInterval(pollRank, 20000);
+  document.getElementById('x-title').textContent = '🔴 ' + d.title;
+  const box = document.getElementById('x-qs'); box.innerHTML = '';
+  (d.questions || []).forEach(q => {
+    const div = document.createElement('div');
+    div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
+    q.options.forEach((opt, oi) => {
+      const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+      if (q.answered) { b.disabled = true; }
+      else b.onclick = async () => {
+        div.querySelectorAll('.opt').forEach(x => { x.disabled = true; });
+        b.classList.add('picked');
+        const r = await api('/api/portal/exam/answer', {token, exam_id: EX.id, idx: q.i, choice: oi});
+        if (r.ok) document.getElementById('x-prog').textContent = '✍️ ' + r.answered + '/' + r.total_q;
+      };
+      div.appendChild(b);
+    });
+    box.appendChild(div);
+  });
+  show('view-exam');
+  const prog = document.getElementById('x-prog');
+  const ans = (d.questions || []).filter(q => q.answered).length;
+  prog.textContent = '✍️ ' + ans + '/' + (d.questions || []).length;
+  let left = Math.max(0, Math.round((new Date(d.ends_at) - Date.now()) / 1000));
+  const tEl = document.getElementById('x-timer');
+  clearInterval(exTimer);
+  exTimer = setInterval(() => {
+    left--;
+    tEl.textContent = '⏱ ' + Math.floor(left / 60) + ':' + String(Math.max(0, left) % 60).padStart(2, '0');
+    if (left <= 0) { clearInterval(exTimer); alert('⏰ Time ayipoyindi! Result ikkade chudandi.'); backHome(); }
+  }, 1000);
+}
+async function showExamResult(id) {
+  const d = await api('/api/portal/exam/result?id=' + encodeURIComponent(id) + '&token=' + encodeURIComponent(token));
+  if (!d.ok) { alert('❌ Result dorakaledu'); return; }
+  if (d.status !== 'done') { alert('⏳ Result exam complete ayyaka vastundi.'); return; }
+  document.getElementById('res-score').textContent = (d.my ? d.my.correct : 0) + '/' + d.n_q;
+
+  document.getElementById('res-sub').innerHTML = esc(d.title) + (d.my && d.my.rank ? ' · 🏆 Mee Rank #' + d.my.rank : '') + (d.my && d.my.top_pct ? ' · 🏅 Top ' + d.my.top_pct + '%' : '') +
+    '<br>🏆 Winners: ' + (d.winners || []).map(w => esc(w.name) + ' (' + w.correct + '/' + w.total + ')').join(' · ');
+  document.getElementById('res-review').innerHTML = (d.review || []).map(r => {
+    const q = (d.questions || [])[r.i] || {}; const opts = q.options || [];
+    return '<div class="rrow ' + (r.right ? 'ok' : 'bad') + '"><b>Q' + (r.i + 1) + '.</b> ' + esc(q.en || q.te || '') +
+      '<br><span class="muted">Meeru: ' + esc(opts[r.given] || '— attempt cheyyaledu') + (r.right ? ' ✅' : ' ❌ · Correct: ' + esc(opts[r.answer] || '')) + '</span>' +
+      (q.explanation ? '<br><span class="muted">💡 ' + esc(q.explanation) + '</span>' : '') + '</div>';
+  }).join('') || '<div class="muted">Mee review ledu (answers ivvaledu).</div>';
+  if ((d.qstats || []).length) {
+    document.querySelectorAll('#res-review .rrow').forEach((el, i) => {
+      const pc = (d.qstats || [])[i];
+      if (pc != null) el.insertAdjacentHTML('beforeend', '<br><span class="muted">👥 ' + pc + '% students ee question correct pettaru' + (pc < 40 ? ' — 🔥 tough question!' : (pc > 85 ? ' — easy one' : '')) + '</span>');
+    });
+  }
+  document.getElementById('res-sub').insertAdjacentHTML('beforeend',
+    '<br><button class="btn-alt" style="width:auto; margin-top:10px;" onclick="downloadKey(\'exam\',\'' + id + '\')">⬇️ Answer Key Paper Download 📄</button>' +
+    ' <a class="btn-alt" style="display:inline-block; width:auto; margin-top:10px; padding:8px 14px; text-decoration:none;" href="/api/portal/exam/scorecard?id=' + encodeURIComponent(id) + '&token=' + encodeURIComponent(token) + '">📸 Score Card</a>');
+  if (d.my_winner) {
+    document.getElementById('res-sub').insertAdjacentHTML('beforeend',
+      '<br><a href="/api/portal/exam/certificate?id=' + encodeURIComponent(id) + '&token=' + encodeURIComponent(token) + '" style="display:inline-block; margin-top:10px; padding:11px 18px; background:linear-gradient(90deg,#a16207,#facc15); color:#1a1000; font-weight:800; border-radius:10px;">🏆 Naa Winners Certificate Download</a>');
+    for (let i = 0; i < 40; i++) {
+      const c = document.createElement('div');
+      c.textContent = ['🎉', '⭐', '🏆', '✨'][i % 4];
+      c.style.cssText = 'position:fixed; top:-30px; left:' + (Math.random() * 100) + '%; font-size:' + (14 + Math.random() * 16) + 'px; z-index:99; pointer-events:none; transition: transform ' + (1.6 + Math.random()) + 's ease-in, opacity 2.4s;';
+      document.body.appendChild(c);
+      requestAnimationFrame(() => { c.style.transform = 'translateY(105vh) rotate(' + (Math.random() * 360) + 'deg)'; c.style.opacity = '0'; });
+      setTimeout(() => c.remove(), 2800);
+    }
+  }
+  show('view-result');
+}
+if ('serviceWorker' in navigator) { try { navigator.serviceWorker.register('/sw.js'); } catch (e) {} }
+init();
+</script>
+</body>
+</html>
+"""
+
+
+WEB_EXAM_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StudentUp — College Exam</title>
+<style>
+  * { box-sizing: border-box; margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+  body { min-height: 100vh; background: radial-gradient(circle at 30% 10%, #12315e 0%, #050811 70%); color: #e2e8f0; padding: 18px 14px 40px; }
+  .wrap { max-width: 520px; margin: 0 auto; }
+  .brand { text-align: center; font-size: 22px; font-weight: 800; color: #f8fafc; margin: 8px 0 16px; }
+  .brand span { display: block; font-size: 12px; color: #38bdf8; font-weight: 600; letter-spacing: 1.5px; margin-top: 3px; }
+  .card { background: #0b1329; border: 1px solid #1e3a5f; border-radius: 16px; padding: 22px 18px; box-shadow: 0 16px 40px rgba(0,0,0,.5); }
+  h2 { font-size: 19px; margin-bottom: 8px; }
+  h3 { font-size: 14px; margin: 16px 0 8px; color: #38bdf8; }
+  .muted { color: #94a3b8; font-size: 13px; line-height: 1.6; }
+  .small { font-size: 11.5px; margin-top: 12px; }
+  label { display: block; font-size: 12.5px; font-weight: 700; margin: 14px 0 5px; color: #cbd5e1; }
+  input, select { width: 100%; padding: 12px 14px; font-size: 16px; background: #050811; color: #f8fafc; border: 1px solid #1e3a5f; border-radius: 10px; outline: none; }
+  input:focus, select:focus { border-color: #38bdf8; }
+  .btn-main { width: 100%; margin-top: 18px; padding: 14px; font-size: 16px; font-weight: 800; border: none; border-radius: 11px; background: linear-gradient(90deg, #10b981, #38bdf8); color: #04121f; cursor: pointer; }
+  .err { color: #f87171; font-size: 13px; font-weight: 700; min-height: 18px; margin-top: 10px; }
+  .big { font-size: 44px; text-align: center; margin-bottom: 6px; }
+  .pulse { text-align: center; color: #10b981; font-weight: 700; margin-top: 14px; animation: pl 1.6s infinite; }
+  @keyframes pl { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .between { justify-content: space-between; }
+  .chip { background: #12233f; border: 1px solid #1e3a5f; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .timer { color: #facc15; }
+  .tbar { height: 8px; background: #12233f; border-radius: 99px; overflow: hidden; margin: 12px 0 16px; }
+  #tbar-fill { height: 100%; background: linear-gradient(90deg, #10b981, #facc15, #ef4444); width: 100%; transition: width .3s linear; }
+  .qte { font-size: 17px; font-weight: 700; line-height: 1.55; }
+  .qen { font-size: 14.5px; color: #a5c4e8; line-height: 1.55; margin-top: 6px; }
+  .opt { display: block; width: 100%; text-align: left; margin-top: 10px; padding: 14px 15px; font-size: 15px; font-weight: 600; background: #0f1e38; color: #e2e8f0; border: 1.5px solid #24466e; border-radius: 12px; cursor: pointer; }
+  .opt:active { transform: scale(.99); }
+  .opt.picked { border-color: #38bdf8; background: #12315e; }
+  .opt:disabled { opacity: .75; cursor: default; }
+  .feedback { min-height: 22px; margin-top: 12px; font-size: 14px; font-weight: 700; }
+  .score-big { font-size: 44px; font-weight: 800; text-align: center; color: #10b981; }
+  .trow { display: flex; gap: 8px; align-items: center; padding: 8px 10px; background: #0f1e38; border-radius: 10px; margin-top: 6px; font-size: 13.5px; }
+  .trow b { flex: 1; }
+  .rrow { padding: 9px 11px; border-radius: 10px; margin-top: 6px; font-size: 13px; line-height: 1.55; background: #0f1e38; }
+  .rrow.ok { border-left: 4px solid #10b981; }
+  .rrow.bad { border-left: 4px solid #ef4444; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">🎓 StudentUp<span>COLLEGE EXAM · WEB</span></div>
+
+  <div id="view-join" class="card">
+    <h2 id="exam-name">College Exam</h2>
+    <p class="muted" id="join-sub">Peru + mobile isthe chalu — app download akkarledu!</p>
+    <label>Mee Peru (Full Name)</label>
+    <input id="f-name" placeholder="e.g. Priya Sharma" autocomplete="name">
+    <label>Mobile Number</label>
+    <input id="f-phone" inputmode="numeric" maxlength="13" placeholder="10-digit mobile number" autocomplete="tel">
+    <label id="college-label" style="display:none;">Mee College</label>
+    <select id="f-college" style="display:none;"></select>
+    <button class="btn-main" onclick="doJoin()">🚀 Join Exam</button>
+    <div id="join-err" class="err"></div>
+    <p class="muted small">📱 Ee link browser lo ne pani chesthundi. Telegram app unna vallu organiser ichina Telegram link kuda vadachu — rendu okkate exam, okkate marks!</p>
+  </div>
+
+  <div id="view-wait" class="card" style="display:none;">
+    <div class="big">⏳</div>
+    <h2 style="text-align:center;">Join ayyaru! ✅</h2>
+    <p class="muted" id="wait-info" style="text-align:center;"></p>
+    <p class="muted" style="text-align:center;">Exam start ayyaka questions ikkade vastayi — ee page close cheyyakandi.</p>
+    <div class="pulse">● Waiting for exam to start…</div>
+  </div>
+
+  <div id="view-quiz" class="card" style="display:none;">
+    <div class="row between"><span id="q-pos" class="chip"></span><span id="q-timer" class="chip timer"></span><span id="q-score" class="chip"></span></div>
+    <div class="tbar"><div id="tbar-fill"></div></div>
+    <div id="q-te" class="qte"></div>
+    <div id="q-en" class="qen"></div>
+    <div id="opts"></div>
+    <div id="q-feedback" class="feedback"></div>
+  </div>
+
+  <div id="view-done" class="card" style="display:none;">
+    <div class="big">🏆</div>
+    <h2 id="done-title" style="text-align:center;">Result</h2>
+    <div class="score-big" id="done-score"></div>
+    <p class="muted" id="done-summary" style="text-align:center;"></p>
+    <h3>🏅 Top 5</h3>
+    <div id="done-top"></div>
+    <h3>📝 Mee Answers Review</h3>
+    <div id="done-review"></div>
+  </div>
+</div>
+
+<script>
+const CODE = location.pathname.split('/').filter(Boolean).pop().toUpperCase();
+let token = localStorage.getItem('su_exam_' + CODE) || '';
+let pollInt = null, timerInt = null, curPos = 0, qWindow = 40, endsAt = 0;
+const esc = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+
+async function api(path, body) {
+  const opt = body ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)} : {};
+  const r = await fetch(path, opt);
+  return await r.json();
+}
+function show(id) {
+  ['view-join', 'view-wait', 'view-quiz', 'view-done'].forEach(v => {
+    document.getElementById(v).style.display = (v === id ? 'block' : 'none');
+  });
+}
+async function doJoin() {
+  const name = document.getElementById('f-name').value.trim();
+  const phone = document.getElementById('f-phone').value.trim();
+  const sel = document.getElementById('f-college');
+  const err = document.getElementById('join-err');
+  err.textContent = '';
+  const d = await api('/api/exam/join', {code: CODE, name, phone, college_idx: sel.style.display === 'none' ? 1 : (sel.selectedIndex + 1)});
+  if (!d.ok) { err.textContent = '❌ ' + (d.error || 'Join avvaledu'); return; }
+  token = d.token;
+  localStorage.setItem('su_exam_' + CODE, token);
+  startPolling();
+}
+async function refresh() {
+  if (!token) return;
+  let d;
+  try { d = await api('/api/exam/state?code=' + encodeURIComponent(CODE) + '&token=' + encodeURIComponent(token)); }
+  catch (e) { return; }
+  if (!d.ok) { localStorage.removeItem('su_exam_' + CODE); token = ''; show('view-join'); return; }
+  const s = d;
+  if (s.state === 'open') {
+    show('view-wait');
+    document.getElementById('wait-info').textContent = s.joined + ' students join ayyaru · ' + s.n_q + ' questions' + (s.start_at ? ' · ⏰ ' + s.start_at.replace('T', ' ') + ' ki start avthundi' : '');
+  } else if (s.state === 'question') {
+    renderQ(s);
+  } else if (s.state === 'gap') {
+    show('view-wait');
+    document.getElementById('wait-info').textContent = 'Next question vastundi… ⏳';
+  } else if (s.state === 'done') {
+    renderDone(s);
+  }
+}
+function renderQ(s) {
+  show('view-quiz');
+  document.getElementById('q-pos').textContent = 'Q ' + s.position + '/' + s.n_q;
+  document.getElementById('q-score').textContent = '⭐ ' + s.my.pts + ' pts · ✅ ' + s.my.correct;
+  if (s.position !== curPos) {
+    curPos = s.position;
+    const q = s.question;
+    document.getElementById('q-te').textContent = q.te || '';
+    document.getElementById('q-en').textContent = q.en || '';
+    document.getElementById('q-feedback').textContent = '';
+    const box = document.getElementById('opts');
+    box.innerHTML = '';
+    q.options.forEach((opt, i) => {
+      const b = document.createElement('button');
+      b.className = 'opt';
+      b.textContent = opt;
+      if (q.answered) { b.disabled = true; }
+      else { b.onclick = () => answer(i, b); }
+      box.appendChild(b);
+    });
+    qWindow = Math.max(5, s.ends_in || 40);
+    endsAt = Date.now() + qWindow * 1000;
+    clearInterval(timerInt);
+    timerInt = setInterval(tickTimer, 250);
+    tickTimer();
+  }
+}
+function tickTimer() {
+  const left = Math.max(0, Math.round((endsAt - Date.now()) / 1000));
+  document.getElementById('q-timer').textContent = '⏱ ' + left + 's';
+  document.getElementById('tbar-fill').style.width = Math.max(0, Math.min(100, left / qWindow * 100)) + '%';
+  if (left <= 0) { clearInterval(timerInt); refresh(); }
+}
+async function answer(i, btn) {
+  document.querySelectorAll('.opt').forEach(b => { b.disabled = true; });
+  btn.classList.add('picked');
+  const d = await api('/api/exam/answer', {code: CODE, token, position: curPos, choice: i});
+  const fb = document.getElementById('q-feedback');
+  if (d.ok) { fb.innerHTML = d.correct ? '✅ Correct! Points add ayyayi ⭐' : '❌ Wrong — parvaledu, next question undi!'; }
+  else { fb.textContent = d.error || ''; }
+  setTimeout(refresh, 900);
+}
+function renderDone(s) {
+  show('view-done');
+  clearInterval(pollInt);
+  clearInterval(timerInt);
+  document.getElementById('done-title').textContent = s.rank ? ('🎉 Meeru Rank #' + s.rank + ' / ' + s.total_players) : 'Exam Complete!';
+  document.getElementById('done-score').textContent = s.my.correct + '/' + s.n_q;
+  document.getElementById('done-summary').textContent = '⭐ ' + s.my.pts + ' points · ' + (s.my.college || '');
+  document.getElementById('done-top').innerHTML = (s.top || []).map((t, i) =>
+    '<div class="trow"><span>' + (['🥇', '🥈', '🥉'][i] || (i + 1)) + '</span><b>' + esc(t.name) + '</b><span class="muted">' + esc(t.college) + '</span><span>✅ ' + t.correct + ' · ⭐ ' + t.pts + '</span></div>').join('');
+  document.getElementById('done-review').innerHTML = (s.review || []).map(r =>
+    '<div class="rrow ' + (r.right ? 'ok' : 'bad') + '"><div><b>Q' + r.n + '.</b> ' + esc(r.q) + '</div><div class="muted">Meeru: ' + esc(r.your) + (r.right ? ' ✅' : ' ❌ · Correct: ' + esc(r.answer)) + '</div></div>').join('') || '<div class="muted">Review data ledu</div>';
+}
+function startPolling() {
+  refresh();
+  clearInterval(pollInt);
+  pollInt = setInterval(refresh, 2000);
+}
+(async () => {
+  try {
+    const d = await api('/api/exam/info?code=' + encodeURIComponent(CODE));
+    if (d.ok) {
+      document.getElementById('exam-name').textContent = d.exam;
+      document.getElementById('join-sub').textContent = d.n_q + ' questions · peru + mobile isthe chalu, app download akkarledu!';
+      if (d.colleges && d.colleges.length > 1) {
+        const sel = document.getElementById('f-college');
+        const lab = document.getElementById('college-label');
+        sel.innerHTML = d.colleges.map(c => '<option>' + esc(c) + '</option>').join('');
+        sel.style.display = 'block';
+        lab.style.display = 'block';
+      }
+      if (d.state === 'done') { document.getElementById('join-err').textContent = 'Ee exam ayipoyindi.'; }
+    } else {
+      document.getElementById('join-err').textContent = '❌ Exam link invalid — organiser ni adagandi.';
+    }
+  } catch (e) {}
+  if (token) { startPolling(); }
+})();
+</script>
+</body>
+</html>
+"""
+
+
 HTML_PAGE = """<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -190,11 +2447,24 @@ HTML_PAGE = """<!DOCTYPE html>
     .stat-card .label { font-size: 12px; color: var(--text-muted); font-weight: 500; }
     .stat-card .val { font-size: 28px; font-weight: 800; margin-top: 5px; }
     .stat-card .desc { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
-    .tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding: 8px 4px 10px; overflow-x: auto; position: sticky; top: 0; z-index: 20; background: rgba(11,15,25,.94); backdrop-filter: blur(14px); }
-    .tab-btn { background: transparent; border: none; color: var(--text-muted); font-size: 14px; font-weight: 600; padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
-    .tab-btn.active { background: var(--primary); color: #fff; }
+    /* ===== 🧭 Neat grouped sidebar navigation (no more 16-tab clutter row) ===== */
+    .tabs { position: fixed; left: 0; top: 0; bottom: 0; width: 236px; z-index: 40; display: flex; flex-direction: column; gap: 2px; padding: 16px 12px; overflow-y: auto; background: #0a0f1e; border-right: 1px solid var(--border); scrollbar-width: thin; }
+    .tabs::-webkit-scrollbar { width: 6px; }
+    .tabs::-webkit-scrollbar-thumb { background: #22304d; border-radius: 3px; }
+    .nav-brand { font-size: 17px; font-weight: 800; color: #f8fafc; padding: 2px 8px; letter-spacing: .2px; }
+    .nav-brand small { display: block; font-size: 10.5px; color: var(--text-muted); font-weight: 500; margin-top: 2px; }
+    .nav-search { width: 100%; box-sizing: border-box; margin: 10px 0 6px; padding: 8px 10px; font-size: 12.5px; background: #050811; color: var(--text); border: 1px solid var(--border); border-radius: 9px; outline: none; }
+    .nav-search:focus { border-color: var(--primary); }
+    .nav-group { font-size: 10px; font-weight: 800; letter-spacing: 1.4px; color: #5b6b8c; margin: 14px 8px 5px; text-transform: uppercase; }
+    .tab-btn { width: 100%; text-align: left; background: transparent; border: none; color: var(--text-muted); font-size: 13.5px; font-weight: 600; padding: 9px 12px; border-radius: 10px; cursor: pointer; transition: all .15s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tab-btn:hover { background: rgba(59,130,246,.10); color: var(--text); }
+    .tab-btn.active { background: linear-gradient(90deg, var(--primary), #0ea5e9); color: #fff; box-shadow: 0 4px 14px rgba(37,99,235,.35); }
+    body { padding-left: 260px; }
+    details.adv { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin-top: 12px; background: #0a1122; }
+    details.adv summary { cursor: pointer; font-size: 12.5px; font-weight: 700; color: var(--text-muted); }
     .tab-pane { display: none; }
-    .tab-pane.active { display: block; }
+    .tab-pane.active { display: block; animation: paneIn .25s ease; }
+    @keyframes paneIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
     .panel-card { background: linear-gradient(145deg, rgba(19,27,46,.98), rgba(15,23,42,.98)); border: 1px solid var(--border); border-radius: 14px; padding: 22px; margin-bottom: 20px; box-shadow: 0 8px 28px rgba(0,0,0,0.22); }
     .panel-card h2 { font-size: 18px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
     .btn { background: var(--primary); color: #fff; border: none; padding: 9px 15px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
@@ -232,8 +2502,11 @@ HTML_PAGE = """<!DOCTYPE html>
       .stat-card { padding: 10px 12px; }
       .stat-card .val { font-size: 20px; }
       .stat-card .desc { display: none; }
-      .tabs { gap: 4px; padding-bottom: 6px; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
-      .tab-btn { font-size: 12px; padding: 8px 10px; }
+      body { padding-left: 12px; }
+      .tabs { position: static; width: auto; flex-direction: row; flex-wrap: wrap; align-items: center; border-right: none; border-bottom: 1px solid var(--border); padding: 10px 4px; margin-bottom: 12px; }
+      .nav-group { display: none; }
+      .nav-search { display: none; }
+      .tab-btn { width: auto; font-size: 12px; padding: 8px 10px; }
       .panel-card { padding: 12px !important; }
       table { display: block; overflow-x: auto; white-space: nowrap; font-size: 11px; }
       #wa-login-number-badge { font-size: 16px !important; padding: 5px 12px !important; }
@@ -317,6 +2590,23 @@ HTML_PAGE = """<!DOCTYPE html>
     </div>
   </div>
 
+  <!-- 🎯 VISION MISSION CONTROL -->
+  <div style="background:linear-gradient(135deg,#0d1b36,#131024); border:1px solid #a78bfa; border-radius:12px; padding:16px; margin-bottom:18px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <div>
+        <h3 style="font-size:15px; color:#c4b5fd; margin:0;">🎯 Vision Mission Control</h3>
+        <div id="vision-tagline" style="font-size:11px; color:var(--text-muted); margin-top:2px;">Prathi TS/AP aspirant ki — prathi roju thana exam PYQ + fresh bilingual polls, rendu platforms lo, rank tho.</div>
+      </div>
+      <div style="text-align:center;">
+        <div id="vision-score" style="font-size:30px; font-weight:900; color:#a78bfa; line-height:1;">…</div>
+        <div style="font-size:10px; color:var(--text-muted);">VISION SCORE <span id="vision-grade"></span></div>
+      </div>
+    </div>
+    <div id="vision-pillars" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; margin-top:12px; font-size:12px;"></div>
+    <div id="vision-actions" style="margin-top:10px; font-size:12px;"></div>
+    <div id="vision-next" style="margin-top:6px; font-size:11px; color:#64748b;"></div>
+  </div>
+
   <!-- Global WhatsApp Device Connectivity Header -->
   <div style="background: linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(59,130,246,0.15) 100%); border:1px solid #10b981; border-radius:12px; padding:14px 18px; margin-bottom:18px;">
     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
@@ -331,8 +2621,9 @@ HTML_PAGE = """<!DOCTYPE html>
             📵 NOT LINKED
           </div>
           <div style="font-size:12px; color:var(--text-muted); line-height:1.7;">
+            <div id="wa-session-desc"></div>
             <div>👤 Device: <b style="color:#f8fafc;" id="wa-device-name">—</b> <span id="wa-connected-since" style="color:#64748b;"></span></div>
-            <div>💬 Synced Groups: <b style="color:#38bdf8;" id="wa-dialogs-count">0 Groups</b> · 🛡️ Anti-Ban: <b style="color:#10b981;">40-60s Jitter + 5-Poll Rotation + 60-90s Batch Rest</b></div>
+            <div>💬 Synced Groups: <b style="color:#38bdf8;" id="wa-dialogs-count">0 Groups</b> · 🛡️ Anti-Ban: <b style="color:#10b981;">60-80s Jitter + Adaptive Risk Brain + 60-90s Batch Rest</b></div>
           </div>
           <span id="wa-device-phone" style="display:none;"></span>
         </div>
@@ -341,8 +2632,8 @@ HTML_PAGE = """<!DOCTYPE html>
         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:8px; background:#050811; border:1px solid #1e293b; border-radius:10px; padding:8px 14px;">
           <b style="font-size:12px; color:#f59e0b;">⏱️ Anti-Ban Gap Engine:</b>
           <select id="global-gap-preset" onchange="applyGapPreset(this.value)" style="margin:0; padding:5px 8px; font-size:12px; background:#0b1329; border:1px solid #f59e0b; color:#f8fafc; border-radius:6px;">
-            <option value="20,35">⚡ Fast — 20-35s</option>
-            <option value="40,60" selected>🛡️ Normal — 40-60s</option>
+            
+            <option value="60,80" selected>🛡️ Safe — 60-80s (recommended)</option>
             <option value="90,150">🐢 Long — 1.5-2.5 min</option>
             <option value="180,300">🧘 Extra Long — 3-5 min</option>
             <option value="300,600">🌙 Marathon — 5-10 min</option>
@@ -367,17 +2658,39 @@ HTML_PAGE = """<!DOCTYPE html>
   </div>
 
   <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('tab-bulk-broadcast')">🚀 Bulk Messages & Channels Hub</button>
-    <button class="tab-btn" onclick="switchTab('tab-wa-dispatch')">🛡️ WhatsApp 100+ Interleaved Dispatcher</button>
-    <button class="tab-btn" onclick="switchTab('tab-bundles')">📦 Custom Saved Bundles</button>
+    <div class="nav-brand">🎓 StudentUp<small>Admin Control · neat &amp; easy</small></div>
+    <input class="nav-search" id="nav-search" placeholder="🔍 Search tabs… (exam, whatsapp, members)" oninput="filterNav(this.value)">
+    <button class="btn btn-outline" style="margin:2px 0 4px; padding:6px 10px; font-size:11px; justify-content:center;" onclick="openCmdk()">⌨️ Quick Search · Ctrl+K</button>
+    <div class="nav-group">Main</div>
+    <button class="tab-btn active" onclick="switchTab('tab-setup-wizard')">🏠 Home · Easy Setup Wizard</button>
+    <div class="nav-group">Dispatch</div>
+    <button class="tab-btn" onclick="switchTab('tab-bulk-broadcast')">🚀 Bulk Broadcast</button>
+    <button class="tab-btn" onclick="switchTab('tab-wa-dispatch')">🛡️ WhatsApp Dispatcher</button>
+    <button class="tab-btn" onclick="switchTab('tab-bundles')">📦 Bundles</button>
+    <button class="tab-btn" onclick="switchTab('tab-excel-import')">📊 Excel Import</button>
+    <div class="nav-group">Exams</div>
+    <button class="tab-btn" onclick="switchTab('tab-campus')">🏫 College Exams &amp; QR</button>
+    <button class="tab-btn" onclick="switchTab('tab-conductor')">🎓 Exam Conductor</button>
+    <div class="nav-group">People</div>
+    <button class="tab-btn" onclick="switchTab('tab-members')">📋 Members &amp; CRM</button>
     <button class="tab-btn" onclick="switchTab('tab-member-queue')">👥 Member Queue</button>
-    <button class="tab-btn" onclick="switchTab('tab-excel-import')">📊 Multi-Sheet Excel Importer</button>
-    <button class="tab-btn" onclick="switchTab('tab-campus')">🏫 College On-Spot Exams & QR</button>
-    <button class="tab-btn" onclick="switchTab('tab-dynamic-channels')">📢 Telegram Channels & Poll Counts</button>
-    <button class="tab-btn" onclick="switchTab('tab-control')">⚡ Fast Actions & District War</button>
-    <button class="tab-btn" onclick="switchTab('tab-squads')">👥 Squad Wars & Arena</button>
-    <button class="tab-btn" onclick="switchTab('tab-members')">📋 Registered Members & CRM</button>
-    <button class="tab-btn" onclick="switchTab('tab-history')">📊 History & Analytics</button>
+    <button class="tab-btn" onclick="switchTab('tab-squads')">⚔️ Squad Wars &amp; Arena</button>
+    <div class="nav-group">Live &amp; Content</div>
+    <button class="tab-btn" onclick="switchTab('tab-dynamic-channels')">📢 Telegram Channels</button>
+    <button class="tab-btn" onclick="switchTab('tab-control')">⚡ Fast Actions · War</button>
+    <div class="nav-group">Insights</div>
+    <button class="tab-btn" onclick="switchTab('tab-growth')">📈 Growth &amp; Revenue</button>
+    <button class="tab-btn" onclick="switchTab('tab-history')">📊 History &amp; Analytics</button>
+    <div class="nav-group">System</div>
+    <button class="tab-btn" onclick="switchTab('tab-proops')">🏢 Pro Ops</button>
+  </div>
+
+  <!-- ⌨️ COMMAND PALETTE (Ctrl+K) -->
+  <div id="cmdk-overlay" style="display:none; position:fixed; inset:0; background:rgba(3,6,12,.72); z-index:200;" onclick="if(event.target===this) closeCmdk()">
+    <div style="max-width:560px; margin:9vh auto 0; background:#0b1329; border:1px solid #2b3f66; border-radius:14px; overflow:hidden; box-shadow:0 24px 60px rgba(0,0,0,.6);">
+      <input id="cmdk-input" placeholder="🔍 Search — tabs, college exams, members… (↑↓ select · Enter open · Esc close)" oninput="cmdkSel=0; renderCmdk(this.value)" style="width:100%; margin:0; border:none; border-bottom:1px solid var(--border); border-radius:0; padding:14px 16px; font-size:15px; background:#0b1329;">
+      <div id="cmdk-list" style="max-height:46vh; overflow-y:auto; padding:6px;"></div>
+    </div>
   </div>
 
   <!-- TAB 1: WHATSAPP INTERLEAVED DISPATCHER -->
@@ -385,7 +2698,7 @@ HTML_PAGE = """<!DOCTYPE html>
     <div class="planner-hero"><div><div class="eyebrow">CONTROL CENTER · WHATSAPP AUTOMATION</div><h2>Plan once. Deliver automatically.</h2><p>Pick an exam, choose exact groups, set multiple daily times and let the server run the schedule.</p></div><div class="hero-actions"><button class="btn btn-accent" onclick="toggleScheduleBuilder()">＋ New smart schedule</button><button class="btn btn-outline" onclick="switchTab('tab-excel-import')">Import from Excel</button></div></div>
     <div class="planner-grid"><div class="planner-card"><div class="planner-card-head"><span class="step">01</span><div><b>Choose exam / poll pack</b><small>Only matching content will be sent</small></div></div><div class="exam-pills"><button onclick="setPlannerCategory('ALL',this)" class="exam-pill active">All exams</button><button onclick="setPlannerCategory('POLICE',this)" class="exam-pill">Police</button><button onclick="setPlannerCategory('TSPSC',this)" class="exam-pill">TSPSC</button><button onclick="setPlannerCategory('APPSC',this)" class="exam-pill">APPSC</button><button onclick="setPlannerCategory('SSC',this)" class="exam-pill">SSC / Railway</button><button onclick="setPlannerCategory('TET_DSC',this)" class="exam-pill">TET / DSC</button><button onclick="setPlannerCategory('CURRENT',this)" class="exam-pill">Current affairs</button></div></div><div class="planner-card"><div class="planner-card-head"><span class="step">02</span><div><b>Choose recipients</b><small>Tick exact groups in the directory below</small></div></div><div class="selection-summary"><strong id="planner-selected-count">0 groups selected</strong><span>Category filters remain available</span></div><button class="btn btn-outline" onclick="document.getElementById('table-wa-groups').scrollIntoView({behavior:'smooth',block:'center'})">Select groups ↓</button></div><div class="planner-card"><div class="planner-card-head"><span class="step">03</span><div><b>Set delivery plan</b><small>Times, frequency, duration and days</small></div></div><div class="mini-stat-row"><span>⏱ Multi-time</span><span>📅 Lifetime / days</span><span>🛡 Safe queue</span></div><button class="btn btn-accent" onclick="toggleScheduleBuilder()">Open scheduler →</button></div></div>
     <div class="panel-card">
-      <h2>🛡️ Advanced WhatsApp Anti-Ban Dispatcher (5 Polls/Group, 40-60s Jitter, 60-90s Batch Rest)</h2>
+      <h2>🛡️ Advanced WhatsApp Anti-Ban Dispatcher (5 Polls/Group, 60-80s Jitter, Adaptive Risk Brain)</h2>
       <p style="color:var(--text-muted); font-size:13px; margin-bottom:16px;">
         ఖాతా పూర్తి భద్రత కోసం: ప్రతి గ్రూపులో <b>5 ప్రశ్నలు</b> పూర్తయ్యే వరకు <b>40-60 సెకన్ల</b> రాండమ్ గ్యాప్‌తో పోస్ట్ అవుతాయి. ప్రతి 5 గ్రూపుల తర్వాత <b>60-90 సెకన్ల</b> కూల్‌డౌన్ పాజ్ తీసుకుంటుంది. మొదటి 5 గ్రూపులకు ఇంగ్లీష్ మొదటి లైన్, తర్వాతి 5 గ్రూపులకు తెలుగు మొదటి లైన్ క్రమంలో ఆటోమేటిక్ బైలింగ్వల్ రోటేషన్ ఉంటుంది.
       </p>
@@ -512,6 +2825,7 @@ HTML_PAGE = """<!DOCTYPE html>
               <label style="display:flex; align-items:center; gap:4px;"><input type="checkbox" class="sb-subj" value="ENGLISH">🔤 English</label>
               <label style="display:flex; align-items:center; gap:4px;"><input type="checkbox" class="sb-subj" value="SCIENCE">🔬 Science</label>
             </div>
+            <input type="text" id="sb-subj-custom" placeholder="Custom subjects: HISTORY+GEOGRAPHY (+ tho) — bank topics tho match avuthaayi" style="margin-top:6px; font-size:12px;">
             <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
               <button class="btn btn-accent" onclick="createScheduleFromBuilder()">✅ Create Schedule (Target: selected groups/category above)</button>
               <button class="btn btn-outline" onclick="toggleScheduleBuilder()">✖ Close</button>
@@ -599,6 +2913,9 @@ HTML_PAGE = """<!DOCTYPE html>
             <div class="progress-bar-container">
               <div id="pipeline-progress-bar" class="progress-bar"></div>
             </div>
+            <div id="pipeline-pacing-text" style="font-size:11px; color:#93c5fd; margin-top:6px;">🧠 Adaptive Anti-Ban: ×1.00 · 🟢 HEALTHY · fatigue ×1.00</div>
+            <div id="wa-safety-stack" style="margin-top:10px; font-size:12px;"></div>
+            <div id="wa-safety-detail" style="margin-top:6px; font-size:11.5px;"></div>
           </div>
         </div>
 
@@ -648,10 +2965,14 @@ HTML_PAGE = """<!DOCTYPE html>
           </thead>
           <tbody></tbody>
         </table>
+        <div style="margin-top:14px; background:rgba(212,175,55,0.07); border:1px solid rgba(212,175,55,0.45); border-radius:10px; padding:12px 14px;">
+          <b>🏆 Hall of Fame — WhatsApp All-Time Champions</b>
+          <div id="wa-hof" style="margin-top:8px; font-size:13px;"><span style="color:var(--text-muted);">Inka champions leru — first winners round tarvata ikkada kanipistharu.</span></div>
+        </div>
 
         <div style="display:flex; gap:10px; margin-top:16px; background:#0f172a; padding:12px; border-radius:8px; flex-wrap:wrap; align-items:center;">
           <input type="text" id="new-wa-title" placeholder="Group Title (e.g. Warangal TS Police SI Batch)" style="flex:2; min-width:200px; margin:0;">
-          <input type="text" id="new-wa-jid" placeholder="Group JID or Invite link" style="flex:2; min-width:200px; margin:0;">
+          <input type="text" id="new-wa-jid" placeholder="Group JID / Channel JID (…@newsletter) / Invite link" style="flex:2; min-width:200px; margin:0;">
           <select id="new-wa-category" style="width:160px; margin:0;">
             <option value="AUTO">🤖 Auto Category</option>
             <option value="GENERAL">🌐 General Group</option>
@@ -725,11 +3046,14 @@ HTML_PAGE = """<!DOCTYPE html>
       <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
         <div style="background:#0f172a; padding:18px; border-radius:10px; border:1px solid var(--border);">
           <h3 style="font-size:15px; margin-bottom:12px; color:#38bdf8;">➕ Launch New College Exam Event</h3>
-          <label>College Name (e.g. SR Engineering College or Kakatiya Univ):</label>
+          <label>College Name (e.g. SR Engineering College or Kakatiya Univ): <span style="color:var(--text-muted); font-size:11px;">— ekkuva colleges kosam comma tho separate cheyyandi (Inter-College War!)</span></label>
           <input type="text" id="campus-college-name" placeholder="Enter College Name">
 
           <label>District:</label>
           <input type="text" id="campus-district" placeholder="e.g. Warangal, Visakhapatnam, Hyderabad, Guntur">
+
+          <label>⏰ Auto-Start Time (optional — ఖాళీగా వదిలేస్తే మీరే 🚀 Start నొక్కాలి):</label>
+          <input type="datetime-local" id="campus-start-at">
 
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
             <div>
@@ -750,6 +3074,14 @@ HTML_PAGE = """<!DOCTYPE html>
               </select>
             </div>
           </div>
+
+          <label style="margin-top:6px;">⚠️ Negative Marking (real-exam feel, optional):</label>
+          <select id="campus-neg">
+            <option value="0" selected>No negative marking (friendly)</option>
+            <option value="1">−1 point per wrong answer</option>
+            <option value="2">−2 points per wrong answer</option>
+            <option value="5">−5 points per wrong answer (strict)</option>
+          </select>
 
           <label style="margin-top:6px;">Select Subjects to Include in Exam:</label>
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:12px; margin-bottom:12px; background:#050811; padding:10px; border-radius:8px; border:1px solid var(--border);">
@@ -791,6 +3123,157 @@ HTML_PAGE = """<!DOCTYPE html>
           </thead>
           <tbody></tbody>
         </table>
+      <div class="panel-card" style="margin-top:16px;">
+        <h3 style="font-size:14px; color:#38bdf8;">🌐 Portal Live Exams (quiz.studentup.in) — అందరి students kosam public live exams</h3>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; align-items:center;">
+          <input type="text" id="pex-title" placeholder="Exam title e.g. Sunday Mega Test" style="flex:2; min-width:160px;">
+          <select id="pex-goal" style="flex:1; min-width:130px;"></select>
+          <input type="datetime-local" id="pex-start" style="flex:1; min-width:170px;">
+          <select id="pex-dur"><option value="20">20 min</option><option value="30" selected>30 min</option><option value="45">45 min</option><option value="60">60 min</option></select>
+          <select id="pex-nq"><option value="15">15 Qs</option><option value="20" selected>20 Qs</option><option value="30">30 Qs</option><option value="50">50 Qs</option></select>
+          <select id="pex-neg" title="Negative marking (real exam pattern)"><option value="0">No negative</option><option value="0.25">−0.25 / wrong</option><option value="0.5">−0.5 / wrong</option><option value="1">−1 / wrong</option></select>
+          <button class="btn btn-accent" onclick="createPortalExam()">➕ Schedule Live Exam</button>
+          <button class="btn btn-outline" onclick="loadPortalExams()">🔄 Refresh</button>
+        </div>
+        <div id="pex-msg" style="font-size:12px; margin-top:8px;"></div>
+        <div id="pex-list" style="font-size:12.5px; margin-top:8px; color:var(--text-muted);">Loading… (🏆 Weekly Grand Test prati Sunday 10 AM automatic ga create avthundi)</div>
+      </div>
+
+      <div class="panel-card" style="margin-top:16px;">
+        <h3 style="font-size:14px; color:#38bdf8;">📊 Portal Analytics — students · funnel · goals · PYQ gaps</h3>
+        <div id="pt-analytics" style="font-size:12.5px; margin-top:8px; color:var(--text-muted);">Loading…</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+          <button class="btn btn-outline" onclick="loadPortalAnalytics()">🔄 Refresh Analytics</button>
+        </div>
+        <h3 style="font-size:13px; margin-top:16px;">👥 Students Search</h3>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+          <input id="pt-q" type="text" placeholder="Name / district / phone…" style="flex:1; min-width:170px;">
+          <button class="btn btn-outline" onclick="searchAdminStudents()">🔍 Search</button>
+        </div>
+        <div id="pt-students" style="font-size:12.5px; margin-top:8px; color:var(--text-muted);">Student search cheyyandi.</div>
+        <h3 style="font-size:13px; margin-top:16px;">🚩 Question Flags (student reports)</h3>
+        <div id="pt-flags" style="font-size:12.5px; margin-top:8px; color:var(--text-muted);">Loading…</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+          <button class="btn btn-outline" onclick="loadAdminFlags()">🔄 Refresh Flags</button>
+        </div>
+      </div>
+
+      <div class="panel-card" style="margin-top:16px;">
+        <h3 style="font-size:14px; color:#facc15;">📜 PYQ Harvest &amp; Import Center — real previous-year questions penchane engine</h3>
+        <div id="pyq-status" style="font-size:12.5px; color:var(--text-muted); white-space:pre-line; margin-top:8px;">Loading…</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+          <button class="btn btn-accent" onclick="runPyqHarvest(false)">🌾 Run Harvest (Official Papers Download)</button>
+          <button class="btn btn-outline" onclick="runPyqHarvest(true)">🧪 Dry Run</button>
+          <button class="btn btn-outline" onclick="loadPyqStatus()">🔄 Status</button>
+          <button class="btn btn-outline" onclick="downloadPyqTemplate()">📥 CSV Template</button>
+        </div>
+        <div id="pyq-msg" style="font-size:12px; margin-top:8px;"></div>
+        <details style="margin-top:10px;">
+          <summary style="cursor:pointer; font-size:13px; font-weight:700;">➕ Official Paper URL add cheyyandi (board site PDF/index link)</summary>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+            <select id="pyq-channel" style="min-width:110px;"><option>CURRENT</option><option>APPSC</option><option>TSPSC</option><option>SSC</option><option>BANKING</option><option>RAILWAY</option><option>POLICE</option><option>DEFENCE</option></select>
+            <input id="pyq-exam" placeholder="Exam e.g. TSPSC Group-2" style="flex:1; min-width:140px;">
+            <input id="pyq-year" placeholder="Year" style="width:80px;">
+            <input id="pyq-paper" placeholder="Paper-1" style="width:90px;">
+            <input id="pyq-url" placeholder="https://official-site…/paper.pdf" style="flex:2; min-width:220px;">
+            <button class="btn btn-outline" onclick="addPyqPaper()">➕ Add Paper</button>
+          </div>
+          <div class="muted" style="font-size:11px; margin-top:6px;">Add chesina papers ni 🌾 Harvest download chesi, questions ga marchi, "📜 Exam Year" label tho bank loki vesthundi.</div>
+        </details>
+        <details style="margin-top:10px;">
+          <summary style="cursor:pointer; font-size:13px; font-weight:700;">📥 CSV Import — mee deggara unna PYQ banks (Excel → CSV) direct ga add cheyyandi</summary>
+          <div class="muted" style="font-size:11px; margin-top:6px;">Columns: question, option1, option2, option3, option4, answer (1-4 / A-D), explanation, exam, year, channel, topic · Duplicates automatic skip avthayi · Import avvagane Live Exams/Mocks lo use avthayi.</div>
+          <textarea id="pyq-csv" rows="5" placeholder="CSV rows ikkada paste cheyyandi…" style="width:100%; margin-top:8px; background:#050811; color:#e2e8f0; border:1px solid var(--border); border-radius:8px; padding:10px;"></textarea>
+          <div style="display:flex; gap:8px; margin-top:8px; align-items:center;">
+            <input type="file" id="pyq-file" accept=".csv" onchange="readPyqFile(event)">
+            <button class="btn btn-accent" onclick="importPyqCsv()">📥 Import PYQs</button>
+            <span id="pyq-import-msg" style="font-size:12px;"></span>
+          </div>
+        </details>
+      </div>
+
+      <div class="panel-card" style="margin-top:16px;">
+        <h3 style="font-size:14px; color:#38bdf8;">🌉 WordPress Bridge — studentup.in (blog) ↔ mana platform (quiz)</h3>
+        <p class="muted" style="font-size:12px; margin-top:6px;">Smart rule: <b>Blog ki WordPress master</b> (publish chesthe automatic mana <a href="/blog" target="_blank">/blog</a> lo kanipisthundi) · <b>Quiz ki mana bank master</b> (ikkada prepare chesina daily quiz ni WP format lo export chestham). Sync details: <code>docs/BRIDGE_PLAN.md</code> + WP snippet: <code>integrations/wordpress/</code>.</p>
+        <div id="wp-status" style="font-size:12.5px; margin-top:8px; color:var(--text-muted);">Status inka check cheyyaledu.</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+          <button class="btn btn-outline" onclick="wpStatus()">🔍 WordPress Connection Test</button>
+          <button class="btn btn-accent" onclick="wpExportQuiz()">📤 Today's Quiz → WP Format Export</button>
+          <a class="btn btn-outline" href="/blog" target="_blank" style="text-decoration:none;">📰 /blog Chudu</a>
+        </div>
+        <div id="wp-msg" style="font-size:12px; margin-top:8px;"></div>
+      </div>
+
+      <div class="panel-card" style="margin-top:16px;">
+        <h3 style="font-size:14px; color:#38bdf8;">📢 Exam Updates / Notices — students ki portal lo + public site lo kanipisthayi</h3>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+          <input id="ntc-title" placeholder="Notice title e.g. SSC CGL 2026 Notification Out!" style="flex:2; min-width:200px;">
+          <input id="ntc-link" placeholder="Official link (optional)" style="flex:1; min-width:180px;">
+        </div>
+        <textarea id="ntc-body" rows="2" placeholder="Details… (dates, eligibility, apply dates)" style="width:100%; margin-top:8px; background:#050811; color:#e2e8f0; border:1px solid var(--border); border-radius:8px; padding:10px;"></textarea>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <button class="btn btn-accent" onclick="postNotice()">📢 Post Notice</button>
+          <button class="btn btn-outline" onclick="loadNotices()">🔄 Refresh</button>
+          <span id="ntc-msg" style="font-size:12px;"></span>
+        </div>
+        <div id="ntc-list" style="font-size:12.5px; margin-top:8px; color:var(--text-muted);">Loading…</div>
+      </div>
+
+      <div class="panel-card" style="margin-top:16px;">
+        <h3 style="font-size:14px; color:#10b981;">📩 Personal Coach — okko student ki valla report personal ga</h3>
+        <p class="muted" style="font-size:12px; margin-top:6px;">Telegram students andari ki valla <b>points, streak, accuracy, weak topics, revision due</b> personal DM ga velthundi (okkokariki valla report matrame). Web (portal) students ki report portal lone untundi + valla deggara WhatsApp share button undi.</p>
+        <div style="display:flex; gap:8px; margin-top:10px; align-items:center; flex-wrap:wrap;">
+          <button class="btn btn-accent" onclick="sendPersonalReports()">📩 Personal Reports Pampu</button>
+          <button class="btn btn-outline" onclick="reportStatus()">🔄 Status</button>
+          <span id="rep-msg" style="font-size:12px;"></span>
+        </div>
+      </div>
+
+      <div class="panel-card" style="margin-top:16px;">
+        <h3 style="font-size:14px; color:#facc15;">🏆 College League — అన్ని exams kalipi Inter-College Standings</h3>
+        <div id="campus-league-box" style="font-size:12px; margin-top:8px; color:var(--text-muted);">League data loading…</div>
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: 🚀 EASY SETUP WIZARD -->
+  <div id="tab-setup-wizard" class="tab-pane active">
+    <div class="panel-card">
+      <h2>🏠 Home · Easy Setup Wizard — 5 steps lo full system ready!</h2>
+      <p style="color:var(--text-muted); font-size:13px; margin-bottom:12px;">
+        Telegram + WhatsApp rendu, step-by-step. Prathi step status automatic ga check avuthundi —
+        pending unna chota button nokkithe saraina tab ki theeskellthundi. Anni ✅ aithe meeru emi cheyakkarledu, system ye nadusthundi!
+      </p>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;">
+        <button class="btn btn-accent" onclick="switchTab('tab-campus')">🏫 New College Exam</button>
+        <button class="btn btn-primary" onclick="switchTab('tab-bulk-broadcast')">🚀 Bulk Broadcast</button>
+        <button class="btn btn-outline" onclick="switchTab('tab-wa-dispatch')">🛡️ WhatsApp Schedules</button>
+        <button class="btn btn-outline" onclick="switchTab('tab-members')">📋 Members</button>
+        <button class="btn btn-outline" onclick="switchTab('tab-dynamic-channels')">📢 Telegram Channels</button>
+      </div>
+      <div style="background:#0b1329; border:1px solid #22304d; border-radius:10px; height:14px; overflow:hidden; margin-bottom:14px;">
+        <div id="wiz-progress" style="height:100%; width:0%; background:linear-gradient(90deg,#10b981,#38bdf8); transition:width .4s;"></div>
+      </div>
+      <div id="wiz-steps" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px;"></div>
+      <details class="adv">
+        <summary>🖥️ Advanced — server commands &amp; production (developers kosam)</summary>
+        <div style="font-size:12.5px; margin-top:8px;">
+        <b style="color:#38bdf8;">🖥️ Server meeda motham stack okka command tho:</b>
+        <pre style="background:#0b1329; padding:10px; border-radius:8px; margin-top:8px; overflow:auto;">bash start_all.sh        # Dashboard + Bridge + Scheduler (collector 8x/day) + Bot</pre>
+        <span style="color:var(--text-muted);">Production (systemd) kosam: <code>deploy/*.service</code> · Status: <code>python3 -m core.vision</code></span>
+        <button class="btn btn-outline" style="margin-left:10px; padding:4px 10px; font-size:11px;" onclick="loadSetupWizard()">🔄 Refresh Status</button>
+        </div>
+      </details>
+      <div id="wiz-actions" style="margin-top:12px; font-size:12.5px;"></div>
+      <div style="margin-top:16px; border-top:1px solid var(--border); padding-top:14px;">
+        <h3 style="font-size:14px; color:#a78bfa;">✨ Smart Day Planner — eeroju dispatch plan ready ga</h3>
+        <p style="font-size:12px; color:var(--text-muted); margin:4px 0 8px;">Students eppudu active ga untaro + ekkada weak ga unnaro chusi system ye plan chesthundi. Nachithe okka click lo apply — anthe!</p>
+        <div id="planner-box" style="font-size:12px; color:var(--text-muted);">"✨ Plan Chudu" nokkithe eeroju plan kanipisthundi.</div>
+        <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
+          <button class="btn btn-purple" style="font-size:12px;" onclick="loadPlanner()">✨ Plan Chudu</button>
+          <button class="btn btn-accent" style="font-size:12px;" onclick="applyPlanner()">✅ Select Chesinavi Apply Chey</button>
+        </div>
       </div>
     </div>
   </div>
@@ -854,11 +3337,44 @@ Telangana SSC Science Channel	@ts_science_ssc	TS_10TH	ALL_DAY	EXAM_SPECIFIC"></t
       </div>
 
       <div id="excel-import-log" class="log-box" style="margin-top:16px;">Importer ready. Upload .xlsx file or paste rows.</div>
+
+      <!-- ✍️ MANUAL SETUP — Excel lekunda, form thone okka target full setup -->
+      <div style="background:rgba(16,24,40,0.9); border:1px solid #fbbf24; border-radius:10px; padding:16px; margin-top:18px;">
+        <h4 style="margin-bottom:4px; font-size:14px; color:#fbbf24;">✍️ Manual Setup — Excel lekunda, ikkade add cheyyandi (1 minute!)</h4>
+        <p style="font-size:12px; color:var(--text-muted); margin-bottom:10px;">Okka WhatsApp group / Telegram channel ni form tho add chesi — <b>exam, timings, polls, days, subjects</b> anni okkasare set cheyyandi. Times iste auto-schedule kuda create avuthundi. (Excel import tho behavior okkate: validation + duplicate check untundi)</p>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px;">
+          <div><label>📱 Platform</label>
+            <select id="ms-platform" onchange="msPlatformChanged()">
+              <option value="wa">🟢 WhatsApp Group</option>
+              <option value="tg-channel">📢 Telegram Channel</option>
+              <option value="tg-group">💬 Telegram Group</option>
+            </select></div>
+          <div><label>🏷️ Name</label><input type="text" id="ms-name" placeholder="Warangal SI Batch 1"></div>
+          <div><label id="ms-link-label">🔗 Invite Link or JID</label><input type="text" id="ms-link" placeholder="https://chat.whatsapp.com/... లేదా 1203...@g.us లేదా Channel JID: 1203...@newsletter"></div>
+          <div><label>🎯 Exam</label>
+            <select id="ms-exam" onchange="msExamChanged()"></select>
+            <input type="text" id="ms-exam-custom" placeholder="Custom exam name (e.g. TS Police SI 2027)" style="display:none; margin-top:6px;"></div>
+          <div><label id="ms-shift-label">⏰ Shift</label>
+            <select id="ms-shift"><option value="ALL_DAY">ALL_DAY</option><option value="MORNING">MORNING</option><option value="EVENING">EVENING</option></select></div>
+          <div><label>🗂️ Group Type</label>
+            <select id="ms-type"><option value="EXAM_SPECIFIC">EXAM_SPECIFIC</option><option value="GENERAL">GENERAL</option></select></div>
+          <div><label>⏱️ Daily Times (+ tho)</label><input type="text" id="ms-times" placeholder="08:00+20:30 (ఖాళీ = no schedule)"></div>
+          <div><label>📊 Polls / slot</label><input type="number" id="ms-count" min="1" max="20" value="5"></div>
+          <div><label>📅 Days (0 = ♾️ Always)</label><input type="number" id="ms-days" min="0" max="3650" value="0"></div>
+        </div>
+        <label style="margin-top:10px; display:block;">📚 Subjects (ఏదీ select చేయకపోతే = ALL) — custom subject kuda type cheyyandi:</label>
+        <div id="ms-subjects" style="display:flex; gap:10px; flex-wrap:wrap; margin-top:4px; font-size:12px;"></div>
+        <input type="text" id="ms-subj-custom" placeholder="Custom subjects: HISTORY+GEOGRAPHY+TELUGU (+ tho kalapandi)" style="margin-top:6px;">
+        <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
+          <button class="btn btn-accent" onclick="manualAddTarget()">➕ Add Target (+ Schedule)</button>
+        </div>
+        <div id="ms-result" style="font-size:12px; margin-top:8px;"></div>
+      </div>
     </div>
   </div>
 
   <!-- TAB: BULK BROADCAST & ATTACHMENTS (GROUPS & CHANNELS) -->
-  <div id="tab-bulk-broadcast" class="tab-pane active">
+  <div id="tab-bulk-broadcast" class="tab-pane">
 
     <!-- 🧭 MISSION HOME: ఒక్క చూపులో అంతా అర్థమయ్యే setup guide -->
     <div class="panel-card" id="setup-guide-card" style="border:1px solid #10b981;">
@@ -1241,6 +3757,7 @@ All candidates must join today before 9:00 PM!"></textarea>
           <label style="display:inline; font-size:12px;"><input type="checkbox" class="tg-ap-subj" value="CURRENT"> 📰 Current</label>
           <label style="display:inline; font-size:12px;"><input type="checkbox" class="tg-ap-subj" value="ENGLISH"> 🔤 English</label>
           <label style="display:inline; font-size:12px;"><input type="checkbox" class="tg-ap-subj" value="SCIENCE"> 🔬 Science</label>
+          <input type="text" id="tg-ap-subj-custom" placeholder="Custom: HISTORY+GEOGRAPHY" style="width:190px; margin:0; padding:6px 8px; font-size:12px;">
         </div>
         <div id="tg-ap-result" style="font-size:12px; margin-top:8px;"></div>
         <div id="tg-ap-jobs" style="font-size:12px; margin-top:10px;"></div>
@@ -1408,6 +3925,79 @@ All candidates must join today before 9:00 PM!"></textarea>
   </div>
 
   <!-- TAB: 📊 BROADCAST HISTORY & ANALYTICS -->
+  <div id="tab-growth" class="tab-pane">
+    <div class="panel-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <h2>📈 Growth & Revenue — Business Pulse</h2>
+        <button class="btn btn-outline" style="padding:4px 12px; font-size:11px;" onclick="loadPulse()">🔄 Refresh</button>
+      </div>
+      <p style="color:var(--text-muted); font-size:12px;">Real member data nunchi funnel, referral engine, partner economy — planner matram meeru set chese what-if (price × conversion).</p>
+      <div class="grid-stats" id="pulse-cards"></div>
+      <h3 style="font-size:13px; margin-top:16px;">🔻 Funnel</h3>
+      <div id="pulse-funnel" style="font-size:12px;"></div>
+      <h3 style="font-size:13px; margin-top:16px;">🏆 Top Referrers (📣 /invite loop)</h3>
+      <div id="pulse-referrers" style="font-size:12px;"></div>
+      <h3 style="font-size:13px; margin-top:16px;">🏪 Partner Economy (points → local offers)</h3>
+      <div id="pulse-economy" style="font-size:12px;"></div>
+      <h3 style="font-size:13px; margin-top:16px;">💰 Monetization Planner <span style="color:var(--text-muted); font-weight:normal;">(what-if — real ga charge chese mundu mee assumptions)</span></h3>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:end; font-size:12px;">
+        <label>Plan name<br><input id="pulse-plan-name" style="width:150px;"></label>
+        <label>Price ₹/month<br><input id="pulse-price" type="number" min="0" max="100000" style="width:110px;" oninput="pulseRecompute()"></label>
+        <label>Conversion %<br><input id="pulse-conv" type="number" min="0" max="100" step="0.5" style="width:90px;" oninput="pulseRecompute()"></label>
+        <button class="btn btn-accent" style="padding:6px 14px; font-size:12px;" onclick="savePulseSettings()">💾 Save assumptions</button>
+      </div>
+      <div id="pulse-proj" style="font-size:13px; margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <div id="tab-proops" class="tab-pane">
+    <div class="panel-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <h2>🏢 Pro Ops — System Health, Metrics, Flags, Audit</h2>
+        <span style="font-size:11px; color:var(--text-muted);">auto-refresh 30s · <button class="btn btn-outline" style="padding:3px 10px; font-size:11px;" onclick="loadProOps()">🔄 Refresh</button></span>
+      </div>
+      <div id="proops-health" style="font-size:12px; margin-top:10px;">Loading...</div>
+      <h3 style="font-size:13px; margin-top:16px;">📊 Live Metrics <span style="color:var(--text-muted); font-weight:normal;">(real events — dry runs count avvavu)</span></h3>
+      <div class="grid-stats" id="proops-metrics"></div>
+      <div style="font-size:12px; margin-top:8px;">🕐 Last 24h — student answers (hourly)</div>
+      <div id="proops-chart" style="display:flex; align-items:end; gap:2px; height:74px; margin-top:6px; background:rgba(255,255,255,0.03); border-radius:8px; padding:8px;"></div>
+      <h3 style="font-size:13px; margin-top:16px;">🚦 Feature Flags <span style="color:var(--text-muted); font-weight:normal;">(kill switches — restart akkarledu, ventane apply avuthundi)</span></h3>
+      <div id="proops-flags" style="font-size:12px;"></div>
+      <h3 style="font-size:13px; margin-top:16px;">🧾 Audit Trail <span style="color:var(--text-muted); font-weight:normal;">(evaru, eppudu, em chesaru)</span></h3>
+      <div id="proops-audit" style="font-size:12px;"></div>
+    </div>
+  </div>
+
+  <div id="tab-conductor" class="tab-pane">
+    <div class="panel-card">
+      <h2>🎓 Exam Conductor — oka screen lo exam schedule cheyyandi, migatha motham automatic</h2>
+      <p style="color:var(--text-muted); font-size:12px;">Time ki bot automatic ga start chesthundi (Grand Test / District War / Campus Exam). Bot server lo run avuthunte matrame scheduled launch jaruguthundi — ippude kavali ante Launch Now undi.</p>
+      <div id="conductor-daily" style="font-size:12px; margin:10px 0; padding:8px 10px; background:rgba(56,189,248,0.08); border-radius:8px;">📌 Daily fixed polls status loading...</div>
+      <div id="conductor-advisor" style="font-size:12px; margin:10px 0; padding:8px 10px; background:rgba(167,139,250,0.08); border-radius:8px;">🧠 Smart Slot Advisor loading...</div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; font-size:12px;">
+        <label>Exam peru (title)<br><input id="cd-title" placeholder="Sunday Grand Test — SSC" style="width:100%;"></label>
+        <label>Type<br><select id="cd-kind" style="width:100%;" onchange="cdKindHint()">
+          <option value="grand">📝 Grand Test (channel mock)</option>
+          <option value="war">⚔️ District War</option>
+          <option value="campus">🏫 Campus Exam (join code)</option></select></label>
+        <label>Channel (Grand ki)<br><select id="cd-channel" style="width:100%;"></select></label>
+        <label>Date + Time<br><input id="cd-when" type="datetime-local" style="width:100%;"></label>
+        <label>Duration (minutes)<br><input id="cd-duration" type="number" value="90" min="5" max="600" style="width:100%;"></label>
+        <label>Questions (Grand/Campus)<br><input id="cd-nq" type="number" value="25" min="0" max="200" style="width:100%;"></label>
+        <label>War lobby (minutes)<br><input id="cd-lobby" type="number" value="5" min="1" max="60" style="width:100%;"></label>
+        <label>Campus / College peru<br><input id="cd-campus" placeholder="ABC Degree College" style="width:100%;"></label>
+        <label>District<br><input id="cd-district" placeholder="Warangal" style="width:100%;"></label>
+      </div>
+      <div id="cd-hint" style="font-size:12px; color:var(--text-muted); margin-top:8px;"></div>
+      <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn btn-accent" style="padding:8px 18px; font-size:13px;" onclick="createConductorEvent()">📅 Schedule Exam</button>
+        <button class="btn btn-outline" style="padding:8px 14px; font-size:12px;" onclick="loadConductor()">🔄 Refresh</button>
+      </div>
+      <h3 style="font-size:13px; margin-top:18px;">🗓️ Mee Exams</h3>
+      <div id="conductor-events" style="font-size:12px;">Loading...</div>
+    </div>
+  </div>
+
   <div id="tab-history" class="tab-pane">
     <div class="panel-card">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
@@ -1430,6 +4020,16 @@ All candidates must join today before 9:00 PM!"></textarea>
         </div>
         <div id="health-badges" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; font-size:12px;"></div>
         <div id="health-bank" style="margin-top:10px; font-size:12px;"></div>
+      </div>
+
+      <!-- 🧠 ITEM INTELLIGENCE OPS -->
+      <div style="background:#0b1329; border:1px solid #f472b6; border-radius:10px; padding:14px; margin-top:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <h3 style="font-size:14px; margin:0;">🧠 Item Intelligence — Question Quality (Real Answers)</h3>
+          <button class="btn btn-outline" style="padding:4px 10px; font-size:11px;" onclick="loadItemIntel()">🔄 Refresh</button>
+        </div>
+        <div id="brain-overview" style="font-size:12.5px; margin-bottom:8px; padding:8px 10px; background:rgba(56,189,248,0.07); border-radius:8px;"></div>
+        <div id="item-intel-body" style="font-size:12px; margin-top:9px; color:var(--text-muted);">Loading...</div>
       </div>
 
       <div class="grid-stats" style="margin-top:14px;">
@@ -1474,6 +4074,130 @@ All candidates must join today before 9:00 PM!"></textarea>
   </div>
 
   <script>
+    async function loadPlanner() {
+      const box = document.getElementById('planner-box'); if (!box) return;
+      box.innerHTML = '<div style="color:var(--text-muted); font-size:12px;">✨ Plan tayaravthundi… (students active hours + weak topics chusthunnanu)</div>';
+      try {
+        const r = await fetch('/api/planner/today'); const d = await r.json();
+        window._plannerItems = d.items || [];
+        box.innerHTML = (d.items || []).map((it, i) => `<label style="display:flex; gap:8px; align-items:flex-start; background:#050811; border:1px solid var(--border); border-radius:9px; padding:9px 11px; margin:6px 0; cursor:pointer;">
+          <input type="checkbox" class="planner-chk" data-i="${i}" checked style="width:auto; margin:3px 0 0;">
+          <span style="font-size:12px;"><b style="color:#facc15;">${it.time}</b> · ${it.mode === 'wa' ? '📱' : '✈️'} <b>${it.name}</b> · ${it.count} polls<br><span style="color:var(--text-muted);">${it.reason}</span></span></label>`).join('') + `<div style="font-size:11px; color:var(--text-muted); margin-top:6px;">${d.note || ''}</div>`;
+      } catch (e) { box.innerHTML = '<div style="color:#f87171; font-size:12px;">❌ Plan load avvaledu</div>'; }
+    }
+
+    async function applyPlanner() {
+      const items = [...document.querySelectorAll('.planner-chk:checked')].map(c => window._plannerItems[+c.dataset.i]).filter(Boolean);
+      if (!items.length) return alert('Kanisam okka slot select cheyyandi!');
+      if (!confirm(`✨ ${items.length} daily jobs create cheyyala? Prathi roju ee times lo automatic ga polls velthayi.`)) return;
+      const box = document.getElementById('planner-box');
+      try {
+        const r = await fetch('/api/planner/apply', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({items})});
+        const d = await r.json();
+        box.innerHTML = `<div style="color:#10b981; font-size:13px;">✅ ${d.message || 'Plan applied!'} Jobs ni 📢 Telegram Channels tab lo chudachu / off cheyyachu.</div>`;
+      } catch (e) { alert('❌ ' + e); }
+    }
+
+    // ---------- ⌨️ Command Palette ----------
+    let cmdkSel = 0, cmdkList = [], cmdkEventsCache = null, cmdkMembersCache = null;
+    function cmdkBaseItems() {
+      const items = [];
+      document.querySelectorAll('.tabs .tab-btn').forEach(b => {
+        const m = (b.getAttribute('onclick') || '').match(/switchTab\('([^']+)'\)/);
+        if (m) items.push({label: b.textContent.trim(), hint: 'Tab', run: () => switchTab(m[1])});
+      });
+      items.push({label: '🏫➕ New College Exam (fresh form)', hint: 'Action', run: () => { switchTab('tab-campus'); setTimeout(() => document.getElementById('campus-college-name')?.focus(), 60); }});
+      items.push({label: '✨ Smart Day Planner chudu', hint: 'Action', run: () => { switchTab('tab-setup-wizard'); loadPlanner(); }});
+      items.push({label: '🔄 Setup status refresh chey', hint: 'Action', run: () => { switchTab('tab-setup-wizard'); loadSetupWizard(); }});
+      return items;
+    }
+    async function cmdkDynamic() {
+      const out = [];
+      try {
+        if (!cmdkEventsCache) { const r = await fetch('/api/campus/list'); const d = await r.json(); cmdkEventsCache = d.events || []; }
+        cmdkEventsCache.slice(0, 30).forEach(e => {
+          out.push({label: `📊 Marks — ${e.name} (${e.code})`, hint: `${e.players_count} students · ${e.state}`, run: () => { switchTab('tab-campus'); viewCampusReport(e.code); }});
+          if (e.state === 'question' || e.state === 'gap') out.push({label: `🔴 Live Control — ${e.name}`, hint: 'Exam LIVE', run: () => { switchTab('tab-campus'); watchCampusLive(e.code); }});
+        });
+      } catch (e) {}
+      try {
+        if (!cmdkMembersCache) { const r = await fetch('/api/members'); const d = await r.json(); cmdkMembersCache = d.members || []; }
+        cmdkMembersCache.slice(0, 200).forEach(m => out.push({label: `👤 ${m.name} — ${m.points} pts`, hint: ((m.district || '') + ' ' + (m.college || '')).trim() || 'Member', run: () => switchTab('tab-members')}));
+      } catch (e) {}
+      return out;
+    }
+    async function openCmdk() {
+      const ov = document.getElementById('cmdk-overlay'); if (!ov) return;
+      ov.style.display = 'block';
+      const inp = document.getElementById('cmdk-input'); inp.value = '';
+      window._cmdkAll = [...cmdkBaseItems(), ...(await cmdkDynamic())];
+      cmdkSel = 0; renderCmdk('');
+      setTimeout(() => inp.focus(), 30);
+    }
+    function closeCmdk() { const ov = document.getElementById('cmdk-overlay'); if (ov) ov.style.display = 'none'; }
+    function renderCmdk(q) {
+      q = (q || '').toLowerCase();
+      cmdkList = (window._cmdkAll || []).filter(it => !q || it.label.toLowerCase().includes(q) || (it.hint || '').toLowerCase().includes(q)).slice(0, 12);
+      if (cmdkSel >= cmdkList.length) cmdkSel = 0;
+      document.getElementById('cmdk-list').innerHTML = cmdkList.map((it, i) => `<div onclick="cmdkRun(${i})" style="padding:9px 12px; border-radius:9px; cursor:pointer; display:flex; justify-content:space-between; gap:10px; ${i === cmdkSel ? 'background:linear-gradient(90deg,#2563eb,#0ea5e9); color:#fff;' : ''}"><span style="font-size:13px; font-weight:600;">${it.label}</span><span style="font-size:10.5px; opacity:.75;">${it.hint || ''}</span></div>`).join('') || '<div style="padding:12px; font-size:12px; color:var(--text-muted);">Emi dorakaledu — verega type cheyyandi.</div>';
+    }
+    function cmdkRun(i) { const it = cmdkList[i]; closeCmdk(); if (it) it.run(); }
+    document.addEventListener('keydown', (e) => {
+      const ov = document.getElementById('cmdk-overlay');
+      const open = ov && ov.style.display !== 'none';
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); open ? closeCmdk() : openCmdk(); return; }
+      if (!open) return;
+      if (e.key === 'Escape') closeCmdk();
+      else if (e.key === 'ArrowDown') { e.preventDefault(); cmdkSel = Math.min(cmdkSel + 1, cmdkList.length - 1); renderCmdk(document.getElementById('cmdk-input').value); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); cmdkSel = Math.max(cmdkSel - 1, 0); renderCmdk(document.getElementById('cmdk-input').value); }
+      else if (e.key === 'Enter') { e.preventDefault(); cmdkRun(cmdkSel); }
+    });
+
+    async function loadSafetyStack() {
+      const box = document.getElementById('wa-safety-stack'); if (!box) return;
+      try {
+        const r = await fetch('/api/whatsapp/safety'); const d = await r.json();
+        box.innerHTML = '<div style="font-weight:800; color:#e2e8f0; margin-bottom:6px;">🛡️ WhatsApp Safety Stack' + (d.quiet ? ' <span style="color:#facc15;">· 🌙 QUIET NOW (sends defer)</span>' : '') + (d.running ? ' <span style="color:#f87171;">· 🔴 BROADCASTING</span>' : '') + '</div>' +
+          (d.layers || []).map(l => `<div style="display:flex; gap:8px; padding:5px 9px; background:#050811; border:1px solid var(--border); border-radius:8px; margin:4px 0;"><span>${l.icon}</span><span style="flex:1;"><b style="color:#e2e8f0;">${l.name}</b><br><span style="color:var(--text-muted); font-size:11px;">${l.detail}</span></span><span>${l.ok ? '✅' : '⏸️'}</span></div>`).join('') +
+          `<div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;"><button class="btn btn-outline" style="padding:4px 10px; font-size:11px;" onclick="runPreflight()">🔍 Preflight Check</button><button class="btn btn-outline" style="padding:4px 10px; font-size:11px;" onclick="runWaPreview()">👀 Broadcast Preview</button><button class="btn btn-outline" style="padding:4px 10px; font-size:11px;" onclick="loadSafetyStack()">🔄 Refresh</button><button class="btn" style="padding:4px 10px; font-size:11px; background:#dc2626;" onclick="emergencyStopWA()">🚨 Emergency Stop</button></div>`;
+      } catch (e) { box.innerHTML = '<span style="color:#f87171;">Safety status load avvaledu</span>'; }
+    }
+
+    async function runPreflight() {
+      const box = document.getElementById('wa-safety-detail'); if (!box) return;
+      box.innerHTML = '🔍 Checking…';
+      try {
+        const r = await fetch('/api/whatsapp/preflight'); const d = await r.json(); const pf = d.preflight || {};
+        box.innerHTML = `<b style="color:${pf.ok ? '#10b981' : '#f87171'};">${pf.ok ? '✅ Preflight PASSED — broadcast safe ga start cheyyachu' : '❌ Blockers: ' + (pf.blockers || []).join(', ')}</b>` + (pf.checks || []).map(c => `<div style="padding:3px 0; color:var(--text-muted);">${c.ok ? '✅' : '❌'} ${c.name} — ${c.detail}</div>`).join('');
+      } catch (e) { box.innerHTML = '❌ ' + e; }
+    }
+
+    async function emergencyStopWA() {
+      if (!confirm('🚨 Run avthunna WhatsApp broadcast ni IPPude aapeyyala? (mid-send kuda aaguthundi)')) return;
+      try {
+        const r = await fetch('/api/whatsapp/stop_pipeline', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+        const d = await r.json();
+        alert(d.message || 'Stop signal sent');
+        loadSafetyStack();
+      } catch (e) { alert('❌ ' + e); }
+    }
+
+    function filterNav(q) {
+      q = (q || '').toLowerCase().trim();
+      document.querySelectorAll('.tabs .tab-btn').forEach(b => {
+        b.style.display = (!q || b.textContent.toLowerCase().includes(q)) ? '' : 'none';
+      });
+      document.querySelectorAll('.tabs .nav-group').forEach(g => {
+        let n = g.nextElementSibling, any = false;
+        while (n && !n.classList.contains('nav-group')) {
+          if (n.classList.contains('tab-btn') && n.style.display !== 'none') any = true;
+          n = n.nextElementSibling;
+        }
+        g.style.display = any ? '' : 'none';
+      });
+    }
+    document.addEventListener('DOMContentLoaded', () => { try { loadSetupWizard(); } catch (e) {} });
+
     function switchTab(id, btnElem) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
@@ -1491,10 +4215,15 @@ All candidates must join today before 9:00 PM!"></textarea>
       const targetPane = document.getElementById(id);
       if (targetPane) targetPane.classList.add('active');
 
-      if (id === 'tab-wa-dispatch') loadWAGroups();
+      if (id === 'tab-wa-dispatch') { loadWAGroups(); loadSafetyStack(); }
       if (id === 'tab-campus') loadCampusEvents();
       if (id === 'tab-dynamic-channels') { loadChannels(); loadTgAutopilotJobs(); }
-      if (id === 'tab-history') { loadHistory(); loadHealth(); }
+      if (id === 'tab-history') { loadHistory(); loadHealth(); loadItemIntel(); }
+      if (id === 'tab-growth') loadPulse();
+      if (id === 'tab-proops') loadProOps();
+      if (id === 'tab-conductor') loadConductor();
+      if (id === 'tab-excel-import') loadSetupOptions();
+      if (id === 'tab-setup-wizard') loadSetupWizard();
       if (id === 'tab-bundles') loadBundles();
       if (id === 'tab-bulk-broadcast') { loadBulkTargets(); renderMissionHome(); }
       if (id === 'tab-squads') loadSquads();
@@ -1523,6 +4252,15 @@ All candidates must join today before 9:00 PM!"></textarea>
         const progText = document.getElementById('pipeline-progress-text');
         const bar = document.getElementById('pipeline-progress-bar');
         const logBox = document.getElementById('wa-log-box');
+        const paceText = document.getElementById('pipeline-pacing-text');
+        if (paceText && d.pacing) {
+          const modeIcon = {HEALTHY: '🟢', CAUTIOUS: '⚠️', CRAWL: '🚨'}[d.pacing.mode] || '🧠';
+          paceText.innerHTML = '🧠 <b>Adaptive Anti-Ban:</b> ×' + d.pacing.multiplier +
+            ' · ' + modeIcon + ' ' + d.pacing.mode +
+            ' · fatigue ×' + d.pacing.fatigue +
+            ' · fails ' + d.pacing.consecutive_fails +
+            (d.pacing.crawl_until ? ' · 🚨 crawl active' : '');
+        }
 
         if (d.running) {
           statText.innerHTML = '🟢 <b>RUNNING:</b> ' + (d.current_group ? ('Posting in ' + d.current_group) : 'Rotating pairs...');
@@ -1809,7 +4547,7 @@ All candidates must join today before 9:00 PM!"></textarea>
       try {
         localStorage.setItem('su_gap', JSON.stringify({
           min: getGapMin(), max: getGapMax(),
-          preset: document.getElementById('global-gap-preset')?.value || '40,60'
+          preset: document.getElementById('global-gap-preset')?.value || '60,80'
         }));
       } catch (e) {}
     }
@@ -2089,6 +4827,7 @@ All candidates must join today before 9:00 PM!"></textarea>
       const count = document.getElementById('tg-ap-count').value;
       const channels = getSelectedChannelKeys();
       const subjects = Array.from(document.querySelectorAll('.tg-ap-subj:checked')).map(c => c.value);
+      (document.getElementById('tg-ap-subj-custom').value || '').toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean).forEach(s => subjects.push(s));
       if (!times) return alert('Times ఇవ్వండి — ఉదా: 08:00, 20:30');
       if (!channels.length) return alert('పై table లో కనీసం ఒక channel/group select చేయండి (checkbox)');
       box.innerHTML = '<span style="color:#fbbf24;">Creating auto-pilot slots...</span>';
@@ -2290,7 +5029,44 @@ All candidates must join today before 9:00 PM!"></textarea>
       }
     }
 
+    async function loadHallOfFame() {
+      try {
+        const d = await (await fetch('/api/whatsapp/hall-of-fame')).json();
+        const el = document.getElementById('wa-hof');
+        if (!el) return;
+        const rows = (d.champions || []).slice(0, 10);
+        if (!rows.length) return;
+        const medals = ['🥇', '🥈', '🥉'];
+        el.innerHTML = rows.map((c, i) => '<div style="padding:3px 0;">' + (medals[i] || ((i + 1) + '.')) +
+          ' <b>@' + c.phone + '</b> — ' + c.correct + '✓ · ' + c.quizzes + ' quizzes' +
+          (c.group ? ' · <span style="color:var(--text-muted);">' + c.group + '</span>' : '') + '</div>').join('');
+      } catch (e) { /* hall of fame optional */ }
+    }
+    function waHealthBadge(jid) {
+      const h = (window._waHealth || {})[jid];
+      if (!h || (h.sent + h.failed) === 0) return '';
+      if (h.status === 'paused') return ` <span style="background:#dc2626; color:white; padding:2px 7px; border-radius:12px; font-size:10px; font-weight:700;" title="Varusa failures — auto-paused">🔴 PAUSED</span> <button class="btn btn-outline" style="padding:1px 6px; font-size:10px;" onclick="resetGroupHealth('${jid}')">Reset</button>`;
+      const col = h.status === 'good' ? '#059669' : '#d97706';
+      return ` <span style="background:${col}; color:white; padding:2px 7px; border-radius:12px; font-size:10px; font-weight:700;" title="Delivery success ${h.rate}% (${h.sent} sent, ${h.failed} failed)">📶 ${h.rate}%</span>`;
+    }
+    async function resetGroupHealth(jid) {
+      try { await fetch('/api/whatsapp/group_health_reset', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({jid})}); } catch (e) {}
+      loadWAGroups();
+    }
+    async function runWaPreview() {
+      const box = document.getElementById('wa-safety-detail'); if (!box) return;
+      box.innerHTML = '👀 Preview tayaravthundi…';
+      try {
+        const r = await fetch('/api/whatsapp/preview?count=2'); const d = await r.json();
+        const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+        box.innerHTML = `<b style="color:#38bdf8;">👀 Broadcast Preview</b> <span style="color:var(--text-muted);">${d.groups_total} groups ki ilane velthundi (sample ${d.samples.length} groups · emi send avvadhu)</span>` +
+          (d.samples || []).map(s => `<div style="background:#050811; border:1px solid var(--border); border-radius:8px; padding:9px 11px; margin-top:7px;"><b>${esc(s.group)}</b> <span style="color:#64748b;">· ${s.style}</span>${s.messages.map(t => `<pre style="white-space:pre-wrap; font-size:11px; color:#cbd5e1; margin:6px 0; font-family:inherit;">${esc(t)}</pre>`).join('')}</div>`).join('');
+      } catch (e) { box.innerHTML = '❌ ' + e; }
+    }
+
     async function loadWAGroups() {
+      loadHallOfFame();
+      try { const hr = await fetch('/api/whatsapp/group_health'); const hd = await hr.json(); window._waHealth = hd.health || {}; } catch (e) { window._waHealth = {}; }
       const res = await fetch('/api/whatsapp/groups');
       const d = await res.json();
       const tbody = document.querySelector('#table-wa-groups tbody');
@@ -2309,7 +5085,7 @@ All candidates must join today before 9:00 PM!"></textarea>
         tr.innerHTML = `
           <td><input type="checkbox" class="wa-group-select-checkbox" data-gid="${g.id}" onchange="updatePlannerSelectionCount()"></td>
           <td>${g.id}</td>
-          <td><b>${g.name}</b></td>
+          <td>${(g.jid || '').endsWith('@newsletter') ? '📣 <span style="background:#7c3aed; color:white; padding:2px 7px; border-radius:12px; font-size:10px; font-weight:700;">CHANNEL</span> ' : ''}<b>${g.name}</b>${waHealthBadge(g.jid)}</td>
           <td>
             <div style="display:flex; align-items:center; gap:6px;">
               <select style="margin:0; padding:4px 8px; font-size:11px; background:#0f172a; border:1px solid #38bdf8; color:#f8fafc; border-radius:6px; font-weight:600;" onchange="updateGroupExamCategory('${g.id}', this.value)">
@@ -2634,6 +5410,7 @@ All candidates must join today before 9:00 PM!"></textarea>
       const qCount = parseInt(document.getElementById('sb-count').value) || 5;
       const label = document.getElementById('sb-label').value.trim();
       const subjects = Array.from(document.querySelectorAll('.sb-subj:checked')).map(c => c.value);
+      (document.getElementById('sb-subj-custom').value || '').toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean).forEach(s => subjects.push(s));
       const weekdays = Array.from(document.querySelectorAll('.sb-weekday:checked')).map(c => Number(c.value));
       const cat = document.getElementById('wa-target-category').value;
       const gids = getSelectedGroupIds();
@@ -3425,6 +6202,8 @@ All candidates must join today before 9:00 PM!"></textarea>
       if (!college) return alert('College name ఎంటర్ చేయండి!');
       if (!district) return alert('District ఎంటర్ చేయండి!');
       const nq = parseInt(document.getElementById('campus-nq').value || '10', 10);
+      const startAt = document.getElementById('campus-start-at')?.value || '';
+      const neg = parseInt(document.getElementById('campus-neg')?.value || '0', 10);
       const level = document.getElementById('campus-level').value || 'easy';
       const subjects = [];
       if (document.getElementById('subj-reasoning')?.checked) subjects.push('reasoning');
@@ -3440,21 +6219,35 @@ All candidates must join today before 9:00 PM!"></textarea>
       try {
         const res = await fetch('/api/campus/create', {
           method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({college, district, n_q: nq, level, subjects})
+          body: JSON.stringify({college, district, n_q: nq, level, subjects, start_at: startAt, neg})
         });
         const d = await res.json();
         if (!d.ok) { card.innerHTML = '<div style="color:#ef4444;">❌ ' + (d.error || 'Failed') + '</div>'; return; }
         card.innerHTML = `
           <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
-            <img src="${d.qr}" style="width:150px; height:150px; border-radius:8px; background:white; padding:5px; border:2px solid #10b981;">
+            <img src="${d.web_qr || d.qr}" onerror="this.outerHTML='<div style=\"color:#facc15; font-size:12px;\">⚠️ QR unavailable — use the join link.</div>'" style="width:150px; height:150px; border-radius:8px; background:white; padding:5px; border:2px solid #10b981;">
             <div style="flex:1; min-width:200px;">
               <div style="font-size:14px; font-weight:800; color:#10b981;">✅ ${d.college} — Exam Ready!</div>
-              <div style="margin:6px 0; font-size:12px;">Code: <b style="color:#facc15;">${d.code}</b></div>
-              <div style="font-size:11px; word-break:break-all; color:#38bdf8;">${d.link}</div>
+              <div style="margin:6px 0; font-size:12px;">Code: <b style="color:#facc15;">${d.code}</b>${d.colleges && d.colleges.length > 1 ? ` · 🏫 ${d.colleges.join(' vs ')}` : ''}</div>
+              <div style="font-size:11px; word-break:break-all; color:#10b981;">🌐 ${d.web_link || d.link}</div>
+              <div style="font-size:11px; word-break:break-all; color:#38bdf8;">🤖 ${d.link}</div>
               <div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">
-                <button class="btn btn-accent" style="padding:4px 10px; font-size:11px;" onclick="navigator.clipboard.writeText('${d.link}').then(()=>alert('✅ Link copied!'))">📋 Copy Link</button>
-                <a href="${d.qr}" target="_blank" class="btn btn-outline" style="padding:4px 10px; font-size:11px; text-decoration:none;">🖼️ Full-Size QR</a>
-                <a href="https://wa.me/?text=${encodeURIComponent('🏫 ' + d.college + ' Exam! Join: ' + d.link)}" target="_blank" class="btn btn-purple" style="padding:4px 10px; font-size:11px; text-decoration:none;">📲 Share on WhatsApp</a>
+                <button class="btn btn-accent" style="padding:4px 10px; font-size:11px;" onclick="navigator.clipboard.writeText('${d.web_link || d.link}').then(()=>alert('✅ Web Link copied!'))">🌐 Copy Web Link</button>
+                <button class="btn btn-outline" style="padding:4px 10px; font-size:11px;" onclick="navigator.clipboard.writeText('${d.link}').then(()=>alert('✅ Telegram Link copied!'))">🤖 Telegram Link</button>
+                <button class="btn btn-outline" style="padding:4px 10px; font-size:11px;" onclick="navigator.clipboard.writeText(decodeURIComponent('${encodeURIComponent(d.poster || d.link)}')).then(()=>alert('✅ Poster copied — WhatsApp groups lo paste cheyyandi!'))">📢 Copy WhatsApp Poster</button>
+                ${d.start_at ? `<span style="font-size:11px; color:#facc15;">⏰ Auto-start: ${d.start_at.replace('T', ' ')}</span>` : ''}
+                ${d.neg ? `<span style="font-size:11px; color:#f87171;">⚠️ Negative marking: −${d.neg} pt / wrong answer</span>` : ''}
+                <a href="${d.web_qr || d.qr}&dl=1" class="btn btn-outline" style="padding:4px 10px; font-size:11px; text-decoration:none;">📥 Download Web QR</a>
+                <button class="btn btn-primary" style="padding:4px 10px; font-size:11px;" onclick="startCampusExam('${d.code}')">🚀 Start Exam</button>
+                <button class="btn btn-accent" style="padding:4px 10px; font-size:11px;" onclick="viewCampusReport('${d.code}')">📊 Marks</button>
+                <a href="https://wa.me/?text=${encodeURIComponent('🏫 ' + d.college + ' Exam — browser lone rayachu, app akkarledu! Join: ' + (d.web_link || d.link))}" target="_blank" class="btn btn-purple" style="padding:4px 10px; font-size:11px; text-decoration:none;">📲 Share on WhatsApp</a>
+              </div>
+              ${d.bot_warning ? `<div style="margin-top:8px; color:#facc15; font-size:11px;">⚠️ ${d.bot_warning}</div>` : ''}
+              <div style="margin-top:8px; font-size:11px; color:var(--text-muted); line-height:1.7;">
+                <b style="color:#e2e8f0;">Next steps:</b> 1️⃣ QR/link ni WhatsApp group lo share cheyyandi →
+                2️⃣ Students scan chesi <b style="color:#10b981;">browser lone peru + mobile</b> istharu (Telegram app akkarledu!) — Telegram unna vallu 🤖 Telegram Link kuda vadachu, rendu okkate exam →
+                3️⃣ Hall ready ayyaka mee <b>🚀 Start Exam</b> →
+                4️⃣ Exam ayyaka <b>📊 Marks</b> lo అందరి results + Excel download.
               </div>
             </div>
           </div>`;
@@ -3464,7 +6257,80 @@ All candidates must join today before 9:00 PM!"></textarea>
       }
     }
 
+    async function startCampusExam(code) {
+      if (!confirm('🚀 ' + code + ' exam ippude start cheyyala? Join ayyi registration complete chesina students andhariki bot lo questions vastayi.')) return;
+      const card = document.getElementById('campus-active-card');
+      try {
+        const res = await fetch('/api/campus/start', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({code})});
+        const d = await res.json();
+        if (d.ok) {
+          card.innerHTML = '<div style="color:#10b981; font-size:13px;">🚀 <b>Exam LIVE!</b> ' + (d.info?.players ?? '') + ' students ki ' + (d.info?.questions ?? '') + ' questions vellthunnayi. Control Room open avthundi…</div>';
+          watchCampusLive(code);
+        } else {
+          card.innerHTML = '<div style="color:#facc15; font-size:13px;">⏸️ Start avvaledu: ' + (d.message || 'unknown') + '<br><span style="color:var(--text-muted);">కనీసం 2 students QR scan chesi registration complete cheyyali.</span></div>';
+        }
+        loadCampusEvents();
+      } catch (e) { card.innerHTML = '<div style="color:#ef4444;">❌ ' + e + '</div>'; }
+    }
+
+    let campusLiveTimer = null;
+    let campusLiveCode = '';
+    function stopCampusLive() { if (campusLiveTimer) { clearInterval(campusLiveTimer); campusLiveTimer = null; } }
+    async function watchCampusLive(code) {
+      stopCampusLive(); campusLiveCode = code;
+      const card = document.getElementById('campus-active-card');
+      const render = async () => {
+        try {
+          const res = await fetch('/api/campus/live?code=' + encodeURIComponent(code));
+          const d = await res.json();
+          if (!d.ok) { card.innerHTML = '<div style="color:#ef4444;">❌ Live data ledu</div>'; stopCampusLive(); return; }
+          const L = d.live;
+          if (L.state === 'done') { stopCampusLive(); viewCampusReport(code); return; }
+          const pct = L.n_q ? Math.round(100 * (L.qi - (L.state === 'question' ? 1 : 0)) / L.n_q) : 0;
+          const rows = (L.players || []).map((pl, i) => `<tr><td style="padding:2px 8px;">${['🥇','🥈','🥉'][i] || (i + 1)}</td><td style="padding:2px 8px;"><b>${pl.name}</b></td><td style="padding:2px 8px; color:#64748b;">${pl.college || ''}</td><td style="padding:2px 8px; color:#38bdf8;"><b>${pl.pts}</b> pts</td><td style="padding:2px 8px;">${pl.correct} ✅</td></tr>`).join('');
+          card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; align-items:center;">
+              <div style="font-size:14px; font-weight:800; color:#f87171;">🔴 LIVE — ${L.name}</div>
+              <div style="font-size:11px; color:var(--text-muted);">${L.shuffle ? '🔀 Anti-copy shuffle ON · ' : ''}👥 ${L.joined} students</div>
+            </div>
+            <div style="margin:8px 0; font-size:12px;">Question <b style="color:#facc15;">${L.qi}/${L.n_q}</b> · Answered now: <b style="color:#10b981;">${L.answered_now}/${L.joined}</b>${L.ends_in != null && L.state === 'question' ? ` · ⏱ ${L.ends_in}s left` : ''}</div>
+            <div style="background:#1e293b; border-radius:99px; height:10px; overflow:hidden;"><div style="width:${pct}%; height:100%; background:linear-gradient(90deg,#10b981,#38bdf8);"></div></div>
+            ${rows ? `<table style="width:100%; font-size:12px; border-collapse:collapse; margin-top:8px;"><tbody>${rows}</tbody></table>` : '<div style="font-size:12px; color:#64748b; margin-top:8px;">Answers vastunnayi…</div>'}
+            <div style="display:flex; gap:6px; margin-top:10px; flex-wrap:wrap;">
+              <button class="btn btn-accent" style="padding:4px 10px; font-size:11px;" onclick="controlCampus('${code}', 'next')">⏭ Next Question</button>
+              <button class="btn btn-primary" style="padding:4px 10px; font-size:11px; background:#dc2626;" onclick="if(confirm('Exam ippude aapeyyala? Results ventane vellipothayi.')) controlCampus('${code}', 'finish')">🏁 Finish Exam Now</button>
+              <button class="btn btn-outline" style="padding:4px 10px; font-size:11px;" onclick="stopCampusLive()">⏸ Stop Watching</button>
+            </div>`;
+        } catch (e) { /* next tick retries */ }
+      };
+      render();
+      campusLiveTimer = setInterval(render, 5000);
+    }
+
+    async function controlCampus(code, action) {
+      try {
+        const res = await fetch('/api/campus/control', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({code, action})});
+        const d = await res.json();
+        if (!d.ok) alert('❌ ' + (d.message || 'control failed'));
+        if (action === 'finish') { stopCampusLive(); setTimeout(() => viewCampusReport(code), 1200); loadCampusEvents(); }
+      } catch (e) { alert('❌ ' + e); }
+    }
+
+    async function loadCampusLeague() {
+      const box = document.getElementById('campus-league-box');
+      if (!box) return;
+      try {
+        const res = await fetch('/api/campus/league');
+        const d = await res.json();
+        const rows = d.league || [];
+        if (!rows.length) { box.innerHTML = 'Inka okka exam kuda complete avvaledu — first exam ayyaka league ikkada kanipisthundi.'; return; }
+        box.innerHTML = '<table style="width:100%; font-size:12px; border-collapse:collapse;"><thead><tr style="color:#64748b;"><th style="text-align:left; padding:3px 8px;">#</th><th style="text-align:left; padding:3px 8px;">College</th><th style="text-align:left; padding:3px 8px;">🏆 Wins</th><th style="text-align:left; padding:3px 8px;">Exams</th><th style="text-align:left; padding:3px 8px;">Students</th><th style="text-align:left; padding:3px 8px;">Avg Accuracy</th></tr></thead><tbody>' +
+          rows.map((r, i) => `<tr><td style="padding:3px 8px;">${['🥇','🥈','🥉'][i] || (i + 1)}</td><td style="padding:3px 8px;"><b style="color:#e2e8f0;">${r.college}</b></td><td style="padding:3px 8px; color:#facc15;"><b>${r.wins}</b></td><td style="padding:3px 8px;">${r.events}</td><td style="padding:3px 8px;">${r.students}</td><td style="padding:3px 8px; color:#38bdf8;">${r.avg_acc}%</td></tr>`).join('') + '</tbody></table>';
+      } catch (e) { box.innerHTML = 'League load avvaledu.'; }
+    }
+
     async function viewCampusReport(code) {
+      stopCampusLive();
       const card = document.getElementById('campus-active-card');
       card.innerHTML = '<div style="color:#38bdf8;">⏳ Loading report for ' + code + '...</div>';
       try {
@@ -3473,15 +6339,41 @@ All candidates must join today before 9:00 PM!"></textarea>
         const rep = d.report;
         if (!rep) { card.innerHTML = '<div style="color:#ef4444;">❌ Report not found for ' + code + '</div>'; return; }
         const players = rep.players || rep.top_players || [];
-        let rows = players.slice(0, 15).map((pl, i) =>
-          `<tr><td style="padding:3px 8px;">${i + 1}</td><td style="padding:3px 8px;"><b>${pl.name || pl.user || '—'}</b></td><td style="padding:3px 8px; color:#38bdf8;">${pl.score ?? pl.points ?? 0}</td></tr>`).join('');
+        let rows = players.slice(0, 50).map((pl, i) =>
+          `<tr><td style="padding:3px 8px;">${['🥇','🥈','🥉'][i] || (i + 1)}</td><td style="padding:3px 8px;"><b>${pl.name || pl.user || '—'}</b>${pl.college ? ' <span style="color:#64748b;">· ' + pl.college + '</span>' : ''}</td><td style="padding:3px 8px; color:#38bdf8;"><b>${pl.score ?? pl.points ?? 0}/${pl.total ?? rep.n_q ?? ''}</b></td><td style="padding:3px 8px; color:#a78bfa;">${pl.pts ?? ''} pts</td></tr>`).join('');
         card.innerHTML = `
           <div style="font-size:14px; font-weight:800; color:#38bdf8;">📋 ${rep.name || code} — Principal Report</div>
-          <div style="font-size:12px; color:var(--text-muted); margin:6px 0;">District: ${rep.district || '—'} · Students: <b style="color:#10b981;">${rep.players_count ?? players.length}</b> · Status: ${rep.state || '—'}</div>
-          ${rows ? `<table style="width:100%; font-size:12px; border-collapse:collapse; margin-top:6px;"><thead><tr style="color:#64748b;"><th style="text-align:left; padding:3px 8px;">#</th><th style="text-align:left; padding:3px 8px;">Student</th><th style="text-align:left; padding:3px 8px;">Score</th></tr></thead><tbody>${rows}</tbody></table>` : '<div style="font-size:12px; color:#64748b; margin-top:8px;">ఇంకా students join అవ్వలేదు — QR scan చేయగానే ఇక్కడ కనిపిస్తారు.</div>'}`;
+          <div style="font-size:12px; color:var(--text-muted); margin:6px 0;">District: ${rep.district || '—'} · Joined: <b style="color:#10b981;">${rep.players_count ?? players.length}</b> · Answered: <b style="color:#10b981;">${rep.answered ?? players.length}</b> · Class Average: <b style="color:#facc15;">${rep.average_pct ?? 0}%</b> · Status: ${rep.state || '—'} &nbsp; <a href="/api/campus/excel?code=${code}" class="btn btn-outline" style="padding:2px 8px; font-size:11px; text-decoration:none;">⬇ Excel Marks Sheet</a> <button class="btn btn-outline" style="padding:2px 8px; font-size:11px;" onclick="retestCampus('${code}')">🔁 Retest (same settings)</button> <a href="/api/campus/poster?code=${code}" class="btn btn-outline" style="padding:2px 8px; font-size:11px; text-decoration:none;">🖼️ Result Poster</a>${rep.neg ? ` · <span style="color:#f87171;">⚠️ −${rep.neg}/wrong</span>` : ''}</div>
+          ${rows ? `<table style="width:100%; font-size:12px; border-collapse:collapse; margin-top:6px;"><thead><tr style="color:#64748b;"><th style="text-align:left; padding:3px 8px;">#</th><th style="text-align:left; padding:3px 8px;">Student</th><th style="text-align:left; padding:3px 8px;">Score</th></tr></thead><tbody>${rows}</tbody></table>` : '<div style="font-size:12px; color:#64748b; margin-top:8px;">ఇంకా students join అవ్వలేదు — QR scan చేయగానే ఇక్కడ కనిపిస్తారు.</div>'}
+          ${(rep.topic_stats && rep.topic_stats.length) ? `<div style="margin-top:10px; font-size:12px;"><b style="color:#38bdf8;">📚 Topic Performance:</b>${rep.topic_stats.map(t => `<div style="margin:4px 0;">${t.topic} — <b style="color:${t.pct >= 60 ? '#10b981' : (t.pct >= 40 ? '#facc15' : '#f87171')};">${t.pct}%</b> <span style="color:#64748b;">(${t.correct}/${t.answered})</span><div style="background:#1e293b; border-radius:99px; height:6px;"><div style="width:${t.pct}%; height:100%; border-radius:99px; background:${t.pct >= 60 ? '#10b981' : (t.pct >= 40 ? '#facc15' : '#f87171')};"></div></div></div>`).join('')}</div>` : ''}
+          ${(rep.question_stats && rep.question_stats.length) ? `<div style="margin-top:8px; font-size:12px;"><b style="color:#f87171;">❌ Students ki kashtamaina questions:</b>${rep.question_stats.slice(0, 3).map(s => `<div style="color:var(--text-muted); margin:2px 0;">· ${s.pct}% correct — ${s.q}</div>`).join('')}</div>` : ''}`;
       } catch (e) {
         card.innerHTML = '<div style="color:#ef4444;">❌ ' + e + '</div>';
       }
+    }
+
+    async function retestCampus(code) {
+      if (!confirm('🔁 ' + code + ' settings tho kottha exam create cheyyala? (Same college, questions, level — students progress compare avthundi)')) return;
+      try {
+        const res = await fetch('/api/campus/retest', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({code})});
+        const d = await res.json();
+        if (!d.ok) return alert('❌ ' + (d.message || 'retest failed'));
+        const card = document.getElementById('campus-active-card');
+        card.innerHTML = `<div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
+          <img src="${d.qr}" style="width:130px; height:130px; border-radius:8px; background:white; padding:5px; border:2px solid #10b981;">
+          <div style="flex:1; min-width:200px;">
+            <div style="font-size:14px; font-weight:800; color:#10b981;">🔁 Retest Ready! New Code: ${d.code}</div>
+            <div style="font-size:11px; word-break:break-all; color:#38bdf8; margin:6px 0;">${d.link}</div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <a href="${d.qr}&dl=1" class="btn btn-outline" style="padding:4px 10px; font-size:11px; text-decoration:none;">📥 Download QR</a>
+              <button class="btn btn-accent" style="padding:4px 10px; font-size:11px;" onclick="navigator.clipboard.writeText('${d.link}').then(()=>alert('✅ Link copied!'))">📋 Copy Link</button>
+              <button class="btn btn-outline" style="padding:4px 10px; font-size:11px;" onclick="navigator.clipboard.writeText(window.location.origin + '/exam/${d.code}').then(()=>alert('✅ Web Link copied!'))">🌐 Copy Web Link</button>
+              <button class="btn btn-primary" style="padding:4px 10px; font-size:11px;" onclick="startCampusExam('${d.code}')">🚀 Start Exam</button>
+            </div>
+            <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">QR scan cheyyamani students ki cheppandi — hall ready ayyaka 🚀 Start nokkandi.</div>
+          </div></div>`;
+        loadCampusEvents();
+      } catch (e) { alert('❌ ' + e); }
     }
 
     async function loadCampusEvents() {
@@ -3501,11 +6393,247 @@ All candidates must join today before 9:00 PM!"></textarea>
           <td><span class="status-pill ${e.state === 'open' ? 'open' : 'closed'}">${e.state}</span></td>
           <td>
             <a href="${link}" target="_blank" class="btn btn-outline" style="padding:3px 7px; font-size:11px; text-decoration:none;">🔗 Link</a>
+            <a href="/exam/${e.code}" target="_blank" class="btn btn-outline" style="padding:3px 7px; font-size:11px; margin-left:4px; text-decoration:none;">🌐 Web Exam</a>
             <button class="btn btn-accent" style="padding:3px 7px; font-size:11px; margin-left:4px;" onclick="viewCampusReport('${e.code}')">📋 Report</button>
+            <a href="/api/campus/qr?code=${e.code}&dl=1" class="btn btn-outline" style="padding:3px 7px; font-size:11px; margin-left:4px; text-decoration:none;">📥 QR</a>
+            ${e.state === 'open' ? `<button class="btn btn-primary" style="padding:3px 7px; font-size:11px; margin-left:4px;" onclick="startCampusExam('${e.code}')">🚀 Start</button>` : ''}
+            ${(e.state === 'question' || e.state === 'gap') ? `<button class="btn btn-primary" style="padding:3px 7px; font-size:11px; margin-left:4px; background:#dc2626;" onclick="watchCampusLive('${e.code}')">🔴 Live</button>` : ''}
+            ${e.state === 'done' ? `<button class="btn btn-outline" style="padding:3px 7px; font-size:11px; margin-left:4px;" onclick="retestCampus('${e.code}')">🔁 Retest</button>` : ''}
           </td>
         `;
         tbody.appendChild(tr);
       });
+      loadCampusLeague();
+      loadPortalExams();
+      loadPortalAnalytics();
+      loadAdminFlags();
+      loadPyqStatus();
+      loadNotices();
+    }
+
+
+
+    async function loadPyqStatus() {
+      try {
+        const d = await fetch('/api/pyq/status').then(r => r.json());
+        const _bc = Object.entries(d.by_channel || {}).map(([c, v]) => c + ': ' + v.pyq + ' PYQ').join(' · ');
+        document.getElementById('pyq-status').textContent = (_bc ? '📊 Exam-wise PYQ: ' + _bc + '\n' : '') +
+          '🏦 Bank: ' + d.bank.total + ' questions · 📜 Real PYQ: ' + d.bank.pyq + ' · ✍️ Curated: ' + d.bank.curated +
+          ' · 🌐 Scraped: ' + d.bank.scraped + ' · 🤖 Generated: ' + d.bank.generated + '\n' + (d.text || '') +
+          (d.running ? '\n⏳ Harvest running…' : '') + (d.last ? '\nLast run: ' + d.last : '');
+      } catch (e) { /* tab not ready */ }
+    }
+    async function runPyqHarvest(dry) {
+      const msg = document.getElementById('pyq-msg');
+      try {
+        const r = await fetch('/api/pyq/harvest', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({dry})});
+        const d = await r.json();
+        msg.textContent = d.ok ? ('🌾 Harvest start ayindi' + (dry ? ' (dry run)' : '') + ' — Status refresh chesthu undandi…') : ('❌ ' + d.error);
+        setTimeout(loadPyqStatus, 3000);
+      } catch (e) { msg.textContent = '❌ ' + e; }
+    }
+    async function addPyqPaper() {
+      const msg = document.getElementById('pyq-msg');
+      const body = {channel: document.getElementById('pyq-channel').value,
+        exam: document.getElementById('pyq-exam').value.trim(),
+        year: parseInt(document.getElementById('pyq-year').value || '0'),
+        paper: document.getElementById('pyq-paper').value.trim(),
+        url: document.getElementById('pyq-url').value.trim()};
+      if (!body.exam || !body.url) { msg.textContent = '⚠️ Exam + URL ivvandi.'; return; }
+      const d = await (await fetch('/api/pyq/add_paper', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)})).json();
+      msg.textContent = d.ok ? '✅ Paper add ayindi — 🌾 Harvest run cheyyandi.' : ('❌ ' + d.error);
+      loadPyqStatus();
+    }
+    function downloadPyqTemplate() {
+      const csv = 'question,option1,option2,option3,option4,answer,explanation,exam,year,channel,topic\n"The Finance Commission is constituted under which Article?","Article 280","Article 263","Article 312","Article 368",1,"Article 280 provides for a Finance Commission.","UPSC CSE Prelims",2023,CURRENT,polity\n';
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv'}));
+      a.download = 'pyq_import_template.csv'; a.click();
+    }
+    function readPyqFile(ev) {
+      const f = ev.target.files[0]; if (!f) return;
+      f.text().then(t => { document.getElementById('pyq-csv').value = t; });
+    }
+    async function importPyqCsv() {
+      const msg = document.getElementById('pyq-import-msg');
+      const csv = document.getElementById('pyq-csv').value.trim();
+      if (!csv) { msg.textContent = '⚠️ CSV paste cheyyandi / file select cheyyandi.'; return; }
+      const d = await (await fetch('/api/pyq/import', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({csv})})).json();
+      msg.textContent = '✅ Added ' + (d.added || 0) + ' PYQs · ⏭️ duplicates ' + (d.skipped_dup || 0) + ' · 🌐 Telugu kosam pending ' + (d.pending_translation || 0) +
+        ((d.errors || []).length ? ' · ⚠️ ' + d.errors.slice(0, 3).join(' | ') : '');
+      loadPyqStatus();
+    }
+    async function loadNotices() {
+      try {
+        const d = await fetch('/api/portal/admin/notices').then(r => r.json());
+        document.getElementById('ntc-list').innerHTML = (d.notices || []).map(n =>
+          '<div style="padding:7px 10px; background:#050811; border:1px solid var(--border); border-radius:8px; margin-top:6px;">📢 <b style="color:#e2e8f0;">' + n.title + '</b> <span style="color:var(--text-muted);">' + n.date + '</span><br>' + n.body + '</div>').join('') || 'Notices levu.';
+      } catch (e) { /* tab not ready */ }
+    }
+    async function postNotice() {
+      const msg = document.getElementById('ntc-msg');
+      const body = {title: document.getElementById('ntc-title').value.trim(),
+        body: document.getElementById('ntc-body').value.trim(),
+        link: document.getElementById('ntc-link').value.trim()};
+      if (!body.title) { msg.textContent = '⚠️ Title ivvandi.'; return; }
+      const d = await (await fetch('/api/portal/admin/notices/create', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)})).json();
+      msg.textContent = d.ok ? '✅ Notice post ayindi — Portal + /updates lo live!' : '❌ Failed';
+      if (d.ok) { document.getElementById('ntc-title').value = ''; document.getElementById('ntc-body').value = ''; loadNotices(); }
+    }
+
+    async function sendPersonalReports() {
+      const msg = document.getElementById('rep-msg');
+      if (!confirm('Telegram students andari ki personal report DM cheyyala? (okkokariki valla report matrame velthundi)')) return;
+      const d = await (await fetch('/api/portal/admin/send_reports', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'})).json();
+      msg.textContent = d.ok ? '📩 Sending start ayindi — Status chudandi…' : ('❌ ' + d.error);
+      setTimeout(reportStatus, 4000);
+    }
+    async function reportStatus() {
+      const msg = document.getElementById('rep-msg');
+      const d = await (await fetch('/api/portal/admin/reports/status')).json();
+      msg.textContent = d.running ? ('⏳ Sending… ' + d.sent + '/' + d.total + ' (fail ' + d.failed + ')')
+        : ('✅ Last: sent ' + d.sent + ' · fail ' + d.failed + ' · total ' + d.total + (d.last ? ' · ' + d.last : ''));
+    }
+
+    async function announceWinners(id) {
+      const d = await (await fetch('/api/portal/admin/announce', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({exam_id: id})})).json();
+      if (!d.ok) { alert('❌ ' + d.error); return; }
+      try { await navigator.clipboard.writeText(d.text); } catch (e) {}
+      alert((d.sent_to_admin ? '📩 Telegram admin ki vellindi + ' : '') + '📋 Announcement text copy ayindi — WhatsApp groups lo paste cheyyandi!\n\n' + d.text);
+    }
+
+    async function wpStatus() {
+      const el = document.getElementById('wp-status');
+      el.textContent = '⏳ Checking…';
+      try {
+        const d = await fetch('/api/wp/status').then(r => r.json());
+        el.textContent = d.ok ? ('✅ Connected: ' + d.name + ' (' + d.url + ') · cached posts: ' + d.posts_cached)
+          : ('❌ ' + d.error + ' · Base: ' + (d.base || ''));
+      } catch (e) { el.textContent = '❌ ' + e; }
+    }
+    async function wpExportQuiz() {
+      const msg = document.getElementById('wp-msg');
+      try {
+        const d = await fetch('/api/wp/export').then(r => r.json());
+        const blob = new Blob([JSON.stringify(d, null, 2)], {type: 'application/json'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'studentup_daily_quiz_' + d.date + '.json'; a.click();
+        msg.textContent = '📤 ' + d.date + ' quiz export ayindi (' + d.questions.length + ' questions, WP quiz.php format) — WP snippet dwara sync avthundi.';
+      } catch (e) { msg.textContent = '❌ ' + e; }
+    }
+
+    async function createPortalExam() {
+      const msg = document.getElementById('pex-msg');
+      const body = {
+        title: document.getElementById('pex-title').value.trim(),
+        goal: document.getElementById('pex-goal').value,
+        starts_at: document.getElementById('pex-start').value,
+        duration_min: parseInt(document.getElementById('pex-dur').value),
+        n_q: parseInt(document.getElementById('pex-nq').value),
+        neg: parseFloat(document.getElementById('pex-neg').value || '0')
+      };
+      if (!body.title || !body.starts_at) { msg.textContent = '⚠️ Title + Start time ivvandi.'; return; }
+      try {
+        const r = await fetch('/api/portal/admin/exams/create', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+        const d = await r.json();
+        msg.textContent = d.ok ? ('✅ Scheduled: ' + d.title + ' · ' + d.n_q + ' Qs · ' + d.starts_at.replace('T', ' ')) : ('❌ ' + d.error);
+        if (d.ok) loadPortalExams();
+      } catch (e) { msg.textContent = '❌ ' + e; }
+    }
+
+    async function loadPortalExams() {
+      try {
+        const d = await fetch('/api/portal/admin/exams').then(r => r.json());
+        const sel = document.getElementById('pex-goal');
+        if (sel && !sel.options.length) Object.entries(d.goals || {}).forEach(([k, v]) => {
+          const o = document.createElement('option'); o.value = k; o.textContent = v; sel.appendChild(o);
+        });
+        const box = document.getElementById('pex-list');
+        box.innerHTML = (d.exams || []).map(e =>
+          '<div style="padding:7px 10px; background:#050811; border:1px solid var(--border); border-radius:8px; margin-top:6px;">' +
+          '<b style="color:#e2e8f0;">' + e.title + '</b> · ' + e.id + ' · ' + e.n_q + ' Qs · 👥 ' + e.joined +
+          ' · <span style="color:' + (e.status === 'live' ? '#10b981' : (e.status === 'done' ? '#94a3b8' : '#facc15')) + ';">' +
+          (e.status === 'live' ? '🔴 LIVE' : e.status) + '</span> · ⏰ ' + (e.starts_at || '').replace('T', ' ').slice(0, 16) +
+          (e.winners && e.winners.length ? ' · 🏆 ' + e.winners.map(w => w.name + ' (' + w.correct + '/' + w.total + ')').join(', ') : '') +
+          (e.status === 'done' && e.winners && e.winners.length ? ' <button class="btn btn-outline" style="padding:2px 8px; font-size:11px;" onclick="announceWinners(\'' + e.id + '\')">📣 Announce</button>' : '') +
+          '</div>').join('') || 'Inka exams levu — paina schedule cheyyandi.';
+      } catch (e) { /* tab not ready */ }
+    }
+
+    async function sendBotBroadcast() {
+      const text = (document.getElementById('bb-text') || {}).value || '';
+      const goal = (document.getElementById('bb-goal') || {}).value || '';
+      if (!text.trim()) { alert('Message type cheyyandi'); return; }
+      const d = await (await fetch('/api/portal/admin/bot_broadcast', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({text, goal})})).json();
+      alert(d.ok ? ('📣 Queued! Bot next tick lo ~' + (d.targets || 0) + ' linked students ki vasthundi.') : (d.error || 'Failed'));
+      if (d.ok) document.getElementById('bb-text').value = '';
+    }
+
+    async function loadPortalAnalytics() {
+      const box = document.getElementById('pt-analytics');
+      if (!box) return;
+      try {
+        const d = await fetch('/api/portal/admin/analytics').then(r => r.json());
+        if (!d.ok) { box.textContent = 'Analytics load avvaledu.'; return; }
+        const f = d.funnel || {};
+        const bar = (label, v, total) => {
+          const pct = total ? Math.round(100 * v / total) : 0;
+          return '<div style="margin-top:5px;">' + label + ': <b style="color:#e2e8f0;">' + v + '</b> <span>(' + pct + '%)</span>' +
+            '<div style="height:7px; background:rgba(255,255,255,0.08); border-radius:4px;"><div style="height:7px; width:' + pct + '%; background:linear-gradient(90deg,#38bdf8,#34d399); border-radius:4px;"></div></div></div>';
+        };
+        const chips = (obj) => Object.entries(obj || {}).map(([k, v]) =>
+          '<span style="display:inline-block; background:#050811; border:1px solid var(--border); border-radius:999px; padding:2px 9px; margin:2px 3px 0 0;">' + k + ': <b style="color:#e2e8f0;">' + v + '</b></span>').join('') || '<span>—</span>';
+        box.innerHTML =
+          '<div>👥 Students: <b style="color:#e2e8f0;">' + (d.students || 0) + '</b> · ✍️ Attempts: <b style="color:#e2e8f0;">' + (d.attempts_total || 0) + '</b> (today ' + (d.attempts_today || 0) + ') · 📜 Paper attempts: <b style="color:#e2e8f0;">' + (d.papers_attempts || 0) + '</b> · 🟢 Active today: <b style="color:#e2e8f0;">' + (d.active_today || 0) + '</b> · 🔐 Live sessions: <b style="color:#e2e8f0;">' + (d.sessions_live || 0) + '</b></div>' +
+          '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🔻 Portal Funnel (attempt rate ' + (f.attempt_rate || 0) + '%)</h4>' +
+          bar('Registered', f.registered || 0, f.registered || 0) +
+          bar('Attempted (≥1 test)', f.attempted || 0, f.registered || 0) +
+          bar('Active today', f.active_today || 0, f.registered || 0) +
+          ((d.retention) ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🔁 Retention</h4><div>🆕 Last 7d registered: <b style="color:#e2e8f0;">' + (d.retention.new_7d || 0) + '</b> · 🟢 Active 7d: <b style="color:#e2e8f0;">' + (d.retention.active_7d || 0) + '</b> (' + (d.retention.active_7d_pct || 0) + '% of students)</div>' : '') +
+          ((d.bot) ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🤖 Bot Funnel (120X)</h4><div>🔗 Linked: <b style="color:#e2e8f0;">' + (d.bot.linked || 0) + '</b> (' + (d.bot.link_pct || 0) + '% of students) · 🪪 Link claims: <b style="color:#e2e8f0;">' + (d.bot.claims || 0) + '</b> · 🔐 WebApp logins: <b style="color:#e2e8f0;">' + (d.bot.logins || 0) + '</b> · 📬 Bot msgs sent: <b style="color:#e2e8f0;">' + (d.bot.msgs || 0) + '</b></div>' +
+          '<div style="margin-top:8px;"><div class="muted" style="font-size:11.5px;">📣 Bot Broadcast (linked students ki Telegram):</div>' +
+          '<textarea id="bb-text" rows="2" style="width:100%; margin-top:4px;" placeholder="Ee roju 7 PM ki Grand Mock LIVE! Ready ga undandi 🔥"></textarea>' +
+          '<div style="display:flex; gap:6px; margin-top:5px;"><select id="bb-goal" style="flex:1;"><option value="">All goals</option></select>' +
+          '<button class="btn btn-outline" onclick="sendBotBroadcast()">📣 Queue Broadcast</button></div></div>' : '') +
+          '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🎯 Students by Goal</h4><div>' + chips(d.goals) + '</div>' +
+          '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🧪 Attempts by Kind</h4><div>' + chips(d.attempt_kinds) + '</div>' +
+          ((d.pyq_gaps || []).length ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">📜 PYQ Coverage Gaps (target 50/channel)</h4>' +
+            (d.pyq_gaps || []).map(g => '<div style="margin-top:3px;">' + (g.channel || g.exam || '?') + ': <b style="color:#facc15;">' + (g.gap != null ? g.gap + ' to go' : '') + '</b> <span>(' + (g.pyq || 0) + ' PYQ now)</span></div>').join('') : '');
+        const bbg = document.getElementById('bb-goal');
+        if (bbg) Object.keys(d.goals || {}).forEach(g => { const o = document.createElement('option'); o.value = g; o.textContent = g; bbg.appendChild(o); });
+      } catch (e) { box.textContent = '❌ ' + e; }
+    }
+
+    async function searchAdminStudents() {
+      const box = document.getElementById('pt-students');
+      const q = (document.getElementById('pt-q') || {}).value || '';
+      try {
+        const d = await fetch('/api/portal/admin/students?q=' + encodeURIComponent(q)).then(r => r.json());
+        const rows = d.students || [];
+        box.innerHTML = rows.length ? rows.map(s =>
+          '<div style="padding:6px 9px; background:#050811; border:1px solid var(--border); border-radius:8px; margin-top:5px;">' +
+          '<b style="color:#e2e8f0;">' + (s.name || '') + '</b> · ' + (s.district || '') + ' · 🎯 ' + (s.goal || '') +
+          ' · ⭐ ' + (s.points || 0) + ' pts' +
+          (s.mobile ? ' · 📱 ' + s.mobile : '') + '</div>').join('')
+          : 'Students dorakaledu.';
+      } catch (e) { box.textContent = '❌ ' + e; }
+    }
+
+    async function loadAdminFlags() {
+      const box = document.getElementById('pt-flags');
+      if (!box) return;
+      try {
+        const d = await fetch('/api/portal/admin/flags').then(r => r.json());
+        const rows = d.flags || [];
+        box.innerHTML = rows.length ? rows.map(f =>
+          '<div style="padding:6px 9px; background:#050811; border:1px solid var(--border); border-radius:8px; margin-top:5px;">' +
+          '🚩 <b style="color:#e2e8f0;">' + (f.qid || '') + '</b>' +
+          (f.question ? ' · ' + f.question : '') +
+          (f.topic ? ' · 🏷️ ' + f.topic : '') +
+          (f.reason ? ' · ' + f.reason : '') + (f.date ? ' · ' + f.date : '') + '</div>').join('')
+          : '🚩 Flags levu — bank clean!';
+      } catch (e) { box.textContent = '❌ ' + e; }
     }
 
     async function loadBundles() {
@@ -3940,7 +7068,7 @@ All candidates must join today before 9:00 PM!"></textarea>
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td style="font-family:monospace;">${m.uid}</td>
-          <td><b>${m.name}</b></td>
+          <td><b>${m.name}</b>${m.weak_topic ? `<br><span style="font-size:11px; color:#f87171;">🎯 Weak: ${m.weak_topic}</span> <span style="font-size:11px; color:#64748b;">· ${m.accuracy}% acc</span>` : ''}</td>
           <td>${m.district || '—'}</td>
           <td><span class="category-tag">${m.exam || '—'}</span></td>
           <td style="color:var(--warning); font-weight:800; font-size:14px;">🏆 ${m.points}</td>
@@ -4027,7 +7155,458 @@ All candidates must join today before 9:00 PM!"></textarea>
       }
     }
 
+    function _splitSubjects(txt) {
+      return (txt || '').toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean);
+    }
+    async function loadSetupOptions() {
+      const sel = document.getElementById('ms-exam');
+      if (!sel || sel.options.length) { /* already filled */ }
+      try {
+        const r = await fetch('/api/setup/options');
+        const d = await r.json();
+        if (sel && !sel.options.length) {
+          sel.innerHTML = '<option value="AUTO">🤖 AUTO (name nunchi detect)</option>' +
+            (d.exams || []).map(e => '<option value="' + e + '">' + e + '</option>').join('') +
+            '<option value="CUSTOM">✏️ Custom exam (type cheyyandi)...</option>';
+        }
+        // Schedule Builder category dropdown loki kuda live exams add cheyyandi
+        const wsel = document.getElementById('wa-target-category');
+        if (wsel) {
+          const have = Array.from(wsel.options).map(o => o.value);
+          (d.exams || []).forEach(e => {
+            if (!have.includes(e)) {
+              const o = document.createElement('option'); o.value = e; o.textContent = '🎯 ' + e; wsel.appendChild(o);
+            }
+          });
+        }
+        const box = document.getElementById('ms-subjects');
+        if (box && !box.children.length) {
+          const icons = {MATHS:'🔢', REASONING:'🧠', GK:'🌍', CURRENT:'📰', ENGLISH:'🔤', SCIENCE:'🔬'};
+          box.innerHTML = (d.subjects || []).map(s =>
+            '<label style="display:flex; align-items:center; gap:4px;"><input type="checkbox" class="ms-subj" value="' + s + '">' +
+            (icons[s] || '📚') + ' ' + s + '</label>').join('');
+        }
+      } catch (e) { /* form works with defaults too */ }
+    }
+    function msExamChanged() {
+      const v = document.getElementById('ms-exam').value;
+      document.getElementById('ms-exam-custom').style.display = (v === 'CUSTOM') ? 'block' : 'none';
+    }
+    function msPlatformChanged() {
+      const v = document.getElementById('ms-platform').value;
+      const ll = document.getElementById('ms-link-label');
+      const sl = document.getElementById('ms-shift-label');
+      if (v === 'wa') {
+        ll.textContent = '🔗 Invite Link or JID';
+        document.getElementById('ms-link').placeholder = 'https://chat.whatsapp.com/... లేదా 1203...@g.us లేదా Channel JID: 1203...@newsletter';
+        sl.textContent = '⏰ Shift';
+      } else {
+        ll.textContent = '🔗 @username / t.me link / -100 ID';
+        document.getElementById('ms-link').placeholder = '@YourChannel or https://t.me/YourChannel or -1001234567890';
+        sl.textContent = '⏰ Shift (TG ki వర్తించదు)';
+      }
+    }
+    async function manualAddTarget() {
+      const box = document.getElementById('ms-result');
+      const plat = document.getElementById('ms-platform').value;
+      const name = document.getElementById('ms-name').value.trim();
+      const link = document.getElementById('ms-link').value.trim();
+      let exam = document.getElementById('ms-exam').value || 'AUTO';
+      if (exam === 'CUSTOM') exam = document.getElementById('ms-exam-custom').value.trim();
+      const subjects = Array.from(document.querySelectorAll('.ms-subj:checked')).map(c => c.value)
+        .concat(_splitSubjects(document.getElementById('ms-subj-custom').value));
+      if (!name || !link) { box.innerHTML = '<span style="color:#f87171;">❌ Name mariyu Link rendu ivvandi</span>'; return; }
+      box.innerHTML = '<span style="color:#fbbf24;">Adding...</span>';
+      try {
+        const r = await fetch('/api/setup/manual_add', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            platform: plat === 'wa' ? 'wa' : 'tg',
+            type: plat === 'tg-group' ? 'group' : (plat === 'tg-channel' ? 'channel' : document.getElementById('ms-type').value),
+            name, link, exam,
+            shift: document.getElementById('ms-shift').value,
+            times: document.getElementById('ms-times').value.trim(),
+            count: parseInt(document.getElementById('ms-count').value) || 5,
+            days: parseInt(document.getElementById('ms-days').value) || 0,
+            subjects
+          })
+        });
+        const d = await r.json();
+        let html = d.ok
+          ? '<span style="color:#34d399;">' + d.message + '</span>'
+          : '<span style="color:#f87171;">' + (d.message || 'Failed') + '</span>';
+        (d.errors || []).forEach(e => { html += '<br><span style="color:#f87171;">❌ ' + e.reason + '</span>'; });
+        (d.skipped_duplicates || []).forEach(e => { html += '<br><span style="color:#fbbf24;">⏭️ Duplicate: ' + e.name + '</span>'; });
+        box.innerHTML = html;
+        if (d.ok) {
+          document.getElementById('ms-name').value = '';
+          document.getElementById('ms-link').value = '';
+          if (typeof loadWAGroups === 'function') loadWAGroups();
+          if (typeof loadChannels === 'function') loadChannels();
+          if (typeof loadSchedules === 'function') loadSchedules();
+          if (typeof fetchStats === 'function') fetchStats();
+        }
+      } catch (e) { box.innerHTML = '<span style="color:#f87171;">❌ ' + e + '</span>'; }
+    }
+
+    async function loadVision() {
+      try {
+        const r = await fetch('/api/vision');
+        const d = await r.json();
+        const sc = document.getElementById('vision-score');
+        if (!sc) return;
+        sc.innerText = d.score + '/100';
+        sc.style.color = d.score >= 75 ? '#34d399' : (d.score >= 50 ? '#fbbf24' : '#f87171');
+        document.getElementById('vision-grade').innerText = '(' + d.grade + ')';
+        const c = d.pillars.content, rc = d.pillars.reach, e = d.pillars.engagement, cov = d.pillars.coverage;
+        const cell = (icon, title, lines) =>
+          '<div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:10px;">' +
+          '<div style="font-weight:800; margin-bottom:4px;">' + icon + ' ' + title + '</div>' + lines + '</div>';
+        document.getElementById('vision-pillars').innerHTML =
+          cell('📚', 'Content', 'Bank <b>' + c.bank_questions + '</b> · PYQ <b>' + c.pyq_questions + '</b> (' + c.pyq_share_pct + '%)<br>Weakest stock: ' + c.min_channel + ' = ' + c.min_unused + '<br>Sources live ' + c.sources_live + '/' + c.sources_total + ' · Papers ' + c.pyq_papers) +
+          cell('📡', 'Reach', rc.telegram_channels + ' TG channels · ' + rc.whatsapp_groups + ' WA groups<br>' + rc.members_registered + ' members · ' + rc.districts + ' districts') +
+          cell('🎯', 'Engagement', 'Last 7d LIVE polls: <b>' + e.week_polls_sent + '</b> (dry ' + e.week_dry_polls + ')<br>' + e.students_with_points + ' students with points (' + e.total_points + ' pts)') +
+          cell('🗓️', 'Coverage', cov.active_schedules + ' schedules (WA ' + cov.wa_jobs + ' · TG ' + cov.tg_jobs + ' · both ' + cov.both_jobs + ')<br>Autopilot leni channels: ' + cov.channels_without_autopilot.length);
+        document.getElementById('vision-actions').innerHTML = (d.actions || []).length
+          ? '<b style="color:#fbbf24;">👉 Next actions:</b><br>' + d.actions.map(a => '• ' + a).join('<br>')
+          : '<span style="color:#34d399;">✅ Anni pillars healthy!</span>';
+        document.getElementById('vision-next').innerText = '⏭️ Next collections today: ' + ((d.next_collections_today || []).join(', ') || '—');
+      } catch (e) { /* vision card is best-effort */ }
+    }
+
+    async function loadSetupWizard() {
+      const wrap = document.getElementById('wiz-steps');
+      if (!wrap) return;
+      wrap.innerHTML = '<div style="color:var(--text-muted); font-size:12px;">Checking...</div>';
+      const get = async (u) => { try { const r = await fetch(u); return await r.json(); } catch (e) { return {}; } };
+      const [health, bridges, chans, scheds, vision, retry, waGroups] = await Promise.all([
+        get('/api/health'), get('/api/whatsapp/bridges'), get('/api/channels'),
+        get('/api/whatsapp/schedules'), get('/api/vision'),
+        get('/api/whatsapp/retry_queue'), get('/api/whatsapp/groups')]);
+      const bList = bridges.bridges || [];
+      const waConnected = bList.some(b => b.connected);
+      const chCount = Object.keys(chans.channels || {}).length;
+      const jobs = (scheds.jobs || []).filter(j => j.enabled !== false);
+      const waJobs = jobs.filter(j => (j.mode || 'wa') !== 'tg').length;
+      const tgJobs = jobs.filter(j => j.mode === 'tg').length;
+      const waActive = (waGroups.groups || []).filter(g => g.active !== false).length;
+      const card = (ok, warn, icon, title, detail, btnTab, btnTxt) => {
+        const st = ok ? ['✅', '#34d399', 'READY'] : (warn ? ['⚠️', '#fbbf24', 'PARTIAL'] : ['⭕', '#f87171', 'PENDING']);
+        return '<div style="background:#0b1329; border:1px solid ' + st[1] + '55; border-radius:10px; padding:13px;">' +
+          '<div style="display:flex; justify-content:space-between; align-items:center;"><b style="font-size:13px;">' + icon + ' ' + title + '</b>' +
+          '<span style="font-size:10px; font-weight:800; color:' + st[1] + ';">' + st[0] + ' ' + st[2] + '</span></div>' +
+          '<div style="font-size:12px; color:var(--text-muted); margin:7px 0; min-height:32px;">' + detail + '</div>' +
+          '<button class="btn btn-outline" style="padding:5px 11px; font-size:11.5px;" onclick="switchTab(\'' + btnTab + '\')">' + btnTxt + '</button></div>';
+      };
+      const steps = [
+        card(!!health.telegram_live, chCount > 0, '🤖', '1. Telegram Bot',
+          health.telegram_live ? 'Bot token LIVE · ' + chCount + ' channels/groups registered' : 'BOT_TOKEN set cheyyandi (env/.env) — tarvata bot ni channels lo admin cheyyandi',
+          'tab-dynamic-channels', '📢 Channels Tab'),
+        card(waConnected, bList.some(b => b.online), '💚', '2. WhatsApp Bridge',
+          waConnected ? 'Connected: ' + (bList.filter(b => b.connected).map(b => b.phone || b.session || 'number').join(', ')) + ' · Pool: ' + bList.length + ' number(s)' + ((retry.count || 0) ? ' · 🔁 ' + retry.count + ' retry pending' : '') : (bList.some(b => b.online) ? 'Bridge run avuthondi kani WhatsApp link ledu — QR scan cheyyandi' : 'Bridge offline — start_all.sh lo automatic ga start avuthundi'),
+          'tab-wa-dispatch', '🛡️ WhatsApp Tab (QR)'),
+        card((chCount > 0 && waActive > 0), (chCount > 0 || waActive > 0), '🎯', '3. Targets (Groups/Channels)',
+          chCount + ' Telegram targets · ' + waActive + ' WhatsApp groups active — Excel leda Manual form tho add cheyyandi',
+          'tab-excel-import', '📊 Excel / Manual Setup'),
+        card(jobs.length > 0, false, '🗓️', '4. Timings & Schedules',
+          jobs.length ? jobs.length + ' active schedule(s) — WA ' + waJobs + ' · TG ' + tgJobs + ' · anni automatic ga post avuthaayi' : 'Inka okka schedule kuda ledu — timings set cheste roju automatic posts!',
+          'tab-wa-dispatch', '⏰ Schedule Builder'),
+        card((vision.score || 0) >= 50, (vision.score || 0) >= 25, '🎯', '5. Vision Health',
+          'Vision Score: <b>' + (vision.score ?? '…') + '/100 (' + (vision.grade || '-') + ')</b>' + ((vision.actions || []).length ? '<br>Next: ' + vision.actions[0] : '<br>Anni pillars healthy!'),
+          'tab-bulk-broadcast', '🏠 Home (Vision Card)'),
+      ];
+      const done = steps.filter(s => s.includes('READY')).length;
+      document.getElementById('wiz-progress').style.width = (done * 20) + '%';
+      wrap.innerHTML = steps.join('');
+      document.getElementById('wiz-actions').innerHTML = (vision.actions || []).length
+        ? '<b style="color:#fbbf24;">👉 System cheppe next actions:</b><br>' + vision.actions.map(a => '• ' + a).join('<br>')
+        : '<span style="color:#34d399;">🎉 Anni steps ready — system full automatic ga nadusthundi!</span>';
+    }
+
+    async function loadItemIntel() {
+      const box = document.getElementById('item-intel-body');
+      if (!box) return;
+      try {
+        const r = await fetch('/api/item_intel');
+        const d = await r.json();
+        const row = (q, color, btn) =>
+          '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:5px 8px; background:rgba(255,255,255,0.03); border-radius:6px; margin-top:5px;">' +
+          '<span><b style="color:' + color + ';">' + q.qid + '</b> <span style="color:var(--text-muted);">[' + (q.channel || '') + '/' + (q.topic || '') + '] ' +
+          q.correct + '/' + q.attempts + ' correct (' + Math.round((q.rate || 0) * 100) + '%)</span></span>' + btn + '</div>';
+        let html = 'Tracked: <b>' + d.tracked_questions + '</b> questions · 🚫 quarantined: <b style="color:#f87171;">' + d.suspect_count + '</b> · 😴 too-easy: <b>' + d.too_easy_count + '</b>';
+        (d.suspect_key || []).forEach(q => {
+          html += row(q, '#f87171;', '<button class="btn btn-outline" style="padding:3px 9px; font-size:11px;" onclick="resetItemStats(\'' + q.qid + '\')">🔓 Key fix chesa → Reset</button>');
+        });
+        (d.too_easy || []).slice(0, 5).forEach(q => { html += row(q, '#fbbf24', ''); });
+        if (!d.suspect_count && !d.too_easy_count) html += '<div style="margin-top:6px; color:#34d399;">✅ Quality issues levu — answers vache koddi ikkada kanipisthayi.</div>';
+        box.innerHTML = html;
+      } catch (e) { box.innerHTML = '❌ ' + e; }
+      loadBrain();
+    }
+    async function loadBrain() {
+      const box = document.getElementById('brain-overview');
+      if (!box) return;
+      try {
+        const r = await fetch('/api/brain/overview');
+        const d = await r.json();
+        const bands = Object.entries(d.bands || {}).map(([k, v]) => k + ': ' + v).join(' · ');
+        box.innerHTML = '<b>🧠 Student Brain 3.0</b> — 👥 ' + (d.students || 0) + ' students tracked · ✍️ ' + (d.answers || 0) +
+          ' answers · Avg ability θ ' + (d.avg_theta || 0) + (bands ? '<br><span style="color:var(--text-muted);">' + bands + '</span>' : '') +
+          '<br><span style="color:var(--text-muted);">Ability (Elo) + Exam Readiness + level-wise Smart Practice — portal & bot rendu vaipu live.</span>';
+      } catch (e) { box.innerHTML = ''; }
+    }
+    async function resetItemStats(qid) {
+      if (!confirm(qid + ' stats reset cheyyala? (key fix ayyindi anukunte matrame)')) return;
+      try {
+        const r = await fetch('/api/item_intel/reset', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({qid})});
+        const d = await r.json();
+        alert(d.message || 'done');
+        loadItemIntel();
+      } catch (e) { alert('❌ ' + e); }
+    }
+
+    let _pulseBase = 0;
+    function _inr(n) { return '₹' + Number(n || 0).toLocaleString('en-IN'); }
+    function pulseRecompute() {
+      const price = parseFloat(document.getElementById('pulse-price').value) || 0;
+      const conv = parseFloat(document.getElementById('pulse-conv').value) || 0;
+      const paying = Math.round(_pulseBase * conv / 100);
+      const mrr = paying * price;
+      document.getElementById('pulse-proj').innerHTML =
+        'Base: <b>' + _pulseBase + '</b> members × ' + conv + '% → <b>' + paying + ' paying</b> → ' +
+        '<b style="color:#34d399;">' + _inr(mrr) + '/month</b> · ' + _inr(mrr * 12) + '/year ' +
+        '<span style="color:var(--text-muted);">(projection matrame — real billing start ayyaka actuals ikkada)</span>';
+    }
+    async function loadPulse() {
+      try {
+        const r = await fetch('/api/pulse');
+        const d = await r.json();
+        const f = d.funnel, e = d.economy, p = d.planner;
+        _pulseBase = p.base_members;
+        const card = (label, val, sub) => '<div class="stat-card"><div class="label">' + label + '</div><div class="val">' + val + '</div><div style="font-size:11px; color:var(--text-muted);">' + (sub || '') + '</div></div>';
+        document.getElementById('pulse-cards').innerHTML =
+          card('GROWTH SCORE', d.growth_score + '/100', 'activation+activity+referrals') +
+          card('REGISTERED', f.registered, f.activated + ' activated (' + f.activation_pct + '%)') +
+          card('ACTIVE 7D', f.active_7d, f.active_today + ' today') +
+          card('REFERRAL JOINS', f.referred_members, f.total_referral_activated + ' activated · ' + f.referrers + ' referrers');
+        const bar = (label, v, total) => {
+          const pct = total ? Math.round(100 * v / total) : 0;
+          return '<div style="margin-top:5px;">' + label + ': <b>' + v + '</b> <span style="color:var(--text-muted);">(' + pct + '%)</span>' +
+            '<div style="height:7px; background:rgba(255,255,255,0.08); border-radius:4px;"><div style="height:7px; width:' + pct + '%; background:linear-gradient(90deg,#38bdf8,#34d399); border-radius:4px;"></div></div></div>';
+        };
+        document.getElementById('pulse-funnel').innerHTML =
+          bar('Registered', f.registered, f.registered) + bar('Activated (≥1 answer)', f.activated, f.registered) +
+          bar('Active last 7 days', f.active_7d, f.registered) + bar('Came via referral', f.referred_members, f.registered);
+        document.getElementById('pulse-referrers').innerHTML = (f.top_referrers.length ? f.top_referrers.map(x =>
+          '<div style="padding:4px 8px; background:rgba(255,255,255,0.03); border-radius:6px; margin-top:4px;">' +
+          (x.tier ? x.tier + ' ' : '') + '<b>' + x.name + '</b> <span style="color:var(--text-muted);">' + (x.district || '') +
+          ' · ' + x.referrals + ' friends · ' + x.activated + ' activated</span></div>').join('')
+          : '<span style="color:var(--text-muted);">Inka referrers leru — students /invite vadithe ikkada kanipistharu.</span>');
+        document.getElementById('pulse-economy').innerHTML =
+          '🏪 ' + e.partners + ' partners · 🎁 ' + e.offers + ' offers · ✅ ' + e.vouchers_used + ' redeemed · ⏳ ' +
+          e.vouchers_held + ' pending at shops (' + e.points_held_at_shops + ' pts) · 🪙 ' + e.points_in_circulation +
+          ' pts circulation · 🎟 ' + e.points_redeemed + ' pts redeemed all-time';
+        document.getElementById('pulse-plan-name').value = p.plan_name || '';
+        document.getElementById('pulse-price').value = p.price_inr;
+        document.getElementById('pulse-conv').value = p.conversion_pct;
+        pulseRecompute();
+      } catch (e) {
+        document.getElementById('pulse-cards').innerHTML = '<div style="color:#f87171; font-size:12px;">❌ ' + e + '</div>';
+      }
+    }
+    async function savePulseSettings() {
+      try {
+        const body = {plan_name: document.getElementById('pulse-plan-name').value,
+                      price_inr: parseInt(document.getElementById('pulse-price').value) || 0,
+                      conversion_pct: parseFloat(document.getElementById('pulse-conv').value) || 0};
+        const r = await fetch('/api/pulse/settings', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+        const d = await r.json();
+        if (d && d.planner) { alert('✅ Planner assumptions save ayyayi — base: ' + d.planner.base_members + ' members'); loadPulse(); }
+        else alert('❌ save avvaledu');
+      } catch (e) { alert('❌ ' + e); }
+    }
+
+    async function loadProOps() {
+      const dot = s => s === 'ok' ? '🟢' : (s === 'warn' ? '🟡' : '🔴');
+      try {
+        const [h, m, f, a] = await Promise.all([
+          fetch('/api/health/full').then(r => r.json()),
+          fetch('/api/metrics').then(r => r.json()),
+          fetch('/api/flags').then(r => r.json()),
+          fetch('/api/audit').then(r => r.json())]);
+        document.getElementById('proops-health').innerHTML =
+          '<div style="margin-bottom:8px;">Overall: <b>' + dot(h.overall) + ' ' + String(h.overall || '').toUpperCase() + '</b>' +
+          ' · uptime ' + (h.uptime_min || 0) + ' min · Python ' + (h.system ? h.system.python : '?') + ' · ' + (h.generated_at || '') + '</div>' +
+          (h.checks || []).map(c => '<div style="padding:4px 8px; background:rgba(255,255,255,0.03); border-radius:6px; margin-top:4px;">' +
+            dot(c.status) + ' <b>' + c.name + '</b> <span style="color:var(--text-muted);">' + c.detail + '</span></div>').join('');
+        const c = m.counters || {}, d = m.delivery || {};
+        const card = (label, val, sub) => '<div class="stat-card"><div class="label">' + label + '</div><div class="val">' + val + '</div><div style="font-size:11px; color:var(--text-muted);">' + (sub || '') + '</div></div>';
+        document.getElementById('proops-metrics').innerHTML =
+          card('WA DELIVERY', (d.success_pct === null || d.success_pct === undefined) ? '—' : d.success_pct + '%', d.sent + ' sent · ' + d.failed + ' failed') +
+          card('ANSWERS TODAY', (m.today || {}).answers || 0, ((m.today || {}).answers_correct || 0) + ' correct today') +
+          card('ANSWERS (ALL-TIME)', c.answers || 0, 'metrics start: ' + String(m.started_at || '').slice(0, 10)) +
+          card('RETRIES QUEUED (LIFETIME)', c.wa_retry_enqueued || 0, 'failed sends auto-retry count');
+        const s = (m.hourly_series || {}).answers || {values: [], labels: []};
+        const mx = Math.max(1, ...s.values);
+        document.getElementById('proops-chart').innerHTML = s.values.map((v, i) =>
+          '<div title="' + (s.labels[i] || '') + ': ' + v + '" style="flex:1; min-height:2px; height:' + Math.max(3, Math.round(58 * v / mx)) +
+          'px; background:linear-gradient(180deg,#38bdf8,#2563eb); border-radius:2px;"></div>').join('') ||
+          '<span style="color:var(--text-muted);">Inka data ledu</span>';
+        document.getElementById('proops-flags').innerHTML = (f.flags || []).map(x =>
+          '<div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:6px 8px; background:rgba(255,255,255,0.03); border-radius:6px; margin-top:5px;">' +
+          '<span><b>' + x.label + '</b>' + (x.overridden ? ' <span style="color:#fbbf24;">(override)</span>' : '') +
+          '<br><span style="color:var(--text-muted);">' + x.desc + '</span></span>' +
+          '<label style="display:flex; align-items:center; gap:6px; white-space:nowrap;">' +
+          '<input type="checkbox" ' + (x.enabled ? 'checked' : '') + ' onchange="toggleFlag(\'' + x.name + '\', this.checked)"> ' +
+          (x.enabled ? 'ON' : 'OFF') + '</label></div>').join('');
+        document.getElementById('proops-audit').innerHTML = (a.entries || []).length ? (a.entries || []).map(e =>
+          '<div style="padding:4px 8px; background:rgba(255,255,255,0.03); border-radius:6px; margin-top:4px;">' +
+          '<span style="color:var(--text-muted);">' + e.ts + '</span> <b>' + e.action + '</b> ' +
+          '<span style="color:var(--text-muted);">' + (e.detail || '') + '</span></div>').join('')
+          : '<span style="color:var(--text-muted);">Inka audit entries levu — dashboard actions ikkada record avuthayi.</span>';
+      } catch (e) {
+        document.getElementById('proops-health').innerHTML = '<span style="color:#f87171;">❌ ' + e + '</span>';
+      }
+    }
+    async function toggleFlag(name, enabled) {
+      try {
+        const r = await fetch('/api/flags', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name, enabled})});
+        const d = await r.json();
+        if (!d.ok) alert('❌ Flag update avvaledu');
+        loadProOps();
+      } catch (e) { alert('❌ ' + e); }
+    }
+    setInterval(() => {
+      const pane = document.getElementById('tab-proops');
+      if (pane && pane.classList.contains('active')) loadProOps();
+    }, 30000);
+
+    function applySmartHour(h) {
+      const el = document.getElementById('cd-when');
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      d.setHours(h, 0, 0, 0);
+      const p2 = n => String(n).padStart(2, '0');
+      el.value = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + 'T' + p2(d.getHours()) + ':00';
+      el.scrollIntoView({behavior: 'smooth', block: 'center'});
+    }
+    async function scheduleSmartHour(h) {
+      const ch = document.getElementById('cd-channel').value || 'CURRENT';
+      const p2 = n => String(n).padStart(2, '0');
+      const time = p2(h) + ':00';
+      if (!confirm('🔁 Daily schedule: prathi roju ' + time + ' ki ' + ch + ' channel/group ki automatic ga 5 polls vellala?')) return;
+      try {
+        const r = await fetch('/api/telegram/schedule', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({times: [time], channels: [ch], count: 5})});
+        const d = await r.json();
+        alert(d.ok ? ('✅ ' + d.message + '\nSchedules tab lo job kanipistundi — akkada off/edit cheyyochu.') : ('❌ ' + (d.error || 'failed')));
+      } catch (e) { alert('❌ ' + e); }
+    }
+    function cdKindHint() {
+      const k = document.getElementById('cd-kind').value;
+      const hints = {
+        grand: '📝 Channel lo full mock — sections, negative marking, results settle anni engine chesthundi.',
+        war: '⚔️ Lobby open avuthundi, districts madhya live war — bot tick start chesthundi. WAR_TIME daily war ki idhi additional.',
+        campus: '🏫 Join code ippude create avuthundi — code students tho share cheyyandi, time ki exam start avuthundi (kammi 2 registered students kavali).'
+      };
+      document.getElementById('cd-hint').textContent = hints[k] || '';
+      document.getElementById('cd-duration').value = k === 'war' ? 30 : (k === 'campus' ? 60 : 90);
+      document.getElementById('cd-nq').value = k === 'campus' ? 20 : 25;
+    }
+    async function loadConductor() {
+      try {
+        const d = await fetch('/api/conductor').then(r => r.json());
+        const sel = document.getElementById('cd-channel');
+        if (sel && !sel.options.length) (d.channels || []).forEach(c => {
+          const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o);
+        });
+        const h = await fetch('/api/health').then(r => r.json()).catch(() => ({}));
+        document.getElementById('conductor-daily').innerHTML =
+          '📌 <b>Daily Fixed Polls:</b> Telegram Auto-Pilot slots <b>' + (h.autopilot_slots ?? '?') + '</b> · WhatsApp slots <b>' +
+          (h.wa_slots ?? '?') + '</b> · ee week polls <b>' + (h.week_polls ?? '?') + '</b> — timings marchali ante ' +
+          '<a href="#" onclick="switchTab(\'tab-setup-wizard\'); return false;">🚀 Setup Wizard</a> / ' +
+          '<a href="#" onclick="switchTab(\'tab-dynamic-channels\'); return false;">📢 Telegram tab</a> chudandi.';
+        try {
+          const mm = await fetch('/api/metrics').then(r => r.json());
+          const prof = mm.hour_profile || {};
+          const rows = Object.entries(prof).map(([h, v]) => ({h: parseInt(h), v})).filter(x => x.v > 0).sort((a, b) => b.v - a.v);
+          const tot = rows.reduce((s, x) => s + x.v, 0);
+          const adv = document.getElementById('conductor-advisor');
+          if (tot < 50) {
+            adv.innerHTML = '🧠 <b>Smart Slot Advisor:</b> students eppudu ekkuva answer chestharo nerchukuntundi — ippatiki ' + tot + ' answers matrame. 50+ ayyaka best times suggest chesthundi.';
+          } else {
+            const mx = rows[0].v;
+            adv.innerHTML = '🧠 <b>Smart Slot Advisor</b> — students ekkuva answer chesina hours (14 days, ' + tot + ' answers):' +
+              rows.slice(0, 3).map(x => '<div style="margin-top:5px;">🕐 <b>' + String(x.h).padStart(2, '0') + ':00</b> — ' + x.v + ' answers ' +
+                '<button class="btn btn-outline" style="padding:2px 9px; font-size:11px;" onclick="applySmartHour(' + x.h + ')">ee time ki exam schedule chey</button> ' +
+                '<button class="btn btn-outline" style="padding:2px 9px; font-size:11px;" onclick="scheduleSmartHour(' + x.h + ')">🔁 daily schedule</button>' +
+                '<div style="height:6px; background:rgba(255,255,255,0.08); border-radius:3px; margin-top:3px;"><div style="height:6px; width:' + Math.round(100 * x.v / mx) + '%; background:linear-gradient(90deg,#a78bfa,#38bdf8); border-radius:3px;"></div></div></div>').join('');
+          }
+        } catch (e) { /* advisor optional */ }
+        const chip = s => ({scheduled: '🔵', live: '🔴 LIVE', done: '✅ done', failed: '❌ failed', cancelled: '⚪ cancelled'}[s] || s);
+        document.getElementById('conductor-events').innerHTML = (d.events || []).length ? (d.events || []).map(e =>
+          '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 8px; background:rgba(255,255,255,0.03); border-radius:6px; margin-top:5px; flex-wrap:wrap;">' +
+          '<span><b>' + e.title + '</b> <span style="color:var(--text-muted);">' + (d.kinds[e.kind] ? d.kinds[e.kind].label : e.kind) +
+          ' · ' + String(e.starts_at).replace('T', ' ') + (e.starts_in_min !== null && e.status === 'scheduled' ? ' · ⏳ ' + e.starts_in_min + ' min lo' : '') +
+          (e.engine_ref ? ' · code <b>' + e.engine_ref + '</b>' : '') + (e.error ? ' · <span style="color:#f87171;">' + e.error + '</span>' : '') +
+          (e.note ? '<br><span style="color:var(--text-muted);">' + e.note + '</span>' : '') + '</span></span>' +
+          '<span style="display:flex; gap:6px; align-items:center;">' + chip(e.status) +
+          (e.status === 'scheduled' || e.status === 'failed' ? '<button class="btn btn-accent" style="padding:3px 10px; font-size:11px;" onclick="launchConductorEvent(\'' + e.id + '\')">🚀 Launch Now</button>' : '') +
+          (e.status === 'scheduled' || e.status === 'live' ? '<button class="btn btn-outline" style="padding:3px 10px; font-size:11px;" onclick="cancelConductorEvent(\'' + e.id + '\')">✖ Cancel</button>' : '') +
+          (e.status === 'done' || e.status === 'live' ? '<button class="btn btn-outline" style="padding:3px 10px; font-size:11px;" onclick="conductorResult(\'' + e.id + '\')">📊 Result</button>' : '') +
+          '</span></div>').join('')
+          : '<span style="color:var(--text-muted);">Inka exams levu — paina form tho first exam schedule cheyyandi!</span>';
+        cdKindHint();
+      } catch (e) {
+        document.getElementById('conductor-events').innerHTML = '<span style="color:#f87171;">❌ ' + e + '</span>';
+      }
+    }
+    async function createConductorEvent() {
+      const when = document.getElementById('cd-when').value;
+      if (!when) { alert('❌ Date + Time select cheyyandi'); return; }
+      const body = {
+        title: document.getElementById('cd-title').value,
+        kind: document.getElementById('cd-kind').value,
+        channel: document.getElementById('cd-channel').value || 'CURRENT',
+        starts_at: when,
+        duration_min: parseInt(document.getElementById('cd-duration').value) || 0,
+        n_questions: parseInt(document.getElementById('cd-nq').value) || 0,
+        lobby_min: parseInt(document.getElementById('cd-lobby').value) || 5,
+        campus_name: document.getElementById('cd-campus').value,
+        district: document.getElementById('cd-district').value
+      };
+      try {
+        const r = await fetch('/api/conductor/create', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+        const d = await r.json();
+        alert(d.ok ? ('✅ ' + (d.message || 'scheduled')) : ('❌ ' + (d.error || 'failed')));
+        if (d.ok) loadConductor();
+      } catch (e) { alert('❌ ' + e); }
+    }
+    async function launchConductorEvent(id) {
+      if (!confirm('Ippude launch cheyyala? Real channels/groups ki posts vellochu.')) return;
+      try {
+        const r = await fetch('/api/conductor/launch', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id})});
+        const d = await r.json();
+        alert((d.ok ? '✅ ' : '❌ ') + (d.message || ''));
+        loadConductor();
+      } catch (e) { alert('❌ ' + e); }
+    }
+    async function cancelConductorEvent(id) {
+      try {
+        await fetch('/api/conductor/cancel', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id})});
+        loadConductor();
+      } catch (e) { alert('❌ ' + e); }
+    }
+    async function conductorResult(id) {
+      try {
+        const r = await fetch('/api/conductor/result', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id})});
+        const d = await r.json();
+        alert(d.ok ? d.text : ('❌ ' + (d.error || '')));
+      } catch (e) { alert('❌ ' + e); }
+    }
+
     fetchStats();
+    loadVision();
+    loadSetupOptions();
     loadWASession();
     loadMemberQueue();
     loadWAGroups();
@@ -4039,6 +7618,7 @@ All candidates must join today before 9:00 PM!"></textarea>
     refreshStatusStrip();
     renderMissionHome();
     setInterval(fetchStats, 10000);
+    setInterval(loadVision, 60000);
     setInterval(pollPipelineStatus, 1500);
     setInterval(loadWASession, 10000);
   </script>
@@ -4048,6 +7628,7 @@ All candidates must join today before 9:00 PM!"></textarea>
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"  # 🚀 keep-alive — anni responses Content-Length disciplined
     # ---------------- 🔒 access lock helpers ----------------
     def _cookie_token(self) -> str:
         raw = self.headers.get("Cookie", "") or ""
@@ -4060,6 +7641,20 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def _authed(self) -> bool:
         tok = self._cookie_token()
         return bool(tok) and tok in _load_auth().get("tokens", [])
+
+    # ---------------- 🛡️ RATE LIMIT (public API anti-spam) ----------------
+    _RL = {}
+
+    def _rate_ok(self, key, limit=12, window=600):
+        """Simple sliding-window limiter (per key, e.g. register/IP)."""
+        now = time.time()
+        hits = [t for t in self._RL.get(key, []) if now - t < window]
+        if len(hits) >= limit:
+            self._RL[key] = hits
+            return False
+        hits.append(now)
+        self._RL[key] = hits
+        return True
 
     # ---------------- 🛡️ IP ALLOWLIST (2nd security layer) ----------------
     def _client_ip(self) -> str:
@@ -4149,24 +7744,92 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _gz(self, body):
+        """🚀 gzip — mobile students ki bandwidth save (pedda pages/JSON)."""
+        try:
+            if len(body) > 800 and "gzip" in (self.headers.get("Accept-Encoding") or ""):
+                import gzip as _gzip
+                return _gzip.compress(body, compresslevel=6), "gzip"
+        except Exception:
+            pass
+        return body, None
+
+    def _send_text(self, body_text, code=200, ctype="text/plain; charset=utf-8"):
+        body, enc = self._gz(body_text.encode("utf-8"))
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        if enc:
+            self.send_header("Content-Encoding", enc)
+            self.send_header("Vary", "Accept-Encoding")
+        self.end_headers()
+        self.wfile.write(body)
+
     def _send_json(self, data, code=200):
-        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        try:
+            raw = json.dumps(data, ensure_ascii=False)
+        except Exception:
+            raw = '{"ok": false, "error": "serialization failed"}'
+            code = 500
+        body, enc = self._gz(raw.encode("utf-8"))
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        if enc:
+            self.send_header("Content-Encoding", enc)
+            self.send_header("Vary", "Accept-Encoding")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(body)
 
-    def _send_html(self, html):
-        body = html.encode("utf-8")
+    def _send_html(self, html, etag=False):
+        # ⚡ 100X: static-ish pages (portal/public) ki ETag — repeat
+        # visits lo 304 (body download ae undadu, instant load).
+        if etag:
+            import hashlib as _hl
+            tag = '"' + _hl.sha1(html.encode("utf-8")).hexdigest()[:20] + '"'
+            if (self.headers.get("If-None-Match") or "") == tag:
+                self.send_response(304)
+                self.send_header("ETag", tag)
+                self.send_header("Cache-Control", "public, max-age=60")
+                self.end_headers()
+                return
+            body, enc = self._gz(html.encode("utf-8"))
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("ETag", tag)
+            self.send_header("Cache-Control", "public, max-age=60")
+            if enc:
+                self.send_header("Content-Encoding", enc)
+                self.send_header("Vary", "Accept-Encoding")
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        body, enc = self._gz(html.encode("utf-8"))
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        if enc:
+            self.send_header("Content-Encoding", enc)
+            self.send_header("Vary", "Accept-Encoding")
         self.end_headers()
         self.wfile.write(body)
 
     def do_GET(self):
+        try:
+            self._do_GET()
+        except Exception as e:
+            # 🛡️ Endpoint crash aina browser ki JSON error padali —
+            # empty reply ("anni errors") raakudadhu.
+            print(f"   [dashboard] GET {self.path} error: {e}")
+            try:
+                self._send_json({"ok": False,
+                                 "error": f"server error: {e}"}, code=500)
+            except Exception:
+                pass
+
+    def _do_GET(self):
         p = urllib.parse.urlparse(self.path)
 
         # 🛡️ IP allowlist — checked BEFORE everything (even the login page)
@@ -4180,14 +7843,30 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
 
         # 📱 PWA assets — login అవసరం లేదు (browser install కోసం), IP lock apply అవుతుంది
+        if p.path == "/sw.js":
+            self._send_text(
+                "const C='studentup-v3';"
+                "self.addEventListener('install',e=>{self.skipWaiting();"
+                "e.waitUntil(caches.open(C).then(c=>c.addAll(['/portal','/','/icon.svg'])))});"
+                "self.addEventListener('activate',e=>{e.waitUntil(self.clients.claim())});"
+                "self.addEventListener('fetch',e=>{const u=new URL(e.request.url);"
+                "if(e.request.method!=='GET'||u.pathname.startsWith('/api/'))return;"
+                "e.respondWith(fetch(e.request).then(r=>{const cp=r.clone();"
+                "caches.open(C).then(c=>c.put(e.request,cp));return r;})"
+                ".catch(()=>caches.match(e.request)))})",
+                ctype="application/javascript; charset=utf-8")
+            return
+
         if p.path == "/manifest.json":
             body = json.dumps({
-                "name": "StudentUp Control Hub",
+                "name": "StudentUp — Daily Quiz, Mock Tests & Live Exams",
                 "short_name": "StudentUp",
-                "start_url": "/",
+                "description": "Free quiz practice, PYQs, college exams and leaderboards for AP & Telangana students.",
+                "start_url": "/portal",
+                "scope": "/",
                 "display": "standalone",
-                "background_color": "#0b1220",
-                "theme_color": "#0b1220",
+                "background_color": "#050811",
+                "theme_color": "#0b1329",
                 "icons": [{"src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}],
             }).encode("utf-8")
             self.send_response(200)
@@ -4208,6 +7887,327 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
+            return
+        # 🌐 Student Web Exam — login akkarledu (students browser lone exam)
+        if p.path.startswith("/exam/"):
+            self._send_html(WEB_EXAM_HTML)
+            return
+        if p.path == "/api/exam/info":
+            query = urllib.parse.parse_qs(p.query)
+            code = query.get("code", [""])[0]
+            d = campus._load(); e = d["events"].get(code)
+            if not e:
+                self._send_json({"ok": False, "error": "Exam not found"})
+            else:
+                self._send_json({"ok": True, "exam": e.get("name", ""),
+                                 "n_q": e.get("n_q", 0),
+                                 "colleges": e.get("colleges", []),
+                                 "state": e.get("state", "open"),
+                                 "joined": len(e.get("players", {}))})
+            return
+        if p.path == "/api/exam/state":
+            query = urllib.parse.parse_qs(p.query)
+            code = query.get("code", [""])[0]
+            tok = query.get("token", [""])[0]
+            snap = campus.web_state(code, tok)
+            if snap is None:
+                self._send_json({"ok": False, "error": "session expired — link malli open cheyyandi"})
+            else:
+                if (snap["state"] in ("question", "gap")
+                        or (snap["state"] == "open" and snap.get("start_at"))):
+                    try:
+                        campus.tick(Telegram(), Members())
+                    except Exception:
+                        pass
+                    snap = campus.web_state(code, tok) or snap
+                self._send_json({"ok": True, **snap})
+            return
+        # 🌍 Public Website + AdSense kit — login akkarledu
+        if p.path == "/" and not self._authed():
+            _host = (self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or "").split(":")[0]
+            if _host.split(".")[0].lower() in ("quiz", "exam", "app", "portal"):
+                self._send_html(PORTAL_HTML, etag=True)   # 🌐 subdomain = student portal
+            else:
+                self._send_html(public_page(self, "home"), etag=True)
+            return
+        if p.path == "/portal":
+            self._send_html(PORTAL_HTML, etag=True)
+            return
+        if p.path == "/api/blog/posts":
+            self._send_json({"ok": True, "posts": _fetch_wp_posts(12),
+                             "site": _wp_base()})
+            return
+        if p.path == "/api/portal/meta":
+            from core import districts as _D
+            self._send_json({"ok": True,
+                             "districts": ([{"name": x[0], "state": "AP"} for x in _D.AP_DISTRICTS]
+                                           + [{"name": x[0], "state": "TG"} for x in _D.TS_DISTRICTS]),
+                             "goals": {k: v["label"] for k, v in portal.GOALS.items()},
+                             "topics": portal.topics_list()})
+            return
+        if p.path == "/api/portal/report":
+            query = urllib.parse.parse_qs(p.query)
+            rp = portal.my_report(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": rp is not None, **(rp or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/state":
+            query = urllib.parse.parse_qs(p.query)
+            st = portal.state(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": bool(st), **(st or {"error": "session expired"})})
+            return
+
+        if p.path == "/api/portal/paper/catalog":
+            self._send_json({"ok": True, "papers": portal.paper_catalog()})
+            return
+        if p.path == "/api/portal/syllabus":
+            query = urllib.parse.parse_qs(p.query)
+            sy = portal.my_syllabus(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": sy is not None, **(sy or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/coach":
+            query = urllib.parse.parse_qs(p.query)
+            co = portal.coach_today(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": co is not None, **(co or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/percentile":
+            query = urllib.parse.parse_qs(p.query)
+            pc = portal.goal_percentile(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": pc is not None, **(pc or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/bookmarks":
+            query = urllib.parse.parse_qs(p.query)
+            bm = portal.my_bookmarks(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": True, "bookmarks": bm})
+            return
+        if p.path == "/api/portal/archive":
+            query = urllib.parse.parse_qs(p.query)
+            ar = portal.my_archive(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": True, "archive": ar})
+            return
+        if p.path == "/api/portal/worksheet":
+            query = urllib.parse.parse_qs(p.query)
+            ok, info = portal.worksheet_text(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/daily_mix":
+            self._send_json({"ok": True, **portal.daily_mix()})
+            return
+        if p.path == "/api/portal/pyq_trends":
+            query = urllib.parse.parse_qs(p.query)
+            self._send_json({"ok": True, **portal.pyq_trends(query.get("goal", [""])[0])})
+            return
+        if p.path == "/api/portal/challenge":
+            query = urllib.parse.parse_qs(p.query)
+            ch = portal.challenge_today(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": ch is not None, **(ch or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/sprint":
+            query = urllib.parse.parse_qs(p.query)
+            sp2 = portal.sprint_plan(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": sp2 is not None, **(sp2 or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/weekly_report":
+            query = urllib.parse.parse_qs(p.query)
+            ok, info = portal.weekly_report_text(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/mistakes":
+            query = urllib.parse.parse_qs(p.query)
+            ok, info = portal.mistake_notebook(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/notices":
+            query = urllib.parse.parse_qs(p.query)
+            ok, info = portal.notices_for(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/goal_hub":
+            query = urllib.parse.parse_qs(p.query)
+            ok, info = portal.goal_hub(Members(), query.get("token", [""])[0],
+                                       query.get("goal", [""])[0])
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/notes":
+            query = urllib.parse.parse_qs(p.query)
+            ok, info = portal.topic_notes(Members(), query.get("token", [""])[0],
+                                          query.get("topic", [""])[0])
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/bot_link":
+            query = urllib.parse.parse_qs(p.query)
+            ok, info = portal.bot_link_state(Members(), query.get("token", [""])[0])
+            if ok:
+                info = {**info, "bot": _bot_username()}
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/series/certificate":
+            query = urllib.parse.parse_qs(p.query)
+            png = portal.series_certificate(Members(), query.get("token", [""])[0])
+            if png:
+                self.send_response(200)
+                self.send_header("Content-Type", "image/png")
+                self.send_header("Content-Length", str(len(png)))
+                self.end_headers()
+                self.wfile.write(png)
+            else:
+                self._send_json({"ok": False, "error": "Series 10 tests complete ayyaka certificate vasthundi"}, code=404)
+            return
+        if p.path == "/api/portal/study_plan":
+            query = urllib.parse.parse_qs(p.query)
+            sp = portal.study_plan(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": sp is not None, **(sp or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/next_topic":
+            query = urllib.parse.parse_qs(p.query)
+            nt = portal.next_topic(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": nt is not None, **(nt or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/trend":
+            query = urllib.parse.parse_qs(p.query)
+            tr = portal.score_trend(Members(), query.get("token", [""])[0])
+            ac = portal.activity_calendar(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": True, "trend": tr, "activity": ac})
+            return
+        if p.path == "/api/portal/forecast":
+            query = urllib.parse.parse_qs(p.query)
+            fc = portal.score_forecast(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": fc is not None, **(fc or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/attempt":
+            query = urllib.parse.parse_qs(p.query)
+            an = portal.attempt_analysis(Members(), query.get("token", [""])[0],
+                                         query.get("run_id", [""])[0])
+            self._send_json({"ok": an is not None, **(an or {"error": "attempt dorakaledu"})})
+            return
+        if p.path == "/api/portal/goal_board":
+            query = urllib.parse.parse_qs(p.query)
+            gb = portal.goal_board(Members(), query.get("goal", ["mixed"])[0])
+            self._send_json({"ok": True, "board": gb})
+            return
+        if p.path == "/api/portal/revision_pack":
+            query = urllib.parse.parse_qs(p.query)
+            ok, info = portal.revision_pack_text(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/sections":
+            query = urllib.parse.parse_qs(p.query)
+            ss = portal.section_stock(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": ss is not None, **(ss or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/patterns":
+            query = urllib.parse.parse_qs(p.query)
+            pt = portal.mistake_patterns(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": pt is not None, **(pt or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/retention":
+            query = urllib.parse.parse_qs(p.query)
+            rt = portal.retention_report(Members(), query.get("token", [""])[0])
+            wg = portal.weekly_goal(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": rt is not None, "retention": rt, "weekly_goal": wg})
+            return
+        if p.path == "/api/portal/records":
+            query = urllib.parse.parse_qs(p.query)
+            rc = portal.my_records(Members(), query.get("token", [""])[0])
+            sr = portal.test_series(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": rc is not None, "records": rc, "series": sr})
+            return
+        if p.path == "/api/portal/rival":
+            query = urllib.parse.parse_qs(p.query)
+            rv = portal.rival_status(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": rv is not None, **(rv or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/daily_review":
+            query = urllib.parse.parse_qs(p.query)
+            dr2 = portal.daily_review(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": dr2 is not None, **(dr2 or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/resume":
+            query = urllib.parse.parse_qs(p.query)
+            rs = portal.resume_latest(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": rs is not None, **(rs or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/mydata":
+            query = urllib.parse.parse_qs(p.query)
+            ok, info = portal.my_data_export(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/district_rank":
+            query = urllib.parse.parse_qs(p.query)
+            dr = portal.district_goal_rank(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": dr is not None, **(dr or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/exam":
+            query = urllib.parse.parse_qs(p.query)
+            ex = portal.exam_questions(Members(), query.get("token", [""])[0],
+                                       query.get("id", [""])[0])
+            self._send_json({"ok": ex is not None, **(ex or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/exam/certificate":
+            query = urllib.parse.parse_qs(p.query)
+            png = portal.exam_certificate(Members(), query.get("token", [""])[0],
+                                          query.get("id", [""])[0])
+            if png:
+                self.send_response(200)
+                self.send_header("Content-Type", "image/png")
+                self.send_header("Content-Disposition",
+                                 'attachment; filename="studentup-certificate.png"')
+                self.send_header("Content-Length", str(len(png)))
+                self.end_headers()
+                self.wfile.write(png)
+            else:
+                self._send_json({"ok": False, "error": "Certificate kevalam Top-3 winners ke!"}, code=403)
+            return
+        if p.path == "/api/portal/exam/scorecard":
+            query = urllib.parse.parse_qs(p.query)
+            png = portal.exam_scorecard(Members(), query.get("token", [""])[0],
+                                         query.get("id", [""])[0])
+            if png:
+                self.send_response(200)
+                self.send_header("Content-Type", "image/png")
+                self.send_header("Content-Disposition",
+                                 'attachment; filename="studentup-scorecard.png"')
+                self.send_header("Content-Length", str(len(png)))
+                self.end_headers()
+                self.wfile.write(png)
+            else:
+                self._send_json({"ok": False, "error": "Score card exam ayyaka vastundi!"}, code=403)
+            return
+        if p.path == "/api/portal/exam/result":
+            query = urllib.parse.parse_qs(p.query)
+            ex = portal.exam_result(Members(), query.get("token", [""])[0],
+                                    query.get("id", [""])[0])
+            self._send_json({"ok": ex is not None, **(ex or {"error": "not found"})})
+            return
+        if p.path == "/api/portal/key":
+            query = urllib.parse.parse_qs(p.query)
+            ok, info = portal.key_paper(Members(), query.get("token", [""])[0],
+                                        query.get("kind", [""])[0],
+                                        query.get("ref", [""])[0])
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/quiz":
+            query = urllib.parse.parse_qs(p.query)
+            qq = portal.daily_questions(Members(), query.get("token", [""])[0])
+            if qq is None:
+                self._send_json({"ok": False, "error": "session expired"})
+            else:
+                self._send_json({"ok": True, **qq})
+            return
+        if p.path in PUBLIC_PAGE_PATHS:
+            self._send_html(public_page(self, PUBLIC_PAGE_PATHS[p.path]), etag=True)
+            return
+        if p.path == "/ads.txt":
+            body_txt = ads_txt_content()
+            if body_txt:
+                self._send_text(body_txt)
+            else:
+                self._send_text("# AdSense not configured\n", code=404)
+            return
+        if p.path == "/robots.txt":
+            self._send_text(robots_txt(self))
+            return
+        if p.path == "/sitemap.xml":
+            self._send_text(sitemap_xml(self), ctype="application/xml; charset=utf-8")
             return
         if not self._authed():
             self._deny(is_api=p.path.startswith("/api/"))
@@ -4350,12 +8350,130 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json(whatsapp_pipeline.load_wa_registry())
             return
 
+        if p.path == "/api/whatsapp/retry_queue":
+            from core.store import load_json as _load_json
+            _rq = _load_json(whatsapp_pipeline.WA_RETRY_FILE, {"items": []})
+            _items = _rq.get("items", []) if isinstance(_rq, dict) else []
+            self._send_json({"count": len(_items), "items": _items[-20:]})
+            return
+
+        if p.path == "/api/whatsapp/bridges":
+            self._send_json({"bridges": whatsapp_pipeline.bridges_status(),
+                             "pool_size": len(whatsapp_pipeline._bridge_urls())})
+            return
+
         if p.path == "/api/whatsapp/session":
             self._send_json(whatsapp_pipeline.get_session_info())
             return
 
         if p.path == "/api/whatsapp/schedules":
             self._send_json({"jobs": whatsapp_pipeline.get_scheduled_jobs()})
+            return
+
+        if p.path == "/api/whatsapp/hall-of-fame":
+            self._send_json({"ok": True,
+                             "champions": whatsapp_pipeline.wa_hall_of_fame(20)})
+            return
+
+        if p.path == "/api/conductor":
+            from core import conductor as _cd
+            from core import config as _cfg
+            self._send_json({"ok": True, "events": _cd.list_events(),
+                             "channels": list(getattr(_cfg, "PUBLIC_CHANNELS", [])),
+                             "kinds": _cd.KINDS})
+            return
+
+        if p.path == "/api/metrics":
+            from core import metrics as _mx
+            self._send_json(_mx.snapshot())
+            return
+
+        if p.path == "/api/health/full":
+            from core import health as _hl
+            rep = _hl.full_report()
+            rep["uptime_min"] = int((time.time() - _START_TS) // 60)
+            try:
+                _pa = portal.portal_analytics(Members())
+                rep["portal"] = {"students": _pa.get("students"),
+                                 "attempts": _pa.get("attempts_total"),
+                                 "active_today": _pa.get("active_today")}
+            except Exception:
+                rep["portal"] = {}
+            self._send_json(rep)
+            return
+
+        if p.path == "/api/flags":
+            from core import flags as _fl
+            self._send_json({"ok": True, "flags": _fl.all_flags()})
+            return
+
+        if p.path == "/api/audit":
+            from core import auditlog as _al
+            self._send_json({"ok": True, "entries": _al.recent(30)})
+            return
+
+        if p.path == "/api/pulse":
+            from core import pulse as _pl
+            self._send_json(_pl.report())
+            return
+
+        if p.path == "/api/item_intel":
+            from core import item_intel as _ii
+            self._send_json({"ok": True, **_ii.report()})
+            return
+
+        if p.path == "/api/brain/overview":
+            from core import brain as _br
+            self._send_json({"ok": True, **_br.overview()})
+            return
+
+        if p.path == "/api/portal/exam/integrity":
+            from core import integrity as _ig
+            _iq = urllib.parse.parse_qs(p.query)
+            self._send_json({"ok": True, **_ig.report_for_exam(
+                (_iq.get("id") or [""])[0])})
+            return
+
+        if p.path == "/api/syllabus":
+            query = urllib.parse.parse_qs(p.query)
+            uid = (query.get("uid", [""])[0] or "").strip()
+            if not uid:
+                self._send_json({"ok": False, "error": "uid kavali (?uid=<telegram id>)"})
+                return
+            from core import syllabus as _syllabus
+            mb = Members()
+            mem = mb.members.get(str(uid), {})
+            from core.question_bank import Bank as _Bank
+            ch = (mem.get("follow") or ["CURRENT"])[0] if mem.get("follow") else "CURRENT"
+            self._send_json({"ok": True, "uid": uid,
+                             "plan": _syllabus.plan(mem, _Bank(), ch)})
+            return
+
+        if p.path == "/api/vision":
+            from core import vision as _vision
+            self._send_json(_vision.vision_report())
+            return
+
+        if p.path == "/api/setup/options":
+            # 🎛️ Manual Setup form data: exams mariyu subjects rendu
+            # live registry nunche (hardcode kaadu).
+            exams = set()
+            for _k, _v in channel_router.get_all_channels().items():
+                if _v.get("base_exam"):
+                    exams.add(str(_v["base_exam"]).upper())
+                exams.add(str(_k).upper())
+            try:
+                for _g in whatsapp_pipeline.load_wa_registry().get("groups", []):
+                    if _g.get("category"):
+                        exams.add(str(_g["category"]).upper())
+            except Exception:
+                pass
+            self._send_json({
+                "exams": sorted(exams),
+                "subjects": sorted(whatsapp_pipeline.SUBJECT_TOPIC_MAP.keys()),
+                "shifts": ["ALL_DAY", "MORNING", "EVENING"],
+                "group_types": ["EXAM_SPECIFIC", "GENERAL"],
+            })
             return
 
         if p.path == "/api/whatsapp/pipeline_status":
@@ -4375,6 +8493,93 @@ class DashboardHandler(BaseHTTPRequestHandler):
             })
             return
 
+        if p.path == "/api/whatsapp/group_health":
+            self._send_json({"ok": True, "health": whatsapp_pipeline.group_health()})
+            return
+
+        if p.path == "/api/whatsapp/preview":
+            query = urllib.parse.parse_qs(p.query)
+            try:
+                cnt = max(1, min(int(query.get("count", ["2"])[0]), 5))
+            except Exception:
+                cnt = 2
+            self._send_json(whatsapp_pipeline.preview_broadcast(
+                target_category=query.get("category", ["ALL"])[0], questions_per_group=cnt))
+            return
+
+        if p.path == "/api/whatsapp/safety":
+            self._send_json({"ok": True, **whatsapp_pipeline.safety_stack()})
+            return
+
+        if p.path == "/api/whatsapp/preflight":
+            reg = whatsapp_pipeline.load_wa_registry()
+            grps = [g for g in reg.get("groups", []) if g.get("active")]
+            pf = whatsapp_pipeline.preflight_whatsapp(groups=grps, category="ALL", questions_per_group=5)
+            self._send_json({"ok": pf["ok"], "preflight": pf})
+            return
+
+        if p.path == "/api/wp/status":
+            try:
+                req = urllib.request.Request(_wp_base() + "/wp-json/",
+                                             headers={"User-Agent": "StudentUp-Bridge/1.0"})
+                with urllib.request.urlopen(req, timeout=6) as r:
+                    info = json.loads(r.read().decode("utf-8", "ignore"))
+                self._send_json({"ok": True, "name": info.get("name", ""),
+                                 "url": info.get("url", _wp_base()),
+                                 "posts_cached": len(_WP_CACHE["posts"])})
+            except Exception as ex:
+                self._send_json({"ok": False, "error": f"WP reach avvaledu: {ex}",
+                                 "base": _wp_base()})
+            return
+
+        if p.path == "/api/wp/export":
+            self._send_json({"ok": True, **_wp_quiz_export()})
+            return
+
+        if p.path == "/api/pyq/status":
+            import collections as _c
+            try:
+                _bank = json.loads(config.BANK_JSON.read_text(encoding="utf-8"))
+                _src = _c.Counter(q.get("source") or "" for q in _bank.get("questions", []))
+            except Exception:
+                _src = {}
+            self._send_json({"ok": True, "text": pyq.status_text(),
+                             "by_channel": pyq.by_channel(),
+                             "running": _PYQ_JOB["running"], "last": _PYQ_JOB["last"],
+                             "bank": {"total": sum(_src.values()),
+                                      "pyq": _src.get("pyq", 0), "curated": _src.get("curated", 0),
+                                      "scraped": _src.get("scraped", 0),
+                                      "generated": _src.get("offline-gen", 0) + _src.get("llm-gen", 0)}})
+            return
+
+        if p.path == "/api/portal/admin/reports/status":
+            self._send_json({"ok": True, **_REPORT_JOB})
+            return
+
+        if p.path == "/api/portal/admin/notices":
+            self._send_json({"ok": True, "notices": portal.list_notices(10)})
+            return
+
+        if p.path == "/api/portal/admin/analytics":
+            self._send_json({"ok": True, **portal.portal_analytics(Members())})
+            return
+        if p.path == "/api/portal/admin/students":
+            query = urllib.parse.parse_qs(p.query)
+            self._send_json({"ok": True, "students": portal.admin_students(
+                Members(), query.get("q", [""])[0])})
+            return
+        if p.path == "/api/portal/admin/flags":
+            self._send_json({"ok": True, "flags": portal.question_flags()})
+            return
+        if p.path == "/api/bank/quality":
+            from core.question_bank import bank_quality
+            self._send_json({"ok": True, **bank_quality()})
+            return
+        if p.path == "/api/portal/admin/exams":
+            self._send_json({"ok": True, "exams": portal.admin_list(),
+                             "goals": {k: v["label"] for k, v in portal.GOALS.items()}})
+            return
+
         if p.path == "/api/campus/list":
             d = campus._load()
             events = []
@@ -4390,7 +8595,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     "players_count": len(e.get("players", {}))
                 })
             self._send_json({
-                "bot": config.BOT_USERNAME or "StudentUpBot",
+                "bot": _bot_username(),
                 "events": events
             })
             return
@@ -4398,8 +8603,78 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if p.path == "/api/campus/report":
             query = urllib.parse.parse_qs(p.query)
             code = query.get("code", [""])[0]
-            rep = campus.college_report(code)
-            self._send_json({"ok": True, "report": rep})
+            rep = campus.report_dict(code)
+            if rep is None:
+                self._send_json({"ok": False, "error": "Event not found", "report": None})
+            else:
+                self._send_json({"ok": True, "report": rep})
+            return
+
+        if p.path == "/api/campus/poster":
+            query = urllib.parse.parse_qs(p.query)
+            code = query.get("code", [""])[0]
+            data = campus.poster_png(code)
+            if not data:
+                self._send_json({"ok": False, "error": "Poster unavailable (no finishers yet or Pillow missing)."})
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Content-Disposition", f'attachment; filename="campus-{code}-poster.png"')
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
+
+        if p.path == "/api/campus/qr":
+            query = urllib.parse.parse_qs(p.query)
+            code = query.get("code", [""])[0]
+            if query.get("web", [""])[0] == "1":
+                data = campus.qr_png(code, _bot_username(),
+                                     link=f"{_public_base(self)}/exam/{code}")
+            else:
+                data = campus.qr_png(code, _bot_username())
+            if not data:
+                self._send_json({"ok": False, "error": "QR unavailable (qrcode package missing or event not found). Use the join link instead."})
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "image/png")
+            if query.get("dl", [""])[0] == "1":
+                self.send_header("Content-Disposition", f'attachment; filename="campus-{code}-qr.png"')
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
+
+        if p.path == "/api/campus/excel":
+            query = urllib.parse.parse_qs(p.query)
+            code = query.get("code", [""])[0]
+            fname, data = campus.export_excel_bytes(code)
+            if not data:
+                self._send_json({"ok": False, "error": "No marks data for this event yet."})
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/vnd.ms-excel")
+            self.send_header("Content-Disposition", f'attachment; filename="{fname}"')
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
+
+        if p.path == "/api/campus/live":
+            query = urllib.parse.parse_qs(p.query)
+            snap = campus.live_snapshot(query.get("code", [""])[0])
+            if snap is None:
+                self._send_json({"ok": False, "error": "Event not found"})
+            else:
+                self._send_json({"ok": True, "live": snap})
+            return
+
+        if p.path == "/api/campus/league":
+            self._send_json({"ok": True, "league": campus.league_table()})
+            return
+
+        if p.path == "/api/planner/today":
+            self._send_json({"ok": True, **planner.today_plan()})
             return
 
         if p.path == "/api/bundles":
@@ -4477,15 +8752,33 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     "exam": m.get("exam", ""),
                     "points": m.get("points", 0),
                     "streak": m.get("streak", 0),
-                    "college": m.get("college", "")
+                    "college": m.get("college", ""),
+                    "accuracy": (round(100 * m.get("correct", 0) / m["total"]) if m.get("total") else 0),
+                    "weak_topic": (mb.weak_topics(uid) or [""])[0]
                 })
             self._send_json({"members": arr})
             return
 
-        self.send_response(404)
-        self.end_headers()
+        # unknown route -> JSON 404 (browser ki empty page padakudadhu)
+        if p.path.startswith("/api/"):
+            self._send_json({"ok": False,
+                             "error": f"unknown endpoint: {p.path}"}, code=404)
+        else:
+            self.send_response(404)
+            self.end_headers()
 
     def do_POST(self):
+        try:
+            self._do_POST()
+        except Exception as e:
+            print(f"   [dashboard] POST {self.path} error: {e}")
+            try:
+                self._send_json({"ok": False,
+                                 "error": f"server error: {e}"}, code=500)
+            except Exception:
+                pass
+
+    def _do_POST(self):
         p = urllib.parse.urlparse(self.path)
 
         # 🛡️ IP allowlist — checked BEFORE everything (even login attempts)
@@ -4506,6 +8799,168 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 _log_login_attempt(self._client_ip(), False)
                 time.sleep(1.2)  # slow brute-force attempts
                 self._send_json({"ok": False, "error": "wrong password"}, code=401)
+            return
+        # 🌐 Student Web Exam APIs — login akkarledu
+        # 🎓 Student Portal APIs — login akkarledu
+        if p.path == "/api/portal/exam/join":
+            ok, info = portal.exam_join(Members(), body.get("token", ""), body.get("exam_id", ""))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/exam/answer":
+            try:
+                ok, info = portal.exam_answer(
+                    Members(), body.get("token", ""), body.get("exam_id", ""),
+                    int(body.get("idx") or 0),
+                    int(body.get("choice") if body.get("choice") is not None else -1))
+            except Exception as ex:
+                ok, info = False, str(ex)
+            self._send_json({"ok": ok, **(info if ok and isinstance(info, dict) else {"error": info})})
+            return
+        if p.path == "/api/portal/paper/start":
+            ok, info = portal.paper_start(Members(), body.get("token", ""),
+                                          body.get("exam", ""),
+                                          body.get("year", ""),
+                                          body.get("paper", ""))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/paper/catalog":
+            self._send_json({"ok": True, "papers": portal.paper_catalog()})
+            return
+        if p.path == "/api/portal/practice/start":
+            ok, info = portal.practice_start(Members(), body.get("token", ""),
+                                             body.get("mode", "smart"),
+                                             body.get("topic", ""),
+                                             body.get("goal", ""))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/practice/answer":
+            try:
+                ok, info = portal.practice_answer(
+                    Members(), body.get("token", ""), body.get("run_id", ""),
+                    int(body.get("idx") or 0),
+                    int(body.get("choice") if body.get("choice") is not None else -1))
+            except Exception as ex:
+                ok, info = False, str(ex)
+            self._send_json({"ok": ok, **(info if ok and isinstance(info, dict) else {"error": info})})
+            return
+        if p.path == "/api/portal/challenge/answer":
+            try:
+                ok, info = portal.challenge_answer(
+                    Members(), body.get("token", ""),
+                    int(body.get("choice") if body.get("choice") is not None else -1))
+            except Exception as ex:
+                ok, info = False, str(ex)
+            self._send_json({"ok": ok, **(info if ok and isinstance(info, dict) else {"error": info})})
+            return
+        if p.path == "/api/portal/search":
+            ok, info = portal.search_practice(Members(), body.get("token", ""),
+                                              body.get("q", ""))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/flag":
+            ok, info = portal.flag_question(Members(), body.get("token", ""),
+                                            body.get("qid", ""), body.get("reason", ""))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/goal2":
+            ok, info = portal.set_goal2(Members(), body.get("token", ""),
+                                        body.get("goal", ""))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/focus":
+            ok, info = portal.log_study(Members(), body.get("token", ""),
+                                        body.get("minutes", 0))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/exam/remind":
+            ok, info = portal.set_exam_reminder(
+                Members(), body.get("token", ""), body.get("exam_id", ""),
+                bool(body.get("on", True)))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/tg_link":
+            ok, info = portal.tg_link_code(Members(), body.get("token", ""))
+            if ok:
+                info = {**info, "bot": _bot_username()}
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/tg_auth":
+            ok, info = portal.tg_auth(Members(), body.get("init_data", ""))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/lang":
+            ok, info = portal.set_lang(Members(), body.get("token", ""),
+                                       body.get("lang", "both"))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/rival/set":
+            ok, info = portal.set_rival(Members(), body.get("token", ""),
+                                        body.get("ref", ""))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/goal":
+            ok, info = portal.set_goal(Members(), body.get("token", ""),
+                                       body.get("goal", ""))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/register":
+            if not self._rate_ok("reg:" + self._client_ip(), 12, 600):
+                self._send_json({"ok": False, "error": "Chala sarlu try chesaru — koncham aagi malli try cheyyandi."}, code=429)
+                return
+            ok, info = portal.register_student(
+                Members(), body.get("name", ""), body.get("phone", ""),
+                body.get("district", ""), body.get("goal", "mixed"),
+                body.get("ref", ""))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/answer":
+            try:
+                ok, info = portal.daily_answer(
+                    Members(), body.get("token", ""),
+                    int(body.get("idx") or 0),
+                    int(body.get("choice") if body.get("choice") is not None else -1))
+            except Exception as ex:
+                ok, info = False, str(ex)
+            self._send_json({"ok": ok, **(info if ok and isinstance(info, dict) else {"error": info})})
+            return
+        if p.path == "/api/portal/mock/start":
+            ok, info = portal.mock_start(Members(), body.get("token", ""), body.get("goal", "mixed"),
+                                         neg=float(body.get("neg") or 0),
+                                         kind=str(body.get("kind") or "mock"))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/bookmark":
+            ok, info = portal.bookmark_toggle(Members(), body.get("token", ""),
+                                              body.get("qid", ""))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/mock/submit":
+            ok, info = portal.mock_submit(Members(), body.get("token", ""),
+                                          body.get("run_id", ""), body.get("answers") or {},
+                                          body.get("times") or {})
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/exam/join":
+            ok, info = campus.web_join(
+                Members(), (body.get("code") or "").strip(),
+                body.get("name", ""), body.get("phone", ""), body.get("college_idx", 1))
+            if ok:
+                self._send_json({"ok": True, **info})
+            else:
+                self._send_json({"ok": False, "error": info})
+            return
+        if p.path == "/api/exam/answer":
+            try:
+                ok, info = campus.web_answer(
+                    (body.get("code") or "").strip(), body.get("token", ""),
+                    int(body.get("position") or 0),
+                    int(body.get("choice") if body.get("choice") is not None else -1))
+            except Exception as ex:
+                ok, info = False, str(ex)
+            if ok:
+                self._send_json({"ok": True, **info})
+            else:
+                self._send_json({"ok": False, "error": info})
             return
         if not self._authed():
             self._send_json({"ok": False, "error": "unauthorized — login required"}, code=401)
@@ -4639,24 +9094,200 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": False, "message": "User not found"})
             return
 
+        if p.path == "/api/whatsapp/group_health_reset":
+            ok = whatsapp_pipeline.group_health_reset((body.get("jid") or "").strip())
+            self._send_json({"ok": ok, "message": "Group health reset — next broadcast nunchi malli try chesthundi" if ok else "group not found"})
+            return
+
+        if p.path == "/api/planner/apply":
+            created = planner.apply_plan(body.get("items") or [])
+            self._send_json({"ok": True, "created": len(created),
+                             "message": f"✨ {len(created)} daily jobs create ayyayi — Smart Plan active!"})
+            return
+
+        if p.path == "/api/campus/retest":
+            old = (body.get("code") or "").strip()
+            new_code = campus.retest_event(old)
+            if not new_code:
+                self._send_json({"ok": False, "message": "event not found"})
+            else:
+                bot = _bot_username()
+                self._send_json({"ok": True, "code": new_code, "retest_of": old,
+                                 "link": campus.deep_link(new_code, bot),
+                                 "qr": f"/api/campus/qr?code={new_code}"})
+            return
+
+        if p.path == "/api/campus/control":
+            code = (body.get("code") or "").strip()
+            action = (body.get("action") or "").strip()
+            if action == "next":
+                ok, msg = campus.advance_now(Telegram(), Members(), code)
+            elif action == "finish":
+                ok, msg = campus.finish_now(Telegram(), Members(), code)
+            else:
+                ok, msg = False, "unknown action"
+            self._send_json({"ok": ok, "code": code, "message": msg})
+            return
+
+        if p.path == "/api/campus/start":
+            code = (body.get("code") or "").strip()
+            ok, info = campus.start(Bank(), Members(), Telegram(), code)
+            if ok:
+                self._send_json({"ok": True, "code": code, "info": info})
+            else:
+                self._send_json({"ok": False, "code": code, "message": str(info)})
+            return
+
+        if p.path == "/api/pyq/harvest":
+            dry = bool(body.get("dry"))
+            if _PYQ_JOB["running"]:
+                self._send_json({"ok": False, "error": "Harvest already running undi — wait cheyyandi."})
+                return
+
+            def _run_pyq():
+                _PYQ_JOB["running"] = True
+                try:
+                    st = pyq.harvest(dry=dry, limit=body.get("limit") or None)
+                    _PYQ_JOB["last"] = str(st)
+                except Exception as ex:
+                    _PYQ_JOB["last"] = f"error: {ex}"
+                _PYQ_JOB["running"] = False
+
+            _threading.Thread(target=_run_pyq, daemon=True).start()
+            self._send_json({"ok": True, "started": True, "dry": dry})
+            return
+
+        if p.path == "/api/pyq/add_paper":
+            try:
+                e = pyq.add_paper(body.get("channel", ""), body.get("exam", ""),
+                                  int(body.get("year") or 0), body.get("paper", ""),
+                                  body.get("url", ""))
+                self._send_json({"ok": True, "entry": e})
+            except Exception as ex:
+                self._send_json({"ok": False, "error": str(ex)})
+            return
+
+        if p.path == "/api/pyq/import":
+            res = pyq.import_csv(body.get("csv", ""), rebuild=True)
+            self._send_json({"ok": res.get("added", 0) >= 0, **res})
+            return
+
+        if p.path == "/api/portal/admin/bot_broadcast":
+            ok, info = portal.admin_bot_broadcast(
+                Members(), body.get("text", ""), body.get("goal", ""))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/admin/announce":
+            txt = portal.winners_text(body.get("exam_id", ""))
+            if not txt:
+                self._send_json({"ok": False, "error": "Winners inka leru (exam done avvagane vastundi)."})
+                return
+            sent = False
+            if config.BOT_TOKEN and config.ADMIN_ID:
+                try:
+                    Telegram().send_message(str(config.ADMIN_ID), txt)
+                    sent = True
+                except Exception:
+                    sent = False
+            self._send_json({"ok": True, "text": txt, "sent_to_admin": sent})
+            return
+
+        if p.path == "/api/portal/admin/send_reports":
+            if _REPORT_JOB["running"]:
+                self._send_json({"ok": False, "error": "Reports already send avthunnayi."})
+                return
+            if not config.BOT_TOKEN:
+                self._send_json({"ok": False, "error": "BOT_TOKEN .env lo ledu — Telegram reports ki bot kavali."})
+                return
+            _portal_url = config.env("PORTAL_BASE_URL", "").strip() or (_public_base(self) + "/portal")
+
+            def _run_reports():
+                _REPORT_JOB.update({"running": True, "sent": 0, "failed": 0, "total": 0})
+                try:
+                    mb = Members()
+                    tg = Telegram()
+                    targets = [u for u, mm in (mb.members or {}).items()
+                               if str(u).isdigit() and (mm.get("registered") or mm.get("name"))]
+                    _REPORT_JOB["total"] = len(targets)
+                    for u in targets:
+                        try:
+                            tg.send_message(str(u), portal.report_text(mb, u, _portal_url))
+                            _REPORT_JOB["sent"] += 1
+                        except Exception:
+                            _REPORT_JOB["failed"] += 1
+                        time.sleep(0.12)
+                    _REPORT_JOB["last"] = datetime.now().isoformat(timespec="seconds")
+                except Exception as ex:
+                    _REPORT_JOB["last"] = f"error: {ex}"
+                _REPORT_JOB["running"] = False
+
+            _threading.Thread(target=_run_reports, daemon=True).start()
+            self._send_json({"ok": True, "started": True})
+            return
+
+        if p.path == "/api/portal/admin/notices/create":
+            n = portal.add_notice(body.get("title", ""), body.get("body", ""),
+                                  body.get("link", ""), body.get("goal", ""))
+            self._send_json({"ok": bool(n), "notice": n})
+            return
+
+        if p.path == "/api/portal/admin/exams/create":
+            e = portal.create_exam(
+                body.get("title", ""), body.get("goal", "mixed"),
+                body.get("starts_at", ""), body.get("duration_min", 30),
+                body.get("n_q", 20), neg=float(body.get("neg") or 0))
+            if e:
+                self._send_json({"ok": True, "id": e["id"], "title": e["title"],
+                                 "n_q": len(e["qs"]), "starts_at": e["starts_at"]})
+            else:
+                self._send_json({"ok": False, "error": "Exam create avvaledu — time/questions check cheyyandi."})
+            return
+
         if p.path == "/api/campus/create":
             college = body.get("college", "College").strip()
             district = body.get("district", "District").strip()
             nq = int(body.get("n_q", 10))
             lvl = body.get("level", "easy")
             subjs = body.get("subjects", ["reasoning", "quant", "science", "english", "ca"])
-            code = campus.quick_event(college, district, n_q=nq, level=lvl, subjects=subjs)
+            start_at = (body.get("start_at") or "").strip()
+            try:
+                neg = max(0, min(int(body.get("neg", 0) or 0), 10))
+            except Exception:
+                neg = 0
+            colleges = [c.strip() for c in college.split(",") if c.strip()][:12]
+            if len(colleges) > 1:
+                code = campus.new_event(
+                    f"{colleges[0]} + {len(colleges) - 1} Colleges × StudentUp Challenge",
+                    district, colleges, n_q=nq, level=lvl, created_by="dashboard",
+                    mode="college", subjects=subjs, start_at=start_at, neg=neg, shuffle=True)
+            else:
+                code = campus.quick_event(college, district, n_q=nq, level=lvl, subjects=subjs, start_at=start_at, neg=neg)
+            try:
+                poster = campus.poster_text(code)
+            except Exception:
+                poster = ""
 
-            bot = getattr(config, "BOT_USERNAME", "") or "StudentUpBot"
-            link = f"https://t.me/{bot}?start=c{code.replace('CE-', '')}-1"
-            qr = f"https://api.qrserver.com/v1/create-qr-code/?size=600x600&data={link}"
+            bot = _bot_username()
+            link = campus.deep_link(code, bot)
+            qr = f"/api/campus/qr?code={code}"
+            warn = ""
+            if bot == "StudentUpBot" and not getattr(config, "BOT_USERNAME", ""):
+                warn = "BOT_USERNAME is not set and the bot name could not be auto-detected — set BOT_USERNAME in .env, otherwise this QR may open the wrong bot."
 
             self._send_json({
                 "ok": True,
                 "code": code,
-                "college": college,
+                "college": colleges[0] if colleges else college,
+                "colleges": colleges,
+                "bot": bot,
+                "bot_warning": warn,
+                "start_at": start_at,
+                "neg": neg,
+                "poster": poster,
                 "link": link,
-                "qr": qr
+                "qr": qr,
+                "web_link": f"{_public_base(self)}/exam/{code}",
+                "web_qr": f"/api/campus/qr?code={code}&web=1"
             })
             return
 
@@ -4892,6 +9523,162 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json({"ok": ok})
             return
 
+        if p.path == "/api/conductor/create":
+            from core import conductor as _cd
+            try:
+                ev = _cd.create_event(
+                    title=body.get("title", ""), kind=body.get("kind", "grand"),
+                    starts_at=body.get("starts_at", ""),
+                    channel=body.get("channel", "CURRENT"),
+                    duration_min=body.get("duration_min"),
+                    n_questions=body.get("n_questions"),
+                    lobby_min=body.get("lobby_min", 5),
+                    campus_name=body.get("campus_name", ""),
+                    district=body.get("district", ""))
+                try:
+                    from core import auditlog as _al
+                    _al.log("conductor.create", f"{ev['kind']} {ev['title']} @ {ev['starts_at']}")
+                except Exception:
+                    pass
+                self._send_json({"ok": True, "event": ev,
+                                 "message": f"✅ {ev['title']} schedule ayyindi — {ev['starts_at']} ki automatic ga start avuthundi (bot run avuthunte)"})
+            except ValueError as e:
+                self._send_json({"ok": False, "error": str(e)})
+            return
+
+        if p.path == "/api/conductor/cancel":
+            from core import conductor as _cd
+            ok = _cd.cancel_event(str(body.get("id", "")))
+            try:
+                from core import auditlog as _al
+                _al.log("conductor.cancel", f"{body.get('id')} ok={ok}")
+            except Exception:
+                pass
+            self._send_json({"ok": ok})
+            return
+
+        if p.path == "/api/conductor/launch":
+            from core import conductor as _cd
+            ev = _cd.get_event(str(body.get("id", "")))
+            if not ev:
+                self._send_json({"ok": False, "error": "event dorakaledu"})
+                return
+            if ev.get("status") not in ("scheduled", "failed"):
+                self._send_json({"ok": False, "error": f"status {ev.get('status')} — launch cheyyalenu"})
+                return
+            from core.engine import Engine as _Engine
+            ok, msg = _cd.launch_event(
+                ev, bank=Bank(), members=Members(), tg=Telegram(),
+                engine_factory=lambda: _Engine(dry=False))
+            if not ok and ev.get("status") == "scheduled":
+                _cd._update(ev["id"], status="failed", error=str(msg)[:200])
+            try:
+                from core import auditlog as _al
+                _al.log("conductor.launch", f"{ev['id']} {ev['kind']} ok={ok}")
+            except Exception:
+                pass
+            self._send_json({"ok": ok, "message": msg})
+            return
+
+        if p.path == "/api/conductor/result":
+            from core import conductor as _cd
+            ev = _cd.get_event(str(body.get("id", "")))
+            if not ev:
+                self._send_json({"ok": False, "error": "event dorakaledu"})
+                return
+            self._send_json({"ok": True, "text": _cd.result_text(ev, members=Members())})
+            return
+
+        if p.path == "/api/flags":
+            from core import flags as _fl
+            ok = _fl.set_flag(str(body.get("name", "")), bool(body.get("enabled")))
+            try:
+                from core import auditlog as _al
+                _al.log("flag.toggle", f"{body.get('name')} -> {bool(body.get('enabled'))} (ok={ok})")
+            except Exception:
+                pass
+            self._send_json({"ok": ok, "flags": _fl.all_flags()})
+            return
+
+        if p.path == "/api/pulse/settings":
+            from core import pulse as _pl
+            _pl.save_settings(price_inr=body.get("price_inr"),
+                              conversion_pct=body.get("conversion_pct"),
+                              plan_name=body.get("plan_name"))
+            try:
+                from core import auditlog as _al
+                _al.log("pulse.settings", f"price={body.get('price_inr')} conv={body.get('conversion_pct')}")
+            except Exception:
+                pass
+            self._send_json(_pl.report())
+            return
+
+        if p.path == "/api/item_intel/reset":
+            from core import item_intel as _ii
+            qid = str(body.get("qid", "")).strip()
+            removed = _ii.reset(qid) if qid else False
+            try:
+                from core import auditlog as _al
+                _al.log("item_intel.reset", f"qid={qid} removed={removed}")
+            except Exception:
+                pass
+            self._send_json({"ok": removed, "qid": qid,
+                             "message": ("✅ Stats reset — question malli nerchukuntundi (quarantine lift ayyindi)"
+                                         if removed else "qid dorakaledu")})
+            return
+
+        if p.path == "/api/setup/manual_add":
+            # ✍️ MANUAL SETUP — Excel lekunda, okka form tho target + exam
+            # + timings + subjects + days. Excel import_rows_list ne reuse
+            # chestundi (validation/dedupe/auto-schedule rendu chotla okkate).
+            platform = str(body.get("platform", "wa")).lower()
+            m_name = str(body.get("name", "")).strip()
+            m_link = str(body.get("link", "")).strip()
+            m_exam = str(body.get("exam", "")).strip() or "AUTO"
+            m_times = body.get("times", "")
+            if isinstance(m_times, list):
+                m_times = "+".join(str(x).strip() for x in m_times if str(x).strip())
+            m_times = str(m_times).replace(",", "+").replace(" ", "+")
+            m_count = str(body.get("count", 5))
+            m_days = str(body.get("days", 0))
+            m_subjects = "+".join(str(s).strip().upper()
+                                  for s in (body.get("subjects") or []) if str(s).strip())
+            if not m_name or not m_link:
+                self._send_json({"ok": False, "error": "Name mariyu Link/JID rendu kavali"})
+                return
+            if platform == "tg":
+                rows = [[m_name, m_link, m_exam, str(body.get("type", "channel")),
+                         m_times, m_count, m_days, m_subjects]]
+                res = bundle_manager.import_rows_list(rows, kind="tg")
+                sched = bundle_manager.create_tg_schedules_for_imports(
+                    res.pop("tg_schedules_wanted", []), "✍️ Manual")
+                res.pop("schedules_wanted", None)
+            else:
+                rows = [[m_name, m_link, m_exam, str(body.get("shift", "ALL_DAY")),
+                         str(body.get("type", "EXAM_SPECIFIC")),
+                         m_times, m_count, m_days, m_subjects]]
+                res = bundle_manager.import_rows_list(rows, kind="wa")
+                sched = bundle_manager.create_schedules_for_imports(
+                    res.pop("schedules_wanted", []), "✍️ Manual")
+                res.pop("tg_schedules_wanted", None)
+            added = res.get("imported_groups_count", 0) + res.get("imported_channels_count", 0)
+            try:
+                from core import auditlog as _al
+                _al.log("setup.manual_add", f"{platform} {m_name} added={added} schedules={len(sched)}")
+            except Exception:
+                pass
+            self._send_json({
+                "ok": added > 0,
+                "added_groups": res.get("imported_groups_count", 0),
+                "added_channels": res.get("imported_channels_count", 0),
+                "schedules_created": len(sched),
+                "skipped_duplicates": res.get("skipped_duplicates", []),
+                "errors": res.get("errors", []),
+                "message": (f"✅ {m_name} add ayyindi + {len(sched)} schedule(s)!"
+                            if added else "❌ Add avvaledu — kindha errors chudandi"),
+            })
+            return
+
         if p.path == "/api/whatsapp/add_group":
             name = body.get("name", "").strip()
             jid = body.get("jid", "").strip()
@@ -4923,8 +9710,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             msg = body.get("custom_msg", "")
             att = body.get("attachment", "")
             gw = body.get("gateway", "").strip()
-            delay_min = int(body.get("delay_min", 40))
-            delay_max = int(body.get("delay_max", 60))
+            delay_min = int(body.get("delay_min", 60))
+            delay_max = int(body.get("delay_max", 80))
             q_count = int(body.get("questions_count", 5))
             subjects = body.get("subjects", None)
 
@@ -4972,7 +9759,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             dry = not bool(Telegram().token)
             eng = Engine(dry=dry)
             send_key = ch if ch in config.CHANNELS else "CURRENT"
-            ok = eng.send_quiz(send_key, q)
+            # channel/group post → 👍 reaction text-poll style (flag ON);
+            # native quiz poll only when the owner kills the flag in Pro Ops
+            ok = eng._send_channel_question(send_key, q)
             if ok and not dry:
                 try:
                     bank.mark_posted(q.get("channel", "CURRENT"), [q])
@@ -5121,12 +9910,21 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": True, "message": f"Flushed {q} queued items to Google Sheet."})
             return
 
-        self.send_response(404)
-        self.end_headers()
+        # unknown route -> JSON 404 (browser ki empty page padakudadhu)
+        if p.path.startswith("/api/"):
+            self._send_json({"ok": False,
+                             "error": f"unknown endpoint: {p.path}"}, code=404)
+        else:
+            self.send_response(404)
+            self.end_headers()
 
 
 def start_server(port=PORT):
-    srv = ThreadingHTTPServer(("0.0.0.0", port), DashboardHandler)
+    class _Srv(ThreadingHTTPServer):
+        daemon_threads = True
+        request_queue_size = 256  # 🚀 10k students burst ki pedda queue
+
+    srv = _Srv(("0.0.0.0", port), DashboardHandler)
     print(f"🚀 StudentUp Control Dashboard running at http://0.0.0.0:{port}")
     try:
         srv.serve_forever()

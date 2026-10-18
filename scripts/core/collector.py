@@ -42,6 +42,7 @@ from __future__ import annotations
 import os
 import re
 import time
+import json
 import random
 import html
 import urllib.request
@@ -170,6 +171,15 @@ MAX_QUESTIONS_PER_RUN = 160
 POLITE_DELAY_SEC = 2.0          # min seconds between hits on the same host
 FETCH_TIMEOUT = 20
 AUTO_PAUSE_AFTER_FAILURES = 3   # pause a source after N consecutive bad runs
+
+
+def _cfg_default(key, fallback=None):
+    """Registry defaults lookup (live-editable limits, code fallback)."""
+    try:
+        val = _registry_defaults().get(key, fallback)
+        return fallback if val is None else val
+    except Exception:
+        return fallback
 
 
 def _registry_defaults() -> dict:
@@ -480,6 +490,13 @@ def http_get(url: str, timeout=FETCH_TIMEOUT, retries=2, respect_robots=True):
             req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 raw = resp.read()
+            if raw[:2] == b"\x1f\x8b" or "gzip" in str(
+                    getattr(resp, "headers", {}) or {}).lower():
+                try:
+                    import gzip as _gz
+                    raw = _gz.decompress(raw)
+                except Exception:
+                    pass
             # decode best-effort
             ctype = resp.headers.get("Content-Type", "")
             enc = "utf-8"
@@ -513,7 +530,7 @@ def http_get(url: str, timeout=FETCH_TIMEOUT, retries=2, respect_robots=True):
 # ---------------------------------------------------------------------------
 _DROP_TAGS = {"script", "style", "noscript", "nav", "header", "footer",
               "aside", "form", "button", "svg", "iframe"}
-_BLOCK_TAGS = {"p", "li", "div", "br", "tr", "h1", "h2", "h3", "h4",
+_BLOCK_TAGS = {"p", "li", "div", "br", "tr", "td", "th", "h1", "h2", "h3", "h4",
                "blockquote", "section", "figcaption"}
 _JUNK_CLS = re.compile(
     r"(menu|nav|sidebar|footer|header|comment|share|related|advert|sponsor|"
@@ -587,8 +604,8 @@ QSTART_RE = re.compile(r"^(?:q(?:uestion)?\.?\s*|ప్రశ్న\s*|प्र
 _TE_LABELS = {"ఎ": "A", "బి": "B", "సి": "C", "డి": "D"}
 _HI_LABELS = {"अ": "A", "ब": "B", "स": "C", "द": "D"}
 _LBL = r"([A-Da-d]|ఎ|బి|సి|డి|अ|ब|स|द)"
-OPT_RE = re.compile(r"^[\(\[]?" + _LBL + r"[\)\].:\-]\s+(.+)$")
-OPT_INLINE_RE = re.compile(r"(?:^|\s)[\(\[]?" + _LBL + r"[\)\].:\-]\s+")
+OPT_RE = re.compile(r"^[\(\[]?" + _LBL + r"(?:[\)\].:\-]|\s[-–—])\s+(.+)$")
+OPT_INLINE_RE = re.compile(r"(?:^|\s)[\(\[]?" + _LBL + r"(?:[\)\].:\-]|\s[-–—])\s+")
 # "Answer: B" / "Ans- C" / "Correct Answer: C [1952]" / "Answer: Option D" /
 # "Correct option is (B)" / Telugu "జవాబు: B)" "సమాధానం: బి" / Hindi "उत्तर: (b)"
 # — but NOT "Answer & Solution Discuss..." chrome.
@@ -820,7 +837,7 @@ def parse_quiz_lines(lines, article_title="", url=""):
         cur = None
 
     lines = _normalize_numeric_options(_number_bare_questions(_fold_bare_labels(list(lines))))
-    for line in lines:
+    for _li, line in enumerate(lines):
         if len(line) > 400:
             line = line[:400]
         if _JUNK_LINE_RE.match(line):
@@ -883,6 +900,14 @@ def parse_quiz_lines(lines, article_title="", url=""):
                     continue
 
         if cur is None:
+            # unnumbered stem: "Which ...?" line followed by options
+            if (line.rstrip().endswith("?") and 8 <= len(line) <= 300
+                    and _li + 1 < len(lines) and OPT_RE.match(lines[_li + 1])
+                    and not ANS_RE.search(line) and not mex):
+                num = (next_num or 0) + 1
+                cur = {"q": line.strip(), "opts": [], "ans": None,
+                       "expl": "", "labels": [], "num": num}
+                next_num = num + 1
             continue
 
         # stem continuation: text between the stem and the first option
@@ -892,6 +917,17 @@ def parse_quiz_lines(lines, article_title="", url=""):
             cur["q"] += " " + line
             continue
 
+        if cur["ans"] is None and len(cur["opts"]) == 4:
+            _mt = re.match(r"^(?:correct\s+answer|answer|ans)\s*"
+                           r"(?:is|:|=|\-)\s*(.+)$", line, re.I)
+            if _mt:
+                _want = _mt.group(1).strip().lower().rstrip(".")
+                for _oi, _ov in enumerate(cur["opts"]):
+                    if _ov.strip().lower() == _want:
+                        cur["ans"] = _oi
+                        break
+                if cur["ans"] is not None:
+                    continue
         if ma and cur["ans"] is None:
             cur["ans"] = _ans_index(ma.group(1))
             # "Correct Answer: C [1952]" may carry no explanation on this line
@@ -948,17 +984,21 @@ def _answer_key_table(lines):
     """Find a dense 'N. (x)' key block (>=5 pairs in a window) -> {num: idx}."""
     key = {}
     dense_started = False
+    head_seen = False
     for ln in lines:
         pairs = _KEY_PAIR_RE.findall(ln)
         head = re.match(r"^(?:answer\s*key|answers|key|జవాబులు|సమాధానాలు|उत्तर\s*कुंजी)\b", ln, re.I)
         if head:
             dense_started = True
+            head_seen = True
         if len(pairs) >= 5 or (dense_started and len(pairs) >= 1 and len(ln) < 40):
             dense_started = True
             for n, tok in pairs:
                 idx = _ans_index(tok)
                 if idx is not None and int(n) not in key:
                     key[int(n)] = idx
+    if head_seen and key:
+        return key            # head-anchored key block — small tables OK
     return key if len(key) >= 5 else {}
 
 
@@ -983,27 +1023,107 @@ def _feed_entries(feed_url):
     if not page:
         return []
     out = []
+    # undefined HTML entities (&nbsp; etc.) break strict XML — clean them
+    page = re.sub(r"&(?!amp;|lt;|gt;|quot;|apos;|#)[A-Za-z][A-Za-z0-9]+;", " ", page)
     try:
         root = ET.fromstring(page)
     except Exception:
         return []
-    for item in root.iter("item"):
-        title = re.sub(r"<[^>]+>", " ", item.findtext("title", "") or "")
-        link = (item.findtext("link", "") or "").strip()
+
+    def _txt(el, name):
+        for c in el:
+            if c.tag.split("}")[-1] == name and c.text:
+                return c.text
+        return ""
+
+    def _clean(t):
+        t = re.sub(r"<[^>]+>", " ", t or "")
+        return html.unescape(re.sub(r"\s+", " ", t)).strip()
+
+    for item in root.iter():
+        if item.tag.split("}")[-1] != "item":
+            continue                       # RSS 2.0 + RSS 1.0/RDF items
+        title = _clean(_txt(item, "title"))
+        link = _txt(item, "link").strip()
+        date = _txt(item, "pubDate").strip() or _txt(item, "date").strip()
         if title and link:
-            out.append({"title": html.unescape(re.sub(r"\s+", " ", title)).strip(),
-                        "link": link,
-                        "published": (item.findtext("pubDate", "") or "").strip()})
+            out.append({"title": title, "link": link, "published": date})
     ns = {"a": "http://www.w3.org/2005/Atom"}
     for e in root.findall(".//a:entry", ns):
         title = e.findtext("a:title", "", ns)
-        link_el = e.find("a:link", ns)
-        link = link_el.get("href", "") if link_el is not None else ""
+        links = e.findall("a:link", ns)
+        link = ""
+        for el in links:                   # prefer rel="alternate"
+            if (el.get("rel") or "alternate") == "alternate":
+                link = el.get("href", "")
+                break
+        if not link and links:
+            link = links[0].get("href", "")
         if title and link:
-            out.append({"title": html.unescape(re.sub(r"\s+", " ", title)).strip(),
-                        "link": link,
+            out.append({"title": _clean(title), "link": link,
                         "published": (e.findtext("a:updated", "", ns)
                                       or e.findtext("a:published", "", ns) or "").strip()})
+
+    def _when(e):
+        raw = (e.get("published") or "").strip()
+        if not raw:
+            return None
+        try:
+            return parsedate_to_datetime(raw)
+        except Exception:
+            pass
+        try:
+            from datetime import datetime as _dt
+            return _dt.fromisoformat(raw.replace("Z", "+00:00"))
+        except Exception:
+            return None
+
+    dated = [( _when(e), i, e) for i, e in enumerate(out)]
+    dated.sort(key=lambda x: (x[0] is None,
+                              -(x[0].timestamp()) if x[0] else 0.0, x[1]))
+    return [e for _, _, e in dated]        # freshest first
+
+
+def sitemap_links(xml_text, link_re=None):
+    """Sitemap XML → [{link}] (pattern unte filter tho)."""
+    out = []
+    if not xml_text:
+        return out
+    pat = re.compile(link_re, re.I) if link_re else None
+    for loc in re.findall(r"<loc>\s*([^<\s]+)\s*</loc>", xml_text):
+        if pat and not pat.search(loc):
+            continue
+        out.append({"link": loc, "title": ""})
+    return out
+
+
+def fetch_sitemap_links(sitemap_url, link_re=None, _depth=0):
+    """Sitemap (index unte sub-sitemaps follow ayyi) article links."""
+    page = http_get(sitemap_url, respect_robots=False)
+    if not page:
+        return []
+    if "<sitemapindex" in page and _depth < 2:
+        out = []
+        for loc in re.findall(r"<loc>\s*([^<\s]+)\s*</loc>", page):
+            out.extend(fetch_sitemap_links(loc, link_re, _depth + 1))
+        return out
+    return sitemap_links(page, link_re)
+
+
+def discover_feed_urls(homepage_html, base_url):
+    """Homepage <head> nunchi rss/atom <link rel=alternate> feeds."""
+    out = []
+    if not homepage_html:
+        return out
+    from urllib.parse import urljoin
+    for m in re.finditer(r"<link[^>]+>", homepage_html, re.I):
+        tag = m.group(0)
+        if "alternate" not in tag or not re.search(
+                r"type=[\"']application/(rss|atom)\+xml", tag, re.I):
+            continue
+        hm = re.search(r"href=[\"']([^\"' ]+)", tag)
+        if hm:
+            out.append(urljoin(base_url, hm.group(1)))
     return out
 
 
@@ -1130,6 +1250,94 @@ def parse_indiabix(page_html, article_title="", url=""):
 ADAPTERS = {"indiabix": parse_indiabix}
 
 
+_SCRIPT_JSON_RE = re.compile(
+    r"<script[^>]*type=[\"']application/(?:ld\+)?json[\"'][^>]*>(.*?)</script>",
+    re.S | re.I)
+_SCRIPT_ANY_RE = re.compile(r"<script[^>]*>(.*?)</script>", re.S | re.I)
+
+
+def _walk_embedded(obj, out, title, url):
+    """JSON tree lopa question dicts ni normalize chesi collect chey."""
+    if isinstance(obj, dict):
+        stem = None
+        for k in ("question", "q", "text", "question_text"):
+            if isinstance(obj.get(k), str) and len(obj[k].strip()) >= 8:
+                stem = obj[k].strip()
+                break
+        opts = None
+        for k in ("options", "choices", "options_en"):
+            if isinstance(obj.get(k), list) and obj[k]:
+                opts = obj[k]
+                break
+        if obj.get("suggestedAnswer"):
+            sg = obj["suggestedAnswer"]
+            if isinstance(sg, list):
+                opts = [a.get("text", "") if isinstance(a, dict) else str(a)
+                        for a in sg]
+        if stem and opts:
+            opts = [str(o).strip() for o in opts]
+            if len(opts) == 4 and all(opts):
+                idx = None
+                for k in ("answer_index", "correct_index", "correct_option_id"):
+                    if isinstance(obj.get(k), int) and 0 <= obj[k] < 4:
+                        idx = obj[k]
+                        break
+                if idx is None and isinstance(obj.get("answer"), int):
+                    idx = obj["answer"] - 1 if obj["answer"] >= 1 else 0
+                if idx is None:
+                    want = None
+                    for k in ("correctAnswer", "correct_answer", "answer_text",
+                              "answer"):
+                        if isinstance(obj.get(k), str):
+                            want = obj[k].strip().lower()
+                            break
+                    if want is None and isinstance(obj.get("acceptedAnswer"), dict):
+                        want = str(obj["acceptedAnswer"].get("text", "")).strip().lower()
+                    if want:
+                        for i, o in enumerate(opts):
+                            if o.strip().lower() == want:
+                                idx = i
+                                break
+                if idx is not None and 0 <= idx < 4:
+                    expl = ""
+                    for k in ("explanation", "solution", "why", "explanation_en"):
+                        if isinstance(obj.get(k), str) and obj[k].strip():
+                            expl = obj[k].strip()
+                            break
+                    out.append({"q_en": stem, "options_en": opts,
+                                "answer_index": idx,
+                                "explanation_en": expl[:280],
+                                "title": title, "url": url})
+        for v in obj.values():
+            _walk_embedded(v, out, title, url)
+    elif isinstance(obj, list):
+        for v in obj:
+            _walk_embedded(v, out, title, url)
+
+
+def _embedded_questions(page_html, title, url):
+    """JSON-LD / __NEXT_DATA__ / window.__X__ embedded quizzes."""
+    out = []
+    if not page_html:
+        return out
+    blobs = [m.group(1) for m in _SCRIPT_JSON_RE.finditer(page_html)]
+    for m in _SCRIPT_ANY_RE.finditer(page_html):
+        body = m.group(1)
+        wm = re.search(r"(?:window\.[\w.$]+|__\w+__)\s*=\s*(\{.*)", body, re.S)
+        if wm:
+            blobs.append(wm.group(1).rstrip().rstrip(";"))
+    for blob in blobs:
+        blob = blob.strip()
+        if not blob:
+            continue
+        try:
+            data = json.loads(blob)
+        except Exception:
+            continue
+        _walk_embedded(data, out, title, url)
+    return out
+
+
 def parse_page(src, page_html, title, url):
     """Dispatch to the source's dedicated adapter, else the generic parser."""
     adapter = src.get("adapter")
@@ -1139,8 +1347,20 @@ def parse_page(src, page_html, title, url):
         except Exception as e:
             print(f"   [collect] adapter {adapter} error: {e}")
             return []
+    embedded = _embedded_questions(page_html, title, url)
     lines = html_to_lines(page_html)
-    return parse_quiz_lines(lines, article_title=title, url=url)
+    text_raws = parse_quiz_lines(lines, article_title=title, url=url)
+    if not embedded:
+        return text_raws
+    seen = {" ".join((r.get("q_en") or "").lower().split()[:6])
+            for r in embedded}
+    merged = list(embedded)
+    for r in text_raws:                    # same stem rendu sarlu vadda
+        k = " ".join((r.get("q_en") or "").lower().split()[:6])
+        if k not in seen:
+            seen.add(k)
+            merged.append(r)
+    return merged
 
 
 # ---------------------------------------------------------------------------
@@ -1407,10 +1627,10 @@ def collect_daily(dry=False, llm=None, max_questions=MAX_QUESTIONS_PER_RUN,
                     for a in arts:
                         if a["link"] in seen_urls:
                             continue
-                        seen_urls.add(a["link"])
                         page = http_get(a["link"])
                         if not page:
-                            continue
+                            continue        # failed fetch → NOT seen, retried
+                        seen_urls.add(a["link"])
                         jobs.append((src, a["title"], a["link"], page))
                         stats["articles"] += 1
                         stats["per_source"][name]["articles"] += 1

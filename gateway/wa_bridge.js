@@ -33,10 +33,14 @@ const {
   fetchLatestBaileysVersion,
   DisconnectReason,
   jidNormalizedUser,
+  getAggregateVotesInPollMessage,
 } = require('@whiskeysockets/baileys');
 
 const PORT = parseInt(process.env.WA_BRIDGE_PORT || '3900', 10);
-const AUTH_DIR = path.join(__dirname, 'auth');
+const HOST = process.env.WA_BRIDGE_HOST || '127.0.0.1';
+const BRIDGE_TOKEN = process.env.WA_BRIDGE_TOKEN || '';
+const SESSION_NAME = process.env.WA_SESSION_NAME || 'main';
+const AUTH_DIR = path.join(__dirname, `auth-${SESSION_NAME}`);
 const logger = pino({ level: process.env.WA_BRIDGE_LOG || 'warn' });
 
 // ---------------------------------------------------------------- state
@@ -119,6 +123,20 @@ async function startSock({ wantPairingCode = null } = {}) {
     state.sock = sock;
 
     sock.ev.on('creds.update', saveCreds);
+
+    // 🏆 Poll votes: messages.update → pollUpdateMessage votes aggregate
+    sock.ev.on('messages.update', async (updates) => {
+      for (const u of updates || []) {
+        const pollUpdates = (u.update && u.update.pollUpdates) || [];
+        for (const pu of pollUpdates) {
+          try {
+            const key = pu.pollUpdateMessageKey || u.key || {};
+            const entry = POLLS.get(key.id);
+            if (entry && pu.pollUpdateMessage) await refreshPollVotes(entry);
+          } catch (_) {}
+        }
+      }
+    });
 
     // Pairing-code flow (no QR camera needed)
     if (wantPairingCode && !authState.creds.registered) {
@@ -222,6 +240,26 @@ async function refreshGroups() {
   return state.groupsCache;
 }
 
+// ---------------------------------------------------------------- poll votes
+// pollId → { pollId, jid, name, options, creation, votes:[{name, voters[]}] }
+const POLLS = new Map();
+
+function mentionsOf(voters) {
+  return (voters || []).map((v) => {
+    const jid = typeof v === 'string' ? v : (v && (v.id || v.jid)) || '';
+    return jidNormalizedUser ? jidNormalizedUser(jid) : jid;
+  }).filter(Boolean);
+}
+
+async function refreshPollVotes(entry) {
+  try {
+    if (typeof getAggregateVotesInPollMessage !== 'function' || !entry.creation) return;
+    const meId = state.me && state.me.id;
+    const agg = await getAggregateVotesInPollMessage(entry.creation, meId);
+    entry.votes = (agg || []).map((r) => ({ name: r.name, voters: mentionsOf(r.voters) }));
+  } catch (_) { /* votes unavailable yet — keep last known */ }
+}
+
 // ---------------------------------------------------------------- sending
 const IMG_EXT = /\.(jpe?g|png|webp)(\?|$)/i;
 const VID_EXT = /\.(mp4|mov|mkv|webm)(\?|$)/i;
@@ -233,22 +271,65 @@ async function sendPayload(body) {
   }
   const jid = String(body.jid || body.recipient || '').trim();
   if (!jid) throw new Error('missing jid');
+  if (!/(@g\.us|@s\.whatsapp\.net|@newsletter)$/.test(jid)) {
+    throw new Error('invalid WhatsApp jid');
+  }
+  if (body.poll && Array.isArray(body.poll.options)) {
+    const uniq = [...new Set(body.poll.options.map((o) => String(o).trim()))]
+      .filter(Boolean);
+    if (uniq.length < 2 || uniq.length !== body.poll.options.length) {
+      throw new Error('poll needs >=2 unique options');
+    }
+  }
 
   const results = [];
 
-  // 1. Native tappable WhatsApp poll
-  if (body.poll && Array.isArray(body.poll.options) && body.poll.options.length >= 2) {
+  // 1. Native tappable WhatsApp poll — channels (@newsletter) ki native
+  // poll option ledu kabatti akkada text-poll ga velthundi (wantPoll=false).
+  const wantPoll = body.poll && Array.isArray(body.poll.options) &&
+    body.poll.options.length >= 2 && !jid.endsWith('@newsletter');
+  let sentPollId = null;
+  if (body.poll && !wantPoll && jid.endsWith('@newsletter')) {
+    const name = String(body.poll.name || 'Quiz');
+    const values = (body.poll.options || []).map((o) => String(o));
+    const text = body.text || body.message ||
+      `${name}\n` + values.map((v, i) => `${['👍', '❤️', '😂', '😮'][i] || '▫️'} ${v}`).join('\n');
+    await state.sock.sendMessage(jid, { text: String(text) });
+    results.push('text');
+  } else if (wantPoll) {
     const name = String(body.poll.name || 'Quiz').slice(0, 255);
     const values = body.poll.options.map((o) => String(o).slice(0, 100)).slice(0, 12);
-    await state.sock.sendMessage(jid, {
+    const sent = await state.sock.sendMessage(jid, {
       poll: { name, values, selectableCount: 1 },
     });
     results.push('poll');
+    try {
+      sentPollId = sent && sent.key && sent.key.id;
+      if (sentPollId) {
+        POLLS.set(sentPollId, {
+          pollId: sentPollId, jid, name, options: values,
+          creation: sent, votes: [],
+        });
+      }
+    } catch (_) {}
   }
 
-  // 2. Media attachment by URL (image / video / audio / document)
+  // 2. Media attachment by URL or LOCAL file path (cert PNGs)
   if (body.attachment) {
     const url = String(body.attachment).trim();
+    const isLocal = !/^https?:\/\//i.test(url);
+    if (isLocal) {
+      const buf = fs.readFileSync(url);
+      const lower = url.toLowerCase();
+      const msg = lower.endsWith('.png') || lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') || lower.endsWith('.webp')
+        ? { image: buf, caption: body.text || body.message || undefined }
+        : { document: buf, fileName: path.basename(url),
+            caption: body.text || body.message || undefined };
+      await state.sock.sendMessage(jid, msg);
+      results.push('attachment');
+      return results;
+    }
     const caption = body.poll ? undefined : (body.text || body.message || undefined);
     let msg;
     if (IMG_EXT.test(url)) msg = { image: { url }, caption };
@@ -274,6 +355,7 @@ async function sendPayload(body) {
   }
 
   if (!results.length) throw new Error('nothing to send (need text, attachment or poll)');
+  results.poll_id = sentPollId;
   return results;
 }
 
@@ -287,6 +369,7 @@ function json(res, code, obj) {
 function statusPayload() {
   return {
     ok: true,
+    session: SESSION_NAME,
     status: state.status,
     connected: state.status === 'connected',
     phone: state.me ? state.me.phone : (state.pairingPhone || null),
@@ -334,6 +417,10 @@ const server = http.createServer(async (req, res) => {
   }
 
   try {
+    if (BRIDGE_TOKEN && req.method === 'POST' &&
+        req.headers['x-bridge-token'] !== BRIDGE_TOKEN) {
+      return json(res, 401, { ok: false, error: 'bridge token required' });
+    }
     // ---- status
     if (url.pathname === '/' || url.pathname === '') {
       const st = statusPayload();
@@ -441,7 +528,23 @@ b{color:#38bdf8}</style></head><body><div class="card">
     // ---- send
     if (url.pathname === '/send' && req.method === 'POST') {
       const sent = await sendPayload(body);
-      return json(res, 200, { ok: true, sent });
+      return json(res, 200, { ok: true, sent, poll_id: sent.poll_id || null });
+    }
+
+    // ---- poll results (winners tally)
+    if (url.pathname === '/poll-results') {
+      const pid = url.searchParams.get('poll');
+      const r = POLLS.get(pid);
+      if (!r) return json(res, 404, { ok: false, error: 'unknown poll' });
+      await refreshPollVotes(r);
+      const results = r.options.map((opt, i) => {
+        const row = (r.votes || []).find((v) => v.name === opt) || { voters: [] };
+        const voters = mentionsOf(row.voters);
+        return { option: opt, name: opt, count: voters.length, voters };
+      });
+      return json(res, 200, {
+        ok: true, poll_id: r.pollId, jid: r.jid, name: r.name, results,
+      });
     }
 
     return json(res, 404, { ok: false, error: 'unknown endpoint' });
@@ -450,7 +553,7 @@ b{color:#38bdf8}</style></head><body><div class="card">
   }
 });
 
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, HOST, () => {
   log(`🛡️  StudentUp WhatsApp Bridge listening on :${PORT}`);
   if (hasSavedCreds()) {
     log('Saved session found — auto-reconnecting...');

@@ -1,0 +1,37 @@
+<!-- ============================================================
+  StudentUp — STUDENT PORTAL icon/link block for studentup.in
+  (WordPress main website). Paste into ONE of:
+    1) Customizer → Widgets → Header/Footer builder area, OR
+    2) A "Custom HTML" block on the homepage (below hero), OR
+    3) Appearance → Menus → add Custom Links (text-only variant below)
+  Portal base: https://quiz.studentup.in  (change PORTAL_BASE if needed)
+  Deep links use ?go= so students land on the exact section:
+    ?go=quiz  → Smart Advanced Quiz   ?go=exams → Live Exams
+    ?go=mocks → Exam-wise Mocks       (no param) → All features
+============================================================ -->
+<style>
+.su-portal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:14px 0}
+.su-portal-tile{display:block;background:#0b1329;border:1px solid #1e3a5f;border-radius:14px;padding:18px 12px;text-align:center;text-decoration:none}
+.su-portal-tile .ic{font-size:30px;display:block}
+.su-portal-tile b{color:#f8fafc;font-size:14px;display:block;margin-top:6px}
+.su-portal-tile span.tx{color:#94a3b8;font-size:12px;display:block;margin-top:3px}
+.su-portal-tile:hover{border-color:#10b981}
+.su-portal-main{display:inline-block;background:linear-gradient(90deg,#10b981,#38bdf8);color:#04121f;font-weight:800;padding:10px 18px;border-radius:999px;text-decoration:none;margin:6px 0}
+</style>
+
+<a class="su-portal-main" href="https://quiz.studentup.in/">🚀 Student Portal — Daily Quiz, Live Exams &amp; Mocks</a>
+
+<div class="su-portal-grid">
+  <a class="su-portal-tile" href="https://quiz.studentup.in/?go=quiz"><span class="ic">🧠</span><b>Smart Advanced Quiz</b><span class="tx">Daily Quiz · PYQ-first · Adaptive level questions</span></a>
+  <a class="su-portal-tile" href="https://quiz.studentup.in/?go=exams"><span class="ic">🔴</span><b>Live Exams</b><span class="tx">Live Exams + Weekly Grand Test (Sun 10 AM) + Winners</span></a>
+  <a class="su-portal-tile" href="https://quiz.studentup.in/?go=mocks"><span class="ic">🎓</span><b>Exam-wise Quiz &amp; Mocks</b><span class="tx">SSC · RRB · Banking · Groups · Police</span></a>
+  <a class="su-portal-tile" href="https://quiz.studentup.in/?go=papers"><span class="ic">📜</span><b>Previous Papers (PYQ)</b><span class="tx">Real previous-year paper sets — full tests</span></a>
+  <a class="su-portal-tile" href="https://quiz.studentup.in/"><span class="ic">🌟</span><b>All Portal Features</b><span class="tx">Reports · Toppers · Certificates · Answer Keys</span></a>
+</div>
+
+<!-- Menu (text) variant — Appearance → Menus → Custom Links:
+     URL: https://quiz.studentup.in/?go=quiz    Text: 🧠 Smart Quiz
+     URL: https://quiz.studentup.in/?go=exams   Text: 🔴 Live Exams
+     URL: https://quiz.studentup.in/?go=mocks   Text: 🎓 Exam-wise Mocks
+     URL: https://quiz.studentup.in/            Text: 🚀 Student Portal
+-->

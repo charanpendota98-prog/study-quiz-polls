@@ -57,6 +57,7 @@ def _now():
 def _load():
     d = load_json(PATH, {}) or {}
     d.setdefault("events", {}); d.setdefault("polls", {}); d.setdefault("by_uid", {})
+    d.setdefault("web_sessions", {})
     return d
 
 
@@ -72,7 +73,7 @@ def _code(existing):
 
 
 # ================================================================== events
-def new_event(name, district, colleges, n_q=DEFAULT_Q, level="medium", created_by="", mode="college", subjects=None):
+def new_event(name, district, colleges, n_q=DEFAULT_Q, level="medium", created_by="", mode="college", subjects=None, start_at="", neg=0, shuffle=True):
     d = _load()
     code = _code(d["events"])
     cols = [c.strip()[:40] for c in colleges if c.strip()][:12]
@@ -81,18 +82,36 @@ def new_event(name, district, colleges, n_q=DEFAULT_Q, level="medium", created_b
     subjs = [s.strip() for s in (subjects or []) if s.strip()] or ["reasoning", "quant", "gs", "english", "ca"]
     d["events"][code] = {"code": code, "name": name.strip()[:60], "district": district.strip(), "colleges": cols,
                          "n_q": max(5, min(int(n_q), 30)), "level": level if level in LEVELS else "medium",
+                         "shuffle": bool(shuffle),
                          "mode": "exam" if str(mode).lower().startswith("ex") else "college",
                          "subjects": subjs,
                          "state": "open", "created": _now().isoformat(), "by": str(created_by),
+                         "start_at": str(start_at or ""), "neg": max(0, min(int(neg or 0), 10)),
                          "players": {}, "questions": [], "qi": 0, "answers": {}, "q_open": None, "q_close": None}
     _save(d)
     return code
 
 
-def quick_event(college, district, n_q=DEFAULT_Q, level="easy", created_by="", mode="college", subjects=None):
+def quick_event(college, district, n_q=DEFAULT_Q, level="easy", created_by="", mode="college", subjects=None, start_at="", neg=0):
     """One college, one command: /go <College> | <district>  → code + link + poster (simple college mode)."""
     name = f"{college.strip()[:30]} × StudentUp Challenge"
-    return new_event(name, district, [college], n_q, level, created_by, mode, subjects=subjects)
+    return new_event(name, district, [college], n_q, level, created_by, mode, subjects=subjects, start_at=start_at, neg=neg)
+
+
+def retest_event(code):
+    """One-click retest: a fresh event with the same settings (Colleges keep
+    coming back monthly — roster progress compares attempts). Returns the
+    NEW event code, or None."""
+    d = _load(); e = d["events"].get(code)
+    if not e:
+        return None
+    new = new_event(e["name"], e["district"], e["colleges"], e["n_q"], e["level"],
+                    e.get("by", ""), e.get("mode", "college"),
+                    subjects=e.get("subjects"), neg=e.get("neg", 0))
+    d = _load(); ne = d["events"][new]
+    ne["retest"] = True; ne["retest_of"] = code
+    _save(d)
+    return new
 
 
 def set_mode(code, mode):
@@ -366,7 +385,27 @@ def _compose_exam(bank, e):
     chosen.sort(key=lambda q: rank.get(difficulty_of(q), 1))
     return [{"id": q["id"], "q_en": q.get("q_en", ""), "q_te": q.get("q_te", ""), "options_en": q.get("options_en", []),
              "options_te": q.get("options_te", []), "answer_index": int(q["answer_index"]),
-             "window": Q_WINDOW.get(difficulty_of(q), 55), "channel": q.get("channel", "")} for q in chosen]
+             "window": Q_WINDOW.get(difficulty_of(q), 55), "channel": q.get("channel", ""),
+             "topic": q.get("topic", ""), "subject": _subject(q)} for q in chosen]
+
+
+def _order_for(e, uid):
+    """This student's question order (identity for pre-shuffle events)."""
+    qs = e.get("questions") or []
+    o = (e.get("qorder") or {}).get(str(uid))
+    if o and len(o) == len(qs):
+        return o
+    return list(range(len(qs)))
+
+
+def _omap_for(e, uid, qidx):
+    """Display-position → original-option map for one student+question."""
+    q = e["questions"][qidx]
+    n = len(q.get("options_en") or []) or 4
+    m = ((e.get("omap") or {}).get(str(uid)) or {}).get(str(qidx))
+    if m and len(m) == n:
+        return m
+    return list(range(n))
 
 
 def start(bank, members, tg, code, now=None):
@@ -385,6 +424,21 @@ def start(bank, members, tg, code, now=None):
         return False, f"not enough questions ({len(qs)})"
     e["players"] = ready
     e["questions"] = qs
+    # 🔀 Anti-copy shuffle (opt-in via new_event(shuffle=True) — product
+    # surfaces enable it; default paper is the SAME for everyone, which is
+    # also the projector-mode standard): every student gets a DIFFERENT
+    # question order and DIFFERENT option order (seeded, reproducible).
+    n_qs = len(qs)
+    e["qorder"] = {}; e["omap"] = {}
+    for uid in (ready if e.get("shuffle") else []):
+        rng = random.Random(f"{code}:{uid}")
+        order = list(range(n_qs)); rng.shuffle(order)
+        e["qorder"][uid] = order
+        e["omap"][uid] = {}
+        for qidx in range(n_qs):
+            n_opt = len(qs[qidx].get("options_en") or []) or 4
+            perm = list(range(n_opt)); rng.shuffle(perm)
+            e["omap"][uid][str(qidx)] = perm
     e["state"] = "question"; e["qi"] = 0; e["answers"] = {}
     e["started"] = now.isoformat()
     d["polls"] = {k: v for k, v in d["polls"].items() if v[0] != code}
@@ -401,21 +455,26 @@ def start(bank, members, tg, code, now=None):
 
 def _open_question(tg, d, e, qi, now):
     from .content import build_question_text, build_options
-    q = e["questions"][qi]
+    qs = e["questions"]
     cfg = {"emoji": "🎓", "name": e["name"], "name_te": e["name"], "subject": e["name"][:30], "hashtag": "#Campus"}
     tf = bool(getattr(config, "TELUGU_FIRST", True))
-    text = build_question_text(q, cfg, telugu_first=tf, position=f"Q {qi + 1}/{len(e['questions'])}")
-    opts = build_options(q, telugu_first=tf)
     e["qi"] = qi; e["state"] = "question"
-    e["q_open"] = now.isoformat(); e["q_close"] = (now + timedelta(seconds=q["window"])).isoformat()
+    windows = [qs[_order_for(e, uid)[qi]]["window"] for uid in e["players"]]
+    e["q_open"] = now.isoformat(); e["q_close"] = (now + timedelta(seconds=max(windows or [40]))).isoformat()
     for uid, p in e["players"].items():
         if p.get("blocked"):
             continue
-        payload = {"chat_id": uid, "question": f"⏱ {q['window']}s · {text}"[:300],
-                   "options": [{"text": o} for o in opts], "type": "quiz", "is_anonymous": False,
-                   "correct_option_id": q["answer_index"], "open_period": q["window"]}
+        qidx = _order_for(e, uid)[qi]
+        q = qs[qidx]
+        perm = _omap_for(e, uid, qidx)
+        text = build_question_text(q, cfg, telugu_first=tf, position=f"Q {qi + 1}/{len(qs)}")
+        raw_opts = build_options(q, telugu_first=tf)
+        opts = [raw_opts[i] for i in perm if i < len(raw_opts)] or raw_opts
+        correct_display = perm.index(q["answer_index"]) if q["answer_index"] in perm else q["answer_index"]
         try:
-            res = tg._call("sendPoll", payload)
+            res = tg.send_quiz(uid, f"⏱ {q['window']}s · {text}", opts,
+                               correct_display, is_anonymous=False,
+                               open_period=q["window"], force_open_period=True)
             pid = (res or {}).get("result", {}).get("poll", {}).get("id")
             if pid:
                 d["polls"][str(pid)] = [e["code"], qi, uid]
@@ -423,6 +482,34 @@ def _open_question(tg, d, e, qi, now):
             if "blocked" in str(ex).lower() or "chat not found" in str(ex).lower():
                 p["blocked"] = True
     _save(d)
+
+
+def _apply_answer(d, e, uid, qi, chosen_display):
+    """Bot poll gaani web UI gaani — OKKATE scoring: shuffle remap + speed
+    points + negative marking + choice record (result review kosam).
+    Caller load/save chesthadhi. Returns True = recorded/duplicate."""
+    uid = str(uid)
+    if e["state"] != "question" or e["qi"] != qi or uid not in e["players"]:
+        return False
+    ans = e["answers"].setdefault(str(qi), {})
+    if uid in ans:
+        return True
+    qidx = _order_for(e, uid)[qi]
+    q = e["questions"][qidx]; p = e["players"][uid]
+    perm = _omap_for(e, uid, qidx)
+    chosen_i = int(chosen_display)
+    orig = perm[chosen_i] if 0 <= chosen_i < len(perm) else chosen_i
+    elapsed = (_now() - datetime.fromisoformat(e["q_open"])).total_seconds()
+    if orig == q["answer_index"]:
+        pts = PTS_CORRECT + int(round(PTS_SPEED_MAX * max(0, 1 - elapsed / max(q["window"], 1))))
+        p["correct"] += 1
+    else:
+        pts = -int(e.get("neg", 0) or 0)     # ⚠️ negative marking (per wrong answer)
+    p["pts"] += pts; p["answered"] += 1
+    p["first"] = p["first"] or _now().isoformat(); p["last"] = _now().isoformat()
+    ans[uid] = pts
+    e.setdefault("choices", {}).setdefault(uid, {})[str(qi)] = orig
+    return True
 
 
 def record_answer(poll_id, uid, chosen):
@@ -433,26 +520,134 @@ def record_answer(poll_id, uid, chosen):
             return False
         code, qi, owner = meta
         e = d["events"].get(code)
-        if not e or owner != str(uid) or e["state"] != "question" or e["qi"] != qi:
+        if not e or owner != str(uid):
             return True
-        ans = e["answers"].setdefault(str(qi), {})
-        if str(uid) in ans:
-            return True
-        q = e["questions"][qi]; p = e["players"][str(uid)]
-        elapsed = (_now() - datetime.fromisoformat(e["q_open"])).total_seconds()
-        if int(chosen) == q["answer_index"]:
-            pts = PTS_CORRECT + int(round(PTS_SPEED_MAX * max(0, 1 - elapsed / max(q["window"], 1))))
-            p["correct"] += 1
-        else:
-            pts = 0
-        p["pts"] += pts; p["answered"] += 1
-        p["first"] = p["first"] or _now().isoformat(); p["last"] = _now().isoformat()
-        ans[str(uid)] = pts
-        _save(d)
+        if _apply_answer(d, e, uid, qi, chosen):
+            _save(d)
         return True
     except Exception as ex:
         print(f"   [campus] answer note: {ex}")
         return False
+
+
+# ================================================================== web exam
+def web_join(members, code, name, phone, college_idx=1):
+    """🌐 Browser nunchi join (Telegram app akkarledu): peru + mobile =
+    registration. Returns (ok, info | error_text)."""
+    import secrets as _sec
+    d = _load(); e = d["events"].get(code)
+    if not e:
+        return False, "Exam link invalid — organiser ni adagandi."
+    digits = "".join(ch for ch in str(phone or "") if ch.isdigit())[-10:]
+    if len(digits) != 10:
+        return False, "Sariyina 10-digit mobile number ivvandi."
+    name = str(name or "").strip()[:40]
+    if not name:
+        return False, "Mee peru ivvandi."
+    uid = "w" + digits
+    if uid in e["players"] and e["state"] in ("question", "gap"):
+        pass                                    # refresh/rejoin — resume
+    elif e["state"] == "open":
+        m = members._get(uid)
+        m.update({"name": name, "mobile": digits, "phone": digits,
+                  "registered": True, "via": "web_exam"})
+        members.kv.save()
+        ok, txt, _need = join(members, uid, code, int(college_idx or 1), name_hint=name)
+        if not ok:
+            return False, txt
+        try:
+            on_registered(members, uid)         # name sync + join bonus
+        except Exception:
+            pass
+        d = _load(); e = d["events"].get(code)
+    elif e["state"] == "done":
+        return False, "Ee exam ayipoyindi — organiser ni adagandi."
+    else:
+        return False, "Exam start ayyindi — ippudu kotthaga join avvalemu. Organiser ni adagandi."
+    token = _sec.token_urlsafe(18)
+    d.setdefault("web_sessions", {})[token] = {"code": code, "uid": uid, "name": name}
+    _save(d)
+    return True, {"token": token, "uid": uid, "state": e["state"],
+                  "exam": e.get("name", ""), "colleges": e.get("colleges", [])}
+
+
+def _web_session(d, code, token):
+    s = (d.get("web_sessions") or {}).get(str(token or ""))
+    return s if s and s.get("code") == code else None
+
+
+def _web_review(e, uid):
+    choices = (e.get("choices") or {}).get(str(uid), {})
+    order = _order_for(e, uid)
+    out = []
+    for pos_s, orig in sorted(choices.items(), key=lambda kv: int(kv[0])):
+        pos = int(pos_s)
+        if pos >= len(order):
+            continue
+        q = e["questions"][order[pos]]
+        opts = q.get("options_en") or []
+        out.append({"n": pos + 1, "q": q.get("q_en", ""),
+                    "your": opts[orig] if 0 <= orig < len(opts) else "",
+                    "answer": opts[q["answer_index"]] if 0 <= q["answer_index"] < len(opts) else "",
+                    "right": orig == q["answer_index"]})
+    return out
+
+
+def web_state(code, token):
+    """Student UI polling ki full state (question / waiting / result)."""
+    d = _load(); e = d["events"].get(code)
+    s = _web_session(d, code, token)
+    if not e or not s:
+        return None
+    uid = s["uid"]; p = e["players"].get(uid) or {}
+    out = {"state": e["state"], "exam": e.get("name", ""),
+           "n_q": len(e.get("questions") or []) or e.get("n_q", 0),
+           "joined": len(e["players"]), "start_at": e.get("start_at", ""),
+           "my": {"name": p.get("name", ""), "college": p.get("college", ""),
+                  "pts": p.get("pts", 0), "correct": p.get("correct", 0),
+                  "answered": p.get("answered", 0)}}
+    if e["state"] == "question":
+        from .content import build_options
+        qi = e["qi"]; qidx = _order_for(e, uid)[qi]; q = e["questions"][qidx]
+        perm = _omap_for(e, uid, qidx)
+        raw = build_options(q, telugu_first=True)
+        out["position"] = qi + 1
+        out["question"] = {"en": q.get("q_en", ""), "te": q.get("q_te", ""),
+                           "options": [raw[i] for i in perm if i < len(raw)],
+                           "answered": str(uid) in e["answers"].get(str(qi), {})}
+        try:
+            out["ends_in"] = max(0, int((datetime.fromisoformat(e["q_close"]) - _now()).total_seconds()))
+        except Exception:
+            out["ends_in"] = None
+    if e["state"] == "done":
+        rows = ranking(e)
+        out["rank"] = next((i + 1 for i, (u, _p) in enumerate(rows) if u == uid), None)
+        out["total_players"] = len(rows)
+        out["top"] = [{"name": pp.get("name", ""), "college": pp.get("college", ""),
+                       "correct": pp.get("correct", 0), "pts": pp.get("pts", 0)}
+                      for _u, pp in rows[:5]]
+        out["review"] = _web_review(e, uid)
+    return out
+
+
+def web_answer(code, token, position, choice):
+    """Web UI answer — bot poll tho okkate scoring engine."""
+    d = _load(); e = d["events"].get(code)
+    s = _web_session(d, code, token)
+    if not e or not s:
+        return False, "Session expired — link malli open cheyyandi."
+    uid = s["uid"]
+    qi = int(position) - 1
+    qidx = _order_for(e, uid)[qi] if 0 <= qi < len(e.get("questions") or []) else None
+    ok = _apply_answer(d, e, uid, qi, int(choice))
+    if ok:
+        _save(d)
+        q = e["questions"][qidx] if qidx is not None else {}
+        perm = _omap_for(e, uid, qidx) if qidx is not None else []
+        ch = int(choice)
+        orig = perm[ch] if 0 <= ch < len(perm) else ch
+        return True, {"correct": bool(q) and orig == q.get("answer_index")}
+    return False, "Ee question time ayipoyindi / already answered."
 
 
 def tick(tg, members, now=None):
@@ -460,6 +655,23 @@ def tick(tg, members, now=None):
     now = now or _now()
     d = _load()
     live = False
+    # ⏰ scheduled exams start themselves when their time arrives
+    for e in list(d["events"].values()):
+        if e["state"] == "open" and e.get("start_at"):
+            try:
+                due = datetime.fromisoformat(e["start_at"])
+                if due.tzinfo is None:
+                    due = due.replace(tzinfo=config.IST)
+            except Exception:
+                continue
+            if now >= due:
+                try:
+                    from .question_bank import Bank
+                    ok, info = start(Bank(), members, tg, e["code"], now)
+                    print(f"   [campus] ⏰ scheduled start {e['code']}: {ok} {info}")
+                except Exception as ex:
+                    print(f"   [campus] scheduled start note: {ex}")
+                d = _load()
     for e in list(d["events"].values()):
         if e["state"] not in ("question", "gap"):
             continue
@@ -479,6 +691,76 @@ def tick(tg, members, now=None):
 
 
 # ================================================================== results
+def live_snapshot(code):
+    """Real-time exam state for the dashboard Control Room."""
+    d = _load(); e = d["events"].get(code)
+    if not e:
+        return None
+    qs = e.get("questions") or []
+    cur = e["answers"].get(str(e.get("qi", 0)), {}) if e["state"] == "question" else {}
+    board = [{"name": p.get("name") or u, "college": p.get("college", ""), "pts": p.get("pts", 0),
+              "correct": p.get("correct", 0), "answered": p.get("answered", 0)}
+             for u, p in sorted(e["players"].items(), key=lambda kv: -kv[1].get("pts", 0))]
+    ends = None
+    if e.get("q_close"):
+        try:
+            ends = max(0, int((datetime.fromisoformat(e["q_close"]) - _now()).total_seconds()))
+        except Exception:
+            ends = None
+    return {"code": code, "name": e.get("name", ""), "state": e.get("state", "open"),
+            "qi": (e.get("qi", 0) + 1) if e["state"] in ("question", "gap") and qs else 0,
+            "n_q": len(qs) or e.get("n_q", 0), "joined": len(e["players"]),
+            "answered_now": len(cur), "ends_in": ends, "start_at": e.get("start_at", ""),
+            "shuffle": bool(e.get("shuffle")), "players": board[:15]}
+
+
+def advance_now(tg, members, code, now=None):
+    """Organiser skips the current question (Control Room ⏭)."""
+    now = now or _now()
+    d = _load(); e = d["events"].get(code)
+    if not e:
+        return False, "event not found"
+    if e["state"] != "question":
+        return False, f"event is {e['state']} (not on a question)"
+    e["state"] = "gap"; e["q_open"] = now.isoformat(); _save(d)
+    tick(tg, members, now)
+    return True, "advanced to next question"
+
+
+def finish_now(tg, members, code, now=None):
+    """Organiser ends the exam immediately (Control Room 🏁) — results,
+    certificates and the college report go out as usual."""
+    now = now or _now()
+    d = _load(); e = d["events"].get(code)
+    if not e:
+        return False, "event not found"
+    if e["state"] not in ("question", "gap"):
+        return False, f"event is {e['state']}"
+    _finish(tg, members, d, e, now)
+    return True, "finished — results sent"
+
+
+def league_table(limit=10):
+    """Inter-college league across all finished events."""
+    d = _load()
+    agg = {}
+    for e in d["events"].values():
+        if e["state"] != "done":
+            continue
+        cols = college_table(e)
+        for c in cols:
+            a = agg.setdefault(c["college"], {"college": c["college"], "events": 0,
+                                              "students": 0, "acc_sum": 0, "wins": 0})
+            a["events"] += 1; a["students"] += c["n"]; a["acc_sum"] += c["acc"]
+        if cols:
+            agg[cols[0]["college"]]["wins"] += 1
+    rows = [{"college": a["college"], "events": a["events"], "students": a["students"],
+             "avg_acc": round(a["acc_sum"] / a["events"]) if a["events"] else 0,
+             "wins": a["wins"]} for a in agg.values()]
+    rows.sort(key=lambda r: (-r["wins"], -r["avg_acc"], -r["students"]))
+    return rows[:limit]
+
+
 def college_table(e):
     agg = {}
     for p in e["players"].values():
@@ -512,7 +794,7 @@ def _finish(tg, members, d, e, now):
         bonus = PODIUM.get(i, 0)
         if cols and p["college"] == cols[0]["college"]:
             bonus += COLLEGE_WIN_PTS
-        m["points"] = m.get("points", 0) + p["pts"] // 2 + bonus     # half of exam pts + podium
+        m["points"] = m.get("points", 0) + max(0, p["pts"] // 2) + bonus     # half of exam pts + podium
         m["campus_events"] = m.get("campus_events", 0) + 1
         p["rank"] = i + 1
     members.kv.save()
@@ -563,6 +845,14 @@ def _finish(tg, members, d, e, now):
     if e.get("by"):
         try:
             tg.send_message(e["by"], college_report(e))
+            try:
+                _poster = poster_png(e["code"])
+                if _poster and hasattr(tg, "send_photo"):
+                    tg.send_photo(e["by"], _poster,
+                                  caption=f"🏆 {e['name']} — Top Scorers Poster (college group lo share cheyyandi!)",
+                                  filename="result_poster.png")
+            except Exception:
+                pass
             from . import roster as R
             pr = R.progress_report(members, e["colleges"][0]) if e.get("colleges") else ""
             if pr and e.get("retest"):
@@ -744,6 +1034,109 @@ def certificate_card(e, rank, p):
                                score=f"{p['correct']}/{len(e['questions'])} · {p['pts']} pts", extra="StudentUp Campus Challenge")
     except Exception:
         return None
+
+
+def deep_link(code, bot=""):
+    """Canonical student join link for an event (single source of truth)."""
+    bot = bot or getattr(config, "BOT_USERNAME", "") or "StudentUpBot"
+    return f"https://t.me/{bot}?start=c{code.replace('CE-', '')}-1"
+
+
+def qr_png(code, bot="", box=12, link=None):
+    """QR PNG bytes for the join link, generated LOCALLY (no external QR
+    service — works offline and never breaks if a third-party site is down).
+    None when the qrcode package is missing or the event doesn't exist."""
+    try:
+        import io
+        import qrcode
+    except Exception:
+        return None
+    d = _load()
+    if code not in d.get("events", {}):
+        return None
+    qr = qrcode.QRCode(border=2, box_size=box)
+    qr.add_data(link or deep_link(code, bot))
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def poster_png(code):
+    """🏆 College Result Poster (Top-5 image) — principal/organiser share
+    cheyyadaniki. None if Pillow lekapothe / event lekapothe."""
+    try:
+        from . import certcard
+    except Exception:
+        return None
+    d = _load(); e = d["events"].get(code)
+    if not e:
+        return None
+    rows = ranking(e)
+    if not rows:
+        return None
+    standings = [(u, p.get("correct", 0), p.get("answered", 0)) for u, p in rows]
+    names = {u: p.get("name") or u for u, p in rows}
+    n_q = len(e.get("questions") or []) or e.get("n_q", 0)
+    cert_rows = certcard.rows_from_tally(standings, n_q, lambda u: names.get(u, u))
+    return certcard.render_certificate(
+        (e.get("name") or "College Exam")[:48],
+        "COLLEGE EXAM · TOP SCORERS", cert_rows,
+        footer=f"{e.get('district', '')} · {len(rows)} students · StudentUp")
+
+
+def report_dict(code, members=None):
+    """Structured marks report for dashboards/APIs. college_report() stays the
+    human text version for Telegram; THIS is what UI tables consume."""
+    d = _load()
+    e = d["events"].get(code)
+    if not e:
+        return None
+    rows = ranking(e)
+    n_q = len(e.get("questions") or []) or e.get("n_q", 10)
+    players = []
+    for i, (u, p) in enumerate(rows, 1):
+        name = p.get("name") or ""
+        phone = p.get("phone", "")
+        if members is not None:
+            m = members.members.get(str(u)) or {}
+            name = name or m.get("name", "")
+            phone = phone or m.get("phone", "")
+        players.append({"rank": i, "uid": str(u), "name": name or f"Student {u}",
+                        "college": p.get("college", ""), "score": p.get("correct", 0),
+                        "correct": p.get("correct", 0), "total": n_q, "pts": p.get("pts", 0),
+                        "answered": p.get("answered", 0), "phone": phone})
+    qstats = {}
+    for u in e["players"]:
+        order = _order_for(e, u)
+        for pos in range(len(e.get("questions") or [])):
+            if pos >= len(order):
+                break
+            q = e["questions"][order[pos]]
+            st = qstats.setdefault(q["id"], {"q": (q.get("q_en") or "")[:80],
+                                             "topic": q.get("topic") or q.get("subject") or q.get("channel", ""),
+                                             "answered": 0, "correct": 0})
+            pts = (e["answers"].get(str(pos), {}) or {}).get(str(u))
+            if pts is not None:
+                st["answered"] += 1
+                if pts > 0:
+                    st["correct"] += 1
+    question_stats = sorted(({**s, "pct": round(100 * s["correct"] / s["answered"]) if s["answered"] else 0}
+                             for s in qstats.values()), key=lambda s: s["pct"])
+    tstats = {}
+    for s in qstats.values():
+        t = tstats.setdefault(s["topic"] or "General", {"answered": 0, "correct": 0})
+        t["answered"] += s["answered"]; t["correct"] += s["correct"]
+    topic_stats = sorted(({"topic": k, **v, "pct": round(100 * v["correct"] / v["answered"]) if v["answered"] else 0}
+                          for k, v in tstats.items()), key=lambda s: -s["pct"])
+    avg = round(100 * sum(p["score"] for p in players) / (len(players) * n_q)) if players and n_q else 0
+    return {"code": code, "name": e.get("name", ""), "district": e.get("district", ""),
+            "state": e.get("state", "open"), "n_q": n_q,
+            "players_count": len(e.get("players", {})), "answered": len(players),
+            "average_pct": avg, "neg": e.get("neg", 0), "players": players, "top_players": players,
+            "colleges": college_table(e), "question_stats": question_stats,
+            "topic_stats": topic_stats}
 
 
 def college_report(e):

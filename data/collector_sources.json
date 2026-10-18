@@ -6721,6 +6721,2370 @@
     "checked": "2026-09-11",
     "note": "live | verified 11 Sep 2026 — Telugu subject practice MCQs; subject hub verified from /groups/practice-test landing"
    }
+  },
+  {
+   "name": "UPSC Official PYQ Papers",
+   "enabled": false,
+   "type": "index",
+   "exam": "upsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "UPSC official previous papers index"
+   },
+   "url": "https://www.upsc.gov.in/examinations/previous-question-papers",
+   "pdf_re": "\\.pdf($|\\?)",
+   "link_re": "(?i)(question|paper|pyq|previous|exam|pdf|test|quiz)"
+  },
+  {
+   "name": "TGPSC Official PYQ Papers",
+   "enabled": false,
+   "type": "index",
+   "exam": "tgpsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "TGPSC official previous papers"
+   },
+   "url": "https://www.tspsc.gov.in/previouspapers.jsp",
+   "pdf_re": "\\.pdf($|\\?)",
+   "link_re": "(?i)(question|paper|pyq|previous|exam|pdf|test|quiz)"
+  },
+  {
+   "name": "APPSC Official PYQ Papers",
+   "enabled": false,
+   "type": "index",
+   "exam": "appsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "APPSC official question papers"
+   },
+   "url": "https://psc.ap.gov.in/Documents/QuestionPapers.aspx",
+   "pdf_re": "\\.pdf($|\\?)",
+   "link_re": "(?i)(question|paper|pyq|previous|exam|pdf|test|quiz)"
+  },
+  {
+   "name": "SSC Official PYQ Papers",
+   "enabled": false,
+   "type": "index",
+   "exam": "ssc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "SSC official papers"
+   },
+   "url": "https://ssc.gov.in/",
+   "pdf_re": "\\.pdf($|\\?)",
+   "link_re": "(?i)(question|paper|pyq|previous|exam|pdf|test|quiz)"
+  },
+  {
+   "name": "IBPS Official Papers",
+   "enabled": false,
+   "type": "index",
+   "exam": "banking",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "IBPS official"
+   },
+   "url": "https://www.ibps.in/",
+   "pdf_re": "\\.pdf($|\\?)",
+   "link_re": "(?i)(question|paper|pyq|previous|exam|pdf|test|quiz)"
+  },
+  {
+   "name": "RRB Official Papers",
+   "enabled": false,
+   "type": "index",
+   "exam": "railway",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "RRB official"
+   },
+   "url": "https://www.rrbchennai.gov.in/",
+   "pdf_re": "\\.pdf($|\\?)",
+   "link_re": "(?i)(question|paper|pyq|previous|exam|pdf|test|quiz)"
+  },
+  {
+   "name": "KPSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "kpsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "Karnataka PSC official"
+   },
+   "url": "https://kpsc.kar.nic.in/",
+   "pdf_re": "\\.pdf($|\\?)",
+   "link_re": "(?i)(question|paper|pyq|previous|exam|pdf|test|quiz)"
+  },
+  {
+   "name": "UPPSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "uppsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "UP PSC official"
+   },
+   "url": "https://uppsc.up.nic.in/",
+   "pdf_re": "\\.pdf($|\\?)",
+   "link_re": "(?i)(question|paper|pyq|previous|exam|pdf|test|quiz)"
+  },
+  {
+   "name": "MPPSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "mppsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "MP PSC official"
+   },
+   "url": "https://mppsc.mp.gov.in/",
+   "pdf_re": "\\.pdf($|\\?)",
+   "link_re": "(?i)(question|paper|pyq|previous|exam|pdf|test|quiz)"
+  },
+  {
+   "name": "BPSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "bpsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "Bihar PSC official"
+   },
+   "url": "https://www.bpsc.bih.nic.in/",
+   "pdf_re": "\\.pdf($|\\?)",
+   "link_re": "(?i)(question|paper|pyq|previous|exam|pdf|test|quiz)"
+  },
+  {
+   "name": "WBPSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "wbpsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "WB PSC official"
+   },
+   "url": "https://wbpsc.gov.in/",
+   "pdf_re": "\\.pdf($|\\?)",
+   "link_re": "(?i)(question|paper|pyq|previous|exam|pdf|test|quiz)"
+  },
+  {
+   "name": "RPSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "rpsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "Rajasthan PSC official"
+   },
+   "url": "https://rpsc.rajasthan.gov.in/",
+   "pdf_re": "\\.pdf($|\\?)",
+   "link_re": "(?i)(question|paper|pyq|previous|exam|pdf|test|quiz)"
+  },
+  {
+   "name": "HPSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "hpsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "Haryana PSC official"
+   },
+   "url": "https://hpsc.gov.in/",
+   "pdf_re": "\\.pdf($|\\?)",
+   "link_re": "(?i)(question|paper|pyq|previous|exam|pdf|test|quiz)"
+  },
+  {
+   "name": "TNPSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "tnpsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "TN PSC official"
+   },
+   "url": "https://www.tnpsc.gov.in/",
+   "pdf_re": "\\.pdf($|\\?)",
+   "link_re": "(?i)(question|paper|pyq|previous|exam|pdf|test|quiz)"
+  },
+  {
+   "name": "Kerala PSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "kerala",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "Kerala PSC official"
+   },
+   "url": "https://www.keralapsc.gov.in/",
+   "pdf_re": "\\.pdf($|\\?)",
+   "link_re": "(?i)(question|paper|pyq|previous|exam|pdf|test|quiz)"
+  },
+  {
+   "name": "UPSC Official",
+   "enabled": false,
+   "type": "rss",
+   "exam": "upsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "UPSC official updates"
+   },
+   "feed": "https://www.upsc.gov.in/feed"
+  },
+  {
+   "name": "TGPSC Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "tgpsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "TGPSC official"
+   },
+   "url": "https://www.tspsc.gov.in/",
+   "link_re": "(?i)(question|paper|pyq|previous|exam|pdf|test|quiz)"
+  },
+  {
+   "name": "APPSC Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "appsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "APPSC official"
+   },
+   "url": "https://psc.ap.gov.in/",
+   "link_re": "(?i)(question|paper|pyq|previous|exam|pdf|test|quiz)"
+  },
+  {
+   "name": "Sanfoundry Aptitude",
+   "enabled": false,
+   "type": "rss",
+   "exam": "all",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "Sanfoundry aptitude MCQs"
+   },
+   "feed": "https://www.sanfoundry.com/feed/"
+  },
+  {
+   "name": "Sanfoundry Reasoning",
+   "enabled": false,
+   "type": "index",
+   "exam": "all",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "Sanfoundry reasoning"
+   },
+   "url": "https://www.sanfoundry.com/logical-reasoning-questions-answers/",
+   "link_re": "(?i)(question|paper|pyq|previous|exam|pdf|test|quiz)"
+  },
+  {
+   "name": "ExamsDaily SSC",
+   "enabled": false,
+   "type": "rss",
+   "exam": "ssc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "ExamsDaily SSC quiz"
+   },
+   "feed": "https://www.examsdaily.in/feed"
+  },
+  {
+   "name": "ExamsDaily Banking",
+   "enabled": false,
+   "type": "rss",
+   "exam": "banking",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "ExamsDaily banking"
+   },
+   "feed": "https://www.examsdaily.in/category/bank-exams/feed"
+  },
+  {
+   "name": "Examveda Trains",
+   "enabled": false,
+   "type": "index",
+   "exam": "railway",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "Examveda trains problems"
+   },
+   "url": "https://www.examveda.com/",
+   "link_re": "(?i)(question|paper|pyq|previous|exam|pdf|test|quiz)"
+  },
+  {
+   "name": "Examveda Arithmetic",
+   "enabled": false,
+   "type": "index",
+   "exam": "all",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "Examveda arithmetic"
+   },
+   "url": "https://www.examveda.com/arithmetic-ability/",
+   "link_re": "(?i)(question|paper|pyq|previous|exam|pdf|test|quiz)"
+  },
+  {
+   "name": "IndiaBIX ECE",
+   "enabled": false,
+   "type": "rss",
+   "exam": "ece",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "IndiaBIX ECE MCQs"
+   },
+   "feed": "https://www.indiabix.com/feed/"
+  },
+  {
+   "name": "IndiaBIX EEE",
+   "enabled": false,
+   "type": "index",
+   "exam": "eee",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "IndiaBIX EEE"
+   },
+   "url": "https://www.indiabix.com/electrical-engineering/",
+   "link_re": "(?i)(question|paper|pyq|previous|exam|pdf|test|quiz)"
+  },
+  {
+   "name": "IndiaBIX CSE",
+   "enabled": false,
+   "type": "index",
+   "exam": "cse",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "IndiaBIX CSE"
+   },
+   "url": "https://www.indiabix.com/computer-science/",
+   "link_re": "(?i)(question|paper|pyq|previous|exam|pdf|test|quiz)"
+  },
+  {
+   "name": "Gradeup SSC Quiz",
+   "enabled": false,
+   "type": "rss",
+   "exam": "ssc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://gradeup.co/feed"
+  },
+  {
+   "name": "BankersAdda Daily Quiz",
+   "enabled": false,
+   "type": "rss",
+   "exam": "banking",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.bankersadda.com/feed"
+  },
+  {
+   "name": "Oliveboard Blog",
+   "enabled": false,
+   "type": "rss",
+   "exam": "banking",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.oliveboard.in/blog/feed"
+  },
+  {
+   "name": "GKToday Current Affairs",
+   "enabled": false,
+   "type": "rss",
+   "exam": "all",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.gktoday.in/feed"
+  },
+  {
+   "name": "Current Affairs PDF",
+   "enabled": false,
+   "type": "rss",
+   "exam": "all",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://currentaffairs.bankersadda.com/feed"
+  },
+  {
+   "name": "AffairsCloud Current Affairs",
+   "enabled": false,
+   "type": "rss",
+   "exam": "all",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://affairscloud.com/current-affairs/feed"
+  },
+  {
+   "name": "JagranJosh Current Affairs",
+   "enabled": false,
+   "type": "rss",
+   "exam": "all",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.jagranjosh.com/current-affairs/rss"
+  },
+  {
+   "name": "Freshersworld GK",
+   "enabled": false,
+   "type": "rss",
+   "exam": "all",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.freshersworld.com/feed"
+  },
+  {
+   "name": "IndiaBIX GK Feed",
+   "enabled": false,
+   "type": "rss",
+   "exam": "all",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.indiabix.com/general-knowledge/"
+  },
+  {
+   "name": "Lofty Tales Quiz",
+   "enabled": false,
+   "type": "rss",
+   "exam": "all",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.loftytale.com/feed"
+  },
+  {
+   "name": "QuizPedia Daily",
+   "enabled": false,
+   "type": "rss",
+   "exam": "all",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://quizpedia.in/feed"
+  },
+  {
+   "name": "Telugu GK Quiz",
+   "enabled": false,
+   "type": "rss",
+   "exam": "tgpsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.telugugk.com/feed"
+  },
+  {
+   "name": "VijayPratibha GK",
+   "enabled": false,
+   "type": "rss",
+   "exam": "appsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.vijaypratibha.com/feed"
+  },
+  {
+   "name": "TSPSC Guru",
+   "enabled": false,
+   "type": "rss",
+   "exam": "tgpsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.tspscguru.com/feed"
+  },
+  {
+   "name": "APPSC Guide",
+   "enabled": false,
+   "type": "rss",
+   "exam": "appsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.appscguide.com/feed"
+  },
+  {
+   "name": "Police Exam Prep TG",
+   "enabled": false,
+   "type": "rss",
+   "exam": "police",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.tspoliceprep.com/feed"
+  },
+  {
+   "name": "SSC GD Prep",
+   "enabled": false,
+   "type": "rss",
+   "exam": "ssc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.sscgdprep.com/feed"
+  },
+  {
+   "name": "Railway NTPC Prep",
+   "enabled": false,
+   "type": "rss",
+   "exam": "railway",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.ntpcprep.com/feed"
+  },
+  {
+   "name": "Defence Prep India",
+   "enabled": false,
+   "type": "rss",
+   "exam": "defence",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.defenceprep.in/feed"
+  },
+  {
+   "name": "CTET Prep",
+   "enabled": false,
+   "type": "rss",
+   "exam": "teaching",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.ctetprep.in/feed"
+  },
+  {
+   "name": "Bank Exam Guru",
+   "enabled": false,
+   "type": "rss",
+   "exam": "banking",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.bankexamguru.com/feed"
+  },
+  {
+   "name": "Quant Masters",
+   "enabled": false,
+   "type": "rss",
+   "exam": "all",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.quantmasters.in/feed"
+  },
+  {
+   "name": "Reasoning Kings",
+   "enabled": false,
+   "type": "rss",
+   "exam": "all",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.reasoningkings.in/feed"
+  },
+  {
+   "name": "English Vocabulary Daily",
+   "enabled": false,
+   "type": "rss",
+   "exam": "all",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.engvocab.in/feed"
+  },
+  {
+   "name": "Science MCQs Daily",
+   "enabled": false,
+   "type": "rss",
+   "exam": "all",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.sciencemcq.in/feed"
+  },
+  {
+   "name": "History Notes Quiz",
+   "enabled": false,
+   "type": "rss",
+   "exam": "all",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.historyquiz.in/feed"
+  },
+  {
+   "name": "Geography MCQs",
+   "enabled": false,
+   "type": "rss",
+   "exam": "all",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.geoquiz.in/feed"
+  },
+  {
+   "name": "Polity MCQs India",
+   "enabled": false,
+   "type": "rss",
+   "exam": "all",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.politymcq.in/feed"
+  },
+  {
+   "name": "Economy MCQs",
+   "enabled": false,
+   "type": "rss",
+   "exam": "all",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.economymcq.in/feed"
+  },
+  {
+   "name": "Environment Quiz",
+   "enabled": false,
+   "type": "rss",
+   "exam": "all",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.ecoquiz.in/feed"
+  },
+  {
+   "name": "Computer Awareness MCQ",
+   "enabled": false,
+   "type": "rss",
+   "exam": "all",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.computermcq.in/feed"
+  },
+  {
+   "name": "Static GK India",
+   "enabled": false,
+   "type": "rss",
+   "exam": "all",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.staticgk.in/feed"
+  },
+  {
+   "name": "Sports GK Quiz",
+   "enabled": false,
+   "type": "rss",
+   "exam": "all",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.sportsgk.in/feed"
+  },
+  {
+   "name": "Awards GK Daily",
+   "enabled": false,
+   "type": "rss",
+   "exam": "all",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.awardsgk.in/feed"
+  },
+  {
+   "name": "Books Authors GK",
+   "enabled": false,
+   "type": "rss",
+   "exam": "all",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.booksgk.in/feed"
+  },
+  {
+   "name": "Telangana GK Special",
+   "enabled": false,
+   "type": "rss",
+   "exam": "tgpsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.telanganasp.com/feed"
+  },
+  {
+   "name": "Andhra GK Special",
+   "enabled": false,
+   "type": "rss",
+   "exam": "appsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.andhragk.in/feed"
+  },
+  {
+   "name": "Kerala PSC Helper",
+   "enabled": false,
+   "type": "rss",
+   "exam": "kerala",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.keralapsc.org/feed"
+  },
+  {
+   "name": "TNPSC Guru",
+   "enabled": false,
+   "type": "rss",
+   "exam": "tnpsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.tnpscguru.in/feed"
+  },
+  {
+   "name": "KPSC Kannada GK",
+   "enabled": false,
+   "type": "rss",
+   "exam": "kpsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.kpschelper.in/feed"
+  },
+  {
+   "name": "UP GK Hindi",
+   "enabled": false,
+   "type": "rss",
+   "exam": "uppsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.upgk.in/feed"
+  },
+  {
+   "name": "Bihar GK Special",
+   "enabled": false,
+   "type": "rss",
+   "exam": "bpsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.bihargk.in/feed"
+  },
+  {
+   "name": "MP GK Hindi",
+   "enabled": false,
+   "type": "rss",
+   "exam": "mppsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.mpgk.in/feed"
+  },
+  {
+   "name": "Rajasthan GK",
+   "enabled": false,
+   "type": "rss",
+   "exam": "rpsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.rajgk.in/feed"
+  },
+  {
+   "name": "Haryana GK",
+   "enabled": false,
+   "type": "rss",
+   "exam": "hpsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.haryanagk.in/feed"
+  },
+  {
+   "name": "Punjab GK Prep",
+   "enabled": false,
+   "type": "rss",
+   "exam": "punjab",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.punjabgk.in/feed"
+  },
+  {
+   "name": "Odisha GK Prep",
+   "enabled": false,
+   "type": "rss",
+   "exam": "opsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.odishagk.in/feed"
+  },
+  {
+   "name": "Assam GK Prep",
+   "enabled": false,
+   "type": "rss",
+   "exam": "assam",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.assamgk.in/feed"
+  },
+  {
+   "name": "Gujarat GK Prep",
+   "enabled": false,
+   "type": "rss",
+   "exam": "gpsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.gujaratgk.in/feed"
+  },
+  {
+   "name": "Maharashtra GK",
+   "enabled": false,
+   "type": "rss",
+   "exam": "mpsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.maharashtragk.in/feed"
+  },
+  {
+   "name": "Uttarakhand GK",
+   "enabled": false,
+   "type": "rss",
+   "exam": "ukpsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.ukgk.in/feed"
+  },
+  {
+   "name": "Himachal GK",
+   "enabled": false,
+   "type": "rss",
+   "exam": "hppsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.himachalgk.in/feed"
+  },
+  {
+   "name": "Jharkhand GK",
+   "enabled": false,
+   "type": "rss",
+   "exam": "jpsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.jharkhandgk.in/feed"
+  },
+  {
+   "name": "Chhattisgarh GK",
+   "enabled": false,
+   "type": "rss",
+   "exam": "cgpsc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.cggk.in/feed"
+  },
+  {
+   "name": "Goa GK Prep",
+   "enabled": false,
+   "type": "rss",
+   "exam": "goa",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.goagk.in/feed"
+  },
+  {
+   "name": "SBI PO Prep Daily",
+   "enabled": false,
+   "type": "rss",
+   "exam": "banking",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.sbipoprep.in/feed"
+  },
+  {
+   "name": "RBI Grade B Prep",
+   "enabled": false,
+   "type": "rss",
+   "exam": "banking",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.rbiprep.in/feed"
+  },
+  {
+   "name": "Insurance Exam Prep",
+   "enabled": false,
+   "type": "rss",
+   "exam": "insurance",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.insuranceprep.in/feed"
+  },
+  {
+   "name": "NABARD Prep",
+   "enabled": false,
+   "type": "rss",
+   "exam": "banking",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.nabardprep.in/feed"
+  },
+  {
+   "name": "SSC CHSL Prep",
+   "enabled": false,
+   "type": "rss",
+   "exam": "ssc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.sscchslprep.in/feed"
+  },
+  {
+   "name": "SSC MTS Prep",
+   "enabled": false,
+   "type": "rss",
+   "exam": "ssc",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.sscmtsprep.in/feed"
+  },
+  {
+   "name": "RRB ALP Prep",
+   "enabled": false,
+   "type": "rss",
+   "exam": "railway",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.rrbalp.in/feed"
+  },
+  {
+   "name": "Group D Prep",
+   "enabled": false,
+   "type": "rss",
+   "exam": "railway",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.groupdprep.in/feed"
+  },
+  {
+   "name": "NDA Prep India",
+   "enabled": false,
+   "type": "rss",
+   "exam": "defence",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.ndaprep.in/feed"
+  },
+  {
+   "name": "CDS Prep India",
+   "enabled": false,
+   "type": "rss",
+   "exam": "defence",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.cdsprep.in/feed"
+  },
+  {
+   "name": "AFCAT Prep",
+   "enabled": false,
+   "type": "rss",
+   "exam": "defence",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.afcatprep.in/feed"
+  },
+  {
+   "name": "Agniveer Prep",
+   "enabled": false,
+   "type": "rss",
+   "exam": "defence",
+   "title_must": "quiz|mcq|questions?|practice|previous year|model paper|mock",
+   "title_not": "admit card|result|cut off|syllabus|notification|jobs?|vacancy|apply online",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-14",
+    "note": "v3 wave candidate — auto-enable after live content check"
+   },
+   "feed": "https://www.agniveerprep.in/feed"
+  },
+  {
+   "name": "Biren Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "bpsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://bpsc.bihar.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "UKPSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "ukpsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://psc.uk.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "CGPSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "cgpsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://psc.cg.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "JPSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "jpsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.jpsc.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "OPSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "opsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.opsc.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "APSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "apsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://apsc.nic.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "MPSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "mpsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://mpsc.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "GPSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "gpsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://gpsc.gujarat.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "HPPSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "hppsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.hppsc.hp.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "JKPSC Official PYQ",
+   "enabled": false,
+   "type": "index",
+   "exam": "jkpsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://jkpsc.nic.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "Tripura PSC Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "tpsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://tpsc.tripura.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "Manipur PSC Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "mpsc-mn",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://mpscmanipur.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "Arunachal PSC Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "appsc-ar",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://appsc.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "Sikkim PSC Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "spsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://spsc.sikkim.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "Nagaland PSC Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "npsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://npsc.nagaland.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "Mizoram PSC Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "mzpsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://mpsc.mizoram.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "Goa PSC Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "gpsc-goa",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://gpsc.goa.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "UPSC Official Papers",
+   "enabled": false,
+   "type": "index",
+   "exam": "upsc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.upsc.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "SBI Careers Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "banking",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://sbi.co.in/web/careers",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "RBI Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "banking",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.rbi.org.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "RRB CDG Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "railway",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.rrbcdg.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "RRB Secunderabad Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "railway",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://rrbsecunderabad.nic.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "Indian Army Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "defence",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://joinindianarmy.nic.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "Indian Airforce Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "defence",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://indianairforce.nic.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "Indian Navy Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "defence",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.joinindiannavy.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "DRDO Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "defence",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.drdo.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "ISRO Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "science",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.isro.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "CTET Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "teaching",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://ctet.nic.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "UGC NET Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "teaching",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://ugcnet.nta.ac.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "CSIR NET Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "science",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://csirnet.nta.ac.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "NEET Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "medical",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://neet.nta.nic.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "JEE Main Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "engineering",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://jeemain.nta.ac.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "GATE Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "engineering",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://gate2026.iitg.ac.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "ICAR Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "agriculture",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://icar.org.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "India Post GDS Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "postal",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://indiapostgdsonline.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "EPFO Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "ssc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.epfindia.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "ESIC Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "ssc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.esic.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "FCI Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "ssc",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://fci.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "SEBI Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "banking",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.sebi.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "NABARD Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "banking",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.nabard.org/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "LIC Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "insurance",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://licindia.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "NIACL Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "insurance",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.newindia.co.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "TS Police Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "police",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.tslprb.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "AP Police Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "police",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://slprb.ap.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "TG DSC TRT Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "teaching",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://tgdsc.apcfss.aptonline.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "EAMCET TS Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "engineering",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://eapcet.tgche.ac.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "AP EAPCET Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "engineering",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://cets.apsche.ap.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "POLYCET TS Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "polytechnic",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://polycet.sbtet.telangana.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "SBTET TS Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "polytechnic",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://www.sbtet.telangana.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "SBTET AP Official",
+   "enabled": false,
+   "type": "index",
+   "exam": "polytechnic",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 official-coverage candidate-only; live auditor enables"
+   },
+   "url": "https://sbtet.ap.gov.in/",
+   "link_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "pdf_re": "(?i)\\.pdf(\\?|$)|previous|question-paper|old-paper|pyq|model-paper",
+   "max_links": 3
+  },
+  {
+   "name": "Examrace RSS",
+   "enabled": false,
+   "type": "rss",
+   "exam": "upsc",
+   "feed": "https://www.examrace.com/feed/",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 coverage candidate-only; auditor content-gates"
+   }
+  },
+  {
+   "name": "BYJU'S Exam Prep RSS",
+   "enabled": false,
+   "type": "rss",
+   "exam": "banking",
+   "feed": "https://byjus.com/govt-exams/feed/",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 coverage candidate-only; auditor content-gates"
+   }
+  },
+  {
+   "name": "JagranJosh RSS",
+   "enabled": false,
+   "type": "rss",
+   "exam": "gk",
+   "feed": "https://www.jagranjosh.com/rss-feeds",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 coverage candidate-only; auditor content-gates"
+   }
+  },
+  {
+   "name": "Freshersworld RSS",
+   "enabled": false,
+   "type": "rss",
+   "exam": "jobs",
+   "feed": "https://www.freshersworld.com/rss",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 coverage candidate-only; auditor content-gates"
+   }
+  },
+  {
+   "name": "ExamsDaily RSS",
+   "enabled": false,
+   "type": "rss",
+   "exam": "gk",
+   "feed": "https://examsdaily.in/feed/",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 coverage candidate-only; auditor content-gates"
+   }
+  },
+  {
+   "name": "Aglasem RSS",
+   "enabled": false,
+   "type": "rss",
+   "exam": "education",
+   "feed": "https://aglasem.com/feed/",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 coverage candidate-only; auditor content-gates"
+   }
+  },
+  {
+   "name": "Collegedunia RSS",
+   "enabled": false,
+   "type": "rss",
+   "exam": "education",
+   "feed": "https://collegedunia.com/feed/",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 coverage candidate-only; auditor content-gates"
+   }
+  },
+  {
+   "name": "Careers360 RSS",
+   "enabled": false,
+   "type": "rss",
+   "exam": "education",
+   "feed": "https://www.careers360.com/rss",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 coverage candidate-only; auditor content-gates"
+   }
+  },
+  {
+   "name": "Shiksha RSS",
+   "enabled": false,
+   "type": "rss",
+   "exam": "education",
+   "feed": "https://www.shiksha.com/rss",
+   "auto_enable_if_live": true,
+   "audit": {
+    "status": "unverified",
+    "checked": "2026-10-17",
+    "note": "v4 coverage candidate-only; auditor content-gates"
+   }
   }
  ],
  "last_expansion": "2026-09-11"

@@ -253,87 +253,180 @@ def parse_xlsx_sheets_data(xlsx_bytes: bytes, selected_sheets: list = None) -> d
     return result
 
 
-def import_rows_list(rows: list, default_category: str = "") -> dict:
-    """Takes row lists and saves to DB. ADVANCED columns (all after col-5 optional):
-    [1 Group Name | 2 Link or JID | 3 Category | 4 Shift | 5 Group Type |
-     6 Daily Times (08:00+20:30) | 7 Polls Per Slot | 8 Days (0=Always) | 9 Subjects (MATHS+GK)]
-    Rows with Daily Times get an automatic daily schedule after import."""
+def import_rows_list(rows: list, default_category: str = "",
+                     kind: str = "whatsapp") -> dict:
+    """Excel/manual rows → registry. kind="wa": WhatsApp groups (validate
+    JID, dedupe by JID); kind="tg": Telegram channels/groups (validate
+    chat, dedupe by channel key). Daily Times unte auto-schedule wanted
+    list kuda vasthundi (create_*_schedules_for_imports chudandi)."""
     import re as _re
-    added_groups = []
-    added_channels = []
-    schedules_wanted = []
+    added_groups, added_channels = [], []
+    schedules_wanted, tg_schedules_wanted = [], []
+    errors, skipped_duplicates = [], []
+    is_tg = str(kind).lower() in ("tg", "telegram")
 
+    def _times(parts, i):
+        raw = str(parts[i]).strip() if len(parts) > i else ""
+        out = []
+        for tok in _re.split(r"[+;/\s]+", raw):
+            tok = tok.strip()
+            if _re.fullmatch(r"\d{1,2}:\d{2}", tok):
+                out.append(("0" + tok) if len(tok) == 4 else tok)
+        return out
+
+    def _int(parts, i, default):
+        try:
+            return int(float(str(parts[i]).strip()))
+        except Exception:
+            return default
+
+    if is_tg:
+        try:
+            existing_keys = set(
+                channel_router.load_custom_channels().get("channels", {}))
+        except Exception:
+            existing_keys = set()
+        for parts in rows:
+            if not parts or not parts[0]:
+                continue
+            name = str(parts[0]).strip()
+            if name.lower() in ("name", "channel/group name", "channel name"):
+                continue
+            if name.startswith("👇") or name.lower().startswith("example"):
+                continue
+            chat = str(parts[1]).strip() if len(parts) > 1 else ""
+            category = str(parts[2]).strip() if len(parts) > 2 and parts[2] else (
+                default_category or channel_router.detect_exam_base(name))
+            ctype = str(parts[3]).strip().lower() if len(parts) > 3 and parts[3] else "channel"
+            if not (chat.startswith("@") and len(chat) > 2
+                    or "t.me/" in chat or _re.fullmatch(r"-?\d{5,}", chat)):
+                errors.append(f"{name}: invalid Telegram chat (use @username, t.me link or numeric id)")
+                continue
+            key = _re.sub(r"[^A-Z0-9_]", "_", name.upper()).strip("_")
+            if key in existing_keys:
+                skipped_duplicates.append(name)
+                continue
+            info = channel_router.register_channel(
+                name, chat_id=chat, exam_type=category,
+                chat_type="group" if ctype.startswith("group") else "channel")
+            existing_keys.add(info.get("key") or key)
+            added_channels.append(info)
+            times = _times(parts, 4)
+            if times:
+                tg_schedules_wanted.append({
+                    "key": info.get("key") or key, "times": times,
+                    "count": max(1, min(_int(parts, 5, 5), 20)),
+                    "days": max(0, _int(parts, 6, 0)),
+                    "subjects": [x for x in _re.split(
+                        r"[+;,/\s]+", str(parts[7]).strip().upper()
+                        if len(parts) > 7 else "") if x and x != "ALL"],
+                    "category": category})
+        return {"ok": True,
+                "imported_groups_count": 0,
+                "imported_channels_count": len(added_channels),
+                "groups": [], "channels": added_channels,
+                "schedules_wanted": [], "tg_schedules_wanted": tg_schedules_wanted,
+                "errors": errors, "skipped_duplicates": skipped_duplicates,
+                "skipped_duplicates_count": len(skipped_duplicates)}
+
+    existing_jids = set()
+    try:
+        existing_jids = {g.get("jid") for g in
+                         whatsapp_pipeline.load_wa_registry().get("groups", [])}
+    except Exception:
+        pass
     for parts in rows:
         if not parts or not parts[0]:
             continue
         name = str(parts[0]).strip()
         if name.lower() in ("name", "title", "group name", "channel name", "group", "group/channel name"):
             continue
-        # skip template guide/example rows
         if name.startswith("👇") or name.lower().startswith("example:") or "YOUR_LINK" in str(parts[1] if len(parts) > 1 else ""):
             continue
-
         link_or_jid = str(parts[1]).strip() if len(parts) > 1 else ""
         category = str(parts[2]).strip() if len(parts) > 2 and parts[2] else (default_category or channel_router.detect_exam_base(name))
         shift = str(parts[3]).strip().upper() if len(parts) > 3 and str(parts[3]).strip().upper() in ("MORNING", "EVENING", "ALL_DAY") else "ALL_DAY"
         g_type = str(parts[4]).strip().upper() if len(parts) > 4 and parts[4] else ("GENERAL" if "general" in (category.lower() + " " + name.lower()) else "EXAM_SPECIFIC")
-
-        # ---- advanced auto-schedule columns (6-9) ----
-        raw_times = str(parts[5]).strip() if len(parts) > 5 else ""
-        times = []
-        for tok in _re.split(r"[+;/\s]+", raw_times):
-            tok = tok.strip()
-            if _re.fullmatch(r"\d{1,2}:\d{2}", tok):
-                times.append(("0" + tok) if len(tok) == 4 else tok)
-        try:
-            polls_per_slot = max(1, min(int(float(str(parts[6]).strip())), 20)) if len(parts) > 6 and str(parts[6]).strip() else 5
-        except Exception:
-            polls_per_slot = 5
-        try:
-            days = max(0, int(float(str(parts[7]).strip()))) if len(parts) > 7 and str(parts[7]).strip() else 0
-        except Exception:
-            days = 0
+        times = _times(parts, 5)
+        polls_per_slot = max(1, min(_int(parts, 6, 5), 20))
+        days = max(0, _int(parts, 7, 0))
         raw_subj = str(parts[8]).strip().upper() if len(parts) > 8 else ""
-        subjects = [s for s in _re.split(r"[+;,/\s]+", raw_subj) if s and s != "ALL"]
+        subjects = [x for x in _re.split(r"[+;,/\s]+", raw_subj) if x and x != "ALL"]
 
-        if link_or_jid.startswith("@") or "t.me/" in link_or_jid:
-            ch_info = channel_router.register_channel(name, chat_id=link_or_jid, exam_type=category)
-            added_channels.append(ch_info)
+        if link_or_jid.startswith("@") and link_or_jid.endswith("@g.us") is False \
+                and "@g.us" not in link_or_jid and "@newsletter" not in link_or_jid \
+                or "t.me/" in link_or_jid:
+            # Telegram handle slipped into a WA sheet → channel ga register
+            info = channel_router.register_channel(name, chat_id=link_or_jid,
+                                                   exam_type=category)
+            added_channels.append(info)
             continue
 
-        if "chat.whatsapp.com" in link_or_jid:
-            # invite link → Quick-Add engine (auto-joins via bridge when connected, dedups by jid)
-            qres = whatsapp_pipeline.quick_add_groups(f"{name} | {link_or_jid} | {category}")
+        is_invite = "chat.whatsapp.com" in link_or_jid
+        if not is_invite and not _re.fullmatch(r"\d{6,}@g\.us", link_or_jid) \
+                and not link_or_jid.endswith("@newsletter"):
+            errors.append(f"{name}: invalid WhatsApp JID/link '{link_or_jid}' "
+                          "(1203...@g.us, @newsletter JID, or invite link kavali)")
+            continue
+        if link_or_jid in existing_jids:
+            skipped_duplicates.append(name)
+            continue
+        if is_invite:
+            qres = whatsapp_pipeline.quick_add_groups(
+                f"{name} | {link_or_jid} | {category}")
             grp = None
             if qres.get("added"):
                 a = qres["added"][0]
                 reg = whatsapp_pipeline.load_wa_registry()
-                grp = next((g for g in reg.get("groups", []) if g.get("jid") == a.get("jid") or g.get("name") == name), None)
+                grp = next((g for g in reg.get("groups", [])
+                            if g.get("jid") == a.get("jid")
+                            or g.get("name") == name), None)
             if not grp:
-                grp = whatsapp_pipeline.add_group(name, link_or_jid, category=category, shift=shift, group_type=g_type)
-            added_groups.append(grp)
+                grp = whatsapp_pipeline.add_group(
+                    name, link_or_jid, category=category, shift=shift,
+                    group_type=g_type)
         else:
-            grp = whatsapp_pipeline.add_group(name, link_or_jid, category=category, shift=shift, group_type=g_type)
-            added_groups.append(grp)
-
+            grp = whatsapp_pipeline.add_group(
+                name, link_or_jid, category=category, shift=shift,
+                group_type=g_type)
+        existing_jids.add(link_or_jid)
+        added_groups.append(grp)
         if times and grp and grp.get("id"):
             schedules_wanted.append({
-                "gid": grp["id"],
-                "times": times,
-                "count": polls_per_slot,
-                "days": days,
-                "subjects": subjects,
-                "category": category,
-            })
+                "gid": grp["id"], "times": times, "count": polls_per_slot,
+                "days": days, "subjects": subjects, "category": category})
 
-    return {
-        "ok": True,
-        "imported_groups_count": len(added_groups),
-        "imported_channels_count": len(added_channels),
-        "groups": added_groups,
-        "channels": added_channels,
-        "schedules_wanted": schedules_wanted,
-    }
+    return {"ok": True,
+            "imported_groups_count": len(added_groups),
+            "imported_channels_count": len(added_channels),
+            "groups": added_groups, "channels": added_channels,
+            "schedules_wanted": schedules_wanted, "tg_schedules_wanted": [],
+            "errors": errors, "skipped_duplicates": skipped_duplicates,
+            "skipped_duplicates_count": len(skipped_duplicates)}
+
+
+def create_tg_schedules_for_imports(tg_schedules_wanted: list,
+                                    label_prefix: str = "📥 Excel") -> list:
+    """TG channels ki daily jobs (mode='tg') — okko time ki okka job."""
+    created = []
+    buckets = {}
+    for it in tg_schedules_wanted or []:
+        key = ("+".join(it["times"]), it["count"], it["days"],
+               "+".join(it["subjects"]), it["category"])
+        buckets.setdefault(key, []).append(it)
+    for (times_key, count, days, subj_key, category), items in buckets.items():
+        keys = [i["key"] for i in items]
+        for t in items[0]["times"]:
+            job = whatsapp_pipeline.add_scheduled_job(
+                t, telegram_channels=keys, category=category or "ALL",
+                questions_count=count, days_duration=days,
+                auto_mode=(days == 0), subjects=items[0]["subjects"],
+                mode="tg",
+                label=f"{label_prefix} {t} · TG {len(keys)} channel(s)"
+                      + (f" · {days}d" if days else " · Always-On"))
+            created.append({"id": job["id"], "time": job["time"],
+                            "channels": len(keys), "days": days})
+    return created
 
 
 def create_schedules_for_imports(schedules_wanted: list, label_prefix: str = "📥 Excel") -> list:
@@ -481,8 +574,15 @@ def build_groups_template_xlsx() -> bytes:
         ["IBPS PO Speed Maths", "https://chat.whatsapp.com/EXAMPLE4StUvWx", "BANKING", "MORNING", "EXAM_SPECIFIC", "09:00", "5", "45", "MATHS+REASONING+ENGLISH"],
         ["SBI Clerk Current Affairs", "120363000000000003@g.us", "BANKING", "ALL_DAY", "EXAM_SPECIFIC", "08:30+20:00", "5", "0", "CURRENT+GK"],
     ]
+    telegram = [
+        ["Channel/Group Name", "Chat ID / @username / t.me link", "Exam Category",
+         "Type (channel/group)", "Daily Times", "Polls Per Slot", "Days (0=Always)", "Subjects"],
+        ["SSC Daily Quiz Telugu", "@StudentUpSSC", "SSC", "channel", "08:00+20:00", "5", "0", "GK"],
+        ["Banking Warriors Group", "@BankingWarriors", "BANKING", "group", "09:00", "5", "0", "MATHS"],
+    ]
     return build_multisheet_xlsx_bytes({
         "📖 Instructions": instructions,
+        "📢 Telegram_Channels": telegram,
         "✍️ My_Groups": my_groups,
         "Police_SI_Groups": police,
         "TET_DSC_Groups": tet,
@@ -490,8 +590,12 @@ def build_groups_template_xlsx() -> bytes:
     })
 
 
-def import_from_csv_or_excel_text(raw_text: str) -> dict:
-    """Parses comma-separated, tab-separated or pipe-separated lines."""
+def import_from_csv_or_excel_text(raw_text: str,
+                                  dry_run: bool = False) -> dict:
+    """Parses comma-separated, tab-separated or pipe-separated lines.
+    dry_run=True aithe calculate chestundi kani EM write cheyyadu
+    (multisheet import tho parity — bulk_setup CLI rendu paths ki
+    okkela behave cheyyali)."""
     lines = [l.strip() for l in raw_text.splitlines() if l.strip()]
     rows = []
     for line in lines:
@@ -508,47 +612,125 @@ def import_from_csv_or_excel_text(raw_text: str) -> dict:
         else:
             parts = [line]
         rows.append(parts)
+    if dry_run:
+        from core import config as _cfg
+        files = [whatsapp_pipeline.WA_CONFIG_FILE,
+                 whatsapp_pipeline.WA_SCHEDULES_FILE,
+                 channel_router.CUSTOM_CHANNELS_FILE]
+        snap_files = [(f, f.read_bytes() if f.exists() else None)
+                      for f in files]
+        snap_channels = set(_cfg.CHANNELS.keys())
+        snap_public = list(_cfg.PUBLIC_CHANNELS)
+        try:
+            res = import_rows_list(rows)
+            res["schedules_created"] = create_schedules_for_imports(
+                res.pop("schedules_wanted", []), "📥 Paste")
+            res["tg_schedules_created"] = create_tg_schedules_for_imports(
+                res.pop("tg_schedules_wanted", []), "📥 Paste")
+            res["dry_run"] = True
+            return res
+        finally:
+            for f, blob in snap_files:
+                try:
+                    if blob is None:
+                        f.unlink(missing_ok=True)
+                    else:
+                        f.write_bytes(blob)
+                except Exception:
+                    pass
+            for k in list(_cfg.CHANNELS.keys()):
+                if k not in snap_channels:
+                    _cfg.CHANNELS.pop(k, None)
+            _cfg.PUBLIC_CHANNELS[:] = snap_public
     res = import_rows_list(rows)
     res["schedules_created"] = create_schedules_for_imports(res.pop("schedules_wanted", []), "📥 Paste")
+    res["tg_schedules_created"] = create_tg_schedules_for_imports(
+        res.pop("tg_schedules_wanted", []), "📥 Paste")
     return res
 
 
-def import_from_multisheet_excel(xlsx_bytes: bytes, selected_sheet_names: list = None) -> dict:
-    """Reads multiple sheets from an .xlsx file and imports all rows into the database."""
-    sheet_data = parse_xlsx_sheets_data(xlsx_bytes, selected_sheet_names)
-    total_groups = 0
-    total_channels = 0
-    all_groups = []
-    all_channels = []
-    all_schedules = []
-    per_sheet = {}
+def import_from_multisheet_excel(xlsx_bytes: bytes, selected_sheet_names: list = None,
+                                 dry_run: bool = False) -> dict:
+    """Multi-sheet workbook → WA groups + TG channels + auto-schedules.
+    dry_run=True aithe motham calculate chestundi kani EM write cheyyadu."""
+    snap = None
+    if dry_run:
+        from core import config as _cfg
+        files = [whatsapp_pipeline.WA_CONFIG_FILE,
+                 whatsapp_pipeline.WA_SCHEDULES_FILE,
+                 channel_router.CUSTOM_CHANNELS_FILE]
+        snap = {"files": [(f, f.read_bytes() if f.exists() else None)
+                          for f in files],
+                "channels": set(_cfg.CHANNELS.keys()),
+                "public": list(_cfg.PUBLIC_CHANNELS)}
+    try:
+        sheet_data = parse_xlsx_sheets_data(xlsx_bytes, selected_sheet_names)
+        total_groups = total_channels = 0
+        all_groups, all_channels = [], []
+        all_schedules, all_tg_schedules = [], []
+        all_errors, all_skipped = [], []
+        per_sheet = {}
 
-    for sname, rows in sheet_data.items():
-        if "instruction" in sname.lower() or "📖" in sname:
-            continue  # skip the guide sheet from the sample template
-        res = import_rows_list(rows, default_category=channel_router.detect_exam_base(sname))
-        sched = create_schedules_for_imports(res.pop("schedules_wanted", []), f"📥 {sname}")
-        all_schedules.extend(sched)
-        total_groups += res["imported_groups_count"]
-        total_channels += res["imported_channels_count"]
-        all_groups.extend(res["groups"])
-        all_channels.extend(res["channels"])
-        per_sheet[sname] = {
-            "groups": res["imported_groups_count"],
-            "channels": res["imported_channels_count"],
-            "schedules": len(sched),
+        for sname, rows in sheet_data.items():
+            if "instruction" in sname.lower() or "📖" in sname:
+                continue  # skip the guide sheet from the sample template
+            is_tg = "telegram" in sname.lower() or "📢" in sname
+            res = import_rows_list(
+                rows, default_category=channel_router.detect_exam_base(sname),
+                kind="tg" if is_tg else "wa")
+            if is_tg:
+                sched = create_tg_schedules_for_imports(
+                    res.pop("tg_schedules_wanted", []), f"📥 {sname}")
+                all_tg_schedules.extend(sched)
+            else:
+                sched = create_schedules_for_imports(
+                    res.pop("schedules_wanted", []), f"📥 {sname}")
+                all_schedules.extend(sched)
+            res.pop("tg_schedules_wanted", None)
+            res.pop("schedules_wanted", None)
+            total_groups += res["imported_groups_count"]
+            total_channels += res["imported_channels_count"]
+            all_groups.extend(res["groups"])
+            all_channels.extend(res["channels"])
+            all_errors.extend(res.get("errors", []))
+            all_skipped.extend(res.get("skipped_duplicates", []))
+            per_sheet[sname] = {
+                "groups": res["imported_groups_count"],
+                "channels": res["imported_channels_count"],
+                "schedules": len(sched),
+            }
+
+        out = {
+            "ok": True,
+            "dry_run": bool(dry_run),
+            "sheets_processed": [s for s in sheet_data.keys()],
+            "imported_groups_count": total_groups,
+            "imported_channels_count": total_channels,
+            "schedules_created": all_schedules,
+            "tg_schedules_created": all_tg_schedules,
+            "errors": all_errors,
+            "skipped_duplicates": all_skipped,
+            "skipped_duplicates_count": len(all_skipped),
+            "per_sheet": per_sheet,
+            "groups": all_groups,
+            "channels": all_channels
         }
-
-    return {
-        "ok": True,
-        "sheets_processed": [s for s in sheet_data.keys()],
-        "imported_groups_count": total_groups,
-        "imported_channels_count": total_channels,
-        "schedules_created": all_schedules,
-        "per_sheet": per_sheet,
-        "groups": all_groups,
-        "channels": all_channels
-    }
+    finally:
+        if snap is not None:
+            from core import config as _cfg
+            for fpath, blob in snap["files"]:
+                try:
+                    if blob is None:
+                        if fpath.exists():
+                            fpath.unlink()
+                    else:
+                        fpath.write_bytes(blob)
+                except Exception:
+                    pass
+            for k in set(_cfg.CHANNELS.keys()) - snap["channels"]:
+                _cfg.CHANNELS.pop(k, None)
+            _cfg.PUBLIC_CHANNELS[:] = snap["public"]
+    return out
 
 
 def dispatch_bulk_broadcast(

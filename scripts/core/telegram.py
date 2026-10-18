@@ -130,6 +130,26 @@ class Telegram:
                 print(f"   [retry {attempt+1}] {method} {code}: {desc[:120]} (sleep {wait}s)")
                 time.sleep(wait)
                 backoff = min(backoff * 2, 30)
+            except urllib.error.HTTPError as e:
+                # HTTP status vachindi — fatal 4xx retry cheyyaku (1 attempt)
+                try:
+                    ebody = e.read().decode("utf-8", "replace")
+                except Exception:
+                    ebody = ""
+                try:
+                    eparsed = json.loads(ebody)
+                except Exception:
+                    eparsed = {"ok": False, "description": ebody[:200]}
+                edesc = str(eparsed.get("description", ebody))
+                if e.code in (400, 401, 403, 404) or e.code != 429 and e.code < 500:
+                    raise TelegramError(f"{method} fatal {e.code}: {edesc}")
+                if attempt == 4:
+                    raise TelegramError(f"{method} failed {e.code}: {edesc}")
+                era = (eparsed.get("parameters") or {}).get("retry_after")
+                ewait = min(float(era) + 0.5, 60) if isinstance(era, (int, float)) and era > 0 else backoff
+                print(f"   [retry {attempt+1}] {method} {e.code}: {edesc[:120]} (sleep {ewait}s)")
+                time.sleep(ewait)
+                backoff = min(backoff * 2, 30)
             except urllib.error.URLError as e:
                 if attempt == 4:
                     raise TelegramError(f"{method} network error: {e}")
@@ -140,7 +160,8 @@ class Telegram:
     # ------------------------------------------------------------- high-level
     def send_quiz(self, chat_id: str, question: str, options: list,
                   correct_index: int, explanation: str = "",
-                  open_period=None, with_explanation: bool = True) -> dict:
+                  open_period=None, with_explanation: bool = True,
+                  is_anonymous: bool = True) -> dict:
         """Native Telegram quiz poll.
 
         Instant mode (default): correct_option_id + explanation → Telegram
@@ -148,14 +169,16 @@ class Telegram:
         Delayed mode: still sets correct_option_id (so Telegram marks right/
         wrong) but omits explanation; Engine posts a full answer-key later.
         """
-        if len(options) < 2:
-            raise TelegramError("quiz needs >=2 options")
+        if len(options) < 2 or len(options) > 10:
+            raise TelegramError("quiz needs 2-10 options")
+        if not (0 <= int(correct_index) < len(options)):
+            raise TelegramError("correct_option_id out of range")
         payload = {
             "chat_id": chat_id,
-            "question": question,
-            "options": [{"text": o} for o in options],
+            "question": str(question)[:300],           # Telegram poll limits
+            "options": [{"text": str(o)[:100]} for o in options],
             "type": "quiz",
-            "is_anonymous": True,
+            "is_anonymous": bool(is_anonymous),
             "allows_multiple_answers": False,
             "correct_option_id": int(correct_index),
         }
@@ -273,3 +296,18 @@ class Telegram:
         if not active:
             return
         time.sleep(random.uniform(config.POLL_GAP_MIN, config.POLL_GAP_MAX))
+
+
+def reaction_counts_from_update(upd):
+    """message_reaction_count update → {chat_id, message_id, counts} normalize
+    (anonymous channel votes). Vere updates ki None."""
+    u = (upd or {}).get("message_reaction_count")
+    if not u:
+        return None
+    counts = {}
+    for r in u.get("reactions") or []:
+        emoji = ((r.get("type") or {}).get("emoji") or "")
+        if emoji:
+            counts[emoji] = int(r.get("total_count", 0))
+    return {"chat_id": (u.get("chat") or {}).get("id"),
+            "message_id": u.get("message_id"), "counts": counts}
