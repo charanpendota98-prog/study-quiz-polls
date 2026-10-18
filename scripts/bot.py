@@ -2825,6 +2825,29 @@ class Bot:
         except TelegramError:
             pass  # user hasn't started the bot in DM — ignore
 
+    def _bot_notify_tick130(self):
+        """📬 130X: portal outbox broadcasts + due reminders ni linked
+        students ki deliver chestundi (claim-once queues portal lo)."""
+        from core import portal as _p130
+        jobs = []
+        try:
+            jobs += _p130.bot_outbox_jobs(self.members)
+        except Exception:
+            pass
+        try:
+            jobs += _p130.due_bot_reminders(self.members)
+        except Exception:
+            pass
+        base = _portal_base120()
+        for j in jobs[:60]:
+            try:
+                self.tg.send_message(
+                    j["tg_id"], j["text"],
+                    buttons=[[("🌐 Portal Open", "url:" + base + "/?go=quiz")]])
+            except TelegramError:
+                pass
+            time.sleep(0.05)
+
     # ------------------------------------------------------------ run
     def run(self):
         self._load_polls()
@@ -2852,6 +2875,12 @@ class Bot:
                         pass
                     if campus.tick(self.tg, self.members):
                         live = True
+                    try:      # 🤖 130X bot delivery: broadcasts + reminders (10-min throttle)
+                        if time.time() - getattr(self, "_notify130_ts", 0) > 600:
+                            self._notify130_ts = time.time()
+                            self._bot_notify_tick130()
+                    except Exception:
+                        pass
                     try:      # 🎓 Exam Conductor: due events → announce / start / finish
                         from core import conductor
                         conductor.tick(bank=self.bank, members=self.members, tg=self.tg)

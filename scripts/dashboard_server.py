@@ -6559,6 +6559,15 @@ All candidates must join today before 9:00 PM!"></textarea>
       } catch (e) { /* tab not ready */ }
     }
 
+    async function sendBotBroadcast() {
+      const text = (document.getElementById('bb-text') || {}).value || '';
+      const goal = (document.getElementById('bb-goal') || {}).value || '';
+      if (!text.trim()) { alert('Message type cheyyandi'); return; }
+      const d = await (await fetch('/api/portal/admin/bot_broadcast', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({text, goal})})).json();
+      alert(d.ok ? ('📣 Queued! Bot next tick lo ~' + (d.targets || 0) + ' linked students ki vasthundi.') : (d.error || 'Failed'));
+      if (d.ok) document.getElementById('bb-text').value = '';
+    }
+
     async function loadPortalAnalytics() {
       const box = document.getElementById('pt-analytics');
       if (!box) return;
@@ -6580,11 +6589,17 @@ All candidates must join today before 9:00 PM!"></textarea>
           bar('Attempted (≥1 test)', f.attempted || 0, f.registered || 0) +
           bar('Active today', f.active_today || 0, f.registered || 0) +
           ((d.retention) ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🔁 Retention</h4><div>🆕 Last 7d registered: <b style="color:#e2e8f0;">' + (d.retention.new_7d || 0) + '</b> · 🟢 Active 7d: <b style="color:#e2e8f0;">' + (d.retention.active_7d || 0) + '</b> (' + (d.retention.active_7d_pct || 0) + '% of students)</div>' : '') +
-          ((d.bot) ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🤖 Bot Funnel (120X)</h4><div>🔗 Linked: <b style="color:#e2e8f0;">' + (d.bot.linked || 0) + '</b> (' + (d.bot.link_pct || 0) + '% of students) · 🪪 Link claims: <b style="color:#e2e8f0;">' + (d.bot.claims || 0) + '</b> · 🔐 WebApp logins: <b style="color:#e2e8f0;">' + (d.bot.logins || 0) + '</b></div>' : '') +
+          ((d.bot) ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🤖 Bot Funnel (120X)</h4><div>🔗 Linked: <b style="color:#e2e8f0;">' + (d.bot.linked || 0) + '</b> (' + (d.bot.link_pct || 0) + '% of students) · 🪪 Link claims: <b style="color:#e2e8f0;">' + (d.bot.claims || 0) + '</b> · 🔐 WebApp logins: <b style="color:#e2e8f0;">' + (d.bot.logins || 0) + '</b> · 📬 Bot msgs sent: <b style="color:#e2e8f0;">' + (d.bot.msgs || 0) + '</b></div>' +
+          '<div style="margin-top:8px;"><div class="muted" style="font-size:11.5px;">📣 Bot Broadcast (linked students ki Telegram):</div>' +
+          '<textarea id="bb-text" rows="2" style="width:100%; margin-top:4px;" placeholder="Ee roju 7 PM ki Grand Mock LIVE! Ready ga undandi 🔥"></textarea>' +
+          '<div style="display:flex; gap:6px; margin-top:5px;"><select id="bb-goal" style="flex:1;"><option value="">All goals</option></select>' +
+          '<button class="btn btn-outline" onclick="sendBotBroadcast()">📣 Queue Broadcast</button></div></div>' : '') +
           '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🎯 Students by Goal</h4><div>' + chips(d.goals) + '</div>' +
           '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🧪 Attempts by Kind</h4><div>' + chips(d.attempt_kinds) + '</div>' +
           ((d.pyq_gaps || []).length ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">📜 PYQ Coverage Gaps (target 50/channel)</h4>' +
             (d.pyq_gaps || []).map(g => '<div style="margin-top:3px;">' + (g.channel || g.exam || '?') + ': <b style="color:#facc15;">' + (g.gap != null ? g.gap + ' to go' : '') + '</b> <span>(' + (g.pyq || 0) + ' PYQ now)</span></div>').join('') : '');
+        const bbg = document.getElementById('bb-goal');
+        if (bbg) Object.keys(d.goals || {}).forEach(g => { const o = document.createElement('option'); o.value = g; o.textContent = g; bbg.appendChild(o); });
       } catch (e) { box.textContent = '❌ ' + e; }
     }
 
@@ -9154,6 +9169,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json({"ok": res.get("added", 0) >= 0, **res})
             return
 
+        if p.path == "/api/portal/admin/bot_broadcast":
+            ok, info = portal.admin_bot_broadcast(
+                Members(), body.get("text", ""), body.get("goal", ""))
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
         if p.path == "/api/portal/admin/announce":
             txt = portal.winners_text(body.get("exam_id", ""))
             if not txt:

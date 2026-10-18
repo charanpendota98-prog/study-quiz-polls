@@ -2665,6 +2665,7 @@ def portal_analytics(members):
             "bot": {"linked": len(d.get("tg_map") or {}),
                     "claims": int((d.get("tg_stats") or {}).get("claims") or 0),
                     "logins": int((d.get("tg_stats") or {}).get("logins") or 0),
+                    "msgs": int((d.get("tg_stats") or {}).get("bot_msgs") or 0),
                     "link_pct": round(100 * len(d.get("tg_map") or {})
                                       / max(1, len(reg)), 1)},
             "archive_size": len(arc),
@@ -3845,3 +3846,117 @@ def bot_leaders(members, tg_uid, limit=10):
                   "my_rank": next((i + 1 for i, r in enumerate(rows)
                                    if r.get("uid") == uid), None),
                   "total_players": len(rows), "linked": bool(uid)}
+
+
+# ------------------------------------------- 130X bot delivery (closed loop)
+BOT_DAILY_REMIND_HOUR = 18          # IST — evening daily-quiz nudge
+
+
+def _bot_msgs_bump(d, n):
+    st = d.setdefault("tg_stats", {})
+    st["bot_msgs"] = int(st.get("bot_msgs") or 0) + int(n or 0)
+
+
+@_locked
+def admin_bot_broadcast(members, text, goal=""):
+    """📣 ADMIN → BOT BROADCAST (130X): dashboard nunchi linked
+    students ki Telegram message queue. Bot process drain chestundi.
+    Goal filter: aa goal students ki matrame."""
+    text = str(text or "").strip()[:900]
+    if not text:
+        return False, "Message empty undi."
+    goal = goal if goal in GOALS else ""
+    d = _load()
+    ent = {"id": secrets.token_hex(4), "text": text, "goal": goal,
+           "ts": _now().isoformat()}
+    box = d.setdefault("bot_outbox", [])
+    box.append(ent)
+    d["bot_outbox"] = box[-50:]
+    _save(d)
+    inv = {v: k for k, v in (d.get("tg_map") or {}).items()}
+    targets = 0
+    for uid in inv:
+        gm = _member(members, uid)
+        if not goal or gm.get("goal") == goal or gm.get("exam_goal") == goal:
+            targets += 1
+    return True, {"id": ent["id"], "queued": True, "targets": targets}
+
+
+@_locked
+def bot_outbox_jobs(members, limit=500):
+    """Bot drain: pending broadcasts ni linked targets ki jobs ga
+    claim chestundi (claim-once — malli ravu)."""
+    d = _load()
+    box = d.get("bot_outbox") or []
+    if not box:
+        return []
+    inv = {v: k for k, v in (d.get("tg_map") or {}).items()}
+    jobs = []
+    for ent in box:
+        goal = ent.get("goal") or ""
+        for uid, tg in inv.items():
+            gm = _member(members, uid)
+            if goal and gm.get("goal") != goal and gm.get("exam_goal") != goal:
+                continue
+            jobs.append({"tg_id": tg, "kind": "broadcast",
+                         "text": "📣 StudentUp:\n" + ent.get("text", "")})
+    d["bot_outbox"] = []
+    _bot_msgs_bump(d, len(jobs))
+    _save(d)
+    return jobs[:limit]
+
+
+@_locked
+def due_bot_reminders(members):
+    """⏰ REMINDER PLANNER (130X): exam reminders (24h/2h windows,
+    dedupe keys) + evening daily-quiz nudge for linked students who
+    haven't finished today. Bot process deenini prathi 10 min ki
+    poll chesi deliver chestundi."""
+    d = _load()
+    now = _now()
+    inv = {v: k for k, v in (d.get("tg_map") or {}).items()}
+    if not inv:
+        return []
+    sent = set(d.get("bot_remind_sent") or [])
+    jobs = []
+    exams = d.get("exams") or {}
+    for exam_id, uids in (d.get("exam_reminds") or {}).items():
+        e = exams.get(str(exam_id))
+        if not e:
+            continue
+        try:
+            starts = datetime.fromisoformat(e.get("starts_at") or "")
+            hrs = (starts - now).total_seconds() / 3600.0
+        except Exception:
+            continue
+        win = "h2" if hrs <= 2 else ("d1" if hrs <= 24 else "")
+        if not win or hrs < 0:
+            continue
+        for uid in uids or []:
+            tg = inv.get(uid)
+            key = f"{exam_id}:{uid}:{win}"
+            if tg and key not in sent:
+                sent.add(key)
+                when = "2 hours lo" if win == "h2" else "repu ee time ki"
+                jobs.append({"tg_id": tg, "kind": "exam_remind",
+                             "text": f"⏰ Reminder: {e.get('title', 'Live Exam')} {when} start avthundi ({e.get('starts_at', '')}). Ready ga undi!"})
+    if now.hour >= BOT_DAILY_REMIND_HOUR:
+        _refresh(d, now)
+        day = _daily_paper(d)
+        runs = day.get("runs") or {}
+        for uid, tg in inv.items():
+            run = runs.get(uid) or {}
+            if run.get("done"):
+                continue
+            key = f"daily:{_today()}:{uid}"
+            if key in sent:
+                continue
+            sent.add(key)
+            left = len(day["qs"]) - len(run.get("answers") or {})
+            jobs.append({"tg_id": tg, "kind": "daily_remind",
+                         "text": f"📅 Daily Quiz inka {left} questions pending unnayi — streak miss avvakunda ippude complete cheyyandi! 🔥"})
+    if jobs:
+        d["bot_remind_sent"] = sorted(sent)[-2000:]
+        _bot_msgs_bump(d, len(jobs))
+        _save(d)
+    return jobs
