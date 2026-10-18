@@ -182,6 +182,8 @@ class Advanced260Test(unittest.TestCase):
         self.assertTrue(err2)
 
     def test_stateless_answer_grading_updates_state(self):
+        # 270X: options are now shuffled per-student — answers use the
+        # DISPLAY index (same contract as 270X tests), not answer_index.
         tok, _ = sc.register_student("Ananya Rao", "9849112602",
                                      "Guntur", "railway", secret=SECRET)
         dq = sc.daily_quiz(tok, secret=SECRET)
@@ -190,27 +192,41 @@ class Advanced260Test(unittest.TestCase):
         self.assertNotIn("answer_index", str(dq["questions"][0]))
         bank = {str(q["id"]): q for q in question_bank.load_bank()}
         q0 = dq["questions"][0]
-        nt, res = sc.record_answer(tok, q0["id"],
-                                   bank[str(q0["id"])]["answer_index"],
-                                   secret=SECRET)
+        i0 = q0.get("i", 0)
+        _opts, perm = sc._display(bank[str(q0["id"])],
+                                  f"w9849112602:{dq['date']}:{i0}")
+        disp = perm.index(bank[str(q0["id"])]["answer_index"])
+        nt, res = sc.record_answer(tok, q0["id"], disp, secret=SECRET,
+                                   idx=i0)
         self.assertTrue(res["correct"])
         self.assertEqual(res["points"], 10)
-        wrong = (bank[str(q0["id"])]["answer_index"] + 1) % 4
-        _nt2, res2 = sc.record_answer(nt, q0["id"], wrong, secret=SECRET)
+        q1 = dq["questions"][1]
+        i1 = q1.get("i", 1)
+        _o1, perm1 = sc._display(bank[str(q1["id"])],
+                                 f"w9849112602:{dq['date']}:{i1}")
+        wrong = (perm1.index(bank[str(q1["id"])]["answer_index"])
+                 + 1) % len(perm1)
+        _nt2, res2 = sc.record_answer(nt, q1["id"], wrong, secret=SECRET,
+                                      idx=i1)
         self.assertFalse(res2["correct"])
         self.assertEqual(res2["accuracy"], 50)
-        v = sc.public_view(nt, secret=SECRET)
-        self.assertEqual(v["topics_seen"], 1)
+        v = sc.public_view(_nt2, secret=SECRET)
+        self.assertGreaterEqual(v["topics_seen"], 1)
 
     def test_stateless_attempt_sections_and_typ_guard(self):
         tok, _ = sc.register_student("Ananya Rao", "9849112603",
                                      "Guntur", "railway", secret=SECRET)
-        at, err = sc.start_attempt(tok, secret=SECRET)
-        self.assertIsNone(err)
+        at, info = sc.start_attempt(tok, secret=SECRET)
+        self.assertIsInstance(info, dict)  # 270X: served questions+minutes
         self.assertIsNone(sc.public_view(at, secret=SECRET))  # typ!="u"
         bank = {str(q["id"]): q for q in question_bank.load_bank()}
         qids = sc.decode_token(at, secret=SECRET)["qids"]
-        answers = {str(q): bank[str(q)]["answer_index"] for q in qids[:5]}
+        answers = {}
+        for _pos, _qid in enumerate(qids[:5]):   # display indices (270X)
+            _oo, _pp = sc._display(bank[str(_qid)],
+                                   f"sl-att:w9849112603:{_pos}")
+            answers[str(_qid)] = _pp.index(
+                bank[str(_qid)]["answer_index"])
         nt, sub = sc.submit_attempt(tok, at, answers, secret=SECRET)
         self.assertTrue(sub["ok"])
         self.assertEqual(sub["correct"], 5)

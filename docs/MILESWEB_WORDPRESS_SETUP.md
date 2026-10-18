@@ -139,3 +139,47 @@ actual delivery portal/bot nunchi (points economy kosam).
 - [ ] Dashboard → Health/Go-live checks anni green
 - [ ] Test student: register → daily quiz → mock → materials unlock
 - [ ] Weekly Grand Test next Sunday schedule confirm
+
+
+---
+
+## 🚀 270X: No-VPS Shared-Hosting Mode (Stateless Portal)
+
+MilesWeb **Premium = Linux Shared hosting** (NOT a VPS): no root, no
+systemd, no guaranteed custom listening ports, no 24x7 long-running
+processes. So the Telegram bot, WhatsApp scheduler and the admin
+dashboard still need an always-on host somewhere — that part is
+honest, no workaround changes it.
+
+What CAN run without a server-side student database is the student
+portal itself, via the **Stateless Client** (260X core, 270X wired):
+
+- Registration returns a signed `su1...` token; the student's progress
+  lives **inside the token in their own browser** (`localStorage['su_stateless']`).
+- Daily Quiz + mock attempts are served per-student shuffled, graded
+  on the server against the signed token; a fresh token comes back
+  with every answer (points/streak/topic stats accumulate in it).
+- Ranks, prizes and leaderboard receipts NEVER trust the carried
+  token — the server issues short-lived signed **claims** (typ `c`,
+  7-day TTL) via `issue_claim`/`verify_claim`.
+
+Portal routes (public, before the admin gate):
+
+| Route | Purpose |
+|---|---|
+| `POST /api/portal/st270/register` | name + phone + district + goal -> signed token |
+| `GET /api/portal/st270?token=...` | signed progress view |
+| `POST /api/portal/st270/answer` | grade one answer (display index) |
+| `POST /api/portal/st270/attempt/start` | 15-Q shuffled attempt |
+| `POST /api/portal/st270/attempt/submit` | grade attempt (single-use) |
+| `POST /api/portal/st270/claims` | verify a server-signed claim (verify-only) |
+
+In the portal registration card, tick **Stateless (No-VPS) mode** to
+use it. DNS still stays honest: point a subdomain (`quiz`) at the
+**application host's IP only** — never at the shared WordPress IP.
+
+⚠️ Trust boundary: the carried token can be replayed by its owner, so
+student-carried points are *progress*, not proof. Only server-signed
+claims (verify-only route above) count for ranks/prizes. Attempts are
+single-use (server nonce) and each question pays out once (portal
+anti-farm parity), so replayed tokens can't inflate scores.

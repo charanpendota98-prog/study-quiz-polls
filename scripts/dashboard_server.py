@@ -170,6 +170,14 @@ def _golive_checks():
                    "registration/auth)"
                    if _sl_ok260 else f"round-trip failed: {_sle260}")})
     checks.append({
+        "name": "No-VPS shared-host mode (270X)",
+        "status": "ok" if _sl_ok260 else "warn",
+        "detail": ("portal Stateless routes active — MilesWeb Premium "
+                   "shared hosting mide portal run cheyyavachu; bot/"
+                   "broadcast ki matrame VPS kavali"
+                   if _sl_ok260 else
+                   "stateless module fail — hosting mode unavailable")})
+    checks.append({
         "name": "Dashboard password",
         "status": "warn" if _dpw_default else "ok",
         "detail": ("DEFAULT password (studentup123) inka use avthundi — "
@@ -907,6 +915,9 @@ PORTAL_HTML = """<!DOCTYPE html>
   <div id="view-reg" class="card" style="display:none;">
     <h2>👋 StudentUp loki welcome!</h2>
     <p class="muted">Okka sari register avandi — Daily Quiz, Mock Tests, mee personal report & leaderboards anni ready. Data mee bot account tho kuda link avthundi.</p>
+    <p class="muted" style="margin-top:6px;">🔐 <b>No-VPS mode:</b> kindha checkbox pedithe mee progress signed token roopam lo mee phone lone untundi — separate server database akkarledu.</p>
+    <label style="display:flex; gap:8px; align-items:center; margin-top:8px;"><input type="checkbox" id="r-stateless" style="width:auto;"> 🔐 Stateless (No-VPS) mode — progress naa phone lone save avvali</label>
+    <p class="muted" style="margin-top:4px;">Browser data clear ayithe progress povachu — ranks/prizes ki server-signed receipts vastayi.</p>
     <label>🏆 Meeru Ae Exam Kosam Prepare Avthunnaru?</label>
     <select id="r-goal"></select>
     <label>Mee Peru (Full Name)</label>
@@ -1242,7 +1253,22 @@ async function init() {
   (meta.topics || []).forEach(t => { const o = document.createElement('option'); o.value = t; o.textContent = t; ts.appendChild(o); });
   const gl = document.getElementById('r-goal');
   Object.entries(GOALS).forEach(([k, v]) => { const o = document.createElement('option'); o.value = k; o.textContent = v; gl.appendChild(o); });
-  if (token) { flushOffline(); loadHome(); } else { show('view-reg'); }
+  const _slTok = localStorage.getItem('su_stateless') || '';
+  if (_slTok) { token = _slTok; loadStatelessHome(); }
+  else if (token) { flushOffline(); loadHome(); } else { show('view-reg'); }
+}
+async function loadStatelessHome() {
+  const st = (localStorage.getItem('su_stateless') || token || '');
+  if (!st) { show('view-reg'); return; }
+  token = st;  // keep su_portal fallback flow untouched below
+  const d = await api('/api/portal/st270?token=' + encodeURIComponent(st));
+  if (!d.ok) { localStorage.removeItem('su_stateless'); show('view-reg'); return; }
+  show('view-home');
+  const hello = document.getElementById('hello'); if (hello) hello.textContent = '👋 ' + ((d.profile || {}).name || 'Student');
+  const hints = document.getElementById('daily-info'); if (hints) hints.textContent = '🔐 No-VPS mode: mee points/progress mee signed token lone untayi. Daily Quiz & attempts kindha primary buttons tho ne vasthayi.';
+  alert('🔐 Stateless (No-VPS) mode active! Points: ' + (d.points || 0)
+        + ' · Answers: ' + (d.answers || 0)
+        + ' · Accuracy: ' + (d.accuracy || 0) + '%');
 }
 function copyRef() {
   const el = document.getElementById('ref-link');
@@ -1314,6 +1340,16 @@ async function loadReport() {
 }
 async function doRegister() {
   const err = document.getElementById('reg-err'); err.textContent = '';
+  if (document.getElementById('r-stateless') && document.getElementById('r-stateless').checked) {
+    const sd = await api('/api/portal/st270/register', {
+      name: document.getElementById('r-name').value.trim(),
+      phone: document.getElementById('r-phone').value.trim(),
+      district: document.getElementById('r-district').value,
+      goal: document.getElementById('r-goal').value});
+    if (!sd.ok) { err.textContent = '❌ ' + (sd.error || 'Register avvaledu'); return; }
+    token = sd.token; localStorage.setItem('su_stateless', token); localStorage.removeItem('su_portal');
+    return loadStatelessHome();
+  }
   const d = await api('/api/portal/register', {
     name: document.getElementById('r-name').value.trim(),
     phone: document.getElementById('r-phone').value.trim(),
@@ -1324,7 +1360,7 @@ async function doRegister() {
   token = d.token; localStorage.setItem('su_portal', token);
   loadHome();
 }
-function logout() { localStorage.removeItem('su_portal'); token = ''; show('view-reg'); }
+function logout() { localStorage.removeItem('su_portal'); localStorage.removeItem('su_stateless'); token = ''; show('view-reg'); }
 const ACC2 = { '#10b981': '#065f46', '#38bdf8': '#0369a1', '#f59e0b': '#b45309', '#f472b6': '#be185d', '#a78bfa': '#6d28d9', '#facc15': '#a16207' };
 function setAccent(a) {
   if (a) { document.body.style.setProperty('--acc', a); document.body.style.setProperty('--acc2', ACC2[a] || a); }
@@ -8350,6 +8386,26 @@ class DashboardHandler(BaseHTTPRequestHandler):
             mc = portal.materials_catalog(Members(), query.get("token", [""])[0])
             self._send_json({"ok": mc is not None, **(mc or {"error": "session expired"})})
             return
+        if p.path == "/api/portal/st270":
+            # 🔐 270X: portable shared-host bundle for one Stateless token.
+            # (student-carried HMAC state; zero server student storage)
+            # Signed claims verify locally; dashboard cookie
+            # not required because the student token itself proves.
+            query = urllib.parse.parse_qs(p.query)
+            _tok270 = query.get("token", [""])[0]
+            try:
+                from core import stateless_client as _sl270
+                _view270 = _sl270.public_view(_tok270)
+            except Exception:
+                _view270 = None
+            if not _view270:
+                self._send_json({"ok": False,
+                                 "error": "invalid/expired token"},
+                                code=401)
+                return
+            self._send_json({"ok": True, "stateless": True,
+                             **_view270})
+            return
         if p.path == "/api/portal/materials_suggest":
             query = urllib.parse.parse_qs(p.query)
             ms = portal.materials_suggest(Members(), query.get("token", [""])[0])
@@ -9415,6 +9471,77 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": True, **info})
             else:
                 self._send_json({"ok": False, "error": info})
+            return
+        if p.path == "/api/portal/st270/register":
+            if not self._rate_ok("sl270-reg:" + self._client_ip(), 12, 600):
+                self._send_json({"ok": False, "error": "Chala sarlu try chesaru — koncham aagi malli try cheyyandi."}, code=429)
+                return
+            try:
+                from core import stateless_client as _sl270
+                _tok270, _err270 = _sl270.register_student(
+                    body.get("name", ""), body.get("phone", ""),
+                    body.get("district", ""), body.get("goal", "mixed"))
+            except Exception as _ex270:
+                _tok270, _err270 = None, str(_ex270)
+            self._send_json({"ok": bool(_tok270), "stateless": True,
+                             "token": _tok270, "stoken": _tok270,
+                             **({"error": _err270} if _err270 else {})})
+            return
+        if p.path == "/api/portal/st270/answer":
+            try:
+                from core import stateless_client as _sl270
+                _nt270, _res270 = _sl270.record_answer(
+                    body.get("stoken") or body.get("token", ""),
+                    body.get("qid", ""),
+                    body.get("choice", -1),
+                    idx=int(body.get("idx") or body.get("i") or 0)
+                    )
+            except Exception as _ex270:
+                _nt270, _res270 = None, {"ok": False, "error": str(_ex270)}
+            self._send_json({**(_res270 or {}), "stateless": True,
+                             "token": _nt270, "stoken": _nt270})
+            return
+        if p.path == "/api/portal/st270/claims":
+            # 🧾 270X: verify a server-signed claim (verify-only; claims
+            # are ISSUED server-side after contests — never from here).
+            try:
+                from core import stateless_client as _sl270
+                _v270 = _sl270.verify_claim(
+                    str(body.get("claim") or ""),
+                    want_kind=(str(body.get("kind") or "") or None))
+            except Exception:
+                _v270 = None
+            self._send_json({"ok": _v270 is not None, "stateless": True,
+                             "claim": _v270})
+            return
+        if p.path == "/api/portal/st270/attempt/start":
+            try:
+                from core import stateless_client as _sl270
+                _at270, _info270 = _sl270.start_attempt(
+                    body.get("stoken") or body.get("token", ""))
+            except Exception as _ex270:
+                _at270, _info270 = None, str(_ex270)
+            if not _at270:
+                self._send_json({"ok": False,
+                                 "error": _info270 or "invalid token"},
+                                code=401)
+                return
+            self._send_json({"ok": True, "stateless": True,
+                             "attempt_token": _at270, "atoken": _at270,
+                             **(_info270 or {})})
+            return
+        if p.path == "/api/portal/st270/attempt/submit":
+            try:
+                from core import stateless_client as _sl270
+                _nt270, _res270 = _sl270.submit_attempt(
+                    body.get("stoken") or body.get("token", ""),
+                    body.get("atoken") or body.get("attempt_token", ""),
+                    body.get("answers") or {})
+            except Exception as _ex270:
+                _nt270, _res270 = None, {"ok": False,
+                                         "error": str(_ex270)}
+            self._send_json({**(_res270 or {}), "stateless": True,
+                             "token": _nt270, "stoken": _nt270})
             return
         if not self._authed():
             self._send_json({"ok": False, "error": "unauthorized — login required"}, code=401)
