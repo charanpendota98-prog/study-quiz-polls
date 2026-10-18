@@ -91,6 +91,54 @@ def _wp_quiz_export():
             "questions": [_wp_quiz_item(q) for q in day["qs"]]}
 
 
+def _golive_checks():
+    """🚀 160X GO-LIVE CHECKS (subdomain launch readiness). Secrets
+    eppudu bayataki ravu — only set/unset booleans matrame."""
+    checks = []
+    base = config.env("PUBLIC_BASE_URL", "").strip().rstrip("/")
+    checks.append({
+        "name": "PUBLIC_BASE_URL",
+        "status": "ok" if base.startswith("https://") else "warn",
+        "detail": base or "set ledu — request host nunchi derive avthundi (production lo https://quiz.studentup.in set cheyyandi)"})
+    pbase = config.env("PORTAL_BASE_URL", "").strip()
+    checks.append({
+        "name": "Portal URL",
+        "status": "ok",
+        "detail": pbase or ((base + "/portal") if base else "/portal")})
+    checks.append({
+        "name": "BOT_TOKEN",
+        "status": "ok" if getattr(config, "BOT_TOKEN", "") else "fail",
+        "detail": "configured" if getattr(config, "BOT_TOKEN", "") else "bot features (WebApp login, broadcasts) pani cheyyavu"})
+    try:
+        bu = _bot_username()
+    except Exception:
+        bu = ""
+    checks.append({
+        "name": "Bot username",
+        "status": "ok" if bu else "warn",
+        "detail": ("@" + bu) if bu else "BOT_USERNAME .env lo set cheyyandi (deep links kosam)"})
+    try:
+        snippet = Path(__file__).resolve().parent.parent / "integrations" / "wordpress" / "studentup-portal-icon.html"
+        snip_ok = snippet.exists()
+    except Exception:
+        snip_ok = False
+    checks.append({
+        "name": "WP portal icon snippet",
+        "status": "ok" if snip_ok else "warn",
+        "detail": "integrations/wordpress/studentup-portal-icon.html ready" if snip_ok else "snippet missing"})
+    checks.append({
+        "name": "PWA (manifest + SW v4)",
+        "status": "ok",
+        "detail": "/manifest.json + /sw.js routes active"})
+    ads = config.env("ADSENSE_CLIENT_ID", "").strip()
+    checks.append({
+        "name": "AdSense (optional)",
+        "status": "ok" if ads else "warn",
+        "detail": "configured" if ads else "set ledu — ads off (public pages matrame, exam pages lo eppudu levu)"})
+    overall = "ready" if all(c["status"] != "fail" for c in checks) else "pending"
+    return {"overall": overall, "checks": checks}
+
+
 def _public_base(handler=None):
     """🌐 Student-facing links ki base URL: PUBLIC_BASE_URL env (meeru
     subdomain point cheste adhe vastundi) → lekapothe request Host
@@ -7491,6 +7539,12 @@ All candidates must join today before 9:00 PM!"></textarea>
           ' · uptime ' + (h.uptime_min || 0) + ' min · Python ' + (h.system ? h.system.python : '?') + ' · ' + (h.generated_at || '') + '</div>' +
           (h.checks || []).map(c => '<div style="padding:4px 8px; background:rgba(255,255,255,0.03); border-radius:6px; margin-top:4px;">' +
             dot(c.status) + ' <b>' + c.name + '</b> <span style="color:var(--text-muted);">' + c.detail + '</span></div>').join('');
+        if (h.golive) {
+          document.getElementById('proops-health').innerHTML +=
+            '<div style="margin-top:12px; margin-bottom:4px;">🚀 Subdomain Go-Live: <b>' + String(h.golive.overall || '').toUpperCase() + '</b> <span style="color:var(--text-muted);">(docs/SUBDOMAIN_GO_LIVE.md)</span></div>' +
+            (h.golive.checks || []).map(c => '<div style="padding:4px 8px; background:rgba(255,255,255,0.03); border-radius:6px; margin-top:4px;">' +
+              dot(c.status) + ' <b>' + c.name + '</b> <span style="color:var(--text-muted);">' + c.detail + '</span></div>').join('');
+        }
         const c = m.counters || {}, d = m.delivery || {};
         const card = (label, val, sub) => '<div class="stat-card"><div class="label">' + label + '</div><div class="val">' + val + '</div><div style="font-size:11px; color:var(--text-muted);">' + (sub || '') + '</div></div>';
         document.getElementById('proops-metrics').innerHTML =
@@ -8451,9 +8505,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
                                  "active_today": _pa.get("active_today")}
             except Exception:
                 rep["portal"] = {}
+            try:
+                rep["golive"] = _golive_checks()
+            except Exception:
+                rep["golive"] = {}
             self._send_json(rep)
             return
 
+        if p.path == "/api/health/golive":
+            self._send_json({"ok": True, **_golive_checks()})
+            return
         if p.path == "/api/flags":
             from core import flags as _fl
             self._send_json({"ok": True, "flags": _fl.all_flags()})
