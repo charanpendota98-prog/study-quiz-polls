@@ -1447,7 +1447,7 @@ async function loadDailyReview() {
 async function resumeMock() {
   const d = await api('/api/portal/resume?token=' + encodeURIComponent(token));
   if (!d.ok || !d.mock) { alert('Resume cheyyadaniki aapina mock ledu'); return; }
-  MOCK = {run_id: d.mock.run_id, answers: {}};
+  MOCK = {run_id: d.mock.run_id, answers: {}, t0: Date.now(), times: {}};
   document.getElementById('m-title').textContent = '▶️ Resume: ' + d.mock.label;
   const box = document.getElementById('m-qs'); box.innerHTML = '';
   d.mock.questions.forEach((q) => {
@@ -1455,8 +1455,8 @@ async function resumeMock() {
     div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
     q.options.forEach((opt, oi) => {
       const b = document.createElement('button'); b.className = 'opt' + ((d.mock.answers || {})[q.i] === oi ? ' picked' : ''); b.textContent = opt;
-      if ((d.mock.answers || {})[q.i] === oi) MOCK.answers[q.i] = oi;
-      b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers[q.i] = oi; markPalette(q.i); };
+      if ((d.mock.answers || {})[q.i] === oi) MOCK.times = MOCK.times || {}; if (MOCK.times[q.i] == null) MOCK.times[q.i] = Math.round((Date.now() - (MOCK.t0 || Date.now())) / 1000); MOCK.answers[q.i] = oi;
+      b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.times = MOCK.times || {}; if (MOCK.times[q.i] == null) MOCK.times[q.i] = Math.round((Date.now() - (MOCK.t0 || Date.now())) / 1000); MOCK.answers[q.i] = oi; markPalette(q.i); };
       div.appendChild(b);
     });
     box.appendChild(div);
@@ -1478,7 +1478,7 @@ async function startBlueprint() {
   const neg = negEl ? parseFloat(negEl.value || '0') : 0;
   const d = await api('/api/portal/mock/start', {token, goal, neg, kind: 'blueprint'});
   if (!d.ok) { alert('❌ ' + (d.error || 'Blueprint Mock start avvaledu')); return; }
-  MOCK = d;
+  MOCK = d; MOCK.t0 = Date.now(); MOCK.times = {};
   document.getElementById('m-title').textContent = '🧩 ' + d.label;
   renderMockRun(d);
 }
@@ -1547,7 +1547,7 @@ async function startAdaptive() {
   const neg = negEl ? parseFloat(negEl.value || '0') : 0;
   const d = await api('/api/portal/mock/start', {token, goal, neg, kind: 'adaptive'});
   if (!d.ok) { alert('❌ ' + (d.error || 'Adaptive Mock start avvaledu')); return; }
-  MOCK = d;
+  MOCK = d; MOCK.t0 = Date.now(); MOCK.times = {};
   document.getElementById('m-title').textContent = '🧠 ' + d.label;
   renderMockRun(d);
 }
@@ -1559,7 +1559,7 @@ function renderMockRun(d) {
     div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
     q.options.forEach((opt, oi) => {
       const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
-      b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.answers[q.i] = oi; markPalette(q.i); };
+      b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.times = MOCK.times || {}; if (MOCK.times[q.i] == null) MOCK.times[q.i] = Math.round((Date.now() - (MOCK.t0 || Date.now())) / 1000); MOCK.answers[q.i] = oi; markPalette(q.i); };
       div.appendChild(b);
     });
     box.appendChild(div);
@@ -1720,7 +1720,7 @@ async function startGrand() {
   const neg = negEl ? parseFloat(negEl.value || '0') : 0;
   const d = await api('/api/portal/mock/start', {token, goal, neg, kind: 'grand'});
   if (!d.ok) { alert('❌ ' + (d.error || 'Grand Mock start avvaledu')); return; }
-  MOCK = d;
+  MOCK = d; MOCK.t0 = Date.now(); MOCK.times = {};
   document.getElementById('m-title').textContent = '🏛️ ' + d.label;
   const box = document.getElementById('m-qs'); box.innerHTML = '';
   d.questions.forEach((q) => {
@@ -1728,7 +1728,7 @@ async function startGrand() {
     div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
     q.options.forEach((opt, oi) => {
       const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
-      b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.answers[q.i] = oi; markPalette(q.i); };
+      b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.times = MOCK.times || {}; if (MOCK.times[q.i] == null) MOCK.times[q.i] = Math.round((Date.now() - (MOCK.t0 || Date.now())) / 1000); MOCK.answers[q.i] = oi; markPalette(q.i); };
       div.appendChild(b);
     });
     box.appendChild(div);
@@ -1862,7 +1862,7 @@ async function downloadWorksheet() {
 async function startPaper(exam, year, paper) {
   const d = await api('/api/portal/paper/start', {token, exam, year, paper});
   if (!d.ok) { alert('❌ ' + (d.error || 'Paper start avvaledu')); return; }
-  MOCK = d;
+  MOCK = d; MOCK.t0 = Date.now(); MOCK.times = {};
   document.getElementById('m-title').textContent = '📜 ' + d.label;
   const box = document.getElementById('m-qs'); box.innerHTML = '';
   d.questions.forEach((q) => {
@@ -1870,7 +1870,7 @@ async function startPaper(exam, year, paper) {
     div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
     q.options.forEach((opt, oi) => {
       const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
-      b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.answers[q.i] = oi; markPalette(q.i); };
+      b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.times = MOCK.times || {}; if (MOCK.times[q.i] == null) MOCK.times[q.i] = Math.round((Date.now() - (MOCK.t0 || Date.now())) / 1000); MOCK.answers[q.i] = oi; markPalette(q.i); };
       div.appendChild(b);
     });
     box.appendChild(div);
@@ -1890,7 +1890,7 @@ async function startMock(goal, kind) {
   const neg = negEl ? parseFloat(negEl.value || '0') : 0;
   const d = await api('/api/portal/mock/start', {token, goal, neg, kind: kind || 'mock'});
   if (!d.ok) { alert('❌ ' + (d.error || 'Mock start avvaledu')); return; }
-  MOCK = d;
+  MOCK = d; MOCK.t0 = Date.now(); MOCK.times = {};
   document.getElementById('m-title').textContent = '📝 ' + d.label;
   const box = document.getElementById('m-qs'); box.innerHTML = '';
   d.questions.forEach((q) => {
@@ -1898,7 +1898,7 @@ async function startMock(goal, kind) {
     div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
     q.options.forEach((opt, oi) => {
       const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
-      b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.answers[q.i] = oi; markPalette(q.i); };
+      b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.times = MOCK.times || {}; if (MOCK.times[q.i] == null) MOCK.times[q.i] = Math.round((Date.now() - (MOCK.t0 || Date.now())) / 1000); MOCK.answers[q.i] = oi; markPalette(q.i); };
       div.appendChild(b);
     });
     box.appendChild(div);
@@ -1918,16 +1918,18 @@ async function submitMock() {
   if (!MOCK) return;
   const answers = {};
   Object.entries(MOCK.answers || {}).forEach(([k, v]) => { answers[k] = v; });
-  const d = await api('/api/portal/mock/submit', {token, run_id: MOCK.run_id, answers});
+  const d = await api('/api/portal/mock/submit', {token, run_id: MOCK.run_id, answers, times: MOCK.times || {}});
   if (!d.ok) { document.getElementById('m-err').textContent = d.error || ''; return; }
   document.getElementById('res-score').textContent = d.correct + '/' + d.total;
   document.getElementById('res-sub').textContent = '🎯 Accuracy ' + d.accuracy + '% · Leaderboard update ayindi!' +
-    (d.neg ? ' 🏁 Negative −' + d.neg + ' apply ayyindi: Points ' + d.pts + ' (correct ' + d.correct + ', wrong ' + (d.wrong || 0) + ')' : '');
+    (d.neg ? ' 🏁 Negative −' + d.neg + ' apply ayyindi: Points ' + d.pts + ' (correct ' + d.correct + ', wrong ' + (d.wrong || 0) + ')' : '') +
+    (d.avg_sec ? ' · ⏱ Avg ' + d.avg_sec + 's/question' + ((d.slow || []).length ? ' · 🐢 Slow: Q' + d.slow.map(i => i + 1).join(', Q') : '') : '');
   document.getElementById('res-review').innerHTML = (d.review || []).map(r => {
     const q = (d.questions || [])[r.i] || {};
     const opts = q.options || [];
     return '<div class="rrow ' + (r.right ? 'ok' : 'bad') + '"><b>Q' + (r.i + 1) + '.</b> ' + esc(q.en || q.te || '') +
       '<br><span class="muted">Meeru: ' + esc(opts[r.given] || '— (attempt cheyyaledu)') + (r.right ? ' ✅' : ' ❌ · Correct: ' + esc(opts[r.answer] || '')) + '</span>' +
+      ((d.slow || []).includes(r.i) ? '<br><span class="muted">⏱ Ee question ki ekkuva time pattindi — shortcut practice cheyyandi.</span>' : '') +
       (q.explanation ? '<br><span class="muted">💡 ' + esc(q.explanation) + '</span>' : '') + '</div>';
   }).join('');
   const _mrun = MOCK.run_id;
@@ -8934,7 +8936,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         if p.path == "/api/portal/mock/submit":
             ok, info = portal.mock_submit(Members(), body.get("token", ""),
-                                          body.get("run_id", ""), body.get("answers") or {})
+                                          body.get("run_id", ""), body.get("answers") or {},
+                                          body.get("times") or {})
             self._send_json({"ok": ok, **(info if ok else {"error": info})})
             return
         if p.path == "/api/exam/join":

@@ -954,7 +954,7 @@ def mock_start(members, token, goal, neg=0.0, kind="mock"):
 
 
 @_locked
-def mock_submit(members, token, run_id, answers):
+def mock_submit(members, token, run_id, answers, times=None):
     d = _load()
     uid = _sess(d, token)
     run = (d.get("mocks") or {}).get(str(run_id or ""))
@@ -989,6 +989,18 @@ def mock_submit(members, token, run_id, answers):
     pts = correct * (PTS_GRAND if kind == "grand" else PTS_MOCK)
     if neg:
         pts = max(0, round(pts - wrong * (PTS_GRAND if kind == "grand" else PTS_MOCK) * neg, 1))
+    # ⏱ 140X per-question timing (pacing coach): client pampina
+    # seconds ni clamp chesi avg + slow (>90s) questions mark chestham.
+    _times = {}
+    for _k, _v in (times or {}).items():
+        try:
+            _times[str(_k)] = max(0.0, min(3600.0, float(_v)))
+        except Exception:
+            pass
+    run["times"] = _times
+    _answered_secs = [v for k, v in _times.items() if k in run["answers"]]
+    run["avg_sec"] = round(sum(_answered_secs) / len(_answered_secs), 1) if _answered_secs else None
+    run["slow"] = sorted(int(k) for k, v in _times.items() if v > 90)
     run["done"] = True
     run["correct"] = correct
     run["wrong"] = wrong
@@ -1013,6 +1025,7 @@ def mock_submit(members, token, run_id, answers):
                      run["qs"], run.get("answers") or {}, correct)
     _save(d, flush=True)
     return True, {"correct": correct, "total": len(run["qs"]), "wrong": wrong,
+                  "avg_sec": run.get("avg_sec"), "slow": run.get("slow") or [],
                   "neg": neg, "pts": pts,
                   "accuracy": round(correct / max(1, len(run["qs"])) * 100),
                   "review": review,
@@ -3955,6 +3968,47 @@ def due_bot_reminders(members):
             left = len(day["qs"]) - len(run.get("answers") or {})
             jobs.append({"tg_id": tg, "kind": "daily_remind",
                          "text": f"📅 Daily Quiz inka {left} questions pending unnayi — streak miss avvakunda ippude complete cheyyandi! 🔥"})
+    # 🔴 140X LIVE-SOON BLAST: exam 30 min lopala start ayithe
+    # reminded + goal-match linked students ki join-now message.
+    for e in (d.get("exams") or {}).values():
+        try:
+            _hrs = (datetime.fromisoformat(e.get("starts_at") or "")
+                    - now).total_seconds() / 3600.0
+        except Exception:
+            continue
+        if not (0 <= _hrs <= 0.5):
+            continue
+        _pool = set((d.get("exam_reminds") or {}).get(e.get("id")) or [])
+        for uid, tg in inv.items():
+            gm = _member(members, uid)
+            if uid not in _pool and gm.get("goal") != e.get("goal") \
+                    and gm.get("exam_goal") != e.get("goal"):
+                continue
+            key = f"{e.get('id')}:{uid}:live"
+            if key in sent:
+                continue
+            sent.add(key)
+            jobs.append({"tg_id": tg, "kind": "live_soon",
+                         "text": f"🔴 LIVE! {e.get('title', 'Live Exam')} ippude start avthondi — join ayyi mee rank penchandi! 🏆"})
+    # 📋 140X WEEKLY REPORT: Sunday 8 PM ki ee week active linked
+    # students ki summary (daylog 7d) — bot dwara personal report.
+    if now.weekday() == 6 and now.hour >= 20:
+        _wk = now.strftime("%G-W%V")
+        _cut = (now - timedelta(days=6)).strftime("%Y-%m-%d")
+        for uid, tg in inv.items():
+            key = f"weekly:{_wk}:{uid}"
+            if key in sent:
+                continue
+            dl = _member(members, uid).get("daylog") or {}
+            rows = [v for k, v in dl.items() if str(k) >= _cut]
+            ans = sum(int(r[0] or 0) for r in rows if r)
+            cor = sum(int(r[1] or 0) for r in rows if r)
+            if not ans:
+                continue
+            sent.add(key)
+            acc = round(100 * cor / max(1, ans))
+            jobs.append({"tg_id": tg, "kind": "weekly_report",
+                         "text": f"📋 Mee Week Report: {ans} answers · ✅ {cor} correct ({acc}%) · ⭐ {_member(members, uid).get('points', 0)} pts. Next week target: accuracy +5%! 💪"})
     if jobs:
         d["bot_remind_sent"] = sorted(sent)[-2000:]
         _bot_msgs_bump(d, len(jobs))
