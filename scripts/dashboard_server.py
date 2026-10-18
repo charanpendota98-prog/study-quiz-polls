@@ -1482,6 +1482,23 @@ async function loadTopicNotes() {
     (n.te ? '<div class="muted" style="margin-top:4px;">' + esc(n.te) + '</div>' : '') + '</div>').join('')
     : '<div class="muted">Ee topic ki notes levu.</div>';
 }
+document.addEventListener('keydown', (e) => {
+  // ⌨️ 100X keyboard shortcuts: 1-4 answer, N/Enter next (practice/quiz)
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) return;
+  const prc = document.getElementById('view-prc');
+  const quiz = document.getElementById('view-quiz');
+  const inPrc = prc && prc.style.display !== 'none';
+  const inQuiz = quiz && quiz.style.display !== 'none';
+  if (!inPrc && !inQuiz) return;
+  const box = document.getElementById(inPrc ? 'p-opts' : 'opts');
+  if (['1', '2', '3', '4'].includes(e.key) && box) {
+    const b = box.children[parseInt(e.key, 10) - 1];
+    if (b && !b.disabled) b.click();
+  } else if ((e.key === 'n' || e.key === 'N' || e.key === 'Enter')) {
+    const nb = document.getElementById(inPrc ? 'p-next' : 'q-next');
+    if (nb && nb.style.display !== 'none') nb.click();
+  }
+});
 function speakCurrent(which) {
   try {
     const q = which === 'prc' ? (PR && PR.questions[PR.cur]) : QUESTIONS[cur];
@@ -1610,7 +1627,8 @@ async function loadGoalHub(g) {
     '<b style="font-size:15px;">' + esc(d.label) + '</b>' +
     '<div class="row" style="margin-top:7px; flex-wrap:wrap; gap:6px;">' +
     '<span class="chip">📜 ' + d.pyq + ' real PYQ</span><span class="chip">🎯 ' + (d.pyq_exam != null ? d.pyq_exam : d.pyq) + ' ' + esc(d.label) + ' PYQ</span><span class="chip">🧠 ' + d.total + ' questions</span>' +
-    '<span class="chip">📄 ' + d.papers + ' paper sets</span><span class="chip gold">✍️ Mee attempts: ' + d.attempts + ' · Best ' + d.best + '%</span></div>' +
+    '<span class="chip">📄 ' + d.papers + ' paper sets</span><span class="chip gold">✍️ Mee attempts: ' + d.attempts + ' · Best ' + d.best + '%</span>' +
+    ((d.readiness && d.readiness.score != null) ? '<span class="chip" style="border-color:#34d399;">🎯 Readiness: ' + d.readiness.score + '/100' + (d.readiness.band ? ' · ' + esc(d.readiness.band) : '') + '</span>' : '') + '</div>' +
     ((d.paper_labels || []).length ? '<p class="muted" style="margin-top:7px;">📜 Papers: ' + d.paper_labels.map(esc).join(' · ') + '</p>' : '') +
     ((d.topics || []).length ? '<p class="muted" style="margin-top:7px;">📈 Repeat ayye topics: ' + d.topics.map(t => esc(t.topic) + ' (' + t.pyq + ')').join(' · ') + '</p>' : '') +
     '<p style="margin-top:7px;">👉 ' + esc(d.next) + '</p>' +
@@ -7715,7 +7733,30 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _send_html(self, html):
+    def _send_html(self, html, etag=False):
+        # ⚡ 100X: static-ish pages (portal/public) ki ETag — repeat
+        # visits lo 304 (body download ae undadu, instant load).
+        if etag:
+            import hashlib as _hl
+            tag = '"' + _hl.sha1(html.encode("utf-8")).hexdigest()[:20] + '"'
+            if (self.headers.get("If-None-Match") or "") == tag:
+                self.send_response(304)
+                self.send_header("ETag", tag)
+                self.send_header("Cache-Control", "public, max-age=60")
+                self.end_headers()
+                return
+            body, enc = self._gz(html.encode("utf-8"))
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("ETag", tag)
+            self.send_header("Cache-Control", "public, max-age=60")
+            if enc:
+                self.send_header("Content-Encoding", enc)
+                self.send_header("Vary", "Accept-Encoding")
+            self.end_headers()
+            self.wfile.write(body)
+            return
         body, enc = self._gz(html.encode("utf-8"))
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -7836,12 +7877,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if p.path == "/" and not self._authed():
             _host = (self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or "").split(":")[0]
             if _host.split(".")[0].lower() in ("quiz", "exam", "app", "portal"):
-                self._send_html(PORTAL_HTML)   # 🌐 subdomain = student portal
+                self._send_html(PORTAL_HTML, etag=True)   # 🌐 subdomain = student portal
             else:
-                self._send_html(public_page(self, "home"))
+                self._send_html(public_page(self, "home"), etag=True)
             return
         if p.path == "/portal":
-            self._send_html(PORTAL_HTML)
+            self._send_html(PORTAL_HTML, etag=True)
             return
         if p.path == "/api/blog/posts":
             self._send_json({"ok": True, "posts": _fetch_wp_posts(12),
@@ -8097,7 +8138,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": True, **qq})
             return
         if p.path in PUBLIC_PAGE_PATHS:
-            self._send_html(public_page(self, PUBLIC_PAGE_PATHS[p.path]))
+            self._send_html(public_page(self, PUBLIC_PAGE_PATHS[p.path]), etag=True)
             return
         if p.path == "/ads.txt":
             body_txt = ads_txt_content()

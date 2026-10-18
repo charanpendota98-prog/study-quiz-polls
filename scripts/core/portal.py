@@ -485,6 +485,23 @@ def _member(members, uid):
 
 
 def _award(members, uid, name, correct, q):
+    # 🛡️ 100X ANTI-FARM: okka question ki roju okkasari matrame points/
+    # stats (practice/mock retake farming nunchi leaderboard rakshana).
+    # Poll-path awards (Telegram/WhatsApp) deeniki ravu — portal only.
+    _qid = str(q.get("id") or "")
+    if correct and _qid:
+        _d = _load()
+        _log = _d.setdefault("award_log", {})
+        _ent = _log.get(uid) or {}
+        if _ent.get("date") != _today():
+            _ent = {"date": _today(), "qids": []}
+        if _qid in (_ent.get("qids") or []):
+            return
+        _ent["qids"] = list(_ent.get("qids") or []) + [_qid]
+        _log[uid] = _ent
+        _d["award_log"] = {u: e for u, e in _log.items()
+                           if e.get("date") == _today()}
+        _save(_d)
     try:
         members.award_answer(uid, name, bool(correct),
                              topic=q.get("topic", ""), qid=q.get("id", ""))
@@ -3018,6 +3035,7 @@ def resume_latest(members, token):
     return out
 
 
+@_locked
 def flag_question(members, token, qid, reason=""):
     """🚩 FLAG QUESTION: student tappu question ni report chesthe
     admin review queue loki (quality loop)."""
@@ -3524,6 +3542,7 @@ def notices_for(members, token, limit=20):
     uid = _sess(d, token)
     if not uid:
         return False, "Session expired."
+    limit = max(1, min(50, int(limit or 20)))
     goal = _profile(members, uid).get("goal")
     out = [n for n in list_notices(limit)
            if not n.get("goal") or n.get("goal") == goal]
@@ -3559,6 +3578,15 @@ def goal_hub(members, token, goal):
     else:
         nxt = "🏛️ Grand Mock (50Q) tho full-exam simulation ki ready!"
     trends = pyq_trends(goal)
+    _ready = {}
+    try:
+        from . import brain as _brain
+        _bc = _brain.profile_for(_member(members, uid), uid) or {}
+        _ready = {"score": _bc.get("score", 0), "band": _bc.get("band", ""),
+                  "theta": _bc.get("theta", 0),
+                  "components": _bc.get("components", {})}
+    except Exception:
+        _ready = {}
     _ch_stock = []
     for _ch in sorted(chans):
         _cp = _bank_pool([_ch])
@@ -3571,10 +3599,12 @@ def goal_hub(members, token, goal):
                   "channels_stock": _ch_stock,
                   "papers": len(papers), "attempts": len(mine), "best": best,
                   "paper_labels": [r["label"] for r in papers[:5]],
+                  "readiness": _ready,
                   "topics": (trends or {}).get("topics", [])[:5],
                   "next": nxt}
 
 
+@_locked
 def set_exam_reminder(members, token, exam_id, on=True):
     """🔔 LIVE EXAM REMINDER: exam start ki mundhu interest mark —
     state live rows lo 'remind' flag ga reflect avthundi."""
@@ -3582,8 +3612,9 @@ def set_exam_reminder(members, token, exam_id, on=True):
     uid = _sess(d, token)
     if not uid:
         return False, "Session expired."
+    exam_id = str(exam_id or "")[:40]
     rem = d.setdefault("exam_reminds", {})
-    uids = rem.setdefault(str(exam_id or ""), [])
+    uids = rem.setdefault(exam_id, [])
     if on and uid not in uids:
         uids.append(uid)
     if not on and uid in uids:
