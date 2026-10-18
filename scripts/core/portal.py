@@ -825,7 +825,8 @@ def daily_answer(members, token, idx, choice, sec=None):
 
 
 # ------------------------------------------------------- attempt archive
-def _archive_attempt(d, uid, kind, ref, title, qs, answers, correct=None):
+def _archive_attempt(d, uid, kind, ref, title, qs, answers, correct=None,
+                    times=None):
     """🗄️ PERMANENT ATTEMPT ARCHIVE — key paper eppudaina malli download.
 
     🛠️ FIX: mocks/days store prune (120 runs / 3 days) tarvatha student
@@ -842,6 +843,7 @@ def _archive_attempt(d, uid, kind, ref, title, qs, answers, correct=None):
         arc.insert(0, {"uid": uid, "kind": kind, "ref": str(ref),
                        "title": str(title or "")[:80], "date": _today(),
                        "qs": qs, "answers": dict(answers or {}),
+                       "times": dict(times or {}),
                        "correct": int(correct), "total": int(total)})
         mine = [a for a in arc if a.get("uid") == uid][:60]
         others = [a for a in arc if a.get("uid") != uid]
@@ -1141,7 +1143,8 @@ def mock_submit(members, token, run_id, answers, times=None):
     _archive_attempt(d, uid, run.get("kind") or "mock", run_id,
                      run.get("paper_label") or
                      (GOALS.get(run.get("goal") or "") or {}).get("label", "Mock Test"),
-                     run["qs"], run.get("answers") or {}, correct)
+                     run["qs"], run.get("answers") or {}, correct,
+                     times=run.get("times") or {})
     _save(d, flush=True)
     return True, {"correct": correct, "total": len(run["qs"]), "wrong": wrong,
                   "sections": _with_section_timing(

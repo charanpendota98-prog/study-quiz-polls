@@ -102,6 +102,19 @@ def _golive_checks():
         "status": "ok" if base.startswith("https://") else "warn",
         "detail": base or "set ledu — request host nunchi derive avthundi (production lo https://quiz.studentup.in set cheyyandi)"})
     pbase = config.env("PORTAL_BASE_URL", "").strip()
+    try:
+        from core import rankcard as _rc260
+        _f260 = _rc260._find_font(_rc260._LATIN) is not None
+        _dep260 = bool(_f260)
+    except Exception:
+        _dep260 = False
+    checks.append({
+        "name": "Certificate engine (PIL + QR)",
+        "status": "ok" if _dep260 else "warn",
+        "detail": ("PIL + qrcode + TTF font ready"
+                   if _dep260 else
+                   "winner/score card PNGs degrade — VPS lo "
+                   "'pip install pillow qrcode' cheyyandi")})
     checks.append({
         "name": "Portal URL",
         "status": "ok",
@@ -140,6 +153,22 @@ def _golive_checks():
         _dpw_default = _dash_password() == DEFAULT_DASH_PASSWORD
     except Exception:
         _dpw_default = False
+    try:
+        from core import stateless_client as _sl260
+        _slt260, _sle260 = _sl260.register_student(
+            "Go-Live Probe", "9000000001", "Guntur", "railway",
+            secret="golive-probe")
+        _sl_ok260 = _sle260 is None and _sl260.public_view(
+            _slt260 or "", secret="golive-probe") is not None
+    except Exception:
+        _sle260 = "stateless module unavailable"
+        _sl_ok260 = False
+    checks.append({
+        "name": "Stateless client (260X)",
+        "status": "ok" if _sl_ok260 else "fail",
+        "detail": ("signed-token round-trip verified (zero-storage "
+                   "registration/auth)"
+                   if _sl_ok260 else f"round-trip failed: {_sle260}")})
     checks.append({
         "name": "Dashboard password",
         "status": "warn" if _dpw_default else "ok",

@@ -172,6 +172,8 @@ class Bot:
         self.bank = Bank()
         self.members = Members()
         self.dry = dry
+        import time as _time260
+        self._t0 = _time260.time()   # 📟 260X: uptime (held metrics)
         self._poll_q = {}
         self._load_polls()
 
@@ -1099,6 +1101,8 @@ class Bot:
             return kind, True
         except Exception as e:
             stats["errors"] += 1
+            import time as _time260
+            stats["last_error_ts"] = _time260.time()
             stats["last_error"] = f"{kind}: {e}"
             print(f"[bot] {kind} error (isolated): {e}")
             return kind, False
@@ -1110,6 +1114,7 @@ class Bot:
         # 🩺 220X owner-only bot health: dispatch stats (armor) +
         # members/bank size — okka message lo full picture.
         h = self._bot_health220()
+        _m260 = self._held_metrics260()
         try:
             nmem = len(self.members.members or {})
         except Exception:
@@ -1125,6 +1130,8 @@ class Bot:
             "🩺 *Bot Health (220X)*\n"
             f"Updates processed: {h.get('updates', 0)} ({kinds})\n"
             f"Isolated errors: {h.get('errors', 0)}"
+            f" (rate {_m260['error_rate']:.3f}, up {_m260['started_ago_sec'] // 3600}h"
+            f" {(_m260['started_ago_sec'] % 3600) // 60}m)"
             + (f"\nLast error: {h.get('last_error')}" if h.get('last_error') else "")
             + f"\nTracked polls: {h.get('tracked_polls', 0)}"
             f"\nMembers: {nmem} · Bank questions: {nbank}",
@@ -1141,6 +1148,23 @@ class Bot:
         return {"updates": s.get("total", 0), "errors": s.get("errors", 0),
                 "by_kind": s.get("by_kind", {}),
                 "last_error": s.get("last_error", ""), "tracked_polls": npolls}
+
+    def _held_metrics260(self):
+        """📟 260X: bounded in-memory metrics snapshot (no probing)."""
+        import time as _time260
+        s = getattr(self, "_upd_stats", {}) or {}
+        total = int(s.get("total") or 0)
+        errors = int(s.get("errors") or 0)
+        le_ts = s.get("last_error_ts")
+        return {
+            "updates": total, "errors": errors,
+            "error_rate": round(errors / total, 3) if total else 0.0,
+            "last_error": s.get("last_error", ""),
+            "last_error_age_sec": (int(_time260.time() - le_ts)
+                                    if le_ts else None),
+            "started_ago_sec": int(_time260.time() - getattr(
+                self, "_t0", _time260.time())),
+        }
 
     def _ad_now(self):
         from core.engine import Engine
