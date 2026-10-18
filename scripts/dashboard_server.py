@@ -801,7 +801,9 @@ PORTAL_HTML = """<!DOCTYPE html>
       <div id="level-bar" style="margin-top:8px;"></div>
       <div class="row" id="goal-chips" style="margin-top:9px;"></div>
       <p class="muted" id="goal-stock" style="margin-top:6px;"></p>
+      <div id="offline-bar" style="display:none; margin-top:8px; font-size:12.5px;">📴 Offline mode — last saved data chupisthunnam. Net ragane answers auto-sync avthayi.</div>
       <div id="bot-link-card" style="margin-top:10px;"></div>
+      <button class="btn-alt" style="width:100%; margin-top:8px;" onclick="shareProgress()">📤 Naa Progress Share Chey</button>
       <div class="row" style="margin-top:10px;">
         <button class="btn-alt" style="flex:1;" onclick="logout()">↩️ Logout / Number Change</button>
       </div>
@@ -1108,7 +1110,7 @@ async function init() {
   (meta.topics || []).forEach(t => { const o = document.createElement('option'); o.value = t; o.textContent = t; ts.appendChild(o); });
   const gl = document.getElementById('r-goal');
   Object.entries(GOALS).forEach(([k, v]) => { const o = document.createElement('option'); o.value = k; o.textContent = v; gl.appendChild(o); });
-  if (token) { loadHome(); } else { show('view-reg'); }
+  if (token) { flushOffline(); loadHome(); } else { show('view-reg'); }
 }
 function copyRef() {
   const el = document.getElementById('ref-link');
@@ -1208,8 +1210,15 @@ function showToppers(period) {
     : '<div class="muted">Ee period lo inka points levu — practice chesi first topper avvandi! 🔥</div>';
 }
 async function loadHome() {
-  const d = await api('/api/portal/state?token=' + encodeURIComponent(token));
-  if (!d.ok) { logout(); return; }
+  let d;
+  try {
+    d = await api('/api/portal/state?token=' + encodeURIComponent(token));
+    if (d.ok) { try { localStorage.setItem('su_offline_state', JSON.stringify(d)); } catch (e) {} }
+  } catch (e) {
+    try { d = JSON.parse(localStorage.getItem('su_offline_state') || 'null'); } catch (e2) { d = null; }
+    if (d) d._offline = true;
+  }
+  if (!d || !d.ok) { logout(); return; }
   const s = d.student; STATE = d;
   document.getElementById('hello').textContent = '👋 ' + s.name;
   document.getElementById('mychips').innerHTML =
@@ -1316,18 +1325,49 @@ async function loadHome() {
   document.getElementById('winners-wall').innerHTML = (d.winners_wall || []).map(w =>
     '<div style="margin-top:8px;"><b style="font-size:13px;">' + esc(w.title) + '</b>' + rows(w.winners, '') + '</div>').join('') || '<div class="muted">Inka winners leru — Weekly Grand Test (Sunday 10 AM) first!</div>';
   show('view-home');
+  const ob = document.getElementById('offline-bar');
+  if (ob) ob.style.display = d._offline ? 'block' : 'none';
   _applyGo();
 }
 function backHome() { clearInterval(mockTimer); clearInterval(rankTimer); clearInterval(exTimer); loadHome(); }
+function shareProgress() {
+  const s = (STATE || {}).student || {};
+  const lv = s.level || {};
+  const text = '🏆 Nenu StudentUp lo ' + (s.points || 0) + ' points, ' + (lv.title || 'Newcomer') + ' level, ' + (s.streak || 0) + '-day streak! Daily Quiz + PYQ Mocks FREE: ' + location.origin + '/portal';
+  if (navigator.share) { navigator.share({title: 'StudentUp Progress', text}).catch(() => {}); }
+  else if (navigator.clipboard) { navigator.clipboard.writeText(text).then(() => alert('✅ Copied! WhatsApp lo paste cheyyandi.')); }
+}
+async function flushOffline() {
+  let q = [];
+  try { q = JSON.parse(localStorage.getItem('su_offq') || '[]'); } catch (e) {}
+  if (!q.length || !token) return;
+  const left = [];
+  for (const a of q) {
+    try { const d = await api('/api/portal/answer', {token, idx: a.idx, choice: a.choice}); if (!d.ok && !d.already) left.push(a); }
+    catch (e) { left.push(a); }
+  }
+  try { localStorage.setItem('su_offq', JSON.stringify(left)); } catch (e) {}
+}
+window.addEventListener('online', flushOffline);
+let qShownAt = 0;
 async function openQuiz() {
-  const d = await api('/api/portal/quiz?token=' + encodeURIComponent(token));
+  let d;
+  try {
+    d = await api('/api/portal/quiz?token=' + encodeURIComponent(token));
+    try { localStorage.setItem('su_offline_daily', JSON.stringify(d)); } catch (e) {}
+  } catch (e) {
+    try { d = JSON.parse(localStorage.getItem('su_offline_daily') || 'null'); } catch (e2) { d = null; }
+    if (!d || !d.ok) { alert('📴 Offline — munde okasari online lo quiz open cheste save avuthundi.'); return; }
+  }
   if (!d.ok) { logout(); return; }
   QUESTIONS = d.questions || []; score = 0;
+  try { JSON.parse(localStorage.getItem('su_offq') || '[]').forEach(a => { if (QUESTIONS[a.idx]) QUESTIONS[a.idx].answered = true; }); } catch (e) {}
   cur = QUESTIONS.findIndex(q => !q.answered);
   if (cur < 0) { loadHome(); return; }
   show('view-quiz'); renderQ();
 }
 function renderQ() {
+  qShownAt = Date.now();
   const q = QUESTIONS[cur];
   document.getElementById('q-pos').textContent = 'Q ' + (cur + 1) + '/' + QUESTIONS.length;
   document.getElementById('q-topic').textContent = qMeta(q);
@@ -1345,13 +1385,25 @@ function renderQ() {
 async function ansDaily(i, btn) {
   document.querySelectorAll('#opts .opt').forEach(b => { b.disabled = true; });
   btn.classList.add('picked');
-  const d = await api('/api/portal/answer', {token, idx: cur, choice: i});
   const fb = document.getElementById('q-fb');
+  let d;
+  try {
+    d = await api('/api/portal/answer', {token, idx: cur, choice: i, sec: Math.round((Date.now() - (qShownAt || Date.now())) / 1000)});
+  } catch (e) {
+    let q = [];
+    try { q = JSON.parse(localStorage.getItem('su_offq') || '[]'); } catch (e2) {}
+    q.push({idx: cur, choice: i});
+    try { localStorage.setItem('su_offq', JSON.stringify(q)); } catch (e3) {}
+    if (QUESTIONS[cur]) QUESTIONS[cur].answered = true;
+    fb.innerHTML = '📴 Offline — answer save ayyindi. Net ragane auto-sync avuthundi.';
+    document.getElementById('q-next').style.display = 'block';
+    return;
+  }
   if (!d.ok) { fb.textContent = d.error || ''; return; }
   if (d.correct) { score = d.score; fb.innerHTML = '✅ Correct! ' + (d.explanation ? '<span class="muted">' + esc(d.explanation) + '</span>' : ''); }
   else { fb.innerHTML = '❌ Wrong. Correct: <b>' + esc(d.answer_text) + '</b>' + (d.explanation ? '<br><span class="muted">' + esc(d.explanation) + '</span>' : ''); }
   document.getElementById('q-score').textContent = '✅ ' + (d.score || score);
-  if (d.done) { fb.innerHTML += '<br>🎉 Daily Quiz complete! Home lo rank chudandi.'; document.getElementById('q-next').textContent = '🏠 Home'; }
+  if (d.done) { fb.innerHTML += '<br>🎉 Daily Quiz complete! Home lo rank chudandi.' + (d.avg_sec ? '<br>⏱ Mee speed: avg ' + d.avg_sec + 's/question' : ''); document.getElementById('q-next').textContent = '🏠 Home'; }
   document.getElementById('q-next').style.display = 'block';
 }
 function nextQ() {
@@ -7845,10 +7897,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
         # 📱 PWA assets — login అవసరం లేదు (browser install కోసం), IP lock apply అవుతుంది
         if p.path == "/sw.js":
             self._send_text(
-                "const C='studentup-v3';"
+                "const C='studentup-v4';"
                 "self.addEventListener('install',e=>{self.skipWaiting();"
-                "e.waitUntil(caches.open(C).then(c=>c.addAll(['/portal','/','/icon.svg'])))});"
-                "self.addEventListener('activate',e=>{e.waitUntil(self.clients.claim())});"
+                "e.waitUntil(caches.open(C).then(c=>c.addAll(['/portal','/','/icon.svg','/manifest.json'])))});"
+                "self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});"
                 "self.addEventListener('fetch',e=>{const u=new URL(e.request.url);"
                 "if(e.request.method!=='GET'||u.pathname.startsWith('/api/'))return;"
                 "e.respondWith(fetch(e.request).then(r=>{const cp=r.clone();"
@@ -8918,7 +8970,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 ok, info = portal.daily_answer(
                     Members(), body.get("token", ""),
                     int(body.get("idx") or 0),
-                    int(body.get("choice") if body.get("choice") is not None else -1))
+                    int(body.get("choice") if body.get("choice") is not None else -1),
+                    body.get("sec"))
             except Exception as ex:
                 ok, info = False, str(ex)
             self._send_json({"ok": ok, **(info if ok and isinstance(info, dict) else {"error": info})})

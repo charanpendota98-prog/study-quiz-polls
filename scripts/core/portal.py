@@ -675,6 +675,7 @@ def state(members, token):
             "daily": {"n": len(day["qs"]),
                       "pyq_count": sum(1 for q in day["qs"] if q.get("source") == "pyq"),
                       "done": bool(run and run.get("done")),
+                      "avg_sec": (run or {}).get("avg_sec"),
                       "correct": (run or {}).get("correct", 0),
                       "answered": len((run or {}).get("answers") or {})},
             "daily_board": _board(t_rows, members),
@@ -713,7 +714,7 @@ def daily_questions(members, token):
 
 
 @_locked
-def daily_answer(members, token, idx, choice):
+def daily_answer(members, token, idx, choice, sec=None):
     d = _load()
     uid = _sess(d, token)
     if not uid:
@@ -726,6 +727,13 @@ def daily_answer(members, token, idx, choice):
         uid, {"uid": uid, "answers": {}, "done": False, "correct": 0, "pts": 0})
     if str(idx) in run["answers"]:
         return True, {"already": True}
+    # ⏱ 150X daily pacing: prathi question seconds (clamp) save.
+    if sec is not None:
+        try:
+            run.setdefault("times", {})[str(idx)] = max(
+                0.0, min(3600.0, float(sec)))
+        except Exception:
+            pass
     q = qs[int(idx)]
     _opts, perm = _display(q, f"{uid}:{_today()}:{int(idx)}")
     ch = int(choice)
@@ -739,6 +747,10 @@ def daily_answer(members, token, idx, choice):
         run["pts"] += PTS_DAILY
     if len(run["answers"]) >= len(qs):
         run["done"] = True
+        _secs = [v for k, v in (run.get("times") or {}).items()
+                 if k in run["answers"]]
+        run["avg_sec"] = (round(sum(_secs) / len(_secs), 1)
+                          if _secs else None)
         run["finished"] = _now().isoformat()
         # 🗄️ Permanent archive — 3-day window tarvatha kuda key paper!
         _archive_attempt(d, uid, "daily", _today(), "📅 Daily Quiz",
@@ -752,7 +764,8 @@ def daily_answer(members, token, idx, choice):
                   "answer_text": opts[q["answer_index"]] if 0 <= q["answer_index"] < len(opts) else "",
                   "explanation": q.get("explanation", ""),
                   "answered": len(run["answers"]), "total_q": len(qs),
-                  "done": run["done"], "score": run["correct"]}
+                  "done": run["done"], "avg_sec": run.get("avg_sec"),
+                  "score": run["correct"]}
 
 
 # ------------------------------------------------------- attempt archive
