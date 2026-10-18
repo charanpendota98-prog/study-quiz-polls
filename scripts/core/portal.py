@@ -394,7 +394,12 @@ def _serve(qs, seed_prefix, answers, lang="both"):
     for i, q in enumerate(qs):
         opts, _perm = _display(q, f"{seed_prefix}:{i}", lang=lang)
         _en_arr, _te_arr = _display_split(q, _perm)
-        out.append({"i": i, "qid": q.get("id"), "topic": q["topic"], "channel": q["channel"],
+        try:
+            _subj = _bp.subject_of(q)
+        except Exception:
+            _subj = ""
+        out.append({"i": i, "qid": q.get("id"), "topic": q["topic"],
+                    "subject": _subj, "channel": q["channel"],
                     "te": q.get("q_te", ""), "en": q.get("q_en", ""),
                     "level": _lvl(q),
                     "source": q.get("source") or "",
@@ -1009,6 +1014,29 @@ def mock_start(members, token, goal, neg=0.0, kind="mock"):
 
 
 @_locked
+def _section_rows(qs, correct_flags):
+    """🧩 210X SECTION REPORT: question topics ni exam subjects ga
+    group chesi per-subject score (real exam la section-wise
+    analysis). correct_flags = per-index bool list."""
+    try:
+        from . import syllabus as _sy
+        _sof = _sy.subject_of_topic
+    except Exception:
+        _sof = lambda t: ""  # noqa: E731
+    agg = {}
+    for i, q in enumerate(qs or []):
+        s = _sof(q.get("topic") or "") or "general"
+        r = agg.setdefault(s, {"subject": s, "total": 0, "correct": 0})
+        r["total"] += 1
+        if i < len(correct_flags) and correct_flags[i]:
+            r["correct"] += 1
+    rows = list(agg.values())
+    for r in rows:
+        r["accuracy"] = round(100 * r["correct"] / max(1, r["total"]))
+    rows.sort(key=lambda r: (r["accuracy"], -r["total"]))
+    return rows
+
+
 def mock_submit(members, token, run_id, answers, times=None):
     d = _load()
     uid = _sess(d, token)
@@ -1022,16 +1050,19 @@ def mock_submit(members, token, run_id, answers, times=None):
     correct = 0
     wrong = 0
     review = []
+    _flags = []
     for i, q in enumerate(run["qs"]):
         given = (answers or {}).get(str(i), (answers or {}).get(i))
         if given is None:
             wrong += 1
+            _flags.append(False)
             review.append({"i": i, "right": False, "given": -1, "answer": q["answer_index"]})
             continue
         _opts, perm = _display(q, f"{run_id}:{i}")
         g = int(given)
         orig = perm[g] if 0 <= g < len(perm) else g
         right = orig == q["answer_index"]
+        _flags.append(bool(right))
         correct += int(right)
         wrong += int(not right)
         run["answers"][str(i)] = orig
@@ -1080,6 +1111,7 @@ def mock_submit(members, token, run_id, answers, times=None):
                      run["qs"], run.get("answers") or {}, correct)
     _save(d, flush=True)
     return True, {"correct": correct, "total": len(run["qs"]), "wrong": wrong,
+                  "sections": _section_rows(run["qs"], _flags),
                   "avg_sec": run.get("avg_sec"), "slow": run.get("slow") or [],
                   "neg": neg, "pts": pts,
                   "accuracy": round(correct / max(1, len(run["qs"])) * 100),
@@ -2560,9 +2592,13 @@ def attempt_analysis(members, token, run_id):
     delta = None
     if prev:
         delta = int(cur.get("correct") or 0) - int(prev.get("correct") or 0)
+    _flags = [((cur.get("answers") or {}).get(str(i), -1)
+               == q.get("answer_index"))
+              for i, q in enumerate(cur.get("qs") or [])]
     return {"title": cur.get("title"), "kind": cur.get("kind"),
             "date": cur.get("date"), "correct": cur.get("correct"),
             "total": cur.get("total"), "topics": rows,
+            "sections": _section_rows(cur.get("qs") or [], _flags),
             "weakest": rows[0]["topic"] if rows else "",
             "delta_vs_prev": delta,
             "wrong_topics": [t for t, _n in sorted(
@@ -2935,6 +2971,7 @@ def portal_analytics(members):
             "archive_size": len(arc),
             "sessions_live": len(d.get("sessions") or {}),
             "pyq_gaps": _pyq_gaps_safe(),
+            "bank_gaps210": bank_gap_plan(8),
             "attempt_kinds": dict(collections.Counter(
                 a.get("kind") or "?" for a in arc).most_common(8)),
             "backup": _backup_safe()}
@@ -3588,6 +3625,96 @@ def district_league(members, my_district="", limit=10):
                     if r["name"] == my_district), None)
     return {"rows": rows[:limit], "my_district": my_district, "my_rank": my_rank,
             "districts": len(rows)}
+
+
+def district_deep(members, token):
+    """🏙️ DISTRICT DEEP-DIVE (210X): naa district lo naa rank, paina
+    unna 3 students (overtake targets + gap), district champion, naa
+    goal champion, district-vs-district board. Points = honest
+    members data nunchi matrame."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return None
+    prof = _profile(members, uid)
+    my_dist = prof.get("district") or ""
+    mems = getattr(members, "members", None) or {}
+    rows = []
+    for u, m in mems.items():
+        m = m or {}
+        if not (m.get("registered") or m.get("points")):
+            continue
+        rows.append({"uid": str(u), "name": m.get("name") or "Student",
+                     "district": m.get("district") or "",
+                     "goal": m.get("exam_goal") or m.get("goal") or "",
+                     "points": int(m.get("points") or 0)})
+    mine_rows = sorted((r for r in rows if r["district"] == my_dist and my_dist),
+                       key=lambda r: (-r["points"], r["name"]))
+    my_rank = next((i + 1 for i, r in enumerate(mine_rows)
+                    if r["uid"] == uid), None)
+    my_pts = next((r["points"] for r in mine_rows if r["uid"] == uid), 0)
+    chase = []
+    if my_rank and my_rank > 1:
+        for r in mine_rows[max(0, my_rank - 4):my_rank - 1]:
+            chase.append({"name": r["name"], "points": r["points"],
+                          "gap": r["points"] - my_pts})
+        chase.reverse()
+    champ = ({"name": mine_rows[0]["name"], "points": mine_rows[0]["points"]}
+             if mine_rows else None)
+    goal_champ = None
+    same_goal = [r for r in mine_rows if r["goal"] == (prof.get("goal") or "")]
+    if same_goal:
+        goal_champ = {"name": same_goal[0]["name"],
+                      "points": same_goal[0]["points"],
+                      "me": same_goal[0]["uid"] == uid}
+    league = district_league(members, my_dist, limit=8)
+    return {"my_district": my_dist, "my_rank": my_rank,
+            "my_points": my_pts, "students_in_district": len(mine_rows),
+            "champion": champ, "goal_champion": goal_champ,
+            "chase": chase, "board": league.get("rows") or [],
+            "district_rank": league.get("my_rank"),
+            "districts": league.get("districts")}
+
+
+def bank_gap_plan(limit=12):
+    """🎯 BANK-GAP HARVEST PLANNER (210X, admin): prathi goal/subject
+    ki exam weight × bank-thinness priority — PYQ harvest e topic
+    mida mundu cheyyalo data chepthundi. Fake questions create
+    cheyyam (honest counts only): need = target 50/subject."""
+    out = []
+    try:
+        from .question_bank import Bank
+        from . import syllabus as _sy
+        bank = Bank()
+        graphs = {}
+        for goal, meta in GOALS.items():
+            for ch in (meta.get("channels") or []):
+                if ch not in graphs:
+                    graphs[ch] = _sy.exam_graph(bank, ch)
+                g = graphs[ch]
+                for s, w in (g.get("weights") or {}).items():
+                    topics = (g.get("subjects") or {}).get(s) or {}
+                    bank_q = sum(topics.values())
+                    need = max(0, 50 - bank_q)
+                    if need <= 0:
+                        continue
+                    out.append({
+                        "goal": goal, "channel": ch, "subject": s,
+                        "weight": round(float(w or 0), 2),
+                        "topics": len(topics), "bank_q": bank_q,
+                        "need": need,
+                        "priority": round(float(w or 0) * need, 1)})
+    except Exception:
+        return []
+    out.sort(key=lambda r: (-r["priority"], -r["weight"]))
+    seen, uniq = set(), []
+    for r in out:
+        k = (r["channel"], r["subject"])
+        if k in seen:
+            continue
+        seen.add(k)
+        uniq.append(r)
+    return uniq[:int(limit or 12)]
 
 
 def winners_public(limit=8):

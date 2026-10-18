@@ -963,6 +963,7 @@ PORTAL_HTML = """<!DOCTYPE html>
       <div class="row" style="flex-wrap:wrap; gap:6px;">
         <button class="btn-alt" style="width:auto; margin:0;" onclick="loadSyllabus()">🗺️ Syllabus Tracker</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="loadPercentile()">📈 Naa Percentile</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadDistrict()">🏙️ District Deep-Dive</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="loadBookmarks()">🔖 Saved Questions</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="downloadWorksheet()">🖨️ Worksheet</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="loadStudyPlan()">📅 7-Day Plan</button>
@@ -1530,6 +1531,19 @@ async function loadPercentile() {
     ? '<div class="muted">📈 ' + esc(d.note || 'Inka data ledu') + '</div>'
     : '<b>📈 Goal Percentile</b> <span class="chip gold">Top ' + (100 - d.percentile) + '%</span><div class="muted">Rank #' + d.rank + ' / ' + d.students + ' students · Mee best: ' + d.my_best + ' · Top score: ' + d.top + ' (honest estimate — mock scores nunchi)</div>';
 }
+async function loadDistrict() {
+  const out = document.getElementById('adv-out');
+  out.innerHTML = '<div class="muted">Loading district…</div>';
+  const d = await api('/api/portal/district?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  out.innerHTML = '<b>🏙️ ' + esc(d.my_district || 'District') + ' Deep-Dive</b>' +
+    (d.my_rank ? ' <span class="chip gold">Naa rank #' + d.my_rank + ' / ' + d.students_in_district + '</span>' : '') +
+    (d.district_rank ? '<div class="muted">District league rank: <b>#' + d.district_rank + '</b> / ' + d.districts + ' districts · Naa points: ' + d.my_points + '</div>' : '') +
+    (d.champion ? '<div style="margin-top:4px;">👑 District Champion: <b>' + esc(d.champion.name) + '</b> (' + d.champion.points + ' pts)</div>' : '') +
+    (d.goal_champion ? '<div>🎯 Naa Goal Champion: <b>' + esc(d.goal_champion.name) + '</b> (' + d.goal_champion.points + ' pts)' + (d.goal_champion.me ? ' — meeru!' : '') + '</div>' : '') +
+    ((d.chase || []).length ? '<div style="margin-top:6px;"><b>🎯 Overtake Targets</b>' + d.chase.map(c => '<div style="display:flex; justify-content:space-between; margin:3px 0;"><span>' + esc(c.name) + '</span><span class="muted">' + c.points + ' pts · gap ' + c.gap + '</span></div>').join('') + '</div>' : '<div class="muted" style="margin-top:6px;">🏆 Meeru district lo #1 — maintain cheyyandi!</div>') +
+    ((d.board || []).length ? '<div style="margin-top:6px;"><b>🏙️ District League</b>' + d.board.map((r, i) => '<div style="display:flex; justify-content:space-between; margin:3px 0;"><span>#' + (i + 1) + ' ' + esc(r.name) + '</span><span class="muted">' + r.pts + ' pts · ' + r.students + ' students</span></div>').join('') + '</div>' : '');
+}
 async function loadBookmarks() {
   const out = document.getElementById('adv-out');
   const d = await api('/api/portal/bookmarks?token=' + encodeURIComponent(token));
@@ -2089,6 +2103,7 @@ async function submitMock() {
     const delta = an.delta_vs_prev == null ? '' : ' · Previous kante ' + (an.delta_vs_prev >= 0 ? '+' : '') + an.delta_vs_prev;
     box.insertAdjacentHTML('afterbegin', '<div class="rrow"><b>🔬 Attempt Analysis</b>' + delta +
       (an.weakest ? '<br><span class="muted">Weakest: ' + esc(an.weakest) + ' — ' + (an.wrong_topics || []).map(esc).join(', ') + '</span>' : '') +
+      ((an.sections || []).length ? '<br><span class="muted">🧩 Sections: ' + an.sections.map(s => esc(s.subject) + ' ' + s.correct + '/' + s.total + ' (' + s.accuracy + '%)').join(' · ') + '</span>' : '') +
       (an.topics || []).map(t => '<br><span class="muted">' + esc(t.topic) + ': ' + t.correct + '/' + t.total + ' (' + t.accuracy + '%)</span>').join('') + '</div>');
   });
   show('view-result');
@@ -6752,7 +6767,9 @@ All candidates must join today before 9:00 PM!"></textarea>
           '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🎯 Students by Goal</h4><div>' + chips(d.goals) + '</div>' +
           '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🧪 Attempts by Kind</h4><div>' + chips(d.attempt_kinds) + '</div>' +
           ((d.pyq_gaps || []).length ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">📜 PYQ Coverage Gaps (target 50/channel)</h4>' +
-            (d.pyq_gaps || []).map(g => '<div style="margin-top:3px;">' + (g.channel || g.exam || '?') + ': <b style="color:#facc15;">' + (g.gap != null ? g.gap + ' to go' : '') + '</b> <span>(' + (g.pyq || 0) + ' PYQ now)</span></div>').join('') : '');
+            (d.pyq_gaps || []).map(g => '<div style="margin-top:3px;">' + (g.channel || g.exam || '?') + ': <b style="color:#facc15;">' + (g.gap != null ? g.gap + ' to go' : '') + '</b> <span>(' + (g.pyq || 0) + ' PYQ now)</span></div>').join('') : '') +
+          ((d.bank_gaps210 || []).length ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🎯 Bank-Gap Harvest Priorities (exam weight × need)</h4>' +
+            (d.bank_gaps210 || []).map(g => '<div style="margin-top:3px;">' + esc(g.channel + ' · ' + g.subject) + ' <span class="muted">(goal ' + esc(g.goal) + ', weight ' + Math.round((g.weight || 0) * 100) + '%)</span>: <b style="color:#facc15;">need ' + g.need + '</b> <span class="muted">(' + g.bank_q + ' bank now · priority ' + g.priority + ')</span></div>').join('') : '');
         const bbg = document.getElementById('bb-goal');
         if (bbg) Object.keys(d.goals || {}).forEach(g => { const o = document.createElement('option'); o.value = g; o.textContent = g; bbg.appendChild(o); });
       } catch (e) { box.textContent = '❌ ' + e; }
@@ -8127,6 +8144,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
             query = urllib.parse.parse_qs(p.query)
             sy = portal.syllabus_plan(Members(), query.get("token", [""])[0])
             self._send_json({"ok": sy is not None, **(sy or {"error": "syllabus ready ledu"})})
+            return
+        if p.path == "/api/portal/district":
+            query = urllib.parse.parse_qs(p.query)
+            dd = portal.district_deep(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": dd is not None, **(dd or {"error": "session expired"})})
             return
         if p.path == "/api/portal/coach":
             query = urllib.parse.parse_qs(p.query)
