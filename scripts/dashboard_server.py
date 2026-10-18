@@ -797,6 +797,7 @@ PORTAL_HTML = """<!DOCTYPE html>
     <div class="card">
       <h2 id="hello">👋</h2>
       <div class="row" id="mychips"></div>
+      <div id="level-bar" style="margin-top:8px;"></div>
       <div class="row" id="goal-chips" style="margin-top:9px;"></div>
       <p class="muted" id="goal-stock" style="margin-top:6px;"></p>
       <div class="row" style="margin-top:10px;">
@@ -917,6 +918,7 @@ PORTAL_HTML = """<!DOCTYPE html>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="downloadRevisionPack()">🎁 Revision Pack</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="startGrand()">🏛️ Grand Mock 50Q</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="startAdaptive()">🧠 Adaptive Mock</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="startBlueprint()">🧩 Blueprint Mock (Exam Pattern)</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="weeklyReport()">📲 Weekly Report</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="downloadMistakes()">📕 Mistake Notebook</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="showAllNotices()">📢 Anni Notices</button>
@@ -1020,6 +1022,7 @@ PORTAL_HTML = """<!DOCTYPE html>
     <div id="q-en" class="qen"></div>
     <div id="opts"></div>
     <div id="q-fb" class="feedback"></div>
+    <div class="row"><button class="btn-alt" style="width:auto; margin:0;" onclick="speakCurrent('daily')">🔊 Listen</button></div>
     <button class="btn-main" id="q-next" style="display:none;" onclick="nextQ()">Next ➡️</button>
   </div>
 
@@ -1030,7 +1033,7 @@ PORTAL_HTML = """<!DOCTYPE html>
     <div id="p-en" class="qen"></div>
     <div id="p-opts"></div>
     <div id="p-fb" class="feedback"></div>
-    <div class="row"><button class="btn-alt" style="width:auto; margin:0;" id="p-bm" onclick="bmCurrent()">🔖 Save Question</button><button class="btn-alt" style="width:auto; margin:0;" onclick="flagCurrent()">🚩 Wrong Question?</button><span id="p-timer" class="chip" style="display:none;"></span></div>
+    <div class="row"><button class="btn-alt" style="width:auto; margin:0;" id="p-bm" onclick="bmCurrent()">🔖 Save Question</button><button class="btn-alt" style="width:auto; margin:0;" onclick="flagCurrent()">🚩 Wrong Question?</button><button class="btn-alt" style="width:auto; margin:0;" onclick="speakCurrent('prc')">🔊 Listen</button><button class="btn-alt" style="width:auto; margin:0;" onclick="loadTopicNotes()">📖 Topic Notes</button><span id="p-timer" class="chip" style="display:none;"></span></div>
     <button class="btn-main" id="p-next" style="display:none;" onclick="nextPr()">Next ➡️</button>
   </div>
 
@@ -1210,6 +1213,10 @@ async function loadHome() {
     '<button class="tchip' + (k === s.goal ? ' on' : '') + '" onclick="setGoal(\'' + k + '\')">' + esc(v) + '</button>').join('') +
     '<br><span class="muted" style="font-size:12px;">🎯 Also preparing (2nd goal):</span>' + Object.entries(d.goals || {}).map(([k, v]) =>
     '<button class="tchip' + (d.goal2 && k === d.goal2.goal ? ' on' : '') + '" onclick="setGoal2(\'' + k + '\')">' + esc(v) + '</button>').join('');
+  const lv = s.level || {};
+  const lvEl = document.getElementById('level-bar');
+  if (lvEl && lv.title) lvEl.innerHTML = '<div style="font-size:12px;">' + (lv.icon || '') + ' <b>' + esc(lv.title) + '</b>' + (lv.next ? ' · Next level ki ' + lv.next + ' pts' : ' · 👑 Top level!') + '</div>' +
+    '<div style="height:8px; background:rgba(255,255,255,0.08); border-radius:4px; margin-top:4px;"><div style="height:8px; width:' + (lv.progress || 0) + '%; background:linear-gradient(90deg,#f59e0b,#34d399); border-radius:4px;"></div></div>';
   const hubEl = document.getElementById('hub-chips');
   if (hubEl) hubEl.innerHTML = Object.entries(d.goals || {}).map(([k, v]) =>
     '<button class="tchip" onclick="loadGoalHub(\'' + k + '\')">' + esc(v) + '</button>').join('');
@@ -1454,6 +1461,38 @@ async function downloadMyData() {
   a.download = d.filename || 'StudentUp-MyData.json'; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
+async function startBlueprint() {
+  const goal = (STATE && STATE.student && STATE.student.goal) || 'mixed';
+  const negEl = document.getElementById('neg-sel');
+  const neg = negEl ? parseFloat(negEl.value || '0') : 0;
+  const d = await api('/api/portal/mock/start', {token, goal, neg, kind: 'blueprint'});
+  if (!d.ok) { alert('❌ ' + (d.error || 'Blueprint Mock start avvaledu')); return; }
+  MOCK = d;
+  document.getElementById('m-title').textContent = '🧩 ' + d.label;
+  renderMockRun(d);
+}
+async function loadTopicNotes() {
+  const q = PR && PR.questions[PR.cur];
+  const topic = q ? (q.topic || '') : '';
+  const d = await api('/api/portal/notes?topic=' + encodeURIComponent(topic) + '&token=' + encodeURIComponent(token));
+  const fb = document.getElementById('p-fb');
+  if (!d.ok) { fb.textContent = '❌ ' + (d.error || ''); return; }
+  fb.innerHTML = (d.notes || []).length ? (d.notes || []).map(n =>
+    '<div style="margin-top:7px; padding:8px 10px; background:#0f1e38; border:1px solid #24466e; border-radius:9px;"><b>📖 ' + esc(n.topic || '') + '</b><div style="margin-top:4px;">' + esc(n.en || '') + '</div>' +
+    (n.te ? '<div class="muted" style="margin-top:4px;">' + esc(n.te) + '</div>' : '') + '</div>').join('')
+    : '<div class="muted">Ee topic ki notes levu.</div>';
+}
+function speakCurrent(which) {
+  try {
+    const q = which === 'prc' ? (PR && PR.questions[PR.cur]) : QUESTIONS[cur];
+    if (!q || !window.speechSynthesis) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance((q.te || '') + '. ' + (q.en || ''));
+    u.lang = q.te ? 'te-IN' : 'en-IN';
+    u.rate = 0.95;
+    speechSynthesis.speak(u);
+  } catch (e) { /* device support lekapothe silent */ }
+}
 async function startAdaptive() {
   const goal = (STATE && STATE.student && STATE.student.goal) || 'mixed';
   const negEl = document.getElementById('neg-sel');
@@ -1576,6 +1615,7 @@ async function loadGoalHub(g) {
     ((d.topics || []).length ? '<p class="muted" style="margin-top:7px;">📈 Repeat ayye topics: ' + d.topics.map(t => esc(t.topic) + ' (' + t.pyq + ')').join(' · ') + '</p>' : '') +
     '<p style="margin-top:7px;">👉 ' + esc(d.next) + '</p>' +
     '<div class="row" style="margin-top:8px; gap:6px;"><button class="btn-main" style="flex:1;" onclick="startMock(\'' + d.goal + '\', \'exam\')">📜 ' + esc(d.label) + ' PYQ Mock</button>' +
+    '<button class="btn-alt" style="width:auto; margin:0;" onclick="startMock(\'' + d.goal + '\', \'blueprint\')">🧩 Blueprint</button>' +
     '<button class="btn-alt" style="width:auto; margin:0;" onclick="startMock(\'' + d.goal + '\')">📝 Mixed Mock</button>' +
     '<button class="btn-alt" style="width:auto; margin:0;" onclick="startPractice(\'pyq\', \'\', \'' + d.goal + '\')">🎯 PYQ Drill</button></div>';
 }
@@ -6490,6 +6530,7 @@ All candidates must join today before 9:00 PM!"></textarea>
           bar('Registered', f.registered || 0, f.registered || 0) +
           bar('Attempted (≥1 test)', f.attempted || 0, f.registered || 0) +
           bar('Active today', f.active_today || 0, f.registered || 0) +
+          ((d.retention) ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🔁 Retention</h4><div>🆕 Last 7d registered: <b style="color:#e2e8f0;">' + (d.retention.new_7d || 0) + '</b> · 🟢 Active 7d: <b style="color:#e2e8f0;">' + (d.retention.active_7d || 0) + '</b> (' + (d.retention.active_7d_pct || 0) + '% of students)</div>' : '') +
           '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🎯 Students by Goal</h4><div>' + chips(d.goals) + '</div>' +
           '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🧪 Attempts by Kind</h4><div>' + chips(d.attempt_kinds) + '</div>' +
           ((d.pyq_gaps || []).length ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">📜 PYQ Coverage Gaps (target 50/channel)</h4>' +
@@ -7894,6 +7935,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
             query = urllib.parse.parse_qs(p.query)
             ok, info = portal.goal_hub(Members(), query.get("token", [""])[0],
                                        query.get("goal", [""])[0])
+            self._send_json({"ok": ok, **(info if ok else {"error": info})})
+            return
+        if p.path == "/api/portal/notes":
+            query = urllib.parse.parse_qs(p.query)
+            ok, info = portal.topic_notes(Members(), query.get("token", [""])[0],
+                                          query.get("topic", [""])[0])
             self._send_json({"ok": ok, **(info if ok else {"error": info})})
             return
         if p.path == "/api/portal/series/certificate":

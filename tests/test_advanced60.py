@@ -70,7 +70,7 @@ class _Base(unittest.TestCase):
 
 class TestFlags60(_Base):
     def test_flags_15_and_new_enabled(self):
-        self.assertEqual(len(flags.all_flags()), 19)
+        self.assertEqual(len(flags.all_flags()), 20)
         self.assertTrue(flags.enabled("adaptive_mock"))
         self.assertTrue(flags.enabled("sprint_mode"))
 

@@ -125,7 +125,7 @@ class TestSeparation80(_Base):
         self.assertIsInstance(hub["paper_labels"], list)
 
     def test_flags_19(self):
-        self.assertEqual(len(flags.all_flags()), 19)
+        self.assertEqual(len(flags.all_flags()), 20)
         self.assertTrue(flags.enabled("exam_pyq_mocks"))
 
 

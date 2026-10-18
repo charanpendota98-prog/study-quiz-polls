@@ -116,6 +116,11 @@ DEFAULTS = {
         "label": "📜 Exam PYQ Mocks (exam-separate)",
         "desc": "Prathi exam ki aa exam previous-paper questions matrame vache strict PYQ mock tests.",
     },
+    "blueprint_mocks": {
+        "default": True,
+        "label": "🧩 Blueprint Mocks (exam pattern)",
+        "desc": "Real exam blueprint pattern (subject quotas + difficulty ramp + PYQ-first) tho compose ayye mock tests.",
+    },
 }
 
 

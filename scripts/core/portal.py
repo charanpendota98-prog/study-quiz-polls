@@ -566,9 +566,22 @@ def _profile(members, uid):
         key=lambda r: (r["accuracy"], -r["total"]))[:3]
     due = sum(1 for r in (m.get("review") or [])
               if str(r.get("due", "")) <= _today())
+    _lvl = {}
+    try:
+        from .members import level_for as _lf, LEVELS as _LV
+        _li = _lf(int(m.get("points", 0) or 0))
+        _cur = _LV[_li["index"]][0]
+        _nxt = _li.get("next")
+        _lvl = {"icon": _li["icon"], "title": _li["title_en"],
+                "index": _li["index"], "next": _nxt,
+                "progress": (100 if _nxt is None else
+                             max(0, min(100, round(100 * (int(m.get("points", 0) or 0) - _cur)
+                                                   / max(1, _nxt - _cur)))))}
+    except Exception:
+        _lvl = {}
     return {"name": m.get("name", ""), "district": m.get("district", ""),
             "goal": m.get("exam_goal") or m.get("goal") or "mixed",
-            "points": m.get("points", 0),
+            "points": m.get("points", 0), "level": _lvl,
             "streak": m.get("streak", 0), "best_streak": m.get("best_streak", 0),
             "ref_code": _ref_code(uid), "referrals": m.get("referrals", 0),
             "badges": _badge_labels(m.get("badges") or []),
@@ -789,6 +802,14 @@ def mock_start(members, token, goal, neg=0.0, kind="mock"):
                 kind = "mock"
         except Exception:
             pass
+    if kind == "blueprint":
+        # 🧩 BLUEPRINT MOCK (90X) flag gate — compose kind chain lo.
+        try:
+            from . import flags as _fl
+            if not _fl.enabled("blueprint_mocks"):
+                kind = "mock"
+        except Exception:
+            pass
     if kind == "grand":
         picked = _paper(chans or None, 50, "grand-" + secrets.token_hex(4),
                         strict=bool(chans))
@@ -826,6 +847,24 @@ def mock_start(members, token, goal, neg=0.0, kind="mock"):
                 picked = random.Random(secrets.token_hex(4)).sample(
                     pool, min(MOCK_N, len(pool))) if pool else []
         else:
+            kind = "mock"
+            pool = _bank_pool(chans or None)
+            picked = random.Random(secrets.token_hex(4)).sample(
+                pool, min(MOCK_N, len(pool))) if pool else []
+    elif kind == "blueprint":
+        # 🧩 BLUEPRINT MOCK (90X): real exam pattern — subject quotas,
+        # difficulty ramp, PYQ-first (blueprint.compose_round).
+        try:
+            from . import blueprint as _bp
+            pool = _bank_pool(chans or None)
+            if len(pool) < 5:
+                pool = _bank_pool()
+            picked = _bp.compose_round(
+                chans[0] if chans else "CURRENT", pool, MOCK_N,
+                rng=random.Random(secrets.token_hex(4)))
+        except Exception:
+            picked = []
+        if not picked:
             kind = "mock"
             pool = _bank_pool(chans or None)
             picked = random.Random(secrets.token_hex(4)).sample(
@@ -888,6 +927,7 @@ def mock_start(members, token, goal, neg=0.0, kind="mock"):
     return True, {"run_id": run_id, "goal": goal, "neg": neg, "kind": kind,
                   "label": ("🏛️ Grand Mock — " if kind == "grand" else
                             "🧠 Adaptive Mock — " if kind == "adaptive" else
+                            "🧩 Blueprint Mock — " if kind == "blueprint" else
                             f"📜 PYQ Mock ({locals().get('_exam_pyq_n', 0)} real PYQ) — "
                             if kind == "exam" else "")
                            + GOALS[goal]["label"],
@@ -1343,8 +1383,27 @@ def set_goal(members, token, goal):
     return True, _profile(members, uid)
 
 
+_STOCK_CACHE = {}
+
+
+def _cached90(key, fn, ttl=30):
+    """⚡ 90X perf: state() prati load ki bank-wide scans (exam_stock,
+    paper_catalog) — 30s TTL cache (bank maarithe kuda fresh enough)."""
+    now = time.time()
+    hit = _STOCK_CACHE.get(key)
+    if hit and now - hit[0] < ttl:
+        return hit[1]
+    val = fn()
+    _STOCK_CACHE[key] = (now, val)
+    return val
+
+
 def exam_stock():
     """Exam-wise bank stock — prati goal ki enni real PYQ / total questions."""
+    return _cached90("exam_stock", _exam_stock_fresh)
+
+
+def _exam_stock_fresh():
     pool = _bank_pool()
     out = {}
     for key, g in GOALS.items():
@@ -1780,6 +1839,10 @@ def paper_catalog() -> list:
     """📜 Attempt cheyyadaniki ready ga unna real PYQ paper sets.
     🛠️ FIX: min_q=5 valla 3-4 questions unna sets hide ayyevi — ippudu
     anni sets (≥3) kanipisthayi, size label tho (Full/Mini)."""
+    return _cached90("paper_catalog", _paper_catalog_fresh)
+
+
+def _paper_catalog_fresh() -> list:
     try:
         from . import pyq as _pyq
         rows = _pyq.papers_index(min_q=3)
@@ -2570,6 +2633,18 @@ def portal_analytics(members):
                 "active_today": len(led_today),
                 "attempt_rate": round(100 * len({a.get("uid") for a in arc})
                                       / max(1, len(reg)))},
+            "retention": {
+                "new_7d": sum(1 for m in reg
+                              if str(m.get("registered_at") or "")[:10]
+                              >= (_now() - timedelta(days=7)).strftime("%Y-%m-%d")),
+                "active_7d": len({r.get("uid") for r in (d.get("ledger") or [])
+                                  if str(r.get("date") or "")
+                                  >= (_now() - timedelta(days=7)).strftime("%Y-%m-%d")}),
+                "active_7d_pct": round(100 * len(
+                    {r.get("uid") for r in (d.get("ledger") or [])
+                     if str(r.get("date") or "")
+                     >= (_now() - timedelta(days=7)).strftime("%Y-%m-%d")})
+                    / max(1, len(reg)))},
             "archive_size": len(arc),
             "sessions_live": len(d.get("sessions") or {}),
             "pyq_gaps": _pyq_gaps_safe(),
@@ -3515,3 +3590,35 @@ def set_exam_reminder(members, token, exam_id, on=True):
         uids.remove(uid)
     _save(d)
     return True, {"exam_id": str(exam_id or ""), "remind": uid in uids}
+
+
+def topic_notes(members, token, topic=""):
+    """📖 TOPIC NOTES (90X): coach lessons bank nunchi topic/channel
+    ki sambandinchina expert tricks — practice madhyalo chaduvukovachu.
+    Data lekapothe empty list (honest)."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return False, "Session expired."
+    try:
+        from .store import load_json as _lj
+        lessons = _lj(config.DATA / "coach_lessons.json",
+                      {"lessons": []}).get("lessons", [])
+    except Exception:
+        lessons = []
+    goal = _profile(members, uid).get("goal")
+    chans = set((GOALS.get(goal) or {}).get("channels") or [])
+    t = str(topic or "").strip().lower()
+    if t:
+        sel = [l for l in lessons
+               if t in str(l.get("topic") or "").lower()]
+        if not sel:
+            sel = [l for l in lessons
+                   if t in str(l.get("en") or "").lower()][:3]
+    else:
+        sel = [l for l in lessons if l.get("channel") in chans] or lessons
+    return True, {"notes": [{"topic": l.get("topic", ""),
+                             "channel": l.get("channel", ""),
+                             "en": l.get("en", ""), "te": l.get("te", "")}
+                            for l in sel[:6]],
+                  "total": len(lessons)}
