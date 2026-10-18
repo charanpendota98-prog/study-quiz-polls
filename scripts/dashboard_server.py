@@ -1437,7 +1437,8 @@ function renderQ() {
   document.getElementById('q-next').style.display = 'none';
   const box = document.getElementById('opts'); box.innerHTML = '';
   q.options.forEach((opt, i) => {
-    const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+    const b = document.createElement('button'); b.className = 'opt'; b.textContent = optText(q, i, opt);
+    b.dataset.qref = regQ(q); b.dataset.oi = i;
     b.onclick = () => ansDaily(i, b); box.appendChild(b);
   });
 }
@@ -1514,10 +1515,12 @@ async function loadCoach() {
 async function loadSyllabus() {
   const out = document.getElementById('adv-out');
   out.innerHTML = '<div class="muted">Loading syllabus…</div>';
-  const d = await api('/api/portal/syllabus?token=' + encodeURIComponent(token));
+  const d = await api('/api/portal/syllabus2?token=' + encodeURIComponent(token));
   if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || 'Syllabus ready ledu') + '</div>'; return; }
-  out.innerHTML = '<b>🗺️ ' + esc(d.exam || 'Syllabus') + '</b> <span class="chip gold">Coverage ' + d.coverage + '%</span> <span class="muted">' + d.topics_done + '/' + d.topics_total + ' topics</span>' +
-    (d.subjects || []).map(s => '<div style="display:flex; justify-content:space-between; margin:4px 0;"><span>' + esc(s.subject) + ' <span class="muted">(' + s.done_topics + '/' + s.topics + ' topics)</span></span><span>' + esc(s.status) + (s.mastery != null ? ' · ' + Math.round(s.mastery * 100) + '%' : '') + '</span></div>').join('');
+  out.innerHTML = '<b>🗺️ ' + esc(d.exam || 'Syllabus') + '</b> <span class="chip gold">Coverage ' + d.coverage + '% (exam-weighted)</span> <span class="muted">' + d.topics_done + '/' + d.topics_total + ' topics</span>' +
+    (d.subjects || []).map(s => '<div style="display:flex; justify-content:space-between; margin:4px 0;"><span>' + esc(s.subject) + ' <span class="muted">(' + s.done_topics + '/' + s.topics + ' topics · weight ' + Math.round((s.weight || 0) * 100) + '% · bank ' + (s.bank_q || 0) + ' Qs' + (s.bank_gap ? ' · ⚠️ bank gap' : '') + ')</span></span><span>' + esc(s.status) + (s.mastery != null ? ' · ' + Math.round(s.mastery * 100) + '%' : '') + '</span></div>').join('') +
+    (d.note ? '<div class="muted" style="margin-top:6px;">' + esc(d.note) + '</div>' : '') +
+    (d.next_subject ? '<div class="muted">➡️ Next: <b>' + esc(d.next_subject) + '</b> topics cover cheyyandi</div>' : '');
 }
 async function loadPercentile() {
   const out = document.getElementById('adv-out');
@@ -1565,7 +1568,8 @@ async function resumeMock() {
     const div = document.createElement('div'); div.id = 'mq' + q.i;
     div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
     q.options.forEach((opt, oi) => {
-      const b = document.createElement('button'); b.className = 'opt' + ((d.mock.answers || {})[q.i] === oi ? ' picked' : ''); b.textContent = opt;
+      const b = document.createElement('button'); b.className = 'opt' + ((d.mock.answers || {})[q.i] === oi ? ' picked' : ''); b.textContent = optText(q, oi, opt);
+      b.dataset.qref = regQ(q); b.dataset.oi = oi;
       if ((d.mock.answers || {})[q.i] === oi) MOCK.times = MOCK.times || {}; if (MOCK.times[q.i] == null) MOCK.times[q.i] = Math.round((Date.now() - (MOCK.t0 || Date.now())) / 1000); MOCK.answers[q.i] = oi;
       b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.times = MOCK.times || {}; if (MOCK.times[q.i] == null) MOCK.times[q.i] = Math.round((Date.now() - (MOCK.t0 || Date.now())) / 1000); MOCK.answers[q.i] = oi; markPalette(q.i); };
       div.appendChild(b);
@@ -1669,7 +1673,8 @@ function renderMockRun(d) {
     const div = document.createElement('div'); div.id = 'mq' + q.i;
     div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
     q.options.forEach((opt, oi) => {
-      const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+      const b = document.createElement('button'); b.className = 'opt'; b.textContent = optText(q, oi, opt);
+      b.dataset.qref = regQ(q); b.dataset.oi = oi;
       b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.times = MOCK.times || {}; if (MOCK.times[q.i] == null) MOCK.times[q.i] = Math.round((Date.now() - (MOCK.t0 || Date.now())) / 1000); MOCK.answers[q.i] = oi; markPalette(q.i); };
       div.appendChild(b);
     });
@@ -1797,6 +1802,14 @@ async function loadForecast() {
   const out = document.getElementById('adv-out');
   const d = await api('/api/portal/forecast?token=' + encodeURIComponent(token));
   if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  if (d.v2) {
+    const v = d.v2;
+    out.innerHTML = '<b>🔮 Score Forecast v2</b> <span class="chip gold">~' + v.expected_pct + '%</span> <span class="muted">confidence: ' + esc(v.confidence) + ' (' + v.answers_seen + ' answers)</span><div class="muted">Next mock expected range: ' + v.low + '–' + v.high + '% · Syllabus coverage: ' + (v.coverage != null ? v.coverage + '%' : '—') + '</div>' +
+      (v.subjects || []).map(s => '<div style="display:flex; justify-content:space-between; margin:4px 0;"><span>' + esc(s.subject) + ' <span class="muted">(weight ' + Math.round((s.weight || 0) * 100) + '%' + (s.bank_gap ? ' · ⚠️ bank gap' : '') + ')</span></span><span>~' + s.expected_pct + '%' + (s.mastery != null ? ' · mastery ' + Math.round(s.mastery * 100) + '%' : '') + '</span></div>').join('') +
+      (v.drivers || []).map(t => '<div class="muted" style="margin-top:4px;">' + esc(t) + '</div>').join('') +
+      '<div class="muted" style="margin-top:6px;">' + esc(v.note || '') + '</div>';
+    return;
+  }
   out.innerHTML = '<b>🔮 Score Forecast</b> <span class="chip gold">~' + d.expected_pct + '%</span><div class="muted">Next mock expected range: ' + d.low + '–' + d.high + '% · Band: ' + esc(d.band || '') + '<br>' + esc(d.note || '') + '</div>';
 }
 async function loadTrend() {
@@ -1838,7 +1851,8 @@ async function startGrand() {
     const div = document.createElement('div'); div.id = 'mq' + q.i;
     div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
     q.options.forEach((opt, oi) => {
-      const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+      const b = document.createElement('button'); b.className = 'opt'; b.textContent = optText(q, oi, opt);
+      b.dataset.qref = regQ(q); b.dataset.oi = oi;
       b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.times = MOCK.times || {}; if (MOCK.times[q.i] == null) MOCK.times[q.i] = Math.round((Date.now() - (MOCK.t0 || Date.now())) / 1000); MOCK.answers[q.i] = oi; markPalette(q.i); };
       div.appendChild(b);
     });
@@ -1913,6 +1927,21 @@ async function loadRival() {
   out.innerHTML = '<b>🥊 Rival Race (ee week)</b><div>Nenu: <b>' + d.my_pts + ' pts</b> · ' + esc(d.rival) + ': <b>' + d.rival_pts + ' pts</b><br>' +
     (d.leading === 'you' ? '🔥 Meeru mundhu unnaru (+' + d.diff + ') — maintain cheyyandi!' : '⚠️ Rival mundhu unnadu (' + d.diff + ') — oka mock raasi overtake cheyyandi!') + '</div>';
 }
+// 🌐 200X full-toggle: single-language option text (fallback merged)
+window.__qpool = window.__qpool || {};
+function regQ(q) {
+  if (!q) return 'q' + (q && q.i);
+  const key = 'k' + String(q.qid || '') + ':' + String(q.i);
+  window.__qpool[key] = q;
+  return key;
+}
+function optText(q, i, fallback) {
+  const en = document.body.classList.contains('lang-en');
+  const te = document.body.classList.contains('lang-te');
+  if (en && q.options_en && q.options_en[i]) return q.options_en[i];
+  if (te && q.options_te && q.options_te[i]) return q.options_te[i];
+  return fallback;
+}
 let LANGS = ['both', 'te', 'en'];
 async function cycleLang() {
   const cur = (STATE && STATE.student && STATE.student.lang) || localStorage.getItem('su_lang') || 'both';
@@ -1922,6 +1951,13 @@ async function cycleLang() {
   if (nxt !== 'both') document.body.classList.add('lang-' + nxt);
   if (STATE && STATE.student) STATE.student.lang = nxt;
   await api('/api/portal/lang', {token, lang: nxt});
+  document.querySelectorAll('.opt').forEach(b => {
+    if (b.dataset.qref != null && b.dataset.oi != null) {
+      const pool = (window.__qpool || {});
+      const q = pool[b.dataset.qref];
+      if (q) b.textContent = optText(q, +b.dataset.oi, b.textContent);
+    }
+  });
   alert('🌐 Language: ' + (nxt === 'both' ? 'Telugu + English' : nxt === 'te' ? 'Telugu matrame' : 'English matrame'));
 }
 function applyLang() {
@@ -1980,7 +2016,8 @@ async function startPaper(exam, year, paper) {
     const div = document.createElement('div'); div.id = 'mq' + q.i;
     div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
     q.options.forEach((opt, oi) => {
-      const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+      const b = document.createElement('button'); b.className = 'opt'; b.textContent = optText(q, oi, opt);
+      b.dataset.qref = regQ(q); b.dataset.oi = oi;
       b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.times = MOCK.times || {}; if (MOCK.times[q.i] == null) MOCK.times[q.i] = Math.round((Date.now() - (MOCK.t0 || Date.now())) / 1000); MOCK.answers[q.i] = oi; markPalette(q.i); };
       div.appendChild(b);
     });
@@ -2008,7 +2045,8 @@ async function startMock(goal, kind) {
     const div = document.createElement('div'); div.id = 'mq' + q.i;
     div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
     q.options.forEach((opt, oi) => {
-      const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+      const b = document.createElement('button'); b.className = 'opt'; b.textContent = optText(q, oi, opt);
+      b.dataset.qref = regQ(q); b.dataset.oi = oi;
       b.onclick = () => { div.querySelectorAll('.opt').forEach(x => x.classList.remove('picked')); b.classList.add('picked'); MOCK.answers = MOCK.answers || {}; MOCK.times = MOCK.times || {}; if (MOCK.times[q.i] == null) MOCK.times[q.i] = Math.round((Date.now() - (MOCK.t0 || Date.now())) / 1000); MOCK.answers[q.i] = oi; markPalette(q.i); };
       div.appendChild(b);
     });
@@ -2124,7 +2162,8 @@ function renderPr() {
   document.getElementById('p-next').style.display = 'none';
   const box = document.getElementById('p-opts'); box.innerHTML = '';
   q.options.forEach((opt, i) => {
-    const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+    const b = document.createElement('button'); b.className = 'opt'; b.textContent = optText(q, i, opt);
+    b.dataset.qref = regQ(q); b.dataset.oi = i;
     b.onclick = () => ansPr(i, b); box.appendChild(b);
   });
 }
@@ -2222,7 +2261,8 @@ async function enterExam(id) {
     const div = document.createElement('div');
     div.innerHTML = '<div class="muted" style="font-size:11px; margin-top:12px;">' + esc(qMeta(q)) + '</div><div class="qte" style="margin-top:4px;">Q' + (q.i + 1) + '. ' + esc(q.te || q.en) + '</div>' + (q.te && q.en ? '<div class="qen">' + esc(q.en) + '</div>' : '');
     q.options.forEach((opt, oi) => {
-      const b = document.createElement('button'); b.className = 'opt'; b.textContent = opt;
+      const b = document.createElement('button'); b.className = 'opt'; b.textContent = optText(q, oi, opt);
+      b.dataset.qref = regQ(q); b.dataset.oi = oi;
       if (q.answered) { b.disabled = true; }
       else b.onclick = async () => {
         div.querySelectorAll('.opt').forEach(x => { x.disabled = true; });
@@ -2446,7 +2486,8 @@ function renderQ(s) {
     q.options.forEach((opt, i) => {
       const b = document.createElement('button');
       b.className = 'opt';
-      b.textContent = opt;
+      b.dataset.qref = regQ(q); b.dataset.oi = i;
+      b.textContent = optText(q, i, opt);
       if (q.answered) { b.disabled = true; }
       else { b.onclick = () => answer(i, b); }
       box.appendChild(b);
@@ -8081,6 +8122,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
             query = urllib.parse.parse_qs(p.query)
             sy = portal.my_syllabus(Members(), query.get("token", [""])[0])
             self._send_json({"ok": sy is not None, **(sy or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/syllabus2":
+            query = urllib.parse.parse_qs(p.query)
+            sy = portal.syllabus_plan(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": sy is not None, **(sy or {"error": "syllabus ready ledu"})})
             return
         if p.path == "/api/portal/coach":
             query = urllib.parse.parse_qs(p.query)

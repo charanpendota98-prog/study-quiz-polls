@@ -346,16 +346,45 @@ def _daily_paper(d):
     return d["days"][day]
 
 
-def _display(q, seed):
-    """Per-student shuffled options; returns (display_texts, perm)."""
+def _display(q, seed, lang="both"):
+    """Per-student shuffled options; returns (display_texts, perm).
+
+    🌐 200X: lang='en' → English-first options (build_options
+    telugu_first=False). Default 'both'/'te' = Telugu-first merge —
+    boy-gen-approved behaviour unchanged."""
     from .content import build_options
-    raw = build_options(q, telugu_first=True)
+    raw = build_options(q, telugu_first=(lang != "en"))
     perm = list(range(len(raw)))
     random.Random(seed).shuffle(perm)
     return [raw[i] for i in perm if i < len(raw)], perm
 
 
-def _serve(qs, seed_prefix, answers):
+_LETTERS200 = ["🅰️", "🅱️", "🅲️", "🅳"]
+
+
+def _display_split(q, perm):
+    """🌐 200X FULL TE/EN TOGGLE: perm display-order ki saripoyina
+    single-language option arrays. 'options' merged (both) behaviour
+    unchanged; SPA lang-te/lang-en mode lo ee arrays vaduthundi —
+    toggle nijanga full (stems matrame kadu). Letter = original-index
+    letter (merged options tho consistent)."""
+    en = q.get("options_en") or []
+    te = [str(t).lstrip("⤷").strip() for t in (q.get("options_te") or [])]
+    out_en, out_te = [], []
+    for orig in perm:
+        e = (en[orig] if 0 <= orig < len(en) else "") or ""
+        t = (te[orig] if 0 <= orig < len(te) else "") or ""
+        e, t = str(e).strip(), str(t).strip()
+        import re as _re
+        e = _re.sub(r"^[A-D][\)\.\:]\s*", "", e)
+        t = _re.sub(r"^[A-D][\)\.\:]\s*", "", t)
+        L = _LETTERS200[orig] if 0 <= orig < len(_LETTERS200) else ""
+        out_en.append(f"{L} {e or t}".strip())
+        out_te.append(f"{L} {t or e}".strip())
+    return out_en, out_te
+
+
+def _serve(qs, seed_prefix, answers, lang="both"):
     out = []
     try:
         from . import blueprint as _bp
@@ -363,13 +392,15 @@ def _serve(qs, seed_prefix, answers):
     except Exception:
         _lvl = lambda q: ""  # noqa: E731
     for i, q in enumerate(qs):
-        opts, _perm = _display(q, f"{seed_prefix}:{i}")
+        opts, _perm = _display(q, f"{seed_prefix}:{i}", lang=lang)
+        _en_arr, _te_arr = _display_split(q, _perm)
         out.append({"i": i, "qid": q.get("id"), "topic": q["topic"], "channel": q["channel"],
                     "te": q.get("q_te", ""), "en": q.get("q_en", ""),
                     "level": _lvl(q),
                     "source": q.get("source") or "",
                     "exam": q.get("exam") or "", "year": q.get("year") or "",
-                    "options": opts, "answered": str(i) in (answers or {})})
+                    "options": opts, "options_en": _en_arr, "options_te": _te_arr,
+                    "answered": str(i) in (answers or {})})
     return out
 
 
@@ -655,7 +686,13 @@ def state(members, token):
         _cd = None
     _nts = [n for n in list_notices(10)
             if not n.get("goal") or n.get("goal") == prof.get("goal")]
+    _sy1 = None
+    try:
+        _sy1 = syllabus_plan(members, token)
+    except Exception:
+        _sy1 = None
     return {"student": prof, "brain": _brain_card, "today_plan": _plan,
+            "syllabus_v1": _sy1,
             "countdown": _cd,
             "sprint": (sprint_plan(members, token)
                        if _cd and (_cd.get("mine") or {}).get("days") is not None
@@ -710,8 +747,10 @@ def daily_questions(members, token):
     day = _daily_paper(d)
     run = (day.setdefault("runs", {})).get(uid)
     answers = (run or {}).get("answers") or {}
-    return {"questions": _serve(day["qs"], f"{uid}:{_today()}", answers),
-            "date": _today(),
+    lang = _profile(members, uid).get("lang", "both")
+    return {"questions": _serve(day["qs"], f"{uid}:{_today()}", answers,
+                                lang=lang),
+            "date": _today(), "lang": lang,
             "done": bool(run and run.get("done"))}
 
 
@@ -737,7 +776,8 @@ def daily_answer(members, token, idx, choice, sec=None):
         except Exception:
             pass
     q = qs[int(idx)]
-    _opts, perm = _display(q, f"{uid}:{_today()}:{int(idx)}")
+    _lang = _profile(members, uid).get("lang", "both")
+    _opts, perm = _display(q, f"{uid}:{_today()}:{int(idx)}", lang=_lang)
     ch = int(choice)
     orig = perm[ch] if 0 <= ch < len(perm) else ch
     correct = orig == q["answer_index"]
@@ -2025,6 +2065,131 @@ def my_syllabus(members, token):
         return None
 
 
+def syllabus_plan(members, token):
+    """🗺️ SYLLABUS % v2 (200X): goal channels ANNI kalipina merged
+    syllabus graph mida EXAM-WEIGHTED coverage. v1 flaws fix:
+    (1) single-channel matrame chudatam (Groups lo TSPSC ignore),
+    (2) case-variant topics ('Number Series'/'number series') double
+    count, (3) blueprint weight unna subject ki bank lo questions
+    lekunda silent ga missing (BANKING Reasoning 35%!) — ippudu
+    bank_gap honesty tho kanipisthundi. Coverage = Σ weight×(subject
+    topics done / subject topics); raw topics count kuda isthamu."""
+    try:
+        from . import flags as _fl
+        if not _fl.enabled("syllabus_tracker"):
+            return None
+    except Exception:
+        pass
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return None
+    m = _member(members, uid)
+    prof = _profile(members, uid)
+    goal = prof.get("goal") or "mixed"
+    chans = list((GOALS.get(goal) or {}).get("channels") or [])
+    try:
+        from .question_bank import Bank
+        from . import syllabus as _sy
+        bank = Bank()
+        if not chans:
+            import collections as _c
+            _cnt = _c.Counter(q.get("channel") for q in _bank_pool())
+            chans = [(_cnt.most_common(1) or [("CURRENT", 0)])[0][0]]
+        graphs = [_sy.exam_graph(bank, ch) for ch in chans]
+        # merged graph: subject -> {topic_lower: (display, bank_q)}
+        merged, weight_sum, exam_labels = {}, {}, []
+        for g in graphs:
+            if g.get("exam"):
+                exam_labels.append(g["exam"])
+            for s, w in (g.get("weights") or {}).items():
+                weight_sum[s] = weight_sum.get(s, 0.0) + float(w or 0)
+            for s, it in (g.get("subjects") or {}).items():
+                slot = merged.setdefault(s, {})
+                for t, c in (it or {}).items():
+                    key = str(t or "").strip().lower()
+                    if not key:
+                        continue
+                    if key not in slot or c > slot[key][1]:
+                        slot[key] = (str(t), slot.get(key, ("", 0))[1] + int(c or 0)
+                                     if key in slot else int(c or 0))
+        n_ch = max(1, len(graphs))
+        weights = {s: wsum / n_ch for s, wsum in weight_sum.items()}
+        for s in merged:
+            weights.setdefault(s, 0.0)
+        tot_w = sum(weights.values()) or 1.0
+        weights = {s: w / tot_w for s, w in weights.items()}
+        # student topic stats (case-merged)
+        stu = {}
+        for t, v in ((m.get("topics") or {}).items()):
+            key = str(t or "").strip().lower()
+            if not key:
+                continue
+            a = stu.setdefault(key, {"seen": 0, "correct": 0})
+            a["seen"] += int((v or {}).get("total", 0) or 0)
+            a["correct"] += int((v or {}).get("correct", 0) or 0)
+        topic_subj = {}
+        for s, slot in merged.items():
+            for key in slot:
+                topic_subj.setdefault(key, s)
+        subj_seen = {}
+        for key, a in stu.items():
+            s = topic_subj.get(key) or _sy.subject_of_topic(key)
+            if s not in merged:
+                continue
+            agg = subj_seen.setdefault(s, {"seen": 0, "correct": 0})
+            agg["seen"] += a["seen"]
+            agg["correct"] += a["correct"]
+        for _ws in weights:
+            merged.setdefault(_ws, {})  # blueprint subject, bank empty
+        rows, cov_w, done_tot, tot_topics, gaps = [], 0.0, 0, 0, []
+        for s in sorted(merged, key=lambda x: (-weights.get(x, 0), x)):
+            slot = merged[s]
+            topics_n = len(slot)
+            bank_q = sum(c for _t, c in slot.values())
+            done = sum(1 for key in slot if stu.get(key, {}).get("seen", 0) > 0)
+            agg = subj_seen.get(s) or {"seen": 0, "correct": 0}
+            rate = (agg["correct"] / agg["seen"]) if agg["seen"] else None
+            w = weights.get(s, 0.0)
+            cov_w += w * (done / topics_n if topics_n else 0.0)
+            done_tot += done
+            tot_topics += topics_n
+            gap = bool(topics_n == 0 or (w >= 0.15 and bank_q == 0))
+            if w >= 0.15 and bank_q == 0:
+                gaps.append(s)
+            rows.append({
+                "subject": s, "weight": round(w, 3),
+                "topics": topics_n, "done_topics": done,
+                "bank_q": bank_q, "seen": agg["seen"],
+                "correct": agg["correct"],
+                "mastery": (round(rate, 2) if rate is not None else None),
+                "status": ("not started" if not agg["seen"] else
+                           "weak" if (rate or 0) < 0.5 else
+                           "growing" if (rate or 0) < 0.75 else "strong"),
+                "coverage_pct": round(100 * done / topics_n) if topics_n else 0,
+                "bank_gap": gap})
+        weak = sorted(
+            ({"topic": t, "seen": a["seen"], "correct": a["correct"],
+              "rate": round(a["correct"] / a["seen"], 2)}
+             for t, a in stu.items() if a["seen"] >= 2),
+            key=lambda r: (r["rate"], -r["seen"]))[:3]
+        nxt = next((r["subject"] for r in rows
+                    if r["done_topics"] < r["topics"]), None)
+        return {"goal": goal, "channels": chans,
+                "exam": (exam_labels[0] if len(graphs) == 1
+                         else (GOALS.get(goal) or {}).get("label", goal)),
+                "coverage": round(100 * cov_w),
+                "topics_done": done_tot, "topics_total": tot_topics,
+                "subjects": rows, "weak_topics": weak,
+                "bank_gaps": gaps, "next_subject": nxt,
+                "note": ("⚠️ Bank lo konni weight-unna subjects ki "
+                         "questions takkuva — PYQ harvest avthondi; "
+                         "syllabus % bank stock mida adharam."
+                         if gaps else "")}
+    except Exception:
+        return None
+
+
 def coach_today(members, token):
     """🧑‍🏫 PERSONAL COACH: brain + syllabus + review kalipi ee roju
     student cheyyalsina ONE clear action plan (3 steps)."""
@@ -2466,13 +2631,77 @@ def score_forecast(members, token):
     except Exception:
         cov = 0.0
     expected = round(100 * (0.75 * p + 0.25 * cov))
-    return {"expected_pct": expected,
-            "low": max(0, expected - 8), "high": min(100, expected + 8),
-            "theta": ab.get("theta"), "band": ab.get("band", ""),
-            "answers": ab.get("answers", 0),
-            "note": "Estimate matrame — Brain ability + syllabus "
-                    "coverage nunchi. Ekkuva mocks rayyandi, forecast "
-                    "accurate avuthundi."}
+    out = {"expected_pct": expected,
+           "low": max(0, expected - 8), "high": min(100, expected + 8),
+           "theta": ab.get("theta"), "band": ab.get("band", ""),
+           "answers": ab.get("answers", 0),
+           "note": "Estimate matrame — Brain ability + syllabus "
+                   "coverage nunchi. Ekkuva mocks rayyandi, forecast "
+                   "accurate avuthundi."}
+    # 🔮 200X FORECAST v2: subject-weighted expected score. Per-subject
+    # mastery ni ability prior (p) vaipu Bayesian shrink (k=4) chesi,
+    # exam weights tho combine; data takkuvaithe guessing baseline
+    # (28%) vaipu confidence-shrink — no-data student ki kuda 38%
+    # cheppadam (v1) honest kadu.
+    try:
+        plan = syllabus_plan(members, token)
+        m = _member(members, uid)
+        n_obs = sum(int((v or {}).get("total", 0) or 0)
+                    for v in ((m.get("topics") or {}).values()))
+        n_obs = max(n_obs, int(ab.get("answers", 0) or 0))
+        conf = min(1.0, n_obs / 40.0)
+        if plan and plan.get("subjects"):
+            wsum = sum(r["weight"] for r in plan["subjects"]) or 1.0
+            wrate, srows = 0.0, []
+            for r in plan["subjects"]:
+                seen = int(r.get("seen") or 0)
+                corr = int(r.get("correct") or 0)
+                shrunk = (corr + 4.0 * p) / (seen + 4.0)
+                wrate += (r["weight"] / wsum) * shrunk
+                srows.append({
+                    "subject": r["subject"], "weight": r["weight"],
+                    "mastery": r.get("mastery"), "seen": seen,
+                    "expected_pct": round(100 * shrunk),
+                    "bank_gap": bool(r.get("bank_gap"))})
+            cov_w = (plan.get("coverage") or 0) / 100.0
+            x_val = 0.85 * wrate + 0.15 * cov_w
+            exp2 = round(100 * (conf * x_val + (1 - conf) * 0.28))
+            band_w = 15 if n_obs < 10 else 11 if n_obs < 40 else 8
+            seen_rows = [r for r in srows if r["seen"] >= 2]
+            weakest = (min(seen_rows, key=lambda r: r["expected_pct"])
+                       if seen_rows else None)
+            strongest = (max(seen_rows, key=lambda r: r["expected_pct"])
+                         if seen_rows else None)
+            drivers = []
+            if weakest:
+                drivers.append(
+                    f"Weakest: {weakest['subject']} "
+                    f"({weakest['expected_pct']}%) — deeni mida focus "
+                    f"chesthe forecast vese vidham ga peruguthundi")
+            if strongest and strongest is not weakest:
+                drivers.append(
+                    f"Strongest: {strongest['subject']} "
+                    f"({strongest['expected_pct']}%) ✅")
+            if plan.get("bank_gaps"):
+                drivers.append(
+                    "⚠️ Bank gap subjects: "
+                    + ", ".join(plan["bank_gaps"])
+                    + " — akkada questions takkuva, numbers bank "
+                      "stock mida adharam")
+            out["v2"] = {
+                "expected_pct": exp2,
+                "low": max(0, exp2 - band_w),
+                "high": min(100, exp2 + band_w),
+                "confidence": ("low" if n_obs < 10 else
+                               "medium" if n_obs < 40 else "high"),
+                "answers_seen": n_obs, "coverage": plan.get("coverage"),
+                "subjects": srows, "drivers": drivers,
+                "bank_gaps": plan.get("bank_gaps") or [],
+                "note": "Forecast v2: subject mastery (exam-weight) + "
+                        "coverage. Data perige koddi band tagguthundi."}
+    except Exception:
+        pass
+    return out
 
 
 def pyq_trends(goal=""):
