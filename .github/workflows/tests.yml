@@ -1,0 +1,21 @@
+name: StudentUp Suite
+
+on:
+  push:
+    branches: [main, "arena/**"]
+  pull_request:
+
+jobs:
+  suite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install render deps (certificate PNGs)
+        run: pip install pillow qrcode
+      - name: Unit + wiring suite (788+ tests, deterministic)
+        run: python -m unittest discover -s tests
+      - name: Content validation gate
+        run: python scripts/finalize.py

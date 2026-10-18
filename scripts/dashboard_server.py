@@ -1650,6 +1650,13 @@ async function loadMaterials() {
         : '<button class="btn-alt" style="width:auto; margin:0;" onclick="unlockMaterial(\'' + it.id + '\')">🔓 ' + it.cost + ' pts</button>') +
       '</div>').join('')
       : '<div class="muted" style="margin-top:4px;">Meeru goal ki materials inka levu — th్వరలో vasthayi!</div>');
+  try {
+    const sg = await api('/api/portal/materials_suggest?token=' + encodeURIComponent(token));
+    if (sg.ok && (sg.suggestions || []).length) {
+      out.innerHTML += '<div style="margin-top:8px;"><b>🤖 Meekosam AI Picks</b>' +
+        sg.suggestions.map(s => '<div class="muted" style="margin:2px 0;">' + esc(s.title) + ' — <span class="muted">' + esc(s.reason || '') + '</span></div>').join('') + '</div>';
+    }
+  } catch (e) {}
 }
 async function unlockMaterial(id) {
   const d = await api('/api/portal/materials_unlock', 'POST', JSON.stringify({ token: token, id: id }));
@@ -6884,6 +6891,7 @@ All candidates must join today before 9:00 PM!"></textarea>
           bar('Active today', f.active_today || 0, f.registered || 0) +
           ((d.retention) ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🔁 Retention</h4><div>🆕 Last 7d registered: <b style="color:#e2e8f0;">' + (d.retention.new_7d || 0) + '</b> · 🟢 Active 7d: <b style="color:#e2e8f0;">' + (d.retention.active_7d || 0) + '</b> (' + (d.retention.active_7d_pct || 0) + '% of students)</div>' : '') +
           ((d.churn) ? '<div style="margin-top:5px;">⚠️ At-risk (7d+ inactive): <b style="color:#facc15;">' + (d.churn.at_risk_7d || 0) + '</b> · 💌 Win-back sent: <b style="color:#e2e8f0;">' + (d.churn.winback_sent || 0) + '</b> · 🏆 Result blasts: <b style="color:#e2e8f0;">' + (d.churn.result_blasts || 0) + '</b> <span>(bot auto)</span></div>' : '') +
+          ((d.churn250) ? '<div style="margin-top:3px;">📉 Churn cohorts: 🟢 Active <b style="color:#4ade80;">' + (d.churn250.active || 0) + '</b> · 🟡 Cooling <b style="color:#facc15;">' + (d.churn250.cooling || 0) + '</b> · 🟠 At-risk <b style="color:#fb923c;">' + (d.churn250.at_risk || 0) + '</b> · 🔴 Critical <b style="color:#f87171;">' + (d.churn250.critical || 0) + '</b> <span class="muted">(' + (d.churn250.critical_pct || 0) + '% critical)</span></div>' : '') +
           ((d.bot) ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🤖 Bot Funnel (120X)</h4><div>🔗 Linked: <b style="color:#e2e8f0;">' + (d.bot.linked || 0) + '</b> (' + (d.bot.link_pct || 0) + '% of students) · 🪪 Link claims: <b style="color:#e2e8f0;">' + (d.bot.claims || 0) + '</b> · 🔐 WebApp logins: <b style="color:#e2e8f0;">' + (d.bot.logins || 0) + '</b> · 📬 Bot msgs sent: <b style="color:#e2e8f0;">' + (d.bot.msgs || 0) + '</b></div>' +
           '<div style="margin-top:8px;"><div class="muted" style="font-size:11.5px;">📣 Bot Broadcast (linked students ki Telegram):</div>' +
           '<textarea id="bb-text" rows="2" style="width:100%; margin-top:4px;" placeholder="Ee roju 7 PM ki Grand Mock LIVE! Ready ga undandi 🔥"></textarea>' +
@@ -8312,6 +8320,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
             query = urllib.parse.parse_qs(p.query)
             mc = portal.materials_catalog(Members(), query.get("token", [""])[0])
             self._send_json({"ok": mc is not None, **(mc or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/materials_suggest":
+            query = urllib.parse.parse_qs(p.query)
+            ms = portal.materials_suggest(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": ms is not None, **(ms or {"error": "session expired"})})
             return
         if p.path == "/api/portal/material_file":
             query = urllib.parse.parse_qs(p.query)

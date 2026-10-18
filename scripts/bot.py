@@ -1103,6 +1103,33 @@ class Bot:
             print(f"[bot] {kind} error (isolated): {e}")
             return kind, False
 
+    def _cmd_health220(self, uid, chat_id):
+        """🩺 220X/250X: owner /health — bot armor stats +
+        members/bank size (handle_message nunchi extract,
+        F8 split step-1)."""
+        # 🩺 220X owner-only bot health: dispatch stats (armor) +
+        # members/bank size — okka message lo full picture.
+        h = self._bot_health220()
+        try:
+            nmem = len(self.members.members or {})
+        except Exception:
+            nmem = 0
+        try:
+            nbank = len(self.bank.questions or [])
+        except Exception:
+            nbank = 0
+        kinds = ", ".join(f"{k}:{v}" for k, v in
+                          sorted((h.get("by_kind") or {}).items())) or "—"
+        self.tg.send_message(
+            chat_id,
+            "🩺 *Bot Health (220X)*\n"
+            f"Updates processed: {h.get('updates', 0)} ({kinds})\n"
+            f"Isolated errors: {h.get('errors', 0)}"
+            + (f"\nLast error: {h.get('last_error')}" if h.get('last_error') else "")
+            + f"\nTracked polls: {h.get('tracked_polls', 0)}"
+            f"\nMembers: {nmem} · Bank questions: {nbank}",
+            parse_mode="Markdown")
+
     def _bot_health220(self):
         """🩺 220X: dispatch stats + poll registry size (owner /health)."""
         s = getattr(self, "_upd_stats", {}) or {}
@@ -2516,28 +2543,7 @@ class Bot:
             else:
                 self.tg.send_message(chat_id, "🔒 Admin only.\n⤷ అడ్మిన్ కోసం మాత్రమే.")
         elif low.startswith("/health") and str(uid) in self._staff_ids():
-            # 🩺 220X owner-only bot health: dispatch stats (armor) +
-            # members/bank size — okka message lo full picture.
-            h = self._bot_health220()
-            try:
-                nmem = len(self.members.members or {})
-            except Exception:
-                nmem = 0
-            try:
-                nbank = len(self.bank.questions or [])
-            except Exception:
-                nbank = 0
-            kinds = ", ".join(f"{k}:{v}" for k, v in
-                              sorted((h.get("by_kind") or {}).items())) or "—"
-            self.tg.send_message(
-                chat_id,
-                "🩺 *Bot Health (220X)*\n"
-                f"Updates processed: {h.get('updates', 0)} ({kinds})\n"
-                f"Isolated errors: {h.get('errors', 0)}"
-                + (f"\nLast error: {h.get('last_error')}" if h.get('last_error') else "")
-                + f"\nTracked polls: {h.get('tracked_polls', 0)}"
-                f"\nMembers: {nmem} · Bank questions: {nbank}",
-                parse_mode="Markdown")
+            self._cmd_health220(uid, chat_id)
         elif low.startswith("/stats") or low.startswith("/profile") or low.startswith("/me"):
             if not self.members.profile(uid):
                 self.tg.send_message(chat_id, "You're not registered yet — send /register to start! ⭐\n⤷ /register చేయండి.")

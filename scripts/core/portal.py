@@ -2952,6 +2952,66 @@ def revision_pack_text(members, token):
                   "text": "\n".join(lines), "total": len(qs)}
 
 
+def _churn_cohorts(reg):
+    """📉 CHURN-RISK COHORTS (250X): last_active nunchi honest tiers —
+    active <=2d, cooling 3-7d, at_risk 8-14d, critical >14d leda
+    activity trackinge lenollu. Fake engagement create cheyyam."""
+    tiers = {"active": 0, "cooling": 0, "at_risk": 0, "critical": 0}
+    now = _now()
+    for m in reg or []:
+        la = str(m.get("last_active") or "")[:10]
+        if not la:
+            tiers["critical"] += 1
+            continue
+        try:
+            _la = datetime.fromisoformat(la)
+            if _la.tzinfo is None and now.tzinfo is not None:
+                _la = _la.replace(tzinfo=now.tzinfo)
+            days = (now - _la).days
+        except Exception:
+            tiers["critical"] += 1
+            continue
+        if days <= 2:
+            tiers["active"] += 1
+        elif days <= 7:
+            tiers["cooling"] += 1
+        elif days <= 14:
+            tiers["at_risk"] += 1
+        else:
+            tiers["critical"] += 1
+    total = max(1, sum(tiers.values()))
+    tiers["total"] = sum(tiers.values())
+    tiers["critical_pct"] = round(100 * tiers["critical"] / total)
+    return tiers
+
+
+def materials_suggest(members, token, limit=5):
+    """🤖 AI MATERIALS SUGGESTIONS (250X): revision planner weak
+    topic/section nunchi Materials Vault items match chesthundi
+    (deterministic, honest — LLM guess kadu). Vault item title/topic/
+    subject lo weak area unte reason tho suggest chesthundi."""
+    cat = materials_catalog(members, token)
+    if cat is None:
+        return None
+    plan = (revision_planner(members, token) or {}).get("plan") or []
+    wants = []
+    for p in plan:
+        if p.get("topic"):
+            wants.append((str(p["topic"]).lower(), "weak topic"))
+        if p.get("subject"):
+            wants.append((str(p["subject"]).lower(), "weak section"))
+    out = []
+    for it in cat["items"]:
+        hay = ("%s %s %s" % (it.get("topic", ""), it.get("subject", ""),
+                             it.get("title", ""))).lower()
+        for w, why in wants:
+            if w and w in hay:
+                out.append({**it, "reason": "%s: %s" % (why, w)})
+                break
+    return {"suggestions": out[: int(limit or 5)],
+            "based_on": [w for w, _ in wants][:4]}
+
+
 def portal_analytics(members):
     """📊 ADMIN: portal growth analytics (students, attempts, goals)."""
     import collections
@@ -3004,6 +3064,7 @@ def portal_analytics(members):
                 < (_now() - timedelta(days=7)).strftime("%Y-%m-%d")),
                     "winback_sent": int((d.get("tg_stats") or {}).get("winback") or 0),
                     "result_blasts": int((d.get("tg_stats") or {}).get("result_blasts") or 0)},
+            "churn250": _churn_cohorts(reg),
             "archive_size": len(arc),
             "sessions_live": len(d.get("sessions") or {}),
             "pyq_gaps": _pyq_gaps_safe(),
