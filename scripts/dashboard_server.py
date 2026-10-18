@@ -15,6 +15,7 @@ import time
 import base64
 import urllib.request
 import urllib.parse
+import hmac
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from datetime import datetime
@@ -129,12 +130,22 @@ def _golive_checks():
     checks.append({
         "name": "PWA (manifest + SW v4)",
         "status": "ok",
-        "detail": "/manifest.json + /sw.js routes active"})
+        "detail": "/manifest.json + /sw.js (v5) routes active"})
     ads = config.env("ADSENSE_CLIENT_ID", "").strip()
     checks.append({
         "name": "AdSense (optional)",
         "status": "ok" if ads else "warn",
         "detail": "configured" if ads else "set ledu — ads off (public pages matrame, exam pages lo eppudu levu)"})
+    try:
+        _dpw_default = _dash_password() == DEFAULT_DASH_PASSWORD
+    except Exception:
+        _dpw_default = False
+    checks.append({
+        "name": "Dashboard password",
+        "status": "warn" if _dpw_default else "ok",
+        "detail": ("DEFAULT password (studentup123) inka use avthundi — "
+                   "DASHBOARD_PASSWORD env tho strong password set cheyyandi!")
+                  if _dpw_default else "custom dashboard password set ayindi"})
     overall = "ready" if all(c["status"] != "fail" for c in checks) else "pending"
     return {"overall": overall, "checks": checks}
 
@@ -8039,7 +8050,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Set-Cookie", f"su_auth={tok}; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax")
+        _secure = "; Secure" if (self.headers.get("X-Forwarded-Proto") == "https"
+                                 or _public_base(self).startswith("https://")) else ""
+        self.send_header("Set-Cookie", f"su_auth={tok}; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax{_secure}")
         self.end_headers()
         self.wfile.write(body)
 
@@ -8053,9 +8066,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
             pass
         return body, None
 
+    def _sec_headers(self):
+        # 🛡️ 240X SECURITY HEADERS (baseline): MIME-sniff block,
+        # clickjacking (same-origin framing matrame — preview /
+        # Telegram webview direct navigation ki effect ledu),
+        # referrer hygiene. HSTS production-https venaka enable.
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "SAMEORIGIN")
+        self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
+
     def _send_text(self, body_text, code=200, ctype="text/plain; charset=utf-8"):
         body, enc = self._gz(body_text.encode("utf-8"))
         self.send_response(code)
+        self._sec_headers()
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         if enc:
@@ -8072,6 +8095,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             code = 500
         body, enc = self._gz(raw.encode("utf-8"))
         self.send_response(code)
+        self._sec_headers()
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         if enc:
@@ -8095,6 +8119,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 return
             body, enc = self._gz(html.encode("utf-8"))
             self.send_response(200)
+            self._sec_headers()
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
             self.send_header("ETag", tag)
@@ -9136,13 +9161,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._deny_ip(is_api=True)
             return
 
-        length = int(self.headers.get("Content-Length", 0))
+        try:
+            length = int(self.headers.get("Content-Length", 0) or 0)
+        except Exception:
+            length = 0
+        if length > 5_000_000:      # 🛡️ 240X: payload cap (DoS hygiene)
+            self._send_json({"ok": False, "error": "payload too large"}, code=413)
+            return
         body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
 
         # 🔒 Access lock
         if p.path == "/api/auth/login":
             pw = str(body.get("password", ""))
-            if pw and pw == _dash_password():
+            if pw and hmac.compare_digest(pw, _dash_password()):
                 _log_login_attempt(self._client_ip(), True)
                 self._issue_login_cookie()
             else:
@@ -9285,6 +9316,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json({"ok": uok, "message": umsg})
             return
         if p.path == "/api/admin/harvest_run":
+            if not self._authed():
+                self._send_json({"ok": False, "error": "admin login kavali"}, code=401)
+                return
             # 🚜 230X: run top bank-gap harvest target. Production =
             # real PYQ harvest; SANDBOX/CI env forces dry (no downloads).
             _dry = bool(os.environ.get("STUDYUP_SANDBOX") or os.environ.get("CI"))
