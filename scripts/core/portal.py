@@ -607,6 +607,15 @@ def _badge_labels(ids):
     return out
 
 
+def _why(q):
+    """💡 EXPLANATION (220X audit fix): bank fields are
+    explanation_en / explanation_te. Raw "explanation" reads made
+    bank/PYQ explanations ALWAYS empty at many surfaces — every
+    call site must go through this single helper."""
+    return (q.get("explanation") or q.get("explanation_en")
+            or q.get("explanation_te") or "")
+
+
 def _profile(members, uid):
     m = _member(members, uid)
     topics = m.get("topics") or {}
@@ -809,7 +818,7 @@ def daily_answer(members, token, idx, choice, sec=None):
     opts = q.get("options_en") or []
     return True, {"correct": correct,
                   "answer_text": opts[q["answer_index"]] if 0 <= q["answer_index"] < len(opts) else "",
-                  "explanation": q.get("explanation", ""),
+                  "explanation": _why(q),
                   "answered": len(run["answers"]), "total_q": len(qs),
                   "done": run["done"], "avg_sec": run.get("avg_sec"),
                   "score": run["correct"]}
@@ -1118,7 +1127,7 @@ def mock_submit(members, token, run_id, answers, times=None):
                   "review": review,
                   "questions": [({"te": q.get("q_te", ""), "en": q.get("q_en", ""),
                                   "options": q.get("options_en") or [],
-                                  "explanation": q.get("explanation", "")})
+                                  "explanation": _why(q)})
                                 for q in run["qs"]]}
 
 
@@ -1477,7 +1486,7 @@ def exam_result(members, token, exam_id):
         view["qstats"] = qstats
         view["questions"] = [{"te": q.get("q_te", ""), "en": q.get("q_en", ""),
                               "options": q.get("options_en") or [],
-                              "explanation": q.get("explanation", "")}
+                              "explanation": _why(q)}
                              for q in e["qs"]]
     return view
 
@@ -1594,8 +1603,8 @@ def _key_text(title, date_s, prof, qs, answers):
         a_txt = (f"{letters[ans]}) {opts[ans]}" if 0 <= ans < len(opts) else "")
         lines.append(("✅ Meeru: " if ok else "❌ Meeru: ") + g_txt
                      + ("" if ok else f"  → Correct: {a_txt}"))
-        if q.get("explanation"):
-            lines.append(f"💡 {q['explanation']}")
+        if _why(q):
+            lines.append(f"💡 {_why(q)}")
         lines.append("")
     lines += ["-" * 44,
               "Weak topics meeda Practice cheyyandi — next exam ki rank periguthundi! 🔥",
@@ -1943,7 +1952,7 @@ def practice_answer(members, token, run_id, idx, choice):
             similar = None
     return True, {"correct": correct,
                   "answer_text": opts[q["answer_index"]] if 0 <= q["answer_index"] < len(opts) else "",
-                  "explanation": q.get("explanation", ""),
+                  "explanation": _why(q),
                   "explanation_te": q.get("explanation_te", ""),
                   "similar": similar,
                   "answered": len(run["answers"]), "total_q": len(run["qs"]),
@@ -2401,8 +2410,8 @@ def worksheet_text(members, token):
         ans_txt = opts[pos] if 0 <= pos < len(opts) else ""
         lines.append(f"Q{i + 1}. {letters[pos] if 0 <= pos < 4 else '?'}"
                      f") {ans_txt}")
-        if q.get("explanation"):
-            lines.append(f"    💡 {q['explanation']}")
+        if _why(q):
+            lines.append(f"    💡 {_why(q)}")
     lines += ["", "StudentUp · Roju worksheet = consistency = rank 🔥"]
     return True, {"filename": f"StudentUp-Worksheet-{_today()}.txt",
                   "text": "\n".join(lines), "total": len(qs)}
@@ -2833,7 +2842,7 @@ def challenge_answer(members, token, choice):
     return True, {"correct": correct, "bonus": bonus,
                   "answer_text": (q.get("options_en") or [""])[q["answer_index"]]
                   if 0 <= q["answer_index"] < len(q.get("options_en") or []) else "",
-                  "explanation": q.get("explanation", "")}
+                  "explanation": _why(q)}
 
 
 def goal_board(members, goal, limit=10):
@@ -2910,8 +2919,8 @@ def revision_pack_text(members, token):
         ans_txt = opts[pos] if 0 <= pos < len(opts) else ""
         lines.append(f"Q{i + 1}. {letters[pos] if 0 <= pos < 4 else '?'}"
                      f") {ans_txt}")
-        if q.get("explanation"):
-            lines.append(f"    💡 {q['explanation']}")
+        if _why(q):
+            lines.append(f"    💡 {_why(q)}")
     return True, {"filename": f"StudentUp-RevisionPack-{_today()}.txt",
                   "text": "\n".join(lines), "total": len(qs)}
 
@@ -3300,7 +3309,7 @@ def daily_review(members, token):
                      "given_text": opts[given] if 0 <= given < len(opts) else "—",
                      "answer_text": opts[q["answer_index"]]
                      if 0 <= q["answer_index"] < len(opts) else "",
-                     "explanation": q.get("explanation", "")})
+                     "explanation": _why(q)})
     return {"date": _today(), "done": bool(run.get("done")),
             "correct": run.get("correct", 0), "rows": rows}
 
@@ -3676,6 +3685,111 @@ def district_deep(members, token):
             "districts": league.get("districts")}
 
 
+def revision_planner(members, token, limit=10):
+    """🧠 SMART REVISION PLANNER (220X): ivalla em revise cheyyalo
+    3-tier plan — (1) 🔁 SRS due topic cards, (2) 🧩 weakest exam
+    section/topic (210X sections knowledge), (3) 📌 bookmarked
+    questions. Empty tiers honest ga skip avthayi; plan never pads
+    with irrelevant questions."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return None
+    prof = _profile(members, uid)
+    m = _member(members, uid)
+    plan = []
+    # Tier 1: due review topics (member review queue topics)
+    due_topics = {}
+    for r in (m.get("review") or []):
+        if str(r.get("due", "")) <= _today():
+            t = str(r.get("topic") or "").strip()
+            if t:
+                due_topics[t] = due_topics.get(t, 0) + 1
+    for t, c in sorted(due_topics.items(), key=lambda kv: -kv[1])[:3]:
+        plan.append({"type": "srs", "icon": "🔁", "topic": t, "count": c,
+                     "label": f"Revision due: {t} ({c} cards)"})
+    # Tier 2: weakest section (210X section rows from latest attempt)
+    sec_rows = []
+    for a in (d.get("archive") or []):
+        if a.get("uid") == uid and a.get("qs"):
+            sec_rows = _section_rows(
+                a["qs"],
+                [ (a.get("answers") or {}).get(str(i), -1) == q.get("answer_index")
+                  for i, q in enumerate(a["qs"]) ])
+            if sec_rows:
+                break
+    weak_secs = [r for r in sec_rows if r["accuracy"] < 70]
+    if weak_secs:
+        w = weak_secs[0]
+        plan.append({"type": "section", "icon": "🧩",
+                     "subject": w["subject"], "accuracy": w["accuracy"],
+                     "count": w["total"],
+                     "label": (f"Weak section: {w['subject']} "
+                               f"({w['accuracy']}% last attempt)")})
+    # Tier 3: weakest topic by member topic stats
+    for w in (prof.get("weak_topics") or [])[:2]:
+        if w["topic"] not in [p.get("topic") for p in plan]:
+            plan.append({"type": "topic", "icon": "🎯", "topic": w["topic"],
+                         "accuracy": w["accuracy"], "count": w["total"],
+                         "label": (f"Weak topic: {w['topic']} "
+                                   f"({w['accuracy']}% · {w['total']} answered)")})
+    # Tier 4: bookmarks waiting
+    nb = len(m.get("bookmarks") or [])
+    if nb:
+        plan.append({"type": "bookmarks", "icon": "📌", "count": nb,
+                     "label": f"Bookmarked questions: {nb} — revisit cheyyandi"})
+    return {"plan": plan[:limit], "due_count": prof.get("review_due", 0),
+            "empty": not plan}
+
+
+def rank_predict(members, token):
+    """🎯 RANK PREDICTOR v2 (220X): points percentile among SAME-GOAL
+    students (cohort) + district percentile + NEXT-RANK gap (eppudu
+    oka real student ni chase chestunnattu exact points gap).
+    Fake cohorts create cheyyam — members data matrame."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return None
+    prof = _profile(members, uid)
+    goal = prof.get("goal") or "mixed"
+    mems = getattr(members, "members", None) or {}
+    rows = []
+    for u, m in mems.items():
+        m = m or {}
+        if not (m.get("registered") or m.get("points")):
+            continue
+        rows.append({"uid": str(u),
+                     "goal": m.get("exam_goal") or m.get("goal") or "",
+                     "district": m.get("district") or "",
+                     "points": int(m.get("points") or 0)})
+    me_pts = int(prof.get("points") or 0)
+
+    def _cohort(pred):
+        c = sorted((r for r in rows if pred(r)),
+                   key=lambda r: -r["points"])
+        if not c:
+            return None
+        n = len(c)
+        below = sum(1 for r in c if r["points"] < me_pts)
+        rank = 1 + sum(1 for r in c if r["points"] > me_pts)
+        nxt = None
+        above = [r for r in c if r["points"] > me_pts]
+        if above:
+            top_above = min(above, key=lambda r: r["points"])
+            nxt = {"points": top_above["points"],
+                   "gap": top_above["points"] - me_pts}
+        return {"students": n, "my_rank": rank,
+                "percentile": round(100 * below / max(1, n)),
+                "next": nxt}
+
+    return {"goal": goal, "my_points": me_pts,
+            "goal_cohort": _cohort(lambda r: r["goal"] == goal),
+            "district_cohort": _cohort(
+                lambda r: r["district"] == (prof.get("district") or "")),
+            "overall": _cohort(lambda r: True)}
+
+
 def bank_gap_plan(limit=12):
     """🎯 BANK-GAP HARVEST PLANNER (210X, admin): prathi goal/subject
     ki exam weight × bank-thinness priority — PYQ harvest e topic
@@ -3923,8 +4037,8 @@ def mistake_notebook(members, token):
             lines.append(f"{n}. {q.get('q_en', '')}")
             if 0 <= ai < len(opts):
                 lines.append(f"   ✅ Correct: {opts[ai]}")
-            if q.get("explanation"):
-                lines.append(f"   💡 {q['explanation']}")
+            if _why(q):
+                lines.append(f"   💡 {_why(q)}")
             if q.get("explanation_te"):
                 lines.append(f"   💡 {q['explanation_te']}")
             lines.append("")

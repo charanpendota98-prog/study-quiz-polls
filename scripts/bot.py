@@ -445,8 +445,11 @@ class Bot:
             ok, txt, admin = rewards.redeem(self.members, uid, value)
             self.tg.send_message(chat_id, txt, parse_mode="Markdown" if ok else "")
             if ok and value.startswith("mat_"):
-                code = [l for l in txt.splitlines() if l.startswith("Code:")][0].split("`")[1]
-                path, note = rewards.deliver_material(self.members, uid, code)
+                _lines = [l for l in txt.splitlines() if l.startswith("Code:")]
+                code = (_lines[0].split("`")[1]
+                        if _lines and len(_lines[0].split("`")) > 1 else "")
+                path, note = (rewards.deliver_material(self.members, uid, code)
+                              if code else (None, ""))
                 if path:
                     try:
                         self.tg.send_document(chat_id, path.name, path.read_bytes(), caption=note[:900])
@@ -1049,6 +1052,69 @@ class Bot:
             elif self.members.is_registered(uid):
                 self.tg.send_message(chat_id, "✅ Already registered — no need to fill again.\n⤷ ఇప్పటికే రిజిస్టర్ అయ్యారు.")
 
+
+    def _dispatch_update(self, upd):
+        """🛡️ 220X BOT ARMOR: prathi update kind ki thana try/except —
+        okka update lo bug vachina migatha batch updates pothavu
+        (offset munde advance avthundi kabatti). Eppudu raise cheyyadu;
+        (kind, ok) return chesthundi — stats + tests kosam."""
+        stats = getattr(self, "_upd_stats", None)
+        if stats is None:
+            stats = self._upd_stats = {"total": 0, "errors": 0,
+                                       "by_kind": {}, "last_error": ""}
+        stats["total"] += 1
+        kind, handler, arg = "unknown", None, None
+        try:
+            if "message" in upd:
+                kind, handler, arg = "message", self.handle_message, upd["message"]
+            elif "callback_query" in upd:
+                kind, handler, arg = "callback", self.handle_callback, upd["callback_query"]
+            elif "message_reaction" in upd or "message_reaction_count" in upd:
+                kind = "reaction"
+
+                def handler(u):
+                    _rp.apply_update(upd)
+
+                arg = upd
+            elif "poll_answer" in upd:
+                kind, handler, arg = "poll_answer", self.handle_poll_answer, upd
+            elif "poll" in upd:
+                kind = "poll"
+
+                def handler(p):
+                    from core.leaderboard import Leaderboard
+                    Leaderboard().record_poll_totals(p)
+
+                arg = upd["poll"]
+        except Exception as e:      # classification itself must never kill the loop
+            stats["errors"] += 1
+            stats["last_error"] = f"classify: {e}"
+            print(f"[bot] dispatch classify error: {e}")
+            return kind, False
+        stats["by_kind"][kind] = stats["by_kind"].get(kind, 0) + 1
+        if handler is None:
+            return kind, True
+        try:
+            handler(arg)
+            return kind, True
+        except Exception as e:
+            stats["errors"] += 1
+            stats["last_error"] = f"{kind}: {e}"
+            print(f"[bot] {kind} error (isolated): {e}")
+            return kind, False
+
+    def _bot_health220(self):
+        """🩺 220X: dispatch stats + poll registry size (owner /health)."""
+        s = getattr(self, "_upd_stats", {}) or {}
+        polls = getattr(self, "_poll_map", None) or getattr(self, "polls", None) or {}
+        try:
+            npolls = len(polls)
+        except Exception:
+            npolls = 0
+        return {"updates": s.get("total", 0), "errors": s.get("errors", 0),
+                "by_kind": s.get("by_kind", {}),
+                "last_error": s.get("last_error", ""), "tracked_polls": npolls}
+
     def _ad_now(self):
         from core.engine import Engine
         try:
@@ -1157,7 +1223,13 @@ class Bot:
 
     # ------------------------------------------------------------ messages
     def handle_message(self, msg):
-        chat_id = str(msg["chat"]["id"])
+        # 🛡️ 220X: malformed service messages (chat lekapothe) crash
+        # kakunda silent ga skip — okka bad update valla queue nilchipo
+        # kudadhu.
+        _chat = msg.get("chat") or {}
+        if _chat.get("id") is None:
+            return
+        chat_id = str(_chat["id"])
         who = msg.get("from", {})
         uid = who.get("id")
         # 📱 Shared contact → mobile save (unique guard tho) + keyboard tidy
@@ -2443,6 +2515,29 @@ class Bot:
                                      parse_mode="Markdown")
             else:
                 self.tg.send_message(chat_id, "🔒 Admin only.\n⤷ అడ్మిన్ కోసం మాత్రమే.")
+        elif low.startswith("/health") and str(uid) in self._staff_ids():
+            # 🩺 220X owner-only bot health: dispatch stats (armor) +
+            # members/bank size — okka message lo full picture.
+            h = self._bot_health220()
+            try:
+                nmem = len(self.members.members or {})
+            except Exception:
+                nmem = 0
+            try:
+                nbank = len(self.bank.questions or [])
+            except Exception:
+                nbank = 0
+            kinds = ", ".join(f"{k}:{v}" for k, v in
+                              sorted((h.get("by_kind") or {}).items())) or "—"
+            self.tg.send_message(
+                chat_id,
+                "🩺 *Bot Health (220X)*\n"
+                f"Updates processed: {h.get('updates', 0)} ({kinds})\n"
+                f"Isolated errors: {h.get('errors', 0)}"
+                + (f"\nLast error: {h.get('last_error')}" if h.get('last_error') else "")
+                + f"\nTracked polls: {h.get('tracked_polls', 0)}"
+                f"\nMembers: {nmem} · Bank questions: {nbank}",
+                parse_mode="Markdown")
         elif low.startswith("/stats") or low.startswith("/profile") or low.startswith("/me"):
             if not self.members.profile(uid):
                 self.tg.send_message(chat_id, "You're not registered yet — send /register to start! ⭐\n⤷ /register చేయండి.")
@@ -2910,32 +3005,9 @@ class Bot:
                 except Exception as e:
                     print(f"[arena] tick error: {e}")
                 for upd in self.tg.get_updates(timeout=3 if live else 50):
-                    if "message" in upd:
-                        try:
-                            self.handle_message(upd["message"])
-                        except TelegramError as e:
-                            print("message error:", e)
-                    elif "callback_query" in upd:
-                        try:
-                            self.handle_callback(upd["callback_query"])
-                        except Exception as e:
-                            print(f"[bot] callback error: {e}")
-                    elif "message_reaction" in upd or "message_reaction_count" in upd:
-                        try:      # 👍 emoji-poll votes (opt-in channels)
-                            _rp.apply_update(upd)
-                        except Exception as e:
-                            print("reaction update error:", e)
-                    elif "poll_answer" in upd:
-                        try:
-                            self.handle_poll_answer(upd)
-                        except Exception as e:
-                            print("poll answer error:", e)
-                    elif "poll" in upd:
-                        try:      # channel poll vote totals → miss-rate per question
-                            from core.leaderboard import Leaderboard
-                            Leaderboard().record_poll_totals(upd["poll"])
-                        except Exception as e:
-                            print("poll totals error:", e)
+                    # 🛡️ 220X: _dispatch_update eppudu raise cheyyadu —
+                    # okka poisonous update migatha batch ni thinadu.
+                    self._dispatch_update(upd)
             except Exception as e:
                 print("poll loop error:", e)
                 time.sleep(5)

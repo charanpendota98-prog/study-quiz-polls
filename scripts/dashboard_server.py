@@ -79,7 +79,7 @@ def _wp_quiz_item(q):
     """Mana bank question → WordPress quiz.php format (q, a[4], c, why, cat, src, exam)."""
     return {"q": q.get("q_en", ""), "a": list(q.get("options_en") or []),
             "c": int(q.get("answer_index") or 0),
-            "why": q.get("explanation") or "", "cat": q.get("topic") or "General",
+            "why": q.get("explanation") or q.get("explanation_en") or q.get("explanation_te") or "", "cat": q.get("topic") or "General",
             "src": "StudentUp PYQ" if q.get("source") == "pyq" else "StudentUp",
             "exam": _WP_EXAM_TAGS.get(q.get("channel") or "", "all")}
 
@@ -799,6 +799,29 @@ PORTAL_HTML = """<!DOCTYPE html>
   .timer { color: #facc15; font-weight: 800; }
   .tchip { padding: 6px 11px; border-radius: 999px; border: 1px solid #24466e; background: #12233f; color: #e2e8f0; font-size: 13px; cursor: pointer; }
   .tchip.on { border-color: #10b981; color: #10b981; }
+  /* 🎨 220X THEME STUDIO: accent engine — themes set --acc, students
+     can override accent with one tap; everything glows from --acc. */
+  body { --acc: #10b981; --acc2: #065f46; transition: background .35s ease, color .35s ease; }
+  body.theme-ocean { --acc: #22d3ee; --acc2: #0e7490; }
+  body.theme-sunset { --acc: #fb923c; --acc2: #9a3412; }
+  body.theme-forest { --acc: #4ade80; --acc2: #166534; }
+  body.theme-light { --acc: #2563eb; --acc2: #1e40af; }
+  body.theme-royal { background: radial-gradient(circle at 30% 10%, #3f3005 0%, #0a0803 70%); --acc: #facc15; --acc2: #a16207; }
+  body.theme-royal .card { background: #171204; border-color: #57500d; }
+  body.theme-grape { background: radial-gradient(circle at 30% 10%, #4c1d95 0%, #12041f 70%); --acc: #c084fc; --acc2: #7e22ce; }
+  body.theme-grape .card { background: #1d0b31; border-color: #4c1d95; }
+  body.theme-rose { background: radial-gradient(circle at 30% 10%, #881337 0%, #1c050c 70%); --acc: #fb7185; --acc2: #be123c; }
+  body.theme-rose .card { background: #2a0a14; border-color: #881337; }
+  .tchip.on { border-color: var(--acc); color: var(--acc); }
+  .btn { background: linear-gradient(135deg, var(--acc), var(--acc2)); }
+  .btn-alt { border-color: var(--acc2); }
+  h2.sec, .brand span { color: var(--acc); }
+  .brand { text-shadow: 0 0 22px var(--acc2); }
+  .chip.gold { border-color: var(--acc); color: var(--acc); }
+  .tdot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+  .asw { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; }
+  .asw.on { border-color: #f8fafc; transform: scale(1.15); }
+  .card { transition: background .35s ease, border-color .35s ease; }
   body.theme-ocean { background: radial-gradient(circle at 30% 10%, #065a60 0%, #02141a 70%); }
   body.theme-ocean .card { background: #06222b; border-color: #0e4a56; }
   body.theme-sunset { background: radial-gradient(circle at 30% 10%, #7c2d12 0%, #170a1e 70%); }
@@ -826,6 +849,18 @@ PORTAL_HTML = """<!DOCTYPE html>
     <button class="tchip" data-th="sunset" onclick="setTheme('sunset')">🌅 Sunset</button>
     <button class="tchip" data-th="forest" onclick="setTheme('forest')">🌲 Forest</button>
     <button class="tchip" data-th="light" onclick="setTheme('light')">☀️ Light</button>
+    <button class="tchip" data-th="royal" onclick="setTheme('royal')"><span class="tdot" style="background:linear-gradient(135deg,#facc15,#a16207);"></span>👑 Royal</button>
+    <button class="tchip" data-th="grape" onclick="setTheme('grape')"><span class="tdot" style="background:linear-gradient(135deg,#c084fc,#7e22ce);"></span>🍇 Grape</button>
+    <button class="tchip" data-th="rose" onclick="setTheme('rose')"><span class="tdot" style="background:linear-gradient(135deg,#fb7185,#be123c);"></span>🌹 Rose</button>
+  </div>
+  <div class="row" style="justify-content:center; margin-bottom:12px; gap:6px; align-items:center;">
+    <span class="muted">✨ Accent:</span>
+    <button class="asw" data-acc="#10b981" style="background:#10b981;" onclick="setAccent('#10b981')" aria-label="emerald accent"></button>
+    <button class="asw" data-acc="#38bdf8" style="background:#38bdf8;" onclick="setAccent('#38bdf8')" aria-label="sky accent"></button>
+    <button class="asw" data-acc="#f59e0b" style="background:#f59e0b;" onclick="setAccent('#f59e0b')" aria-label="amber accent"></button>
+    <button class="asw" data-acc="#f472b6" style="background:#f472b6;" onclick="setAccent('#f472b6')" aria-label="pink accent"></button>
+    <button class="asw" data-acc="#a78bfa" style="background:#a78bfa;" onclick="setAccent('#a78bfa')" aria-label="violet accent"></button>
+    <button class="asw" data-acc="#facc15" style="background:#facc15;" onclick="setAccent('#facc15')" aria-label="gold accent"></button>
   </div>
 
   <!-- register -->
@@ -964,6 +999,8 @@ PORTAL_HTML = """<!DOCTYPE html>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="loadSyllabus()">🗺️ Syllabus Tracker</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="loadPercentile()">📈 Naa Percentile</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="loadDistrict()">🏙️ District Deep-Dive</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadRevision()">🧠 Revision Planner</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadRank2()">🎯 Rank Predictor</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="loadBookmarks()">🔖 Saved Questions</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="downloadWorksheet()">🖨️ Worksheet</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="loadStudyPlan()">📅 7-Day Plan</button>
@@ -1140,6 +1177,7 @@ function rows(list, emptyMsg) {
 }
 async function init() {
   setTheme(localStorage.getItem('su_theme') || '');
+  setAccent(localStorage.getItem('su_accent') || '');
   try {
     const wa = window.Telegram && window.Telegram.WebApp;
     if (wa && wa.initData) {
@@ -1245,10 +1283,19 @@ async function doRegister() {
   loadHome();
 }
 function logout() { localStorage.removeItem('su_portal'); token = ''; show('view-reg'); }
+const ACC2 = { '#10b981': '#065f46', '#38bdf8': '#0369a1', '#f59e0b': '#b45309', '#f472b6': '#be185d', '#a78bfa': '#6d28d9', '#facc15': '#a16207' };
+function setAccent(a) {
+  if (a) { document.body.style.setProperty('--acc', a); document.body.style.setProperty('--acc2', ACC2[a] || a); }
+  else { document.body.style.removeProperty('--acc'); document.body.style.removeProperty('--acc2'); }
+  localStorage.setItem('su_accent', a || '');
+  document.querySelectorAll('.asw[data-acc]').forEach(b => b.classList.toggle('on', (b.dataset.acc || '') === (a || '')));
+}
 function setTheme(t) {
   document.body.className = t ? ('theme-' + t) : '';
   localStorage.setItem('su_theme', t);
   document.querySelectorAll('.tchip[data-th]').forEach(b => b.classList.toggle('on', (b.dataset.th || '') === t));
+  const a = localStorage.getItem('su_accent');
+  if (a) setAccent(a);
 }
 let TOPP = {};
 function showToppers(period) {
@@ -1543,6 +1590,24 @@ async function loadDistrict() {
     (d.goal_champion ? '<div>🎯 Naa Goal Champion: <b>' + esc(d.goal_champion.name) + '</b> (' + d.goal_champion.points + ' pts)' + (d.goal_champion.me ? ' — meeru!' : '') + '</div>' : '') +
     ((d.chase || []).length ? '<div style="margin-top:6px;"><b>🎯 Overtake Targets</b>' + d.chase.map(c => '<div style="display:flex; justify-content:space-between; margin:3px 0;"><span>' + esc(c.name) + '</span><span class="muted">' + c.points + ' pts · gap ' + c.gap + '</span></div>').join('') + '</div>' : '<div class="muted" style="margin-top:6px;">🏆 Meeru district lo #1 — maintain cheyyandi!</div>') +
     ((d.board || []).length ? '<div style="margin-top:6px;"><b>🏙️ District League</b>' + d.board.map((r, i) => '<div style="display:flex; justify-content:space-between; margin:3px 0;"><span>#' + (i + 1) + ' ' + esc(r.name) + '</span><span class="muted">' + r.pts + ' pts · ' + r.students + ' students</span></div>').join('') + '</div>' : '');
+}
+async function loadRevision() {
+  const out = document.getElementById('adv-out');
+  out.innerHTML = '<div class="muted">Loading planner…</div>';
+  const d = await api('/api/portal/revision?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  out.innerHTML = '<b>🧠 Smart Revision Planner</b>' +
+    (d.empty ? '<div class="muted" style="margin-top:4px;">🎉 Ivalla revise cheyyalsindi em ledu — okka mock rayandi, plan tayaravthundi!</div>'
+      : (d.plan || []).map(p => '<div style="display:flex; justify-content:space-between; margin:3px 0;"><span>' + p.icon + ' ' + esc(p.label) + '</span>' + (p.count ? '<span class="muted">' + p.count + '</span>' : '') + '</div>').join(''));
+}
+async function loadRank2() {
+  const out = document.getElementById('adv-out');
+  out.innerHTML = '<div class="muted">Loading rank…</div>';
+  const d = await api('/api/portal/rank2?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  const coh = (c, label) => c ? '<div style="margin-top:4px;"><b>' + label + '</b>: Rank <b>#' + c.my_rank + '</b> / ' + c.students + ' · Percentile <b>' + c.percentile + '%</b>' + (c.next ? ' <span class="muted">· Next rank ki ' + c.next.gap + ' pts gap</span>' : ' <span class="muted">· 🏆 Meeru #1!</span>') + '</div>' : '';
+  out.innerHTML = '<b>🎯 Rank Predictor v2</b><div class="muted">Naa points: <b>' + d.my_points + '</b> · Goal: ' + esc(d.goal || '') + '</div>' +
+    coh(d.goal_cohort, '🎓 Naa Goal Cohort') + coh(d.district_cohort, '🏙️ Naa District') + coh(d.overall, '🌐 Overall');
 }
 async function loadBookmarks() {
   const out = document.getElementById('adv-out');
@@ -8021,7 +8086,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         # 📱 PWA assets — login అవసరం లేదు (browser install కోసం), IP lock apply అవుతుంది
         if p.path == "/sw.js":
             self._send_text(
-                "const C='studentup-v4';"
+                "const C='studentup-v5';"
                 "self.addEventListener('install',e=>{self.skipWaiting();"
                 "e.waitUntil(caches.open(C).then(c=>c.addAll(['/portal','/','/icon.svg','/manifest.json'])))});"
                 "self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});"
@@ -8149,6 +8214,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
             query = urllib.parse.parse_qs(p.query)
             dd = portal.district_deep(Members(), query.get("token", [""])[0])
             self._send_json({"ok": dd is not None, **(dd or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/revision":
+            query = urllib.parse.parse_qs(p.query)
+            rp = portal.revision_planner(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": rp is not None, **(rp or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/rank2":
+            query = urllib.parse.parse_qs(p.query)
+            rk = portal.rank_predict(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": rk is not None, **(rk or {"error": "session expired"})})
             return
         if p.path == "/api/portal/coach":
             query = urllib.parse.parse_qs(p.query)

@@ -104,7 +104,7 @@ class TestWiring150(unittest.TestCase):
         for s in ("body.get(\"sec\")", "sec: Math.round",
                   "su_offline_state", "su_offline_daily", "su_offq",
                   "flushOffline", "window.addEventListener('online'",
-                  "offline-bar", "studentup-v4", "shareProgress",
+                  "offline-bar", "studentup-v5", "shareProgress",
                   "navigator.share", "su_offline"):
             self.assertIn(s, self.dash)
 
