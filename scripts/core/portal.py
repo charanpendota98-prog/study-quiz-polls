@@ -600,6 +600,7 @@ def _profile(members, uid):
             "goal": m.get("exam_goal") or m.get("goal") or "mixed",
             "points": m.get("points", 0), "level": _lvl,
             "streak": m.get("streak", 0), "best_streak": m.get("best_streak", 0),
+            "shields": int(m.get("shields") or 0),
             "ref_code": _ref_code(uid), "referrals": m.get("referrals", 0),
             "badges": _badge_labels(m.get("badges") or []),
             "lang": m.get("lang") or "both",
@@ -2694,6 +2695,12 @@ def portal_analytics(members):
                     "msgs": int((d.get("tg_stats") or {}).get("bot_msgs") or 0),
                     "link_pct": round(100 * len(d.get("tg_map") or {})
                                       / max(1, len(reg)), 1)},
+            "churn": {"at_risk_7d": sum(
+                1 for m in reg
+                if not str(m.get("last_active") or "")
+                or str(m.get("last_active"))[:10]
+                < (_now() - timedelta(days=7)).strftime("%Y-%m-%d")),
+                    "winback_sent": int((d.get("tg_stats") or {}).get("winback") or 0)},
             "archive_size": len(arc),
             "sessions_live": len(d.get("sessions") or {}),
             "pyq_gaps": _pyq_gaps_safe(),
@@ -4022,6 +4029,28 @@ def due_bot_reminders(members):
             acc = round(100 * cor / max(1, ans))
             jobs.append({"tg_id": tg, "kind": "weekly_report",
                          "text": f"📋 Mee Week Report: {ans} answers · ✅ {cor} correct ({acc}%) · ⭐ {_member(members, uid).get('points', 0)} pts. Next week target: accuracy +5%! 💪"})
+    # 💌 170X WIN-BACK: 7+ days inactive linked students ki week ki
+    # okkasari matrame personal win-back (points/streak hook tho).
+    _cut170 = (now - timedelta(days=7)).strftime("%Y-%m-%d")
+    _wk170 = now.strftime("%G-W%V")
+    _wb = 0
+    for uid, tg in inv.items():
+        if _wb >= 20:
+            break
+        gm = _member(members, uid)
+        la = str(gm.get("last_active") or "")
+        if la and la[:10] >= _cut170:
+            continue                      # recent ga active — disturb cheyyam
+        key = f"winback:{_wk170}:{uid}"
+        if key in sent:
+            continue
+        sent.add(key)
+        _wb += 1
+        jobs.append({"tg_id": tg, "kind": "winback",
+                     "text": f"👋 {gm.get('name', 'Student')} garu, miss ayyam! Mee {gm.get('points', 0)} points + rank wait chesthunnayi. Ee roju Daily Quiz okka 10 min — streak malli start cheddam! 🔥📚"})
+    if _wb:
+        _st170 = d.setdefault("tg_stats", {})
+        _st170["winback"] = int(_st170.get("winback") or 0) + _wb
     if jobs:
         d["bot_remind_sent"] = sorted(sent)[-2000:]
         _bot_msgs_bump(d, len(jobs))

@@ -1275,6 +1275,7 @@ async function loadHome() {
     '<span class="chip gold">⭐ ' + s.points + ' pts</span>' +
     (d.my_rank_today ? '<span class="chip">🏆 Today Rank #' + d.my_rank_today + '</span>' : '') +
     (s.streak ? '<span class="chip">🔥 ' + s.streak + '-day streak</span>' : '') +
+    (s.shields ? '<span class="chip">🛡️ ' + s.shields + ' streak shield' + (s.shields > 1 ? 's' : '') + '</span>' : '') +
     (s.badges || []).map(b => '<span class="chip gold">🏅 ' + esc(b) + '</span>').join('');
   document.getElementById('goal-chips').innerHTML = '<span class="muted" style="font-size:12px;">🏆 Mee Exam:</span>' + Object.entries(d.goals || {}).map(([k, v]) =>
     '<button class="tchip' + (k === s.goal ? ' on' : '') + '" onclick="setGoal(\'' + k + '\')">' + esc(v) + '</button>').join('') +
@@ -6691,6 +6692,7 @@ All candidates must join today before 9:00 PM!"></textarea>
           bar('Attempted (≥1 test)', f.attempted || 0, f.registered || 0) +
           bar('Active today', f.active_today || 0, f.registered || 0) +
           ((d.retention) ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🔁 Retention</h4><div>🆕 Last 7d registered: <b style="color:#e2e8f0;">' + (d.retention.new_7d || 0) + '</b> · 🟢 Active 7d: <b style="color:#e2e8f0;">' + (d.retention.active_7d || 0) + '</b> (' + (d.retention.active_7d_pct || 0) + '% of students)</div>' : '') +
+          ((d.churn) ? '<div style="margin-top:5px;">⚠️ At-risk (7d+ inactive): <b style="color:#facc15;">' + (d.churn.at_risk_7d || 0) + '</b> · 💌 Win-back sent: <b style="color:#e2e8f0;">' + (d.churn.winback_sent || 0) + '</b> <span>(bot auto, week ki okkasari)</span></div>' : '') +
           ((d.bot) ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🤖 Bot Funnel (120X)</h4><div>🔗 Linked: <b style="color:#e2e8f0;">' + (d.bot.linked || 0) + '</b> (' + (d.bot.link_pct || 0) + '% of students) · 🪪 Link claims: <b style="color:#e2e8f0;">' + (d.bot.claims || 0) + '</b> · 🔐 WebApp logins: <b style="color:#e2e8f0;">' + (d.bot.logins || 0) + '</b> · 📬 Bot msgs sent: <b style="color:#e2e8f0;">' + (d.bot.msgs || 0) + '</b></div>' +
           '<div style="margin-top:8px;"><div class="muted" style="font-size:11.5px;">📣 Bot Broadcast (linked students ki Telegram):</div>' +
           '<textarea id="bb-text" rows="2" style="width:100%; margin-top:4px;" placeholder="Ee roju 7 PM ki Grand Mock LIVE! Ready ga undandi 🔥"></textarea>' +
