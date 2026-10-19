@@ -184,8 +184,13 @@ def load_academic_questions():
                 elif l.startswith("- A:") or l.startswith("- B:") or l.startswith("- C:") or l.startswith("- D:"):
                     is_correct = "[correct]" in l
                     clean_opt = l[4:].replace("[correct]", "").strip()
-                    m = re.match(r"(.*?)\s*\((.*?)\)", clean_opt)
-                    if m:
+                    # 🧼 320X root fix: (...) is the Telugu gloss ONLY
+                    # when it actually contains Telugu script — math /
+                    # code options like 'O(log n)' or '1 - (T2/T1)' were
+                    # shredded into duplicate EN stubs ('O', '1 -'),
+                    # which bank-health flagged as duplicate_options.
+                    m = re.match(r"(.*?)\s*\((.*?)\)\s*$", clean_opt)
+                    if m and re.search(r"[ఀ-౿]", m.group(2)):
                         en_o, te_o = m.group(1).strip(), m.group(2).strip()
                     else:
                         en_o, te_o = clean_opt, clean_opt
@@ -274,6 +279,19 @@ def load_bank(force_rebuild=False):
     if dyn:
         existing_ids = {q.get("id") for q in qs}
         qs = list(qs) + [q for q in dyn if q.get("id") not in existing_ids]
+    # 🧼 350X: content-signature dedupe — dynamic generation once
+    # emitted the same question five times (DYN-...-1..5); identical
+    # content must never be served twice. First occurrence wins
+    # (canonical sources precede generated ones in the merge order).
+    _seen350 = set()
+    _deduped = []
+    for q in qs:
+        _s = q_signature(q)
+        if _s in _seen350:
+            continue
+        _seen350.add(_s)
+        _deduped.append(q)
+    qs = _deduped
     try:
         _BANK_CACHE.update({"sig": _bank_sig(), "qs": qs})
     except Exception:

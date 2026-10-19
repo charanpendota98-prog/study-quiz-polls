@@ -532,3 +532,171 @@ Q: What is the primary and fundamental skill among the four language skills (LSR
 - D: Writing (లేఖనం)
 Explanation: Listening (శ్రవణం) is the fundamental receptive language skill upon which speech, reading, and writing are developed.
 Exam: TS TET / AP TET Telugu Content & Methodology
+
+## Channel: TS_10TH
+### Topic: Mathematics — Quadratic Equations
+Q: What are the roots of the quadratic equation x^2 - 5x + 6 = 0?
+⤷ x^2 - 5x + 6 = 0 వర్గ సమీకరణం యొక్క మూలాలు ఏవి?
+- A: 1 and 2 (1 మరియు 2)
+- B: 2 and 3 (2 మరియు 3) [correct]
+- C: 3 and 4 (3 మరియు 4)
+- D: -2 and -3 (-2 మరియు -3)
+Explanation: x^2 - 5x + 6 = (x - 2)(x - 3) = 0, so the roots are 2 and 3.
+Exam: TS SSC Class 10 Board Exam
+
+### Topic: Biological Science — Life Processes
+Q: Photosynthesis in plants takes place in which cell organelle?
+⤷ మొక్కలలో కిరణజన్య సంయోగక్రియ ఏ కణాంగంలో జరుగుతుంది?
+- A: Mitochondria (మైటోకాండ్రియా)
+- B: Nucleus (కేంద్రకం)
+- C: Chloroplast (హరితరేణువు) [correct]
+- D: Ribosome (రైబోజోమ్)
+Explanation: Chloroplasts contain the green pigment chlorophyll which traps sunlight for photosynthesis.
+Exam: TS SSC Class 10 Board Exam
+
+## Channel: AP_10TH
+### Topic: Physical Science — Acids, Bases and Salts
+Q: What is the pH of a neutral solution at 25 degrees Celsius?
+⤷ 25 డిగ్రీల సెల్సియస్ వద్ద తటస్థ ద్రావణం యొక్క pH విలువ ఎంత?
+- A: 0
+- B: 1
+- C: 7 [correct]
+- D: 14
+Explanation: At 25 degrees Celsius a neutral solution has pH = 7; below 7 is acidic and above 7 is basic.
+Exam: AP SSC Class 10 Board Exam
+
+### Topic: Social Studies — Modern History
+Q: In which year was the Battle of Plassey fought?
+⤷ ప్లాసీ యుద్ధం ఏ సంవత్సరంలో జరిగింది?
+- A: 1757 [correct]
+- B: 1764
+- C: 1772
+- D: 1782
+Explanation: The Battle of Plassey was fought in 1757 between Robert Clive and Siraj-ud-Daulah.
+Exam: AP SSC Class 10 Board Exam
+
+## Channel: TS_INTER
+### Topic: Physics — Current Electricity
+Q: What is the SI unit of electric current?
+⤷ విద్యుత్ ప్రవాహానికి SI ప్రమాణం ఏమిటి?
+- A: Volt (వోల్ట్)
+- B: Ampere (ఆంపియర్) [correct]
+- C: Ohm (ఓమ్)
+- D: Watt (వాట్)
+Explanation: Electric current is measured in Ampere; Volt is potential difference, Ohm is resistance, Watt is power.
+Exam: TS Inter Board Exam
+
+### Topic: Chemistry — Mole Concept
+Q: What is the molar mass of water (H2O)?
+⤷ నీటి (H2O) మోలార్ ద్రవ్యరాశి ఎంత?
+- A: 16 g/mol
+- B: 17 g/mol
+- C: 18 g/mol [correct]
+- D: 20 g/mol
+Explanation: H2O = 2(1) + 16 = 18 g/mol.
+Exam: TS Inter Board Exam
+
+## Channel: AP_INTER
+### Topic: Mathematics — Differentiation
+Q: What is the derivative of sin(x) with respect to x?
+⤷ x కు సంబంధించి sin(x) యొక్క అవకలజం ఏమిటి?
+- A: -cos(x)
+- B: cos(x) [correct]
+- C: tan(x)
+- D: -sin(x)
+Explanation: d/dx [sin(x)] = cos(x).
+Exam: AP Inter Board Exam
+
+### Topic: Chemistry — Mole Concept
+Q: What is the value of Avogadro's number?
+⤷ అవగాడ్రో సంఖ్య విలువ ఎంత?
+- A: 6.022 x 10^22
+- B: 6.022 x 10^23 [correct]
+- C: 3.011 x 10^23
+- D: 1.602 x 10^-19
+Explanation: One mole of any substance contains 6.022 x 10^23 particles (Avogadro's number).
+Exam: AP Inter Board Exam
+
+## Channel: TS_DIPLOMA
+### Topic: Electrical Engineering — Ohm's Law
+Q: A resistor of 4 ohms is connected across a 12 V battery. What is the current through it?
+⤷ 4 ఓమ్‌ల నిరోధకం 12 V బ్యాటరీకి అనుసంధానించబడింది. దాని గుండా ప్రవహించే విద్యుత్ ఎంత?
+- A: 2 A
+- B: 3 A [correct]
+- C: 4 A
+- D: 48 A
+Explanation: By Ohm's law I = V/R = 12/4 = 3 A.
+Exam: TS POLYCET / Diploma Exam
+
+### Topic: Computer Fundamentals — Number Systems
+Q: What is the binary equivalent of the decimal number 10?
+⤷ దశాంశ సంఖ్య 10 యొక్క ద్విసంఖ్యా (Binary) రూపం ఏమిటి?
+- A: 1001
+- B: 1010 [correct]
+- C: 1100
+- D: 1000
+Explanation: 10 = 8 + 2 = 1010 in binary.
+Exam: TS POLYCET / Diploma Exam
+
+## Channel: AP_DIPLOMA
+### Topic: Physics — Units and Measurements
+Q: What is the SI unit of force?
+⤷ బలానికి SI ప్రమాణం ఏమిటి?
+- A: Joule (జౌల్)
+- B: Pascal (పాస్కల్)
+- C: Newton (న్యూటన్) [correct]
+- D: Tesla (టెస్లా)
+Explanation: Force is measured in Newton (1 N = 1 kg m/s^2); Joule is energy, Pascal is pressure.
+Exam: AP POLYCET / Diploma Exam
+
+### Topic: Electrical Engineering — Kirchhoff's Laws
+Q: According to Kirchhoff's Current Law, the algebraic sum of currents at a junction is:
+⤷ కిర్చోఫ్ విద్యుత్ నియమం ప్రకారం, ఒక జంక్షన్ వద్ద విద్యుత్ ప్రవాహాల బీజీయ మొత్తం:
+- A: Maximum (గరిష్ఠం)
+- B: Zero (సున్నా) [correct]
+- C: Infinite (అనంతం)
+- D: Always positive (ఎల్లప్పుడూ ధనాత్మకం)
+Explanation: KCL is based on conservation of charge: total current entering a junction equals total current leaving it, so the algebraic sum is zero.
+Exam: AP POLYCET / Diploma Exam
+
+## Channel: TS_BTECH
+### Topic: Data Structures & Algorithms (DSA) — Searching
+Q: What is the worst-case time complexity of Linear Search on an array of n elements?
+⤷ n మూలకాల శ్రేణిపై లీనియర్ సెర్చ్ యొక్క చెత్త-సందర్భ సమయ సంక్లిష్టత ఎంత?
+- A: O(1)
+- B: O(log n)
+- C: O(n) [correct]
+- D: O(n log n)
+Explanation: In the worst case every element is compared once, giving O(n).
+Exam: TS B.Tech CSE
+
+### Topic: Data Structures & Algorithms (DSA) — Stacks
+Q: Which data structure follows the LIFO (Last In First Out) principle?
+⤷ ఏ డేటా నిర్మాణం LIFO (Last In First Out) సూత్రాన్ని అనుసరిస్తుంది?
+- A: Queue (క్యూ)
+- B: Stack (స్టాక్) [correct]
+- C: Linked List (లింక్డ్ లిస్ట్)
+- D: Tree (ట్రీ)
+Explanation: A Stack inserts and removes from the same end (top), so the last inserted element is removed first.
+Exam: TS B.Tech CSE
+
+## Channel: AP_BTECH
+### Topic: Computer Networks — TCP/IP
+Q: What is the full form of TCP in computer networks?
+⤷ కంప్యూటర్ నెట్‌వర్క్‌లలో TCP పూర్తి రూపం ఏమిటి?
+- A: Transfer Control Program
+- B: Transmission Control Protocol [correct]
+- C: Transport Communication Process
+- D: Terminal Control Protocol
+Explanation: TCP (Transmission Control Protocol) provides reliable, connection-oriented data delivery.
+Exam: AP B.Tech CSE
+
+### Topic: Database Management Systems — Normalization
+Q: What is the main purpose of normalization in a database?
+⤷ డేటాబేస్‌లో నార్మలైజేషన్ యొక్క ముఖ్య ఉద్దేశ్యం ఏమిటి?
+- A: To increase data redundancy (డేటా పునరావృతం పెంచడం)
+- B: To reduce data redundancy (డేటా పునరావృతం తగ్గించడం) [correct]
+- C: To delete all tables (అన్ని పట్టికలు తొలగించడం)
+- D: To slow down queries (ప్రశ్నలు నెమ్మది చేయడం)
+Explanation: Normalization organizes tables to reduce redundancy and avoid insertion, deletion and update anomalies.
+Exam: AP B.Tech CSE

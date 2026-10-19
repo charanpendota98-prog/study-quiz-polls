@@ -244,6 +244,31 @@ def _golive_checks():
         checks.append({
             "name": "Bank health (280X)", "status": "warn",
             "detail": f"health report run avvaledu: {_e280}"})
+    try:
+        from core import publish_queue as _pq310, wp_push as _wpp310
+        _d310 = _pq310.get_or_build_today()
+        checks.append({
+            "name": "Daily publish draft (310X)", "status": "ok" if _d310.get("status") in ("approved", "live") else "warn",
+            "detail": f"{_d310.get('id')}: {_d310.get('status')} · quiz {_d310.get('quiz', {}).get('count', 0)}Q · WP creds {'set' if _wpp310.creds_ready() else 'not set (.env)'}"})
+    except Exception as _e310:
+        checks.append({
+            "name": "Daily publish draft (310X)", "status": "warn",
+            "detail": f"draft check run avvaledu: {_e310}"})
+    try:
+        from core import portal as _p340
+        _hub340 = _p340.state_hub()
+        _gaps340 = [f"{e['goal']}: +{e['gap_total']}Q/+{e['gap_pyq']}PYQ"
+                    for s in _hub340.get("states", []) for e in s.get("exams", [])
+                    if e.get("gap_total", 0) > 0 or e.get("gap_pyq", 0) > 0]
+        checks.append({
+            "name": "Exam stock targets (340X)",
+            "status": "warn" if _gaps340 else "ok",
+            "detail": ("stock gaps: " + " · ".join(_gaps340[:4])
+                       if _gaps340 else "anni exams healthy stock lo unnayi")})
+    except Exception as _e340:
+        checks.append({
+            "name": "Exam stock targets (340X)", "status": "warn",
+            "detail": f"stock check run avvaledu: {_e340}"})
     overall = "ready" if all(c["status"] != "fail" for c in checks) else "pending"
     return {"overall": overall, "checks": checks}
 
@@ -1044,6 +1069,12 @@ PORTAL_HTML = """<!DOCTYPE html>
       <p class="muted" style="margin-top:8px; text-align:center;">🎓 Exams = Live Exams · Weekly Test · Mock Tests &nbsp;|&nbsp; 📝 Quiz = Daily Quiz (anni exams PYQ-first!)</p>
     </div>
 
+    <div class="card" id="state-hub-card">
+      <h3>🗺️ TS &amp; AP Exam Hub</h3>
+      <p class="muted">Meeku state exam select cheyyandi — aa exam previous papers nunchi mock + subject-wise tests (honest counts tho).</p>
+      <div id="state-hub"><p class="muted">⏳ Load avthundi…</p></div>
+    </div>
+
     <div class="card" id="install-card" style="display:none; border-color:#10b981;">
       <h3>📲 StudentUp App Install Cheyyandi</h3>
       <p class="muted">Home screen meeda app laaga untundi — Daily Quiz ki okka tap lo vellachu!</p>
@@ -1516,6 +1547,7 @@ async function loadHome() {
   }
   if (!d || !d.ok) { logout(); return; }
   const s = d.student; STATE = d;
+  loadStateHub();
   document.getElementById('hello').textContent = '👋 ' + s.name;
   document.getElementById('mychips').innerHTML =
     '<span class="chip">🎯 ' + esc(GOALS[s.goal] || s.goal) + '</span>' +
@@ -2430,6 +2462,31 @@ var STATE = null;
 let PR = null;
 let prTimer = null;
 let PR_MODE_OVERRIDE = '';
+// 🗺️ 330X: TS & AP Exam Hub — state-wise exams, honest counts,
+// one-tap Mock (aa exam pool) + subject-wise tests (goal-scoped).
+async function loadStateHub() {
+  const box = document.getElementById('state-hub');
+  if (!box || box.dataset.done) return;
+  try {
+    const d = await (await fetch('/api/portal/state_hub')).json();
+    if (!d.ok) { box.innerHTML = '<p class="muted">Hub load avvaledu.</p>'; return; }
+    box.dataset.done = '1';
+    const subNames = {gk: 'GK', quant: 'Maths', reasoning: 'Reasoning', english: 'English', ca: 'Current Affairs', science: 'Science', polity: 'Polity', history: 'History'};
+    box.innerHTML = (d.states || []).map(st =>
+      '<p style="margin-top:10px;"><b>' + (st.state === 'Telangana' ? '🟢' : '🔵') + ' ' + esc(st.state) + '</b></p>' +
+      st.exams.map(e =>
+        '<div class="rrow"><b>' + esc(e.label) + '</b> <span class="muted">' + e.total + ' Q · PYQ ' + e.pyq + '</span>' +
+        (e.gap_total > 0 ? ' <span class="chip" style="border-color:#f59e0b; color:#f59e0b;">📈 +' + e.gap_total + ' stock kavali</span>' : ' <span class="chip gold">✅ Stock ready</span>') + '<br>' +
+        '<button class="btn-alt" style="width:auto; margin-top:5px;" onclick="startMock(\'' + e.goal + '\')">🎯 Mock Test</button> ' +
+        (e.subjects || []).filter(s2 => s2.count >= 3).slice(0, 4).map(s2 =>
+          '<button class="btn-alt" style="width:auto; margin-top:5px;" onclick="startPractice(\'section\', \'' + s2.subject + '\', \'' + e.goal + '\')">🧩 ' + esc(subNames[s2.subject] || s2.subject) + '</button>').join(' ') +
+        '</div>').join('')
+    ).join('') +
+    '<p class="muted" style="margin-top:10px;">🎓 Board Exams: ' +
+      (d.academic || []).filter(a => a.total > 0).map(a => esc(a.label) + ' (' + a.total + ')').join(' · ') + '</p>';
+  } catch (e) { box.innerHTML = '<p class="muted">Hub load avvaledu.</p>'; }
+}
+
 async function startPractice(mode, subject, goal) {
   const topic = subject || PR_MODE_OVERRIDE || document.getElementById('topic-sel').value || '';
   PR_MODE_OVERRIDE = '';
@@ -3685,6 +3742,20 @@ HTML_PAGE = """<!DOCTYPE html>
           <a class="btn btn-outline" href="/blog" target="_blank" style="text-decoration:none;">📰 /blog Chudu</a>
         </div>
         <div id="wp-msg" style="font-size:12px; margin-top:8px;"></div>
+      </div>
+
+      <div class="panel-card" style="margin-top:16px;">
+        <h3 style="font-size:14px; color:#38bdf8;">🚦 Publish Center — Daily Draft → Approve → LIVE (310X)</h3>
+        <p class="muted" style="font-size:12px; margin-top:6px;">Roju draft automatic ga ready avthundi (Daily Quiz + Live Exams + Sunday Weekly Grand). <b>Meeru Approve chesthene</b> WordPress push &amp; Go-Live avthayi — approve lekunda students ki emi velladu.</p>
+        <div id="pub-status" style="font-size:12.5px; margin-top:8px; color:var(--text-muted); white-space:pre-line;">Draft inka load cheyyaledu.</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+          <button class="btn btn-outline" onclick="pubLoad()">🔄 Draft Refresh</button>
+          <button class="btn btn-accent" onclick="pubApprove()">✅ Approve</button>
+          <button class="btn btn-outline" onclick="pubPushWp()">🌐 Push to WordPress</button>
+          <button class="btn btn-accent" onclick="pubGoLive()">🚀 Go Live</button>
+          <button class="btn btn-outline" onclick="pubReject()">❌ Reject</button>
+        </div>
+        <div id="pub-msg" style="font-size:12px; margin-top:8px;"></div>
       </div>
 
       <div class="panel-card" style="margin-top:16px;">
@@ -7006,6 +7077,48 @@ All candidates must join today before 9:00 PM!"></textarea>
       } catch (e) { msg.textContent = '❌ ' + e; }
     }
 
+    // 🚦 310X Publish Center
+    async function pubLoad() {
+      const el = document.getElementById('pub-status');
+      el.textContent = '⏳ Draft load avthundi…';
+      try {
+        const d = await fetch('/api/publish/today').then(r => r.json());
+        const dr = d.draft || {};
+        const st = {draft: '📝 DRAFT (approve kosam wait)', approved: '✅ APPROVED (push/live ready)', live: '🚀 LIVE', rejected: '❌ REJECTED'}[dr.status] || dr.status;
+        const lines = ['Status: ' + st,
+          '🎯 Daily Quiz: ' + ((dr.quiz || {}).count || 0) + ' questions (PYQ ' + ((dr.quiz || {}).pyq || 0) + ')',
+          '🏆 Live Exams today: ' + ((dr.exams_today || []).length
+            ? dr.exams_today.map(e => e.title + ' @ ' + String(e.starts_at || '').replace('T', ' ')).join(' · ')
+            : 'levu'),
+          '👑 Weekly Grand: ' + (dr.weekly_grand ? (dr.weekly_grand.n_q + 'Q @ ' + dr.weekly_grand.time) : '— (Sunday matrame)'),
+          '🌐 WordPress: ' + (d.wp_creds ? 'creds ready' : 'creds set ledu (.env lo WP_APP_PASSWORD)') + ((dr.wp || {}).pushed ? ' · pushed ✅ (' + dr.wp.stored + ' stored)' : '')];
+        el.textContent = lines.join('\n');
+      } catch (e) { el.textContent = '❌ ' + e; }
+    }
+    async function pubAct(path, body) {
+      const msg = document.getElementById('pub-msg');
+      try {
+        const d = await (await fetch(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body || {})})).json();
+        msg.textContent = d.ok ? ('✅ ' + (d.message || 'Done')) : ('❌ ' + (d.error || d.message || 'fail ayindi'));
+        pubLoad();
+      } catch (e) { msg.textContent = '❌ ' + e; }
+    }
+    function pubApprove() { pubAct('/api/publish/approve', {}); }
+    function pubReject() { if (confirm('Ee draft reject cheyyala? Kotta draft rebuild avthundi.')) pubAct('/api/publish/reject', {}); }
+    function pubPushWp() { pubAct('/api/publish/push_wp', {}); }
+    async function pubGoLive() {
+      if (!confirm('🚀 Go Live cheyyala? Quiz + exams students ki open avthayi.')) return;
+      const msg = document.getElementById('pub-msg');
+      try {
+        const d = await (await fetch('/api/publish/go_live', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'})).json();
+        msg.textContent = d.ok ? ('✅ ' + d.message + (d.sent_to_admin ? ' · 📩 Admin ki Telegram vellindi' : '')) : ('❌ ' + (d.error || d.message || 'fail ayindi'));
+        if (d.ok && d.announcement) {
+          try { await navigator.clipboard.writeText(d.announcement); msg.textContent += ' · 📋 Announcement copy ayindi — WhatsApp groups lo paste cheyyandi!'; } catch (e) {}
+        }
+        pubLoad();
+      } catch (e) { msg.textContent = '❌ ' + e; }
+    }
+
     async function createPortalExam() {
       const msg = document.getElementById('pex-msg');
       const body = {
@@ -8489,6 +8602,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json({"ok": bool(st), **(st or {"error": "session expired"})})
             return
 
+        if p.path == "/api/portal/state_hub":
+            # 🗺️ 330X: TS & AP exam hub (public honest counts).
+            self._send_json({"ok": True, **portal.state_hub()})
+            return
+
         if p.path == "/api/portal/paper/catalog":
             self._send_json({"ok": True, "papers": portal.paper_catalog()})
             return
@@ -9143,6 +9261,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         if p.path == "/api/wp/export":
             self._send_json({"ok": True, **_wp_quiz_export()})
+            return
+
+        if p.path == "/api/publish/today":
+            # 🚦 310X: today's approve-to-live draft manifest.
+            from core import publish_queue, wp_push
+            self._send_json({"ok": True,
+                             "draft": publish_queue.get_or_build_today(),
+                             "wp_creds": wp_push.creds_ready(),
+                             "wp_url": wp_push.push_url()})
             return
 
         if p.path == "/api/pyq/status":
@@ -9907,6 +10034,63 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 except Exception:
                     sent = False
             self._send_json({"ok": True, "text": txt, "sent_to_admin": sent})
+            return
+
+        # 🚦 310X: Approve-to-Live publish pipeline. Nothing reaches
+        # students/WordPress until the owner approves today's draft.
+        if p.path == "/api/publish/approve":
+            from core import publish_queue
+            draft = publish_queue.get_or_build_today()
+            ok, msg = publish_queue.approve(draft["id"],
+                                            str(body.get("by") or "owner"))
+            self._send_json({"ok": ok, "message": msg,
+                             "draft": publish_queue.get(draft["id"])})
+            return
+        if p.path == "/api/publish/reject":
+            from core import publish_queue
+            draft = publish_queue.get_or_build_today()
+            ok, msg = publish_queue.reject(draft["id"],
+                                           str(body.get("by") or "owner"),
+                                           str(body.get("reason") or ""))
+            self._send_json({"ok": ok, "message": msg})
+            return
+        if p.path == "/api/publish/push_wp":
+            from core import publish_queue, wp_push
+            draft = publish_queue.get_or_build_today()
+            if draft.get("status") not in ("approved", "live"):
+                self._send_json({"ok": False,
+                                 "error": "Mundu draft Approve cheyyandi — "
+                                          "approve lekunda WP push avvadu."})
+                return
+            res = wp_push.push_quiz(_wp_quiz_export())
+            publish_queue.mark_wp_pushed(draft["id"], bool(res.get("ok")),
+                                         res.get("stored", 0),
+                                         res.get("error", ""))
+            self._send_json({"ok": bool(res.get("ok")), **res,
+                             "draft": publish_queue.get(draft["id"])})
+            return
+        if p.path == "/api/publish/go_live":
+            from core import publish_queue
+            draft = publish_queue.get_or_build_today()
+            ok, msg = publish_queue.go_live(draft["id"],
+                                            str(body.get("by") or "owner"))
+            out = {"ok": ok, "message": msg,
+                   "draft": publish_queue.get(draft["id"])}
+            if ok:
+                # 🚀 320X: go-live announcement — Telegram admin ki
+                # auto-send + dashboard copy-to-WhatsApp text.
+                ann = publish_queue.announcement_text(
+                    out["draft"], _public_base(self) + "/portal")
+                sent = False
+                if config.BOT_TOKEN and config.ADMIN_ID:
+                    try:
+                        Telegram().send_message(str(config.ADMIN_ID), ann)
+                        sent = True
+                    except Exception:
+                        sent = False
+                out["announcement"] = ann
+                out["sent_to_admin"] = sent
+            self._send_json(out)
             return
 
         if p.path == "/api/portal/admin/send_reports":

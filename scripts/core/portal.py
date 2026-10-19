@@ -23,6 +23,8 @@ PATH = Path(config.DATA) / "portal.json"
 
 GOALS = {
     "groups": {"label": "🏛️ Groups (APPSC / TSPSC)", "channels": ["APPSC", "TSPSC", "CURRENT"]},
+    "tspsc": {"label": "🏛️ TSPSC — Telangana", "channels": ["TSPSC", "CURRENT"]},
+    "appsc": {"label": "🏛️ APPSC — Andhra Pradesh", "channels": ["APPSC", "CURRENT"]},
     "ssc": {"label": "📄 SSC", "channels": ["SSC", "BANKING"]},
     "banking": {"label": "🏦 Banking", "channels": ["BANKING"]},
     "railway": {"label": "🚆 Railway (RRB)", "channels": ["RAILWAY"]},
@@ -38,7 +40,8 @@ PTS_GRAND = 10
 # 🗓️ Official exam countdown targets (dashboard notice ga marchukovachu;
 # date daggara padithe plan intensity automatic ga peruguthundi).
 EXAM_DATES = {
-    "groups": "2027-02-14", "ssc": "2026-12-20", "banking": "2026-12-06",
+    "groups": "2027-02-14", "tspsc": "2027-02-14", "appsc": "2027-02-14",
+    "ssc": "2026-12-20", "banking": "2026-12-06",
     "railway": "2027-01-18", "police": "2026-12-27", "mixed": "2026-12-31",
 }
 
@@ -46,6 +49,8 @@ EXAM_DATES = {
 # questions — exam name keywords (bank 'exam' field mida match).
 GOAL_EXAM_KEYS = {
     "groups": ("appsc", "tspsc", "group"),
+    "tspsc": ("tspsc", "telangana", "group"),
+    "appsc": ("appsc", "andhra", "group"),
     "ssc": ("ssc",),
     "banking": ("bank", "ibps", "sbi", "rbi"),
     "railway": ("rrb", "railway", "ntpc", "alp", "group d"),
@@ -69,6 +74,70 @@ def _goal_pyq_pool(goal):
         if ex:
             return ex
     return pyqs
+
+
+# 🗺️ TS/AP EXAM HUB (330X)
+_STATE_HUB_GOALS = (
+    ("Telangana", ("tspsc", "police", "groups")),
+    ("Andhra Pradesh", ("appsc", "police", "groups")),
+)
+_ACADEMIC_HUB = (
+    ("TS_10TH", "Telangana 10th"), ("AP_10TH", "AP 10th"),
+    ("TS_INTER", "Telangana Inter"), ("AP_INTER", "AP Inter"),
+    ("TS_DIPLOMA", "TS Diploma/POLYCET"), ("AP_DIPLOMA", "AP Diploma"),
+    ("TS_BTECH", "TS B.Tech"), ("AP_BTECH", "AP B.Tech"),
+)
+# 🎯 340X: healthy-stock targets (total, pyq) — hub gap alerts and
+# the dashboard go-live check read these; harvest fills the gaps.
+_HUB_TARGETS = {"tspsc": (150, 40), "appsc": (150, 40),
+                "police": (200, 50), "groups": (200, 50)}
+
+
+def state_hub():
+    """🗺️ 330X: TS & AP students kosam state-wise exam hub —
+    prathi exam ki HONEST counts (total + PYQ) mariyu subject-wise
+    stock (subject tests ki). Public counts matrame — personal
+    data emi ledu, login lekunda kuda chudachu."""
+    try:
+        from . import blueprint as _bp
+
+        def _subj(q):
+            return _bp.subject_of(q)
+    except Exception:
+        def _subj(q):
+            return "gk"
+    pool = _bank_pool()
+    by_channel = {}
+    for q in pool:
+        by_channel.setdefault(q.get("channel") or "", []).append(q)
+
+    def _exam(goal):
+        g = GOALS.get(goal) or {}
+        chans = g.get("channels") or []
+        qs = [q for c in chans for q in by_channel.get(c, [])] or pool
+        subs = {}
+        for q in qs:
+            s = _subj(q)
+            subs[s] = subs.get(s, 0) + 1
+        tt, tp = _HUB_TARGETS.get(goal, (100, 25))
+        n_pyq = sum(1 for q in qs if q.get("source") == "pyq")
+        return {"goal": goal, "label": g.get("label", goal),
+                "total": len(qs),
+                "pyq": n_pyq,
+                "target": {"total": tt, "pyq": tp},
+                "gap_total": max(0, tt - len(qs)),
+                "gap_pyq": max(0, tp - n_pyq),
+                "subjects": [{"subject": s, "count": n}
+                             for s, n in sorted(subs.items(),
+                                                key=lambda kv: -kv[1])[:6]]}
+
+    return {
+        "states": [{"state": name, "exams": [_exam(g) for g in goals]}
+                   for name, goals in _STATE_HUB_GOALS],
+        "academic": [{"channel": ch, "label": label,
+                      "total": len(by_channel.get(ch, []))}
+                     for ch, label in _ACADEMIC_HUB],
+    }
 
 
 def _now():
@@ -1858,8 +1927,14 @@ def practice_start(members, token, mode="smart", topic="", goal=""):
         if _sec_on and topic:
             try:
                 from . import blueprint as _bp
-                pool = [q for q in _bank_pool()
+                # 🗺️ 330X: goal unte aa exam channels nunche matrame
+                # subject test (TSPSC student ki TSPSC subject stock).
+                _chans = (GOALS.get(goal) or {}).get("channels") or []
+                pool = [q for q in _bank_pool(_chans or None)
                         if _bp.subject_of(q) == topic.lower()]
+                if len(pool) < 3 and _chans:
+                    pool = [q for q in _bank_pool()
+                            if _bp.subject_of(q) == topic.lower()]
             except Exception:
                 pool = []
             if len(pool) >= 3:

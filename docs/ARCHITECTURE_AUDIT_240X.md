@@ -185,3 +185,75 @@ whitespace/control/zero-width handling, caps, write-path wiring
 pins for members/portal/stateless/campus, quote-safe `esc`
 contract across all defs, functional register + poll-auto
 cleaning. Full suite **857 OK** · finalize PASSED.
+
+---
+
+## ADDENDUM — 310X + 320X (Approve-to-Live + perfection round)
+
+**310X — Approve-to-Live (Bridge Phase 3, owner-approved):**
+daily draft auto-builds (`core/publish_queue.py`: Daily Quiz +
+today's live exams + Sunday Weekly Grand), state machine
+`draft → approved → live / rejected`, and **nothing publishes
+without owner approval** (dashboard 🚦 Publish Center; push &
+go-live hard-gated server-side). WP push (`core/wp_push.py`)
+uses a revocable Application Password from env/.env only.
+Suite 882 OK · live approve-gate smoke verified.
+
+**320X — parser root fix:** the academic-bank parser treated any
+`(...)` as the Telugu gloss, shredding math/code options
+(`O(log n)` → EN `O` ×4) into duplicate stubs — the last two
+"invalid" bank questions. Now `(...)` splits only when it
+contains Telugu script. Bank health: **invalid 0, grade C → B**
+(1517 Q, position-bias note unchanged — live polls still
+`poll_safe`-balanced at send). Go-live now also emits a
+Tanglish announcement (Telegram admin auto-send + copy-to-
+WhatsApp). Suite **891 OK** · finalize PASSED.
+
+---
+
+## ADDENDUM — 330X (TS & AP Exam Hub)
+
+State-separate goals (`tspsc`/`appsc` with own channels,
+exam-keyword PYQ pools, countdown dates) join the combined
+`groups` goal — a Telangana student now mocks from TSPSC stock
+only (functionally pinned: picked channels ⊆ {TSPSC, CURRENT}).
+`portal.state_hub()` serves honest per-exam totals + PYQ counts
+and subject stock; the portal home renders the 🗺️ TS & AP Exam
+Hub (one-tap Mock + goal-scoped subject tests — sectional pool
+now filters by goal channels with all-bank fallback under 3).
+Board-exam channels (10th/Inter/Diploma/B.Tech, both states)
+listed with real counts. Live counts at ship time: TSPSC 356Q
+(33 PYQ), APPSC 56Q (32 PYQ — AP harvest is the next stock
+target). Suite **901 OK** · finalize PASSED · hub smoke 200.
+
+---
+
+## ADDENDUM — 340X (stock growth + targets)
+
+Curated academic bank +16 bilingual questions (TS/AP 10th,
+Inter, Diploma, B.Tech — 4→6 per board channel, 68 total,
+answers position-varied, zero duplicate options). Hub now
+carries stock targets per exam (`_HUB_TARGETS`) with honest
+gap fields; the portal hub shows 📈 "+N stock kavali" chips
+and the dashboard go-live checks gained a guarded "Exam stock
+targets (340X)" item. Ship-time truth: APPSC remains the big
+gap (56Q vs 150 target) — PYQ harvest, not filler, is the
+planned fill. Bank: 1525Q, grade B, invalid 0. Suite **908 OK**
+· finalize PASSED.
+
+---
+
+## ADDENDUM — 350X (bank resilience)
+
+**Incident:** generated bank state (ignored `question_bank.json`)
+was lost to a workspace snapshot restore; the canonical tracked
+sources rebuild only 321Q. **Fix:** `scripts/bank_restore.py`
+(rebuild_json → offline top_up → health report, idempotent) is
+now the standard fresh-deploy step — it restored 501Q served
+(170 real PYQ untouched; generated stock honestly labelled
+`offline-gen`, never PYQ). Also fixed: `load_bank` content-
+signature dedupe (a dynamically-generated question existed 5×;
+497Q after dedupe, invalid 0, positions balanced, grade B).
+Deploy rule: run `python3 scripts/bank_restore.py` once on any
+fresh checkout/VM before starting services. Suite **913 OK** ·
+finalize PASSED.
