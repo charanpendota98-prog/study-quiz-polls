@@ -1275,7 +1275,7 @@ PORTAL_HTML = """<!DOCTYPE html>
 <script>
 let token = localStorage.getItem('su_portal') || '';
 let GOALS = {}, QUESTIONS = [], cur = 0, score = 0, MOCK = null, mockTimer = null;
-const esc = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+const esc = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');  // 🧼 290X quote-safe
 async function api(path, body) {
   const opt = body ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)} : {};
   const r = await fetch(path, opt); return await r.json();
@@ -2701,7 +2701,7 @@ WEB_EXAM_HTML = """<!DOCTYPE html>
 const CODE = location.pathname.split('/').filter(Boolean).pop().toUpperCase();
 let token = localStorage.getItem('su_exam_' + CODE) || '';
 let pollInt = null, timerInt = null, curPos = 0, qWindow = 40, endsAt = 0;
-const esc = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+const esc = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');  // 🧼 290X quote-safe
 
 async function api(path, body) {
   const opt = body ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)} : {};
@@ -5203,9 +5203,9 @@ All candidates must join today before 9:00 PM!"></textarea>
         }
         box.innerHTML = d.results.map(q => `
           <div style="display:flex; align-items:center; gap:8px; padding:7px 9px; border-radius:6px; background:#050811; margin-bottom:5px; flex-wrap:wrap;">
-            <span style="flex:1; min-width:200px;">${q.q_en || '(Telugu-only question)'}</span>
-            <span class="category-tag" style="font-size:10px;">${q.channel}</span>
-            <span style="font-size:10px; color:#94a3b8;">${q.topic}</span>
+            <span style="flex:1; min-width:200px;">${esc(q.q_en || '(Telugu-only question)')}</span>
+            <span class="category-tag" style="font-size:10px;">${esc(q.channel)}</span>
+            <span style="font-size:10px; color:#94a3b8;">${esc(q.topic)}</span>
             <span style="font-size:10px; color:${q.fresh ? '#34d399' : '#f59e0b'};">${q.fresh ? '✨ FRESH' : '♻️ sent before'}</span>
             <button class="btn btn-accent" style="font-size:10px; padding:3px 10px;" onclick="sendPickedQuestion('${q.id}')">📤 Send</button>
           </div>`).join('');
@@ -5483,7 +5483,7 @@ All candidates must join today before 9:00 PM!"></textarea>
       box.innerHTML = '👀 Preview tayaravthundi…';
       try {
         const r = await fetch('/api/whatsapp/preview?count=2'); const d = await r.json();
-        const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+        const esc = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');  // 🧼 290X quote-safe
         box.innerHTML = `<b style="color:#38bdf8;">👀 Broadcast Preview</b> <span style="color:var(--text-muted);">${d.groups_total} groups ki ilane velthundi (sample ${d.samples.length} groups · emi send avvadhu)</span>` +
           (d.samples || []).map(s => `<div style="background:#050811; border:1px solid var(--border); border-radius:8px; padding:9px 11px; margin-top:7px;"><b>${esc(s.group)}</b> <span style="color:#64748b;">· ${s.style}</span>${s.messages.map(t => `<pre style="white-space:pre-wrap; font-size:11px; color:#cbd5e1; margin:6px 0; font-family:inherit;">${esc(t)}</pre>`).join('')}</div>`).join('');
       } catch (e) { box.innerHTML = '❌ ' + e; }
@@ -5510,7 +5510,7 @@ All candidates must join today before 9:00 PM!"></textarea>
         tr.innerHTML = `
           <td><input type="checkbox" class="wa-group-select-checkbox" data-gid="${g.id}" onchange="updatePlannerSelectionCount()"></td>
           <td>${g.id}</td>
-          <td>${(g.jid || '').endsWith('@newsletter') ? '📣 <span style="background:#7c3aed; color:white; padding:2px 7px; border-radius:12px; font-size:10px; font-weight:700;">CHANNEL</span> ' : ''}<b>${g.name}</b>${waHealthBadge(g.jid)}</td>
+          <td>${(g.jid || '').endsWith('@newsletter') ? '📣 <span style="background:#7c3aed; color:white; padding:2px 7px; border-radius:12px; font-size:10px; font-weight:700;">CHANNEL</span> ' : ''}<b>${esc(g.name)}</b>${waHealthBadge(g.jid)}</td>
           <td>
             <div style="display:flex; align-items:center; gap:6px;">
               <select style="margin:0; padding:4px 8px; font-size:11px; background:#0f172a; border:1px solid #38bdf8; color:#f8fafc; border-radius:6px; font-weight:600;" onchange="updateGroupExamCategory('${g.id}', this.value)">
@@ -6302,7 +6302,7 @@ All candidates must join today before 9:00 PM!"></textarea>
         const realTag = g.real ? ' <span style="color:#10b981; font-size:9px; font-weight:800;" title="Synced from real WhatsApp">✓REAL</span>' : '';
         div.innerHTML = `
           <input type="checkbox" class="bulk-target-wa" value="${g.id}" ${sel ? 'checked' : ''} style="pointer-events:none;">
-          <span style="flex:1;">💬 <b>${g.name}</b> <span style="color:#10b981; font-size:10px; font-weight:700;">[${g.category || 'GENERAL'}]</span>${members}${realTag}</span>
+          <span style="flex:1;">💬 <b>${esc(g.name)}</b> <span style="color:#10b981; font-size:10px; font-weight:700;">[${esc(g.category || 'GENERAL')}]</span>${members}${realTag}</span>
         `;
         div.onclick = () => {
           const cb = div.querySelector('input');
@@ -7506,9 +7506,9 @@ All candidates must join today before 9:00 PM!"></textarea>
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td style="font-family:monospace;">${m.uid}</td>
-          <td><b>${m.name}</b>${m.weak_topic ? `<br><span style="font-size:11px; color:#f87171;">🎯 Weak: ${m.weak_topic}</span> <span style="font-size:11px; color:#64748b;">· ${m.accuracy}% acc</span>` : ''}</td>
-          <td>${m.district || '—'}</td>
-          <td><span class="category-tag">${m.exam || '—'}</span></td>
+          <td><b>${esc(m.name)}</b>${m.weak_topic ? `<br><span style="font-size:11px; color:#f87171;">🎯 Weak: ${esc(m.weak_topic)}</span> <span style="font-size:11px; color:#64748b;">· ${m.accuracy}% acc</span>` : ''}</td>
+          <td>${esc(m.district || '—')}</td>
+          <td><span class="category-tag">${esc(m.exam || '—')}</span></td>
           <td style="color:var(--warning); font-weight:800; font-size:14px;">🏆 ${m.points}</td>
           <td>🔥 ${m.streak || 1}d</td>
           <td>${m.college || '—'}</td>

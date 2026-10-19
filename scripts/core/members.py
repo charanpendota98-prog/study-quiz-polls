@@ -17,6 +17,7 @@ import re
 from datetime import datetime, timedelta
 
 from . import config
+from . import textsafe
 from .store import KV, now_iso
 
 EXAM_TARGETS = ["TSPSC", "APPSC", "Banking", "Railway", "Police",
@@ -146,7 +147,10 @@ class Members:
                 extra["mobile"] = mb
                 extra.pop("phone", None)
         if name:
-            m["name"] = name
+            # 🧼 290X root fix: names are cleaned ONCE at write time so
+            # no render surface (dashboard/walls/certs) can ever meet
+            # stored markup (Telegram profiles are attacker-controlled).
+            m["name"] = textsafe.clean_display_name(name)
         if username:
             m["username"] = username
         if exam:
@@ -192,7 +196,7 @@ class Members:
                               source="poll_auto")
         else:
             if name and not m.get("name"):
-                m["name"] = name
+                m["name"] = textsafe.clean_display_name(name)  # 🧼 290X
             if user.get("username"):
                 m["username"] = str(user["username"])
             if not m.get("source"):

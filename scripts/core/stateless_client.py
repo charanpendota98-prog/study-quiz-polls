@@ -239,7 +239,10 @@ def _bump_topic(pr, topic, ok_ans):
 # --------------------------------------------------------------- public API
 def register_student(name, phone, district, goal, secret=None):
     """Validate + issue the zero-storage registration token."""
-    name = " ".join(str(name or "").split())[:40]
+    from . import textsafe
+    # 🧼 290X: even in zero-storage mode the signed profile is cleaned
+    # at issue time — the token can then be rendered anywhere safely.
+    name = textsafe.clean_display_name(name, max_len=40)
     phone = "".join(c for c in str(phone or "") if c.isdigit())[-10:]
     district = str(district or "").strip()[:30]
     goal = str(goal or "").strip().lower()

@@ -442,10 +442,12 @@ def register_student(members, name, phone, district, goal, ref=""):
     """One-time smart registration: name + mobile + district + exam goal.
     Data lands in the members CRM sheet (same as bot registrations)."""
     from . import districts as D
+    from . import textsafe
     digits = "".join(ch for ch in str(phone or "") if ch.isdigit())[-10:]
     if len(digits) != 10:
         return False, "Sariyina 10-digit mobile number ivvandi."
-    name = str(name or "").strip()[:40]
+    # 🧼 290X: portal names are stored cleaned (rendered on public walls).
+    name = textsafe.clean_display_name(name, max_len=40)
     if not name:
         return False, "Mee peru ivvandi."
     all_d = [x[0] for x in D.AP_DISTRICTS + D.TS_DISTRICTS]

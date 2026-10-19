@@ -142,3 +142,46 @@ duplicate stems/options, invalid questions, honest PYQ share.
 Three legacy tests migrated to the displayed-position contract
 (arena, reaction groups, WA winners) — scoring was re-proven
 against displayed options, never weakened. Suite: 842 OK.
+
+---
+
+## ADDENDUM — 290X (stored-XSS root fix)
+
+**Decision (over per-sink patching):** with 265 `innerHTML`
+sinks, escaping site-by-site is unverifiable. 290X fixes the
+class at the root: (1) display text is cleaned ONCE at write
+time, (2) every dashboard `esc()` is quote-safe, (3) the few
+highest-risk raw sinks got explicit `esc()`. Portal exam options
+already render via `textContent` (safe by design); question
+stems are bank-controlled (collector + finalize validated) and
+now escaped in admin previews.
+
+**`core/textsafe.clean_display_name`** — strips HTML-significant
+characters (`< > & " ' \` / \\`), control and zero-width/format
+characters; collapses whitespace; caps length. Telugu/Unicode
+names, dots and hyphens pass through untouched. Wired at EVERY
+name entry point: `members.register` + `auto_register_from_poll`
+(Telegram profile names — attacker-controlled), portal
+`register_student`, stateless `register_student` (cleaned before
+the profile is signed), campus web-exam register, campus
+`new_event` (event + college names), campus `student_request`.
+
+**`esc()` upgrade (x3, all dashboard pages)** — now escapes
+`& < > " '` (previously only `& <`), closing attribute-breakout
+in `onclick='...esc(x)...'` handlers. Explicit `esc()` added at:
+bank search preview (stem/channel/topic), WA planner group rows
+(name), bulk-target picker (name/category), admin member table
+(name/weak-topic/district/exam).
+
+**Residual (accepted, tracked):** remaining flagged sinks render
+*numeric* fields (counts, percentages, timings — server-computed)
+or now-cleaned stored names; bot messages render via Telegram
+(no HTML injection surface for stored names, and names are
+cleaned at the store anyway).
+
+**290X tests:** `tests/test_advanced290.py` (15) — payload
+neutralization (script/img-onerror), Telugu preservation,
+whitespace/control/zero-width handling, caps, write-path wiring
+pins for members/portal/stateless/campus, quote-safe `esc`
+contract across all defs, functional register + poll-auto
+cleaning. Full suite **857 OK** · finalize PASSED.
