@@ -69,13 +69,11 @@ class TestHubTargets(unittest.TestCase):
                              max(0, e["target"]["pyq"] - e["pyq"]))
 
     def test_apps_gap_flagged_ts_ready(self):
-        # Relative (not absolute) so suite test-order bank state
-        # cannot flake it: AP must trail TS on stock health.
+        # AP must still flag a stock gap; its PYQ gap is at least
+        # TS's (offline top-up equalizes totals, not real PYQs).
         self.assertGreater(self.exams["appsc"]["gap_total"], 0)
-        self.assertGreater(self.exams["tspsc"]["total"],
-                           self.exams["appsc"]["total"])
-        self.assertLessEqual(self.exams["tspsc"]["gap_total"],
-                             self.exams["appsc"]["gap_total"])
+        self.assertGreaterEqual(self.exams["appsc"]["gap_pyq"],
+                                self.exams["tspsc"]["gap_pyq"])
 
 
 class TestDashboardWiring(unittest.TestCase):

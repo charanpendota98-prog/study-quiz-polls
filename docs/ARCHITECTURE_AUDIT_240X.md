@@ -240,3 +240,20 @@ targets (340X)" item. Ship-time truth: APPSC remains the big
 gap (56Q vs 150 target) — PYQ harvest, not filler, is the
 planned fill. Bank: 1525Q, grade B, invalid 0. Suite **908 OK**
 · finalize PASSED.
+
+---
+
+## ADDENDUM — 350X (bank resilience)
+
+**Incident:** generated bank state (ignored `question_bank.json`)
+was lost to a workspace snapshot restore; the canonical tracked
+sources rebuild only 321Q. **Fix:** `scripts/bank_restore.py`
+(rebuild_json → offline top_up → health report, idempotent) is
+now the standard fresh-deploy step — it restored 501Q served
+(170 real PYQ untouched; generated stock honestly labelled
+`offline-gen`, never PYQ). Also fixed: `load_bank` content-
+signature dedupe (a dynamically-generated question existed 5×;
+497Q after dedupe, invalid 0, positions balanced, grade B).
+Deploy rule: run `python3 scripts/bank_restore.py` once on any
+fresh checkout/VM before starting services. Suite **913 OK** ·
+finalize PASSED.

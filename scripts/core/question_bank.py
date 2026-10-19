@@ -279,6 +279,19 @@ def load_bank(force_rebuild=False):
     if dyn:
         existing_ids = {q.get("id") for q in qs}
         qs = list(qs) + [q for q in dyn if q.get("id") not in existing_ids]
+    # 🧼 350X: content-signature dedupe — dynamic generation once
+    # emitted the same question five times (DYN-...-1..5); identical
+    # content must never be served twice. First occurrence wins
+    # (canonical sources precede generated ones in the merge order).
+    _seen350 = set()
+    _deduped = []
+    for q in qs:
+        _s = q_signature(q)
+        if _s in _seen350:
+            continue
+        _seen350.add(_s)
+        _deduped.append(q)
+    qs = _deduped
     try:
         _BANK_CACHE.update({"sig": _bank_sig(), "qs": qs})
     except Exception:
