@@ -34,10 +34,16 @@ theme ni Python app loki teste rendu break avthayi). Bridge tho sync.
 - **Phase 1 (done):** /blog syndication + quiz export + status test + docs.
 - **Phase 2:** WP snippet deploy + quiz.php one-line hook → WP daily quiz
   = platform daily quiz (same paper everywhere: WP, portal, bots).
-- **Phase 3 (optional automation):** Daily auto-push cron (Application
-  Password), blog-publish → Telegram/WhatsApp announcement hook
-  (WP `publish_post` → webhook → mana broadcast), quiz draft CSVs ni
-  direct ga PYQ Import Center nunchi publish flow.
+- **Phase 3 (310X — shipped, approve-to-live):** Daily draft
+  auto-builds (`core/publish_queue.py`: daily quiz + today's live
+  exams + Sunday Weekly Grand + WP payload) and **nothing goes live
+  until the owner approves** — dashboard 🚦 Publish Center
+  (Approve → Push to WordPress → Go Live, full audit history).
+  WP push (`core/wp_push.py`) posts to `studentup/v1/quiz` with a
+  revocable **Application Password from env/.env only**
+  (`WP_USERNAME`/`WP_APP_PASSWORD` — never via chat/API). Remaining
+  optional: unattended cron push for pre-approved days, blog-publish
+  → Telegram/WhatsApp announcement hook, PYQ Import Center publish.
 
 ## Merge cheyyakudadhu (intentional)
 - Git repos merge/subtree — PHP theme + Python app vere stacks; deploy

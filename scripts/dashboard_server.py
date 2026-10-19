@@ -244,6 +244,16 @@ def _golive_checks():
         checks.append({
             "name": "Bank health (280X)", "status": "warn",
             "detail": f"health report run avvaledu: {_e280}"})
+    try:
+        from core import publish_queue as _pq310, wp_push as _wpp310
+        _d310 = _pq310.get_or_build_today()
+        checks.append({
+            "name": "Daily publish draft (310X)", "status": "ok" if _d310.get("status") in ("approved", "live") else "warn",
+            "detail": f"{_d310.get('id')}: {_d310.get('status')} · quiz {_d310.get('quiz', {}).get('count', 0)}Q · WP creds {'set' if _wpp310.creds_ready() else 'not set (.env)'}"})
+    except Exception as _e310:
+        checks.append({
+            "name": "Daily publish draft (310X)", "status": "warn",
+            "detail": f"draft check run avvaledu: {_e310}"})
     overall = "ready" if all(c["status"] != "fail" for c in checks) else "pending"
     return {"overall": overall, "checks": checks}
 
@@ -3688,6 +3698,20 @@ HTML_PAGE = """<!DOCTYPE html>
       </div>
 
       <div class="panel-card" style="margin-top:16px;">
+        <h3 style="font-size:14px; color:#38bdf8;">🚦 Publish Center — Daily Draft → Approve → LIVE (310X)</h3>
+        <p class="muted" style="font-size:12px; margin-top:6px;">Roju draft automatic ga ready avthundi (Daily Quiz + Live Exams + Sunday Weekly Grand). <b>Meeru Approve chesthene</b> WordPress push &amp; Go-Live avthayi — approve lekunda students ki emi velladu.</p>
+        <div id="pub-status" style="font-size:12.5px; margin-top:8px; color:var(--text-muted); white-space:pre-line;">Draft inka load cheyyaledu.</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+          <button class="btn btn-outline" onclick="pubLoad()">🔄 Draft Refresh</button>
+          <button class="btn btn-accent" onclick="pubApprove()">✅ Approve</button>
+          <button class="btn btn-outline" onclick="pubPushWp()">🌐 Push to WordPress</button>
+          <button class="btn btn-accent" onclick="pubGoLive()">🚀 Go Live</button>
+          <button class="btn btn-outline" onclick="pubReject()">❌ Reject</button>
+        </div>
+        <div id="pub-msg" style="font-size:12px; margin-top:8px;"></div>
+      </div>
+
+      <div class="panel-card" style="margin-top:16px;">
         <h3 style="font-size:14px; color:#38bdf8;">📢 Exam Updates / Notices — students ki portal lo + public site lo kanipisthayi</h3>
         <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
           <input id="ntc-title" placeholder="Notice title e.g. SSC CGL 2026 Notification Out!" style="flex:2; min-width:200px;">
@@ -7006,6 +7030,37 @@ All candidates must join today before 9:00 PM!"></textarea>
       } catch (e) { msg.textContent = '❌ ' + e; }
     }
 
+    // 🚦 310X Publish Center
+    async function pubLoad() {
+      const el = document.getElementById('pub-status');
+      el.textContent = '⏳ Draft load avthundi…';
+      try {
+        const d = await fetch('/api/publish/today').then(r => r.json());
+        const dr = d.draft || {};
+        const st = {draft: '📝 DRAFT (approve kosam wait)', approved: '✅ APPROVED (push/live ready)', live: '🚀 LIVE', rejected: '❌ REJECTED'}[dr.status] || dr.status;
+        const lines = ['Status: ' + st,
+          '🎯 Daily Quiz: ' + ((dr.quiz || {}).count || 0) + ' questions (PYQ ' + ((dr.quiz || {}).pyq || 0) + ')',
+          '🏆 Live Exams today: ' + ((dr.exams_today || []).length
+            ? dr.exams_today.map(e => e.title + ' @ ' + String(e.starts_at || '').replace('T', ' ')).join(' · ')
+            : 'levu'),
+          '👑 Weekly Grand: ' + (dr.weekly_grand ? (dr.weekly_grand.n_q + 'Q @ ' + dr.weekly_grand.time) : '— (Sunday matrame)'),
+          '🌐 WordPress: ' + (d.wp_creds ? 'creds ready' : 'creds set ledu (.env lo WP_APP_PASSWORD)') + ((dr.wp || {}).pushed ? ' · pushed ✅ (' + dr.wp.stored + ' stored)' : '')];
+        el.textContent = lines.join('\n');
+      } catch (e) { el.textContent = '❌ ' + e; }
+    }
+    async function pubAct(path, body) {
+      const msg = document.getElementById('pub-msg');
+      try {
+        const d = await (await fetch(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body || {})})).json();
+        msg.textContent = d.ok ? ('✅ ' + (d.message || 'Done')) : ('❌ ' + (d.error || d.message || 'fail ayindi'));
+        pubLoad();
+      } catch (e) { msg.textContent = '❌ ' + e; }
+    }
+    function pubApprove() { pubAct('/api/publish/approve', {}); }
+    function pubReject() { if (confirm('Ee draft reject cheyyala? Kotta draft rebuild avthundi.')) pubAct('/api/publish/reject', {}); }
+    function pubPushWp() { pubAct('/api/publish/push_wp', {}); }
+    function pubGoLive() { if (confirm('🚀 Go Live cheyyala? Quiz + exams students ki open avthayi.')) pubAct('/api/publish/go_live', {}); }
+
     async function createPortalExam() {
       const msg = document.getElementById('pex-msg');
       const body = {
@@ -9145,6 +9200,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json({"ok": True, **_wp_quiz_export()})
             return
 
+        if p.path == "/api/publish/today":
+            # 🚦 310X: today's approve-to-live draft manifest.
+            from core import publish_queue, wp_push
+            self._send_json({"ok": True,
+                             "draft": publish_queue.get_or_build_today(),
+                             "wp_creds": wp_push.creds_ready(),
+                             "wp_url": wp_push.push_url()})
+            return
+
         if p.path == "/api/pyq/status":
             import collections as _c
             try:
@@ -9907,6 +9971,48 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 except Exception:
                     sent = False
             self._send_json({"ok": True, "text": txt, "sent_to_admin": sent})
+            return
+
+        # 🚦 310X: Approve-to-Live publish pipeline. Nothing reaches
+        # students/WordPress until the owner approves today's draft.
+        if p.path == "/api/publish/approve":
+            from core import publish_queue
+            draft = publish_queue.get_or_build_today()
+            ok, msg = publish_queue.approve(draft["id"],
+                                            str(body.get("by") or "owner"))
+            self._send_json({"ok": ok, "message": msg,
+                             "draft": publish_queue.get(draft["id"])})
+            return
+        if p.path == "/api/publish/reject":
+            from core import publish_queue
+            draft = publish_queue.get_or_build_today()
+            ok, msg = publish_queue.reject(draft["id"],
+                                           str(body.get("by") or "owner"),
+                                           str(body.get("reason") or ""))
+            self._send_json({"ok": ok, "message": msg})
+            return
+        if p.path == "/api/publish/push_wp":
+            from core import publish_queue, wp_push
+            draft = publish_queue.get_or_build_today()
+            if draft.get("status") not in ("approved", "live"):
+                self._send_json({"ok": False,
+                                 "error": "Mundu draft Approve cheyyandi — "
+                                          "approve lekunda WP push avvadu."})
+                return
+            res = wp_push.push_quiz(_wp_quiz_export())
+            publish_queue.mark_wp_pushed(draft["id"], bool(res.get("ok")),
+                                         res.get("stored", 0),
+                                         res.get("error", ""))
+            self._send_json({"ok": bool(res.get("ok")), **res,
+                             "draft": publish_queue.get(draft["id"])})
+            return
+        if p.path == "/api/publish/go_live":
+            from core import publish_queue
+            draft = publish_queue.get_or_build_today()
+            ok, msg = publish_queue.go_live(draft["id"],
+                                            str(body.get("by") or "owner"))
+            self._send_json({"ok": ok, "message": msg,
+                             "draft": publish_queue.get(draft["id"])})
             return
 
         if p.path == "/api/portal/admin/send_reports":
