@@ -1755,6 +1755,23 @@ function renderPlan(plan) {
     '<div style="display:flex; gap:8px; align-items:center; margin:4px 0;"><span>' + (t.done ? '✅' : '⬜') + '</span><span>' + t.icon + ' <b>' + esc(t.label) + '</b>' + (t.count ? ' (' + t.count + ')' : '') + '</span><span class="muted">' + esc(t.hint || '') + '</span></div>').join('');
   el.innerHTML = '<b>🧭 Today\'s Smart Plan</b> <span class="chip">' + plan.done_count + '/' + plan.total + ' done</span>' +
     (plan.readiness != null ? ' <span class="chip gold">Readiness ' + plan.readiness + '%</span>' : '') + rows;
+  loadMemoryDeck();
+}
+// 🧠 360X: Memory Deck strip — retention % prathi topic ki + booster.
+async function loadMemoryDeck() {
+  const pel = document.getElementById('plan-card');
+  if (!pel || pel.dataset.mem) return;
+  try {
+    const d = await (await fetch('/api/portal/memory?token=' + encodeURIComponent(token))).json();
+    if (!d.ok || !d.total) return;
+    pel.dataset.mem = '1';
+    const cards = (d.cards || []).map(c =>
+      '<div style="margin:3px 0;"><span class="chip' + (c.due_now ? '" style="border-color:#f87171; color:#f87171;' : '') + '">' +
+      esc(c.topic) + ' · ' + Math.round((c.retention || 0) * 100) + '% memory' + (c.due_now ? ' · DUE' : '') + '</span></div>').join('');
+    pel.insertAdjacentHTML('beforeend',
+      '<div style="margin-top:8px;"><b>🧠 Memory Deck</b> <span class="muted">' + d.due + ' due · ' + d.falling + ' falling · ' + d.strong + ' strong</span>' +
+      cards + '<button class="btn-alt" style="width:auto; margin-top:6px;" onclick="startPractice(\'review\')">🚀 Memory Booster Start</button></div>');
+  } catch (e) {}
 }
 let PAPER_PROG = {};
 function renderPapers(papers, progress) {
@@ -8781,6 +8798,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
             query = urllib.parse.parse_qs(p.query)
             nt = portal.next_topic(Members(), query.get("token", [""])[0])
             self._send_json({"ok": nt is not None, **(nt or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/memory":
+            # 🧠 360X: FSRS-Lite memory deck (retention + due cards).
+            query = urllib.parse.parse_qs(p.query)
+            md = portal.memory_deck(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": md is not None, **(md or {"error": "session expired"})})
             return
         if p.path == "/api/portal/trend":
             query = urllib.parse.parse_qs(p.query)

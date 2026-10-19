@@ -1841,6 +1841,46 @@ def list_notices(limit=10):
     return (_load().get("notices") or [])[:limit]
 
 
+def memory_deck(members, token):
+    """🧠 360X MEMORY DECK: FSRS-Lite stability over the student's
+    review cards — retention honesty (marichipotunna topics first),
+    due today / falling fast / strong counts, and the 5 weakest
+    cards with topic + next due. Feeds the Smart Plan + booster."""
+    d = _load()
+    uid = _sess(d, token)
+    if not uid:
+        return None
+    m = _member(members, uid)
+    today = _today()
+    try:
+        from . import fsrs_lite as _fs
+    except Exception:
+        return {"due": 0, "falling": 0, "strong": 0, "total": 0,
+                "cards": []}
+    rows = []
+    due = falling = strong = 0
+    for r in (m.get("review") or []):
+        card = dict(r)
+        if "s" not in card:      # legacy ladder card — estimate
+            card["s"] = {0: 1.0, 3: 4.0, 7: 10.0}.get(
+                int(card.get("interval") or 0), 1.0)
+            card.setdefault("last", str(card.get("due") or today))
+        ret = _fs.retrievability(card, today)
+        is_due = str(card.get("due", "")) <= today
+        due += int(is_due)
+        falling += int((not is_due) and ret < 0.75)
+        strong += int(float(card.get("s") or 0) >= 21)
+        rows.append({"qid": card.get("qid"),
+                     "topic": card.get("topic") or "general",
+                     "due": str(card.get("due") or ""),
+                     "retention": round(ret, 2),
+                     "stability": round(float(card.get("s") or 0), 1),
+                     "due_now": is_due})
+    rows.sort(key=lambda x: (not x["due_now"], x["retention"]))
+    return {"due": due, "falling": falling, "strong": strong,
+            "total": len(rows), "cards": rows[:5]}
+
+
 # ------------------------------------------------------------- practice 2.0
 def topics_list(limit=16):
     """Practice kosam bank lo unna top topics."""
@@ -2581,6 +2621,10 @@ def today_plan(members, token):
         bp = _brain.profile_for(m, uid)
     except Exception:
         bp = None
+    try:
+        _deck360 = memory_deck(members, token) or {}
+    except Exception:
+        _deck360 = {}
     tasks = [
         {"key": "daily", "icon": "📝", "label": "Daily Quiz",
          "done": bool(run and run.get("done")),
@@ -2596,6 +2640,11 @@ def today_plan(members, token):
                      and str(r.get("created", "")).startswith(_today())
                      for r in (d.get("practice") or {}).values()),
          "hint": "mee level + weak topics adaptive round"},
+        # 🧠 360X: FSRS-Lite memory task — due/falling cards first.
+        {"key": "memory", "icon": "🧠", "label": "Memory Booster",
+         "done": _deck360.get("due", 0) == 0,
+         "count": _deck360.get("due", 0),
+         "hint": "marichipotunna questions ni correct time lo revision"},
         {"key": "mock", "icon": "📄", "label": f"{prof['goal'].upper()} Mock Test",
          "done": any(r.get("uid") == uid and r.get("date") == _today()
                      for r in (d.get("mock_board") or [])),

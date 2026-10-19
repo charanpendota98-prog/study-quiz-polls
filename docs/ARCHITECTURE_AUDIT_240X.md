@@ -257,3 +257,22 @@ signature dedupe (a dynamically-generated question existed 5×;
 Deploy rule: run `python3 scripts/bank_restore.py` once on any
 fresh checkout/VM before starting services. Suite **913 OK** ·
 finalize PASSED.
+
+---
+
+## ADDENDUM — 360X (FSRS-Lite spaced repetition)
+
+The fixed 0→3d→7d review ladder mastered a question after ONE
+lucky correct. `core/fsrs_lite.py` (pure, zero deps — informed
+by FSRS retention curves, no native packages) now grades by
+stability: retrievability R = 1/(1+t/9S), reviews target R=0.90,
+hard-earned recalls grow stability most, lapses collapse it to
+a floored 25%, and cards retire only when proven (S≥45, ≥4
+recalls). Legacy ladder cards migrate on first touch; a fresh
+mistake joins the same day's review batch (the product's daily
+cadence), so bot /review behaviour is unchanged. Students get
+a 🧠 Memory Deck (`/api/portal/memory` + portal strip: due /
+falling / strong + per-topic retention) and a Memory Booster
+task in Today's Smart Plan. Legacy SRS tests were migrated to
+the stronger stability contract — spacing proven, mastery
+earned, lapse re-queues. Suite **925 OK** · finalize PASSED.

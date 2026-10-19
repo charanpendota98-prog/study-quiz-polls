@@ -267,28 +267,35 @@ class Members:
             pass
 
         # ---- spaced-repetition review queue
-        # 🛠️ FIX (bug hunt): card ni mundhu remove chesi tarvatha advance
-        # cheyyadam valla 3d->7d ladder eppudu jaragaledu (okka correct ke
-        # card delete ayyedi). Ippudu card ni capture chesi correct ga
-        # advance chestham: wrong -> interval 0 (due today), correct ->
-        # 0->3d -> 7d -> mastered (drop).
+        # 🧠 360X: FSRS-Lite stability scheduling replaces the fixed
+        # 0->3d->7d ladder. Old-format cards (no 's') migrate on
+        # first touch. A wrong answer (re)creates a fresh card due
+        # tomorrow; correct recalls grow stability; proven cards
+        # (fsrs_lite.mastered) retire. Never breaks scoring.
         if qid:
-            cards = [r for r in (m.get("review") or []) if r.get("qid") != qid]
-            old = next((r for r in (m.get("review") or [])
-                        if r.get("qid") == qid), None)
-            if not correct:
-                cards.append({"qid": qid, "due": _day(),
-                              "interval": 0, "topic": topic})
-            elif old is not None:
-                nxt = {0: 3, 3: 7}.get(int(old.get("interval") or 0))
-                if nxt:
-                    old = dict(old)
-                    old["interval"] = nxt
-                    old["due"] = (datetime.now(config.IST) +
-                                  timedelta(days=nxt)).strftime("%Y-%m-%d")
-                    cards.append(old)
-                # interval 7 correct -> mastered, drop
-            m["review"] = cards[-200:]
+            try:
+                from . import fsrs_lite as _fsrs
+                today_s = _day()
+                cards = [r for r in (m.get("review") or [])
+                         if r.get("qid") != qid]
+                old = next((r for r in (m.get("review") or [])
+                            if r.get("qid") == qid), None)
+                if not correct:
+                    cards.append(_fsrs.new_log(qid, today_s,
+                                               topic=topic))
+                elif old is not None:
+                    if "s" not in old:      # legacy ladder card -> migrate
+                        old = _fsrs.new_log(
+                            qid, str(old.get("due") or today_s),
+                            topic=old.get("topic", topic))
+                        old["reps"] = 1
+                    graded = _fsrs.grade(old, True, today_s)
+                    if not _fsrs.mastered(graded):
+                        cards.append(graded)
+                    # mastered -> retire (drop)
+                m["review"] = cards[-200:]
+            except Exception:
+                pass
 
         if m["last_active"] != today:
             earned += P_DAILY_FIRST            # daily participation bonus
