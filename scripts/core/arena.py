@@ -332,6 +332,11 @@ def room_start(bank, uid=None, code=None, force=False):
     if len(r["squads"]) < ROOM_MIN_SQUADS:
         return None, "కనీసం 2 squads కావాలి — /battle list లో share చేయండి."
     qs = _pick_questions(bank, r["channel"], r["n_q"])
+    # 🏥 280X: freeze the BALANCED copies into room state — every
+    # player sees identical options and record_answer() scores against
+    # the stored (balanced) answer_index. No raw-bank position leak.
+    from .content import poll_safe
+    qs = [sq for sq in (poll_safe(q, seed=str(r["code"])) for q in qs) if sq]
     if len(qs) < 5:
         return None, "ఈ mode లో ఇప్పుడు ప్రశ్నలు సరిపోలేదు — వేరే mode try చేయండి."
     r["questions"] = [{"id": q["id"], "q_en": q.get("q_en", ""), "q_te": q.get("q_te", ""),

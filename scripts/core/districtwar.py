@@ -221,6 +221,11 @@ def start_war(bank, members, tg, now=None):
         return False, "war already live"
     # Allow admin on-demand and recurring wars seamlessly
     qs = compose(bank)
+    # 🏥 280X: freeze BALANCED copies into the live-war state — all
+    # fighters see identical options; scoring reads the stored
+    # (balanced) answer_index. No raw-bank position leak.
+    from .content import poll_safe
+    qs = [sq for sq in (poll_safe(q, seed=f"war:{day}") for q in qs) if sq]
     if len(qs) < 8:
         return False, f"not enough questions ({len(qs)})"
     lb = d.get("lobby") or {}

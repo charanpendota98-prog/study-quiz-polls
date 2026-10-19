@@ -184,6 +184,12 @@ def coach_round(bank, members, tg, dry=False):
             continue
         cfg = config.CHANNELS[ch]
         for i, q in enumerate(qs, 1):
+            # 🏥 280X: coach polls carry the shield — dm_map below
+            # stores THIS copy's answer_index, so scoring stays exact.
+            from .content import poll_safe
+            q = poll_safe(q, seed=f"coach:{uid}")
+            if q is None:
+                continue
             payload = {"chat_id": uid, "question": build_question_text(q, cfg, telugu_first=tf, position=f"Coach {i}/{len(qs)}")[:300],
                        "options": [{"text": o} for o in build_options(q, telugu_first=tf)], "type": "quiz",
                        "is_anonymous": False, "correct_option_id": q["answer_index"]}

@@ -115,3 +115,30 @@ pinned dry; production sends stay owner-triggered.
 *Audit rule going forward: every CRITICAL/HIGH ships with a
 regression pin in the same commit; the route-vs-auth positional
 audit re-runs whenever a route is added before the gate.*
+
+---
+
+## ADDENDUM — 280X (perfection sweep, same branch)
+
+**F7 CLOSED (CORS).** The dashboard no longer emits
+`Access-Control-Allow-Origin: *`. `_cors_origin()` echoes only the
+configured PUBLIC_BASE_URL/PORTAL_BASE_URL origin or a localhost dev
+origin; `do_OPTIONS` answers preflight (204) only for allowlisted
+origins, 403 otherwise. Pins: `TestCors280` (AST-exec, 160X pattern).
+
+**F11 NEW → CLOSED (answer-position bias).** Raw bank measurement
+(305 Q tracked bank): position B held 43% of keys; several live
+surfaces sent raw bank order, leaking that skew to students. Fix is
+serve-time, everywhere: `content.poll_safe` now wraps engine channel
+polls + DM mirrors + reaction text-polls, bot DM/`/quiz` + Beat-the-
+Topper challenge, autopilot coach, arena rooms (frozen into room
+state at start), district wars (frozen into live state), and
+WhatsApp delivery (one balanced copy feeds emoji text-poll, native
+poll, tracked `correct` index and the phase-2 key — all four agree).
+Campus already permuted per-user (untouched, verified). Measurement
+lives in `core/bankhealth.py` (+ `scripts/bank_health.py` CLI,
+dashboard golive "Bank health (280X)" check): per-group bias flags,
+duplicate stems/options, invalid questions, honest PYQ share.
+Three legacy tests migrated to the displayed-position contract
+(arena, reaction groups, WA winners) — scoring was re-proven
+against displayed options, never weakened. Suite: 842 OK.

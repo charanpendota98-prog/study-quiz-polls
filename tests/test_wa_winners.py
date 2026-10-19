@@ -105,8 +105,16 @@ class TestCaptureAndSend(unittest.TestCase):
                                                two_phase_answer=False,
                                                collect=collect)
             self.assertTrue(out["sent_poll"])
+            # 🏥 280X: tracked "correct" = position in the DISPLAYED
+            # (send-time balanced) options — bridge votes are display
+            # indices, so the tracker must follow the balanced copy.
+            from core.content import poll_safe
+            shown = poll_safe(q, seed="wa:120@g.us")
             self.assertEqual(collect, [{"poll_id": "PID42", "qid": "WQ1",
-                                        "correct": 1}])
+                                        "correct": shown["answer_index"]}])
+            self.assertEqual(
+                shown["options_en"][shown["answer_index"]],
+                q["options_en"][q["answer_index"]])
         finally:
             wp._bridge_call, wp._dispatch_raw = orig_bridge, orig_disp
             wp._LAST_WA_POLL.pop("120@g.us", None)

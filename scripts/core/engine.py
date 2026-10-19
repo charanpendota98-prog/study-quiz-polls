@@ -59,6 +59,15 @@ class Engine:
         cfg = config.CHANNELS[channel_key]
         chat = config.channel_chat_id(channel_key)
         tf = bool(getattr(config, "TELUGU_FIRST", True))
+        # 🏥 280X: EVERY native poll goes through the send-time shield —
+        # answer markers stripped, key position balanced (no "answer is
+        # usually B"), leaky questions refused. Registered poll id below
+        # stores THIS copy's answer_index, so scoring stays exact.
+        from .content import poll_safe
+        q = poll_safe(q, seed=str(channel_key))
+        if q is None:
+            print(f"   [quiz] {channel_key}: skipped a leaky question (280X guard)")
+            return False
         badge = pace_label(q) if self._paced() else ""
         text = build_question_text(q, cfg, telugu_first=tf, position=position, badge=badge)
         opts = build_options(q, telugu_first=tf)
@@ -88,6 +97,14 @@ class Engine:
         """📣 Channel ki okka question — style switch:
         default = DIRECT native poll (owner rule); `channel_reaction_polls`
         flag ON aite matrame emoji reaction text-poll (WhatsApp-Channel style)."""
+        # 🏥 280X: reaction text-polls get the shield too — the SAME
+        # balanced copy feeds the text AND reaction_polls.register(),
+        # so the tracked correct index always matches what students see.
+        from .content import poll_safe
+        q = poll_safe(q, seed=str(channel_key))
+        if q is None:
+            print(f"   [quiz] {channel_key}: skipped a leaky question (280X guard)")
+            return False
         try:
             from . import flags as _flags
             reaction = _flags.enabled("channel_reaction_polls")
@@ -427,6 +444,12 @@ class Engine:
         """Send this round question as a NON-anonymous quiz poll to every
         registered member following `ch`; record poll->answer map so the bot
         can score it under round_id."""
+        # 🏥 280X: DM mirrors carry the same shield as channel polls —
+        # dm_map below stores THIS copy's answer_index.
+        from .content import poll_safe
+        q = poll_safe(q, seed=str(round_id))
+        if q is None:
+            return 0
         members = self._members
         uids = members.recipients_for(ch)
         if not uids:

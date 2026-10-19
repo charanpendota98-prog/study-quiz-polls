@@ -93,6 +93,13 @@ class TestGroupReactionPoll(unittest.TestCase):
         self.assertNotIn("quiz", [c[0] for c in tg.calls])
         self.assertIn(f"{GROUP_CHAT}:42", rp._load())
 
+        # 🏥 280X: options were position-balanced at send time — the
+        # correct EMOJI is the one on the correct option's DISPLAYED
+        # line; voters below tap that emoji (the old pin assumed the
+        # raw bank order, which is exactly the bias 280X removes).
+        correct_line = next(l for l in text.splitlines() if "Delhi" in l)
+        correct_emoji = correct_line.split()[0]
+
         # 2) group members react (per-user updates carry the user id)
         def upd(uid, emoji):
             return {"message_reaction": {
@@ -101,12 +108,16 @@ class TestGroupReactionPoll(unittest.TestCase):
                 "new_reaction": ([{"type": "emoji", "emoji": emoji}]
                                  if emoji else [])}}
 
-        rp.apply_update(upd(11, "👍"))
-        rp.apply_update(upd(12, "❤️"))
-        rp.apply_update(upd(13, "👍"))
-        rp.apply_update(upd(12, "👍"))          # change of mind counts once
+        other_emoji = next(e for e in rp.REACTION_EMOJIS
+                           if e != correct_emoji)
+        rp.apply_update(upd(11, correct_emoji))
+        rp.apply_update(upd(12, other_emoji))
+        rp.apply_update(upd(13, correct_emoji))
+        rp.apply_update(upd(12, correct_emoji))  # change of mind counts once
         counts, total = rp.tally(rp._load()[f"{GROUP_CHAT}:42"])
-        self.assertEqual((counts, total), ([3, 0, 0, 0], 3))
+        want = [0, 0, 0, 0]
+        want[rp.REACTION_EMOJIS.index(correct_emoji)] = 3
+        self.assertEqual((counts, total), (want, 3))
 
         # 3) after the window, reveal lands in the SAME group chat
         rec = rp._load()[f"{GROUP_CHAT}:42"]
@@ -116,7 +127,7 @@ class TestGroupReactionPoll(unittest.TestCase):
         self.assertEqual(out["revealed"], 1)
         kind, chat, text = tg.calls[-1]
         self.assertEqual((kind, str(chat)), ("msg", GROUP_CHAT))
-        self.assertIn("✅ Correct answer: 👍", text)
+        self.assertIn(f"✅ Correct answer: {correct_emoji}", text)
         self.assertIn("100% correct", text)
 
 

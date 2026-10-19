@@ -92,6 +92,43 @@ def _wp_quiz_export():
             "questions": [_wp_quiz_item(q) for q in day["qs"]]}
 
 
+def _cors_origin(origin):
+    """🔒 280X (F7 closure): CORS allowlist — never '*'. Echo the
+    request Origin ONLY when it is the configured public/portal origin
+    or a localhost dev origin; anything else gets no CORS grant ('').
+    Self-contained (stdlib only) so it stays unit-testable in
+    isolation; the .env file is consulted via core.config when
+    importable, process env otherwise."""
+    import os
+    from urllib.parse import urlparse
+    o = (origin or "").strip()
+    if not o:
+        return ""
+    try:
+        host = urlparse(o).hostname or ""
+    except Exception:
+        return ""
+    if host in ("localhost", "127.0.0.1"):
+        return o
+    allowed = set()
+    vals = []
+    try:
+        from core import config as _cfg280
+        vals = [_cfg280.env("PUBLIC_BASE_URL", ""),
+                _cfg280.env("PORTAL_BASE_URL", "")]
+    except Exception:
+        vals = [os.environ.get("PUBLIC_BASE_URL", ""),
+                os.environ.get("PORTAL_BASE_URL", "")]
+    for v in vals:
+        try:
+            p = urlparse((v or "").strip())
+            if p.scheme and p.netloc:
+                allowed.add(f"{p.scheme}://{p.netloc}")
+        except Exception:
+            pass
+    return o if o in allowed else ""
+
+
 def _golive_checks():
     """🚀 160X GO-LIVE CHECKS (subdomain launch readiness). Secrets
     eppudu bayataki ravu — only set/unset booleans matrame."""
@@ -183,6 +220,30 @@ def _golive_checks():
         "detail": ("DEFAULT password (studentup123) inka use avthundi — "
                    "DASHBOARD_PASSWORD env tho strong password set cheyyandi!")
                   if _dpw_default else "custom dashboard password set ayindi"})
+    # 🏥 280X: bank health + answer-position bias (raw bank meda —
+    # live polls anni send-time lo balanced ae; ikkada raw skew
+    # kanipisthe admin ki teliyali, students ki kadu).
+    try:
+        from core import bankhealth as _bh280
+        from core.question_bank import load_bank as _lb280
+        _bk280 = _lb280()
+        _qs280 = (_bk280.questions if hasattr(_bk280, "questions")
+                  else list(_bk280))
+        _rep280 = _bh280.bank_health_report(_qs280)
+        _bad280 = _rep280["invalid_count"] > 0
+        _bias280 = bool(_rep280["bias_flags"])
+        checks.append({
+            "name": "Bank health (280X)",
+            "status": "warn" if (_bad280 or _bias280) else "ok",
+            "detail": _bh280.summarize(_rep280) + (
+                " — live polls balanced at send time (poll_safe)"
+                if _bias280 and not _bad280 else
+                (" — invalid questions fix cheyyandi (bank_health.py)"
+                 if _bad280 else " — raw bank kuda clean"))})
+    except Exception as _e280:
+        checks.append({
+            "name": "Bank health (280X)", "status": "warn",
+            "detail": f"health report run avvaledu: {_e280}"})
     overall = "ready" if all(c["status"] != "fail" for c in checks) else "pending"
     return {"overall": overall, "checks": checks}
 
@@ -8174,7 +8235,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if enc:
             self.send_header("Content-Encoding", enc)
             self.send_header("Vary", "Accept-Encoding")
-        self.send_header("Access-Control-Allow-Origin", "*")
+        # 🔒 280X (F7): allowlist CORS — echo only trusted origins.
+        _co280 = _cors_origin(self.headers.get("Origin", ""))
+        if _co280:
+            self.send_header("Access-Control-Allow-Origin", _co280)
+            self.send_header("Vary", "Origin")
         self.end_headers()
         self.wfile.write(body)
 
@@ -8212,6 +8277,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_header("Vary", "Accept-Encoding")
         self.end_headers()
         self.wfile.write(body)
+
+    def do_OPTIONS(self):
+        # 🔒 280X (F7): preflight answered ONLY for allowlisted origins.
+        _co280 = _cors_origin(self.headers.get("Origin", ""))
+        self.send_response(204 if _co280 else 403)
+        if _co280:
+            self.send_header("Access-Control-Allow-Origin", _co280)
+            self.send_header("Vary", "Origin")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Access-Control-Max-Age", "600")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def do_GET(self):
         try:

@@ -220,6 +220,18 @@ class Bot:
                 except TelegramError:
                     pass
             return
+        # 🏥 280X: DM/group polls go through the send-time shield —
+        # balanced key position + leak guard; the poll registry below
+        # stores THIS copy's answer_index, so scoring stays exact.
+        from core.content import poll_safe
+        q = poll_safe(q, seed=f"dm:{chat_id}")
+        if q is None:
+            try:
+                self.tg.send_message(chat_id, "⚠️ Ee question lo chinna issue undi — /quiz malli try cheyyandi.\n"
+                                              "⤷ That question had an issue — tap /quiz again!")
+            except TelegramError:
+                pass
+            return
         if not tag:
             tag = "📜 PYQ" if q.get("source") == "pyq" else "📝 Practice"
         cfg = config.CHANNELS[ch]
@@ -1182,6 +1194,7 @@ class Bot:
     def _start_challenge(self, uid, chat_id):
         """🥊 Serve yesterday's topper's questions as a timed DM set."""
         from core import growth
+        from core.content import poll_safe
         if not self.members.is_registered(uid):
             self.members.start_registration(uid, username="")
             self.tg.send_message(chat_id, FIRST_TIME_ASK)
@@ -1201,6 +1214,11 @@ class Bot:
         for i, qid in enumerate(data["qids"], 1):
             q = self.bank.by_id(qid)
             if not q:
+                continue
+            # 🏥 280X: challenge polls carry the shield too — the
+            # growth registry below stores THIS copy's answer_index.
+            q = poll_safe(q, seed=f"ch:{uid}")
+            if q is None:
                 continue
             payload = {"chat_id": chat_id,
                        "question": f"🥊 {i}/{len(data['qids'])} {build_question_text(q, cfg, telugu_first=tf)}"[:300],

@@ -1614,6 +1614,14 @@ def deliver_whatsapp_question(gateway_url, jid, q, category, q_index=1,
     from core.content import build_reaction_text
     sleep_fn = sleep_fn or time.sleep
     out = {"sent_poll": False, "sent_key": False}
+    # 🏥 280X: WhatsApp surfaces carry the same shield — ONE balanced
+    # copy feeds the channel emoji text-poll, the group native poll,
+    # the tracked "correct" index AND the phase-2 answer key, so all
+    # four always agree. Leaky questions are never sent.
+    from core.content import poll_safe
+    q = poll_safe(q, seed=f"wa:{jid}")
+    if q is None:
+        return out
     if is_wa_channel(jid):
         text = build_reaction_text(q, {"name": category, "emoji": "🎯"},
                                    telugu_first=not english_first,
