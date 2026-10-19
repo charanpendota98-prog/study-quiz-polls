@@ -176,3 +176,27 @@ def go_live(did: str, by: str = "owner"):
         dr["history"].append({"ts": now_iso(), "event": "go_live", "by": by})
     _mutate(did, _f)
     return True, "LIVE ayindi 🚀 — quiz + exams students ki open."
+
+
+def announcement_text(draft, portal_url: str = "") -> str:
+    """🚀 320X: Go-Live announcement (Tanglish) — dashboard sends it
+    to the Telegram admin and offers copy-to-WhatsApp, mirroring the
+    winners-announcement flow."""
+    dr = draft or {}
+    quiz = dr.get("quiz") or {}
+    lines = [f"🚀 StudentUp — {dr.get('date', '')} LIVE!",
+             f"🎯 Daily Quiz: {quiz.get('count', 0)} questions "
+             f"(PYQ {quiz.get('pyq', 0)}) — ippude try cheyyandi!"]
+    for e in dr.get("exams_today") or []:
+        lines.append(f"🏆 Live Exam: {e.get('title', '')} · "
+                     f"{str(e.get('starts_at', '')).replace('T', ' ')} · "
+                     f"{e.get('n_q', '')}Q")
+    g = dr.get("weekly_grand")
+    if g:
+        lines.append(f"👑 Weekly Grand Test: {g.get('n_q')} questions @ "
+                     f"{g.get('time')} — winners ki certificate!")
+    lines.append("👉 Portal lo Daily Quiz + Mocks + Previous Papers "
+                 "anni ready!")
+    if portal_url:
+        lines.append(portal_url)
+    return "\n".join(lines)

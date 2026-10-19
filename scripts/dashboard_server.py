@@ -7059,7 +7059,18 @@ All candidates must join today before 9:00 PM!"></textarea>
     function pubApprove() { pubAct('/api/publish/approve', {}); }
     function pubReject() { if (confirm('Ee draft reject cheyyala? Kotta draft rebuild avthundi.')) pubAct('/api/publish/reject', {}); }
     function pubPushWp() { pubAct('/api/publish/push_wp', {}); }
-    function pubGoLive() { if (confirm('🚀 Go Live cheyyala? Quiz + exams students ki open avthayi.')) pubAct('/api/publish/go_live', {}); }
+    async function pubGoLive() {
+      if (!confirm('🚀 Go Live cheyyala? Quiz + exams students ki open avthayi.')) return;
+      const msg = document.getElementById('pub-msg');
+      try {
+        const d = await (await fetch('/api/publish/go_live', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'})).json();
+        msg.textContent = d.ok ? ('✅ ' + d.message + (d.sent_to_admin ? ' · 📩 Admin ki Telegram vellindi' : '')) : ('❌ ' + (d.error || d.message || 'fail ayindi'));
+        if (d.ok && d.announcement) {
+          try { await navigator.clipboard.writeText(d.announcement); msg.textContent += ' · 📋 Announcement copy ayindi — WhatsApp groups lo paste cheyyandi!'; } catch (e) {}
+        }
+        pubLoad();
+      } catch (e) { msg.textContent = '❌ ' + e; }
+    }
 
     async function createPortalExam() {
       const msg = document.getElementById('pex-msg');
@@ -10011,8 +10022,23 @@ class DashboardHandler(BaseHTTPRequestHandler):
             draft = publish_queue.get_or_build_today()
             ok, msg = publish_queue.go_live(draft["id"],
                                             str(body.get("by") or "owner"))
-            self._send_json({"ok": ok, "message": msg,
-                             "draft": publish_queue.get(draft["id"])})
+            out = {"ok": ok, "message": msg,
+                   "draft": publish_queue.get(draft["id"])}
+            if ok:
+                # 🚀 320X: go-live announcement — Telegram admin ki
+                # auto-send + dashboard copy-to-WhatsApp text.
+                ann = publish_queue.announcement_text(
+                    out["draft"], _public_base(self) + "/portal")
+                sent = False
+                if config.BOT_TOKEN and config.ADMIN_ID:
+                    try:
+                        Telegram().send_message(str(config.ADMIN_ID), ann)
+                        sent = True
+                    except Exception:
+                        sent = False
+                out["announcement"] = ann
+                out["sent_to_admin"] = sent
+            self._send_json(out)
             return
 
         if p.path == "/api/portal/admin/send_reports":

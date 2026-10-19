@@ -185,3 +185,26 @@ whitespace/control/zero-width handling, caps, write-path wiring
 pins for members/portal/stateless/campus, quote-safe `esc`
 contract across all defs, functional register + poll-auto
 cleaning. Full suite **857 OK** · finalize PASSED.
+
+---
+
+## ADDENDUM — 310X + 320X (Approve-to-Live + perfection round)
+
+**310X — Approve-to-Live (Bridge Phase 3, owner-approved):**
+daily draft auto-builds (`core/publish_queue.py`: Daily Quiz +
+today's live exams + Sunday Weekly Grand), state machine
+`draft → approved → live / rejected`, and **nothing publishes
+without owner approval** (dashboard 🚦 Publish Center; push &
+go-live hard-gated server-side). WP push (`core/wp_push.py`)
+uses a revocable Application Password from env/.env only.
+Suite 882 OK · live approve-gate smoke verified.
+
+**320X — parser root fix:** the academic-bank parser treated any
+`(...)` as the Telugu gloss, shredding math/code options
+(`O(log n)` → EN `O` ×4) into duplicate stubs — the last two
+"invalid" bank questions. Now `(...)` splits only when it
+contains Telugu script. Bank health: **invalid 0, grade C → B**
+(1517 Q, position-bias note unchanged — live polls still
+`poll_safe`-balanced at send). Go-live now also emits a
+Tanglish announcement (Telegram admin auto-send + copy-to-
+WhatsApp). Suite **891 OK** · finalize PASSED.
