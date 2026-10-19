@@ -921,6 +921,24 @@ PORTAL_HTML = """<!DOCTYPE html>
   body.theme-grape .card { background: #1d0b31; border-color: #4c1d95; }
   body.theme-rose { background: radial-gradient(circle at 30% 10%, #881337 0%, #1c050c 70%); --acc: #fb7185; --acc2: #be123c; }
   body.theme-rose .card { background: #2a0a14; border-color: #881337; }
+  /* 🎨 300X THEME STUDIO PRO: aurora/paper/exam-focus + accessibility
+     (font size + calm mode). Advanced inside, one tap outside. */
+  body.theme-aurora { background: radial-gradient(circle at 20% 0%, #134e4a 0%, #1e1b4b 55%, #070312 100%); --acc: #5eead4; --acc2: #7c3aed; }
+  body.theme-aurora .card { background: #0d1526; border-color: #155e63; }
+  body.theme-paper { background: #f6efe0; color: #2f2417; --acc: #b45309; --acc2: #92400e; }
+  body.theme-paper .card { background: #fffaf0; border-color: #d9c9a3; }
+  body.theme-paper .brand, body.theme-paper h2, body.theme-paper .qte { color: #2f2417; }
+  body.theme-paper .muted { color: #7a6a52; }
+  body.theme-paper input, body.theme-paper select { background: #fffdf7; color: #2f2417; border-color: #d9c9a3; }
+  body.theme-paper .opt, body.theme-paper .trow, body.theme-paper .rrow { background: #fdf6e3; color: #2f2417; border-color: #d9c9a3; }
+  body.theme-paper .chip { background: #f3e8cf; border-color: #d9c9a3; color: #6b4e16; }
+  body.theme-paper .qen { color: #6b5636; }
+  body.theme-focus { background: #000000; --acc: #facc15; --acc2: #a16207; }
+  body.theme-focus .card { background: #0a0a0a; border-color: #854d0e; }
+  body.theme-focus .brand { text-shadow: none; }
+  body.font-s .qte { font-size: 15px; } body.font-s .qen { font-size: 12.5px; } body.font-s .opt { font-size: 13px; }
+  body.font-l .qte { font-size: 19px; } body.font-l .qen { font-size: 16px; } body.font-l .opt { font-size: 16.5px; }
+  body.calm *, body.calm *::before, body.calm *::after { transition: none !important; animation: none !important; }
   .tchip.on { border-color: var(--acc); color: var(--acc); }
   .btn { background: linear-gradient(135deg, var(--acc), var(--acc2)); }
   .btn-alt { border-color: var(--acc2); }
@@ -961,6 +979,17 @@ PORTAL_HTML = """<!DOCTYPE html>
     <button class="tchip" data-th="royal" onclick="setTheme('royal')"><span class="tdot" style="background:linear-gradient(135deg,#facc15,#a16207);"></span>👑 Royal</button>
     <button class="tchip" data-th="grape" onclick="setTheme('grape')"><span class="tdot" style="background:linear-gradient(135deg,#c084fc,#7e22ce);"></span>🍇 Grape</button>
     <button class="tchip" data-th="rose" onclick="setTheme('rose')"><span class="tdot" style="background:linear-gradient(135deg,#fb7185,#be123c);"></span>🌹 Rose</button>
+    <button class="tchip" data-th="aurora" onclick="setTheme('aurora')"><span class="tdot" style="background:linear-gradient(135deg,#5eead4,#7c3aed);"></span>🌌 Aurora</button>
+    <button class="tchip" data-th="paper" onclick="setTheme('paper')"><span class="tdot" style="background:linear-gradient(135deg,#f6efe0,#b45309);"></span>📜 Paper</button>
+    <button class="tchip" data-th="focus" onclick="setTheme('focus')"><span class="tdot" style="background:linear-gradient(135deg,#facc15,#000000);"></span>🎯 Exam Focus</button>
+    <button class="tchip" data-th="auto" onclick="setTheme('auto')">🌓 Auto</button>
+  </div>
+  <div class="row" style="justify-content:center; margin-bottom:12px; gap:6px; align-items:center;">
+    <span class="muted">🔠 Font:</span>
+    <button class="tchip" data-fs="s" onclick="setFont('s')">A-</button>
+    <button class="tchip" data-fs="m" onclick="setFont('m')">A</button>
+    <button class="tchip" data-fs="l" onclick="setFont('l')">A+</button>
+    <button class="tchip" data-calm="1" onclick="toggleCalm()">🌿 Calm</button>
   </div>
   <div class="row" style="justify-content:center; margin-bottom:12px; gap:6px; align-items:center;">
     <span class="muted">✨ Accent:</span>
@@ -1429,13 +1458,42 @@ function setAccent(a) {
   localStorage.setItem('su_accent', a || '');
   document.querySelectorAll('.asw[data-acc]').forEach(b => b.classList.toggle('on', (b.dataset.acc || '') === (a || '')));
 }
-function setTheme(t) {
-  document.body.className = t ? ('theme-' + t) : '';
-  localStorage.setItem('su_theme', t);
+/* 🎨 300X APPEARANCE ENGINE: theme (+🌓 auto day/night) + font size
+   + calm mode compose on <body>; lang-te/lang-en classes are always
+   preserved (the old setTheme wiped them on every tap). */
+const THEMES300 = ['', 'ocean', 'sunset', 'forest', 'light', 'royal', 'grape', 'rose', 'aurora', 'paper', 'focus', 'auto'];
+function effectiveTheme(t) {
+  if (t === 'auto') { const h = new Date().getHours(); return (h >= 6 && h < 19) ? 'light' : ''; }
+  return THEMES300.includes(t) ? t : '';
+}
+function applyAppearance() {
+  const t = localStorage.getItem('su_theme') || '';
+  const eff = effectiveTheme(t);
+  const fs = localStorage.getItem('su_font') || 'm';
+  const calm = localStorage.getItem('su_calm') === '1';
+  const lang = document.body.classList.contains('lang-te') ? 'lang-te'
+             : document.body.classList.contains('lang-en') ? 'lang-en' : '';
+  document.body.className = [eff ? ('theme-' + eff) : '', fs !== 'm' ? ('font-' + fs) : '',
+                             calm ? 'calm' : '', lang].filter(Boolean).join(' ');
   document.querySelectorAll('.tchip[data-th]').forEach(b => b.classList.toggle('on', (b.dataset.th || '') === t));
+  document.querySelectorAll('.tchip[data-fs]').forEach(b => b.classList.toggle('on', (b.dataset.fs || 'm') === fs));
+  document.querySelectorAll('.tchip[data-calm]').forEach(b => b.classList.toggle('on', calm));
   const a = localStorage.getItem('su_accent');
   if (a) setAccent(a);
 }
+function setTheme(t) {
+  localStorage.setItem('su_theme', THEMES300.includes(t) ? t : '');
+  applyAppearance();
+}
+function setFont(fs) {
+  localStorage.setItem('su_font', ['s', 'm', 'l'].includes(fs) ? fs : 'm');
+  applyAppearance();
+}
+function toggleCalm() {
+  localStorage.setItem('su_calm', localStorage.getItem('su_calm') === '1' ? '0' : '1');
+  applyAppearance();
+}
+setInterval(() => { if (localStorage.getItem('su_theme') === 'auto') applyAppearance(); }, 60000);
 let TOPP = {};
 function showToppers(period) {
   ['week', 'month', 'year'].forEach(k => {
