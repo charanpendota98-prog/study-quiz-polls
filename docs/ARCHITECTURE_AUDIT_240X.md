@@ -225,3 +225,18 @@ Board-exam channels (10th/Inter/Diploma/B.Tech, both states)
 listed with real counts. Live counts at ship time: TSPSC 356Q
 (33 PYQ), APPSC 56Q (32 PYQ — AP harvest is the next stock
 target). Suite **901 OK** · finalize PASSED · hub smoke 200.
+
+---
+
+## ADDENDUM — 340X (stock growth + targets)
+
+Curated academic bank +16 bilingual questions (TS/AP 10th,
+Inter, Diploma, B.Tech — 4→6 per board channel, 68 total,
+answers position-varied, zero duplicate options). Hub now
+carries stock targets per exam (`_HUB_TARGETS`) with honest
+gap fields; the portal hub shows 📈 "+N stock kavali" chips
+and the dashboard go-live checks gained a guarded "Exam stock
+targets (340X)" item. Ship-time truth: APPSC remains the big
+gap (56Q vs 150 target) — PYQ harvest, not filler, is the
+planned fill. Bank: 1525Q, grade B, invalid 0. Suite **908 OK**
+· finalize PASSED.

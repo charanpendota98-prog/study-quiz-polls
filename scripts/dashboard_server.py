@@ -254,6 +254,21 @@ def _golive_checks():
         checks.append({
             "name": "Daily publish draft (310X)", "status": "warn",
             "detail": f"draft check run avvaledu: {_e310}"})
+    try:
+        from core import portal as _p340
+        _hub340 = _p340.state_hub()
+        _gaps340 = [f"{e['goal']}: +{e['gap_total']}Q/+{e['gap_pyq']}PYQ"
+                    for s in _hub340.get("states", []) for e in s.get("exams", [])
+                    if e.get("gap_total", 0) > 0 or e.get("gap_pyq", 0) > 0]
+        checks.append({
+            "name": "Exam stock targets (340X)",
+            "status": "warn" if _gaps340 else "ok",
+            "detail": ("stock gaps: " + " · ".join(_gaps340[:4])
+                       if _gaps340 else "anni exams healthy stock lo unnayi")})
+    except Exception as _e340:
+        checks.append({
+            "name": "Exam stock targets (340X)", "status": "warn",
+            "detail": f"stock check run avvaledu: {_e340}"})
     overall = "ready" if all(c["status"] != "fail" for c in checks) else "pending"
     return {"overall": overall, "checks": checks}
 
@@ -2460,7 +2475,8 @@ async function loadStateHub() {
     box.innerHTML = (d.states || []).map(st =>
       '<p style="margin-top:10px;"><b>' + (st.state === 'Telangana' ? '🟢' : '🔵') + ' ' + esc(st.state) + '</b></p>' +
       st.exams.map(e =>
-        '<div class="rrow"><b>' + esc(e.label) + '</b> <span class="muted">' + e.total + ' Q · PYQ ' + e.pyq + '</span><br>' +
+        '<div class="rrow"><b>' + esc(e.label) + '</b> <span class="muted">' + e.total + ' Q · PYQ ' + e.pyq + '</span>' +
+        (e.gap_total > 0 ? ' <span class="chip" style="border-color:#f59e0b; color:#f59e0b;">📈 +' + e.gap_total + ' stock kavali</span>' : ' <span class="chip gold">✅ Stock ready</span>') + '<br>' +
         '<button class="btn-alt" style="width:auto; margin-top:5px;" onclick="startMock(\'' + e.goal + '\')">🎯 Mock Test</button> ' +
         (e.subjects || []).filter(s2 => s2.count >= 3).slice(0, 4).map(s2 =>
           '<button class="btn-alt" style="width:auto; margin-top:5px;" onclick="startPractice(\'section\', \'' + s2.subject + '\', \'' + e.goal + '\')">🧩 ' + esc(subNames[s2.subject] || s2.subject) + '</button>').join(' ') +

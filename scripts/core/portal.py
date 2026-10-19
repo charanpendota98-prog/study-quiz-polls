@@ -87,6 +87,10 @@ _ACADEMIC_HUB = (
     ("TS_DIPLOMA", "TS Diploma/POLYCET"), ("AP_DIPLOMA", "AP Diploma"),
     ("TS_BTECH", "TS B.Tech"), ("AP_BTECH", "AP B.Tech"),
 )
+# 🎯 340X: healthy-stock targets (total, pyq) — hub gap alerts and
+# the dashboard go-live check read these; harvest fills the gaps.
+_HUB_TARGETS = {"tspsc": (150, 40), "appsc": (150, 40),
+                "police": (200, 50), "groups": (200, 50)}
 
 
 def state_hub():
@@ -115,9 +119,14 @@ def state_hub():
         for q in qs:
             s = _subj(q)
             subs[s] = subs.get(s, 0) + 1
+        tt, tp = _HUB_TARGETS.get(goal, (100, 25))
+        n_pyq = sum(1 for q in qs if q.get("source") == "pyq")
         return {"goal": goal, "label": g.get("label", goal),
                 "total": len(qs),
-                "pyq": sum(1 for q in qs if q.get("source") == "pyq"),
+                "pyq": n_pyq,
+                "target": {"total": tt, "pyq": tp},
+                "gap_total": max(0, tt - len(qs)),
+                "gap_pyq": max(0, tp - n_pyq),
                 "subjects": [{"subject": s, "count": n}
                              for s, n in sorted(subs.items(),
                                                 key=lambda kv: -kv[1])[:6]]}
