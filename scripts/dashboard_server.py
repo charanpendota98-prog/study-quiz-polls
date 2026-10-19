@@ -1054,6 +1054,12 @@ PORTAL_HTML = """<!DOCTYPE html>
       <p class="muted" style="margin-top:8px; text-align:center;">🎓 Exams = Live Exams · Weekly Test · Mock Tests &nbsp;|&nbsp; 📝 Quiz = Daily Quiz (anni exams PYQ-first!)</p>
     </div>
 
+    <div class="card" id="state-hub-card">
+      <h3>🗺️ TS &amp; AP Exam Hub</h3>
+      <p class="muted">Meeku state exam select cheyyandi — aa exam previous papers nunchi mock + subject-wise tests (honest counts tho).</p>
+      <div id="state-hub"><p class="muted">⏳ Load avthundi…</p></div>
+    </div>
+
     <div class="card" id="install-card" style="display:none; border-color:#10b981;">
       <h3>📲 StudentUp App Install Cheyyandi</h3>
       <p class="muted">Home screen meeda app laaga untundi — Daily Quiz ki okka tap lo vellachu!</p>
@@ -1526,6 +1532,7 @@ async function loadHome() {
   }
   if (!d || !d.ok) { logout(); return; }
   const s = d.student; STATE = d;
+  loadStateHub();
   document.getElementById('hello').textContent = '👋 ' + s.name;
   document.getElementById('mychips').innerHTML =
     '<span class="chip">🎯 ' + esc(GOALS[s.goal] || s.goal) + '</span>' +
@@ -2440,6 +2447,30 @@ var STATE = null;
 let PR = null;
 let prTimer = null;
 let PR_MODE_OVERRIDE = '';
+// 🗺️ 330X: TS & AP Exam Hub — state-wise exams, honest counts,
+// one-tap Mock (aa exam pool) + subject-wise tests (goal-scoped).
+async function loadStateHub() {
+  const box = document.getElementById('state-hub');
+  if (!box || box.dataset.done) return;
+  try {
+    const d = await (await fetch('/api/portal/state_hub')).json();
+    if (!d.ok) { box.innerHTML = '<p class="muted">Hub load avvaledu.</p>'; return; }
+    box.dataset.done = '1';
+    const subNames = {gk: 'GK', quant: 'Maths', reasoning: 'Reasoning', english: 'English', ca: 'Current Affairs', science: 'Science', polity: 'Polity', history: 'History'};
+    box.innerHTML = (d.states || []).map(st =>
+      '<p style="margin-top:10px;"><b>' + (st.state === 'Telangana' ? '🟢' : '🔵') + ' ' + esc(st.state) + '</b></p>' +
+      st.exams.map(e =>
+        '<div class="rrow"><b>' + esc(e.label) + '</b> <span class="muted">' + e.total + ' Q · PYQ ' + e.pyq + '</span><br>' +
+        '<button class="btn-alt" style="width:auto; margin-top:5px;" onclick="startMock(\'' + e.goal + '\')">🎯 Mock Test</button> ' +
+        (e.subjects || []).filter(s2 => s2.count >= 3).slice(0, 4).map(s2 =>
+          '<button class="btn-alt" style="width:auto; margin-top:5px;" onclick="startPractice(\'section\', \'' + s2.subject + '\', \'' + e.goal + '\')">🧩 ' + esc(subNames[s2.subject] || s2.subject) + '</button>').join(' ') +
+        '</div>').join('')
+    ).join('') +
+    '<p class="muted" style="margin-top:10px;">🎓 Board Exams: ' +
+      (d.academic || []).filter(a => a.total > 0).map(a => esc(a.label) + ' (' + a.total + ')').join(' · ') + '</p>';
+  } catch (e) { box.innerHTML = '<p class="muted">Hub load avvaledu.</p>'; }
+}
+
 async function startPractice(mode, subject, goal) {
   const topic = subject || PR_MODE_OVERRIDE || document.getElementById('topic-sel').value || '';
   PR_MODE_OVERRIDE = '';
@@ -8553,6 +8584,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
             query = urllib.parse.parse_qs(p.query)
             st = portal.state(Members(), query.get("token", [""])[0])
             self._send_json({"ok": bool(st), **(st or {"error": "session expired"})})
+            return
+
+        if p.path == "/api/portal/state_hub":
+            # 🗺️ 330X: TS & AP exam hub (public honest counts).
+            self._send_json({"ok": True, **portal.state_hub()})
             return
 
         if p.path == "/api/portal/paper/catalog":

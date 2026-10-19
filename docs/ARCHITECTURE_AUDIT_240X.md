@@ -208,3 +208,20 @@ contains Telugu script. Bank health: **invalid 0, grade C → B**
 `poll_safe`-balanced at send). Go-live now also emits a
 Tanglish announcement (Telegram admin auto-send + copy-to-
 WhatsApp). Suite **891 OK** · finalize PASSED.
+
+---
+
+## ADDENDUM — 330X (TS & AP Exam Hub)
+
+State-separate goals (`tspsc`/`appsc` with own channels,
+exam-keyword PYQ pools, countdown dates) join the combined
+`groups` goal — a Telangana student now mocks from TSPSC stock
+only (functionally pinned: picked channels ⊆ {TSPSC, CURRENT}).
+`portal.state_hub()` serves honest per-exam totals + PYQ counts
+and subject stock; the portal home renders the 🗺️ TS & AP Exam
+Hub (one-tap Mock + goal-scoped subject tests — sectional pool
+now filters by goal channels with all-bank fallback under 3).
+Board-exam channels (10th/Inter/Diploma/B.Tech, both states)
+listed with real counts. Live counts at ship time: TSPSC 356Q
+(33 PYQ), APPSC 56Q (32 PYQ — AP harvest is the next stock
+target). Suite **901 OK** · finalize PASSED · hub smoke 200.
