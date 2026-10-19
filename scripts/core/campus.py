@@ -74,9 +74,12 @@ def _code(existing):
 
 # ================================================================== events
 def new_event(name, district, colleges, n_q=DEFAULT_Q, level="medium", created_by="", mode="college", subjects=None, start_at="", neg=0, shuffle=True):
+    from . import textsafe
     d = _load()
     code = _code(d["events"])
-    cols = [c.strip()[:40] for c in colleges if c.strip()][:12]
+    # 🧼 290X: event/college display names cleaned at creation.
+    cols = [textsafe.clean_display_name(c, max_len=40) for c in colleges
+            if textsafe.clean_display_name(c, max_len=40)][:12]
     if not cols:
         cols = ["General"]
     subjs = [s.strip() for s in (subjects or []) if s.strip()] or ["reasoning", "quant", "gs", "english", "ca"]
@@ -541,7 +544,9 @@ def web_join(members, code, name, phone, college_idx=1):
     digits = "".join(ch for ch in str(phone or "") if ch.isdigit())[-10:]
     if len(digits) != 10:
         return False, "Sariyina 10-digit mobile number ivvandi."
-    name = str(name or "").strip()[:40]
+    from . import textsafe
+    # 🧼 290X: college-exam web names cleaned at write time too.
+    name = textsafe.clean_display_name(name, max_len=40)
     if not name:
         return False, "Mee peru ivvandi."
     uid = "w" + digits
@@ -1396,7 +1401,9 @@ def student_request(uid, college, district, name=""):
         rid = "RQ-" + "".join(random.choice("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") for _ in range(3))
         if rid not in reqs:
             break
-    reqs[rid] = {"uid": str(uid), "name": name, "college": college.strip()[:60],
+    from . import textsafe
+    reqs[rid] = {"uid": str(uid), "name": textsafe.clean_display_name(name),
+                 "college": textsafe.clean_display_name(college, max_len=60),
                  "district": district.strip()[:30], "ts": _now().isoformat(), "status": "pending"}
     # keep only the latest 200 requests
     if len(reqs) > 200:

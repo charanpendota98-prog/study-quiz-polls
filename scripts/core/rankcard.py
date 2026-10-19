@@ -15,6 +15,7 @@ from __future__ import annotations
 import io
 import os
 from datetime import datetime
+from pathlib import Path
 
 from . import config
 
@@ -23,10 +24,16 @@ BRAND = getattr(config, "BRAND_NAME", "StudentUp")
 HANDLE = getattr(config, "BRAND_HANDLE", "t.me/StudentUpQuiz")
 
 _FONT_DIRS = ["/usr/share/fonts", "/usr/local/share/fonts", os.path.expanduser("~/.fonts"),
-              str(config.DATA / "fonts")]
+              str(config.DATA / "fonts"),
+              # 🏆 220X audit fix: repo-bundled fonts (the exact dir
+              # certcard uses) — rankcard hunted only system fonts,
+              # so English/Telugu card names silently fell back.
+              str(Path(__file__).resolve().parent.parent.parent
+                  / "assets" / "fonts")]
 _LATIN = ("DejaVuSans-Bold.ttf", "DejaVuSans.ttf", "NotoSans-Bold.ttf", "NotoSans-Regular.ttf",
           "LiberationSans-Bold.ttf", "Arial.ttf")
 _TELUGU = ("NotoSansTelugu-Bold.ttf", "NotoSansTelugu-Regular.ttf", "NotoSansTelugu[wdth,wght].ttf",
+           "NotoSansTelugu_700Bold.ttf", "NotoSansTelugu_400Regular.ttf",
            "Pothana2000.ttf", "gautami.ttf", "Gautami.ttf")
 
 

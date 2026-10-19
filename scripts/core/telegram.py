@@ -267,7 +267,7 @@ class Telegram:
         return self._call("sendMessage", payload)
 
     def get_updates(self, timeout: int = 0):
-        payload = {"timeout": timeout, "allowed_updates": ["poll_answer", "poll", "message", "callback_query"]}
+        payload = {"timeout": timeout, "allowed_updates": ["poll_answer", "poll", "message", "callback_query", "message_reaction", "message_reaction_count"]}
         if self._offset is not None:
             payload["offset"] = self._offset
         try:

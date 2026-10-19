@@ -14,13 +14,33 @@ from __future__ import annotations
 
 from . import blueprint
 
+_GRAPH_CACHE260 = {}
+
+
+def _graph_key(bank, channel: str):
+    """⚡ 260X: (bank signature, channel) cache key; (None, ch) if unknown."""
+    try:
+        from . import question_bank as _qb
+        sig = _qb._bank_sig()
+        n = len(getattr(bank, "questions", []) or [])
+        return ((sig, n), channel)
+    except Exception:
+        return (None, channel)
+
 
 def subject_of_topic(topic: str) -> str:
     return blueprint.subject_of({"topic": topic or "", "q_en": ""})
 
 
 def exam_graph(bank, channel: str) -> dict:
-    """channel syllabus: subject -> {weight, topics: {topic: bank_count}}"""
+    """channel syllabus: subject -> {weight, topics: {topic: bank_count}}
+
+    ⚡ 260X: memoized per bank signature — harvest plans re-ask the
+    same graphs per GOAL × channel (and per portal view); a changed
+    bank file flips the signature and rebuilds automatically."""
+    _k260 = _graph_key(bank, channel)
+    if _k260[0] is not None and _k260 in _GRAPH_CACHE260:
+        return _GRAPH_CACHE260[_k260]
     bp = blueprint.blueprint()
     ch = (bp.get("channels") or {}).get(channel) or {}
     weights = ch.get("weights") or {"gk": 1.0}
@@ -30,8 +50,13 @@ def exam_graph(bank, channel: str) -> dict:
         topics.setdefault(s, {})
         t = q.get("topic", "") or "General"
         topics[s][t] = topics[s].get(t, 0) + 1
-    return {"channel": channel, "exam": ch.get("exam", channel),
-            "weights": weights, "subjects": topics}
+    _g260 = {"channel": channel, "exam": ch.get("exam", channel),
+             "weights": weights, "subjects": topics}
+    if _k260[0] is not None:
+        if len(_GRAPH_CACHE260) > 64:
+            _GRAPH_CACHE260.clear()
+        _GRAPH_CACHE260[_k260] = _g260
+    return _g260
 
 
 def member_mastery(member: dict) -> dict:

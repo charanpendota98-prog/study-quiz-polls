@@ -73,8 +73,14 @@ class TestArena(unittest.TestCase):
         arena.tick(self.b, self.tg, self.m, now=now + timedelta(seconds=arena.COUNTDOWN_SEC + 1))
         self.assertEqual(arena._load()["rooms"][code]["state"], "question")
         self.assertEqual(len(self.tg.polls), 4)                        # 4 players got Q1
+        # 🏥 280X: room questions froze BALANCED at start — players tap
+        # the correct option at its DISPLAYED (stored) position, one
+        # Giant deliberately taps a wrong displayed position.
+        room_q = arena._load()["rooms"][code]["questions"][0]
+        right = room_q["answer_index"]
+        wrong = (right + 1) % len(room_q["options_en"])
         # Warriors both right (fast), Giants: one right, one wrong
-        for uid, ans in (("1", 1), ("2", 1), ("4", 1), ("5", 0)):
+        for uid, ans in (("1", right), ("2", right), ("4", right), ("5", wrong)):
             self.assertTrue(arena.record_answer(self.m, self.tg, self._poll_for(uid), uid, ans))
         self.assertTrue(arena.record_answer(self.m, self.tg, self._poll_for("1"), "1", 1))   # dup ignored
         # all answered → close immediately on tick → gap + scoreboard broadcast

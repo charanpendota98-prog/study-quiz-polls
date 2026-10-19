@@ -65,3 +65,32 @@ Then by hand:
 | WebApp login says `bot_not_configured` | `BOT_TOKEN` missing in the **dashboard** env (not only the bot) |
 | Certificate error | Cloudflare SSL mode = Flexible with origin HTTPS → set **Full** |
 | Icon click opens `/portal` on WP site | Snippet not pasted yet, or old cached page — hard refresh |
+
+
+---
+
+## 📴 270X: No-VPS mode (shared hosting)
+
+If only MilesWeb Premium **shared** hosting is available (no VPS),
+the student portal can still run in **Stateless (No-VPS) mode**:
+
+- Students carry their own signed progress token in the browser
+  (`su_stateless` in localStorage; checkbox on the registration card).
+- The portal serves shuffled daily questions and 15-question attempts
+  over `/api/portal/st270/*`; grades them against the signed token.
+- Ranks/prizes use short-lived **server-signed claims** (typ `c`,
+  7-day TTL) — never the student-carried points.
+
+What still needs an always-on host (this does not change): the
+Telegram bot long-poll, the WhatsApp bridge/scheduler and the admin
+dashboard process. Shared-host Python support ≠ a VPS — there is no
+root, systemd, guaranteed custom port or 24x7 process there.
+
+DNS: only add `quiz` -> A -> *application host IP* once such a host
+exists. Never point `quiz` at the shared WordPress IP.
+
+
+**Go-live checks (270X):** the dashboard Go-Live card includes
+"No-VPS shared-host mode (270X)" — green means the signed-token
+round-trip works and the shared-host portal mode is available.
+Regression suite: `tests/test_advanced270.py`.

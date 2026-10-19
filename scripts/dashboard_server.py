@@ -15,6 +15,7 @@ import time
 import base64
 import urllib.request
 import urllib.parse
+import hmac
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from datetime import datetime
@@ -79,7 +80,7 @@ def _wp_quiz_item(q):
     """Mana bank question → WordPress quiz.php format (q, a[4], c, why, cat, src, exam)."""
     return {"q": q.get("q_en", ""), "a": list(q.get("options_en") or []),
             "c": int(q.get("answer_index") or 0),
-            "why": q.get("explanation") or "", "cat": q.get("topic") or "General",
+            "why": q.get("explanation") or q.get("explanation_en") or q.get("explanation_te") or "", "cat": q.get("topic") or "General",
             "src": "StudentUp PYQ" if q.get("source") == "pyq" else "StudentUp",
             "exam": _WP_EXAM_TAGS.get(q.get("channel") or "", "all")}
 
@@ -89,6 +90,43 @@ def _wp_quiz_export():
     day = portal._daily_paper(d)
     return {"date": portal._today(), "source": "StudentUp Quiz Portal",
             "questions": [_wp_quiz_item(q) for q in day["qs"]]}
+
+
+def _cors_origin(origin):
+    """🔒 280X (F7 closure): CORS allowlist — never '*'. Echo the
+    request Origin ONLY when it is the configured public/portal origin
+    or a localhost dev origin; anything else gets no CORS grant ('').
+    Self-contained (stdlib only) so it stays unit-testable in
+    isolation; the .env file is consulted via core.config when
+    importable, process env otherwise."""
+    import os
+    from urllib.parse import urlparse
+    o = (origin or "").strip()
+    if not o:
+        return ""
+    try:
+        host = urlparse(o).hostname or ""
+    except Exception:
+        return ""
+    if host in ("localhost", "127.0.0.1"):
+        return o
+    allowed = set()
+    vals = []
+    try:
+        from core import config as _cfg280
+        vals = [_cfg280.env("PUBLIC_BASE_URL", ""),
+                _cfg280.env("PORTAL_BASE_URL", "")]
+    except Exception:
+        vals = [os.environ.get("PUBLIC_BASE_URL", ""),
+                os.environ.get("PORTAL_BASE_URL", "")]
+    for v in vals:
+        try:
+            p = urlparse((v or "").strip())
+            if p.scheme and p.netloc:
+                allowed.add(f"{p.scheme}://{p.netloc}")
+        except Exception:
+            pass
+    return o if o in allowed else ""
 
 
 def _golive_checks():
@@ -101,6 +139,19 @@ def _golive_checks():
         "status": "ok" if base.startswith("https://") else "warn",
         "detail": base or "set ledu — request host nunchi derive avthundi (production lo https://quiz.studentup.in set cheyyandi)"})
     pbase = config.env("PORTAL_BASE_URL", "").strip()
+    try:
+        from core import rankcard as _rc260
+        _f260 = _rc260._find_font(_rc260._LATIN) is not None
+        _dep260 = bool(_f260)
+    except Exception:
+        _dep260 = False
+    checks.append({
+        "name": "Certificate engine (PIL + QR)",
+        "status": "ok" if _dep260 else "warn",
+        "detail": ("PIL + qrcode + TTF font ready"
+                   if _dep260 else
+                   "winner/score card PNGs degrade — VPS lo "
+                   "'pip install pillow qrcode' cheyyandi")})
     checks.append({
         "name": "Portal URL",
         "status": "ok",
@@ -129,12 +180,70 @@ def _golive_checks():
     checks.append({
         "name": "PWA (manifest + SW v4)",
         "status": "ok",
-        "detail": "/manifest.json + /sw.js routes active"})
+        "detail": "/manifest.json + /sw.js (v5) routes active"})
     ads = config.env("ADSENSE_CLIENT_ID", "").strip()
     checks.append({
         "name": "AdSense (optional)",
         "status": "ok" if ads else "warn",
         "detail": "configured" if ads else "set ledu — ads off (public pages matrame, exam pages lo eppudu levu)"})
+    try:
+        _dpw_default = _dash_password() == DEFAULT_DASH_PASSWORD
+    except Exception:
+        _dpw_default = False
+    try:
+        from core import stateless_client as _sl260
+        _slt260, _sle260 = _sl260.register_student(
+            "Go-Live Probe", "9000000001", "Guntur", "railway",
+            secret="golive-probe")
+        _sl_ok260 = _sle260 is None and _sl260.public_view(
+            _slt260 or "", secret="golive-probe") is not None
+    except Exception:
+        _sle260 = "stateless module unavailable"
+        _sl_ok260 = False
+    checks.append({
+        "name": "Stateless client (260X)",
+        "status": "ok" if _sl_ok260 else "fail",
+        "detail": ("signed-token round-trip verified (zero-storage "
+                   "registration/auth)"
+                   if _sl_ok260 else f"round-trip failed: {_sle260}")})
+    checks.append({
+        "name": "No-VPS shared-host mode (270X)",
+        "status": "ok" if _sl_ok260 else "warn",
+        "detail": ("portal Stateless routes active — MilesWeb Premium "
+                   "shared hosting mide portal run cheyyavachu; bot/"
+                   "broadcast ki matrame VPS kavali"
+                   if _sl_ok260 else
+                   "stateless module fail — hosting mode unavailable")})
+    checks.append({
+        "name": "Dashboard password",
+        "status": "warn" if _dpw_default else "ok",
+        "detail": ("DEFAULT password (studentup123) inka use avthundi — "
+                   "DASHBOARD_PASSWORD env tho strong password set cheyyandi!")
+                  if _dpw_default else "custom dashboard password set ayindi"})
+    # 🏥 280X: bank health + answer-position bias (raw bank meda —
+    # live polls anni send-time lo balanced ae; ikkada raw skew
+    # kanipisthe admin ki teliyali, students ki kadu).
+    try:
+        from core import bankhealth as _bh280
+        from core.question_bank import load_bank as _lb280
+        _bk280 = _lb280()
+        _qs280 = (_bk280.questions if hasattr(_bk280, "questions")
+                  else list(_bk280))
+        _rep280 = _bh280.bank_health_report(_qs280)
+        _bad280 = _rep280["invalid_count"] > 0
+        _bias280 = bool(_rep280["bias_flags"])
+        checks.append({
+            "name": "Bank health (280X)",
+            "status": "warn" if (_bad280 or _bias280) else "ok",
+            "detail": _bh280.summarize(_rep280) + (
+                " — live polls balanced at send time (poll_safe)"
+                if _bias280 and not _bad280 else
+                (" — invalid questions fix cheyyandi (bank_health.py)"
+                 if _bad280 else " — raw bank kuda clean"))})
+    except Exception as _e280:
+        checks.append({
+            "name": "Bank health (280X)", "status": "warn",
+            "detail": f"health report run avvaledu: {_e280}"})
     overall = "ready" if all(c["status"] != "fail" for c in checks) else "pending"
     return {"overall": overall, "checks": checks}
 
@@ -799,6 +908,47 @@ PORTAL_HTML = """<!DOCTYPE html>
   .timer { color: #facc15; font-weight: 800; }
   .tchip { padding: 6px 11px; border-radius: 999px; border: 1px solid #24466e; background: #12233f; color: #e2e8f0; font-size: 13px; cursor: pointer; }
   .tchip.on { border-color: #10b981; color: #10b981; }
+  /* 🎨 220X THEME STUDIO: accent engine — themes set --acc, students
+     can override accent with one tap; everything glows from --acc. */
+  body { --acc: #10b981; --acc2: #065f46; transition: background .35s ease, color .35s ease; }
+  body.theme-ocean { --acc: #22d3ee; --acc2: #0e7490; }
+  body.theme-sunset { --acc: #fb923c; --acc2: #9a3412; }
+  body.theme-forest { --acc: #4ade80; --acc2: #166534; }
+  body.theme-light { --acc: #2563eb; --acc2: #1e40af; }
+  body.theme-royal { background: radial-gradient(circle at 30% 10%, #3f3005 0%, #0a0803 70%); --acc: #facc15; --acc2: #a16207; }
+  body.theme-royal .card { background: #171204; border-color: #57500d; }
+  body.theme-grape { background: radial-gradient(circle at 30% 10%, #4c1d95 0%, #12041f 70%); --acc: #c084fc; --acc2: #7e22ce; }
+  body.theme-grape .card { background: #1d0b31; border-color: #4c1d95; }
+  body.theme-rose { background: radial-gradient(circle at 30% 10%, #881337 0%, #1c050c 70%); --acc: #fb7185; --acc2: #be123c; }
+  body.theme-rose .card { background: #2a0a14; border-color: #881337; }
+  /* 🎨 300X THEME STUDIO PRO: aurora/paper/exam-focus + accessibility
+     (font size + calm mode). Advanced inside, one tap outside. */
+  body.theme-aurora { background: radial-gradient(circle at 20% 0%, #134e4a 0%, #1e1b4b 55%, #070312 100%); --acc: #5eead4; --acc2: #7c3aed; }
+  body.theme-aurora .card { background: #0d1526; border-color: #155e63; }
+  body.theme-paper { background: #f6efe0; color: #2f2417; --acc: #b45309; --acc2: #92400e; }
+  body.theme-paper .card { background: #fffaf0; border-color: #d9c9a3; }
+  body.theme-paper .brand, body.theme-paper h2, body.theme-paper .qte { color: #2f2417; }
+  body.theme-paper .muted { color: #7a6a52; }
+  body.theme-paper input, body.theme-paper select { background: #fffdf7; color: #2f2417; border-color: #d9c9a3; }
+  body.theme-paper .opt, body.theme-paper .trow, body.theme-paper .rrow { background: #fdf6e3; color: #2f2417; border-color: #d9c9a3; }
+  body.theme-paper .chip { background: #f3e8cf; border-color: #d9c9a3; color: #6b4e16; }
+  body.theme-paper .qen { color: #6b5636; }
+  body.theme-focus { background: #000000; --acc: #facc15; --acc2: #a16207; }
+  body.theme-focus .card { background: #0a0a0a; border-color: #854d0e; }
+  body.theme-focus .brand { text-shadow: none; }
+  body.font-s .qte { font-size: 15px; } body.font-s .qen { font-size: 12.5px; } body.font-s .opt { font-size: 13px; }
+  body.font-l .qte { font-size: 19px; } body.font-l .qen { font-size: 16px; } body.font-l .opt { font-size: 16.5px; }
+  body.calm *, body.calm *::before, body.calm *::after { transition: none !important; animation: none !important; }
+  .tchip.on { border-color: var(--acc); color: var(--acc); }
+  .btn { background: linear-gradient(135deg, var(--acc), var(--acc2)); }
+  .btn-alt { border-color: var(--acc2); }
+  h2.sec, .brand span { color: var(--acc); }
+  .brand { text-shadow: 0 0 22px var(--acc2); }
+  .chip.gold { border-color: var(--acc); color: var(--acc); }
+  .tdot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+  .asw { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; }
+  .asw.on { border-color: #f8fafc; transform: scale(1.15); }
+  .card { transition: background .35s ease, border-color .35s ease; }
   body.theme-ocean { background: radial-gradient(circle at 30% 10%, #065a60 0%, #02141a 70%); }
   body.theme-ocean .card { background: #06222b; border-color: #0e4a56; }
   body.theme-sunset { background: radial-gradient(circle at 30% 10%, #7c2d12 0%, #170a1e 70%); }
@@ -826,12 +976,38 @@ PORTAL_HTML = """<!DOCTYPE html>
     <button class="tchip" data-th="sunset" onclick="setTheme('sunset')">🌅 Sunset</button>
     <button class="tchip" data-th="forest" onclick="setTheme('forest')">🌲 Forest</button>
     <button class="tchip" data-th="light" onclick="setTheme('light')">☀️ Light</button>
+    <button class="tchip" data-th="royal" onclick="setTheme('royal')"><span class="tdot" style="background:linear-gradient(135deg,#facc15,#a16207);"></span>👑 Royal</button>
+    <button class="tchip" data-th="grape" onclick="setTheme('grape')"><span class="tdot" style="background:linear-gradient(135deg,#c084fc,#7e22ce);"></span>🍇 Grape</button>
+    <button class="tchip" data-th="rose" onclick="setTheme('rose')"><span class="tdot" style="background:linear-gradient(135deg,#fb7185,#be123c);"></span>🌹 Rose</button>
+    <button class="tchip" data-th="aurora" onclick="setTheme('aurora')"><span class="tdot" style="background:linear-gradient(135deg,#5eead4,#7c3aed);"></span>🌌 Aurora</button>
+    <button class="tchip" data-th="paper" onclick="setTheme('paper')"><span class="tdot" style="background:linear-gradient(135deg,#f6efe0,#b45309);"></span>📜 Paper</button>
+    <button class="tchip" data-th="focus" onclick="setTheme('focus')"><span class="tdot" style="background:linear-gradient(135deg,#facc15,#000000);"></span>🎯 Exam Focus</button>
+    <button class="tchip" data-th="auto" onclick="setTheme('auto')">🌓 Auto</button>
+  </div>
+  <div class="row" style="justify-content:center; margin-bottom:12px; gap:6px; align-items:center;">
+    <span class="muted">🔠 Font:</span>
+    <button class="tchip" data-fs="s" onclick="setFont('s')">A-</button>
+    <button class="tchip" data-fs="m" onclick="setFont('m')">A</button>
+    <button class="tchip" data-fs="l" onclick="setFont('l')">A+</button>
+    <button class="tchip" data-calm="1" onclick="toggleCalm()">🌿 Calm</button>
+  </div>
+  <div class="row" style="justify-content:center; margin-bottom:12px; gap:6px; align-items:center;">
+    <span class="muted">✨ Accent:</span>
+    <button class="asw" data-acc="#10b981" style="background:#10b981;" onclick="setAccent('#10b981')" aria-label="emerald accent"></button>
+    <button class="asw" data-acc="#38bdf8" style="background:#38bdf8;" onclick="setAccent('#38bdf8')" aria-label="sky accent"></button>
+    <button class="asw" data-acc="#f59e0b" style="background:#f59e0b;" onclick="setAccent('#f59e0b')" aria-label="amber accent"></button>
+    <button class="asw" data-acc="#f472b6" style="background:#f472b6;" onclick="setAccent('#f472b6')" aria-label="pink accent"></button>
+    <button class="asw" data-acc="#a78bfa" style="background:#a78bfa;" onclick="setAccent('#a78bfa')" aria-label="violet accent"></button>
+    <button class="asw" data-acc="#facc15" style="background:#facc15;" onclick="setAccent('#facc15')" aria-label="gold accent"></button>
   </div>
 
   <!-- register -->
   <div id="view-reg" class="card" style="display:none;">
     <h2>👋 StudentUp loki welcome!</h2>
     <p class="muted">Okka sari register avandi — Daily Quiz, Mock Tests, mee personal report & leaderboards anni ready. Data mee bot account tho kuda link avthundi.</p>
+    <p class="muted" style="margin-top:6px;">🔐 <b>No-VPS mode:</b> kindha checkbox pedithe mee progress signed token roopam lo mee phone lone untundi — separate server database akkarledu.</p>
+    <label style="display:flex; gap:8px; align-items:center; margin-top:8px;"><input type="checkbox" id="r-stateless" style="width:auto;"> 🔐 Stateless (No-VPS) mode — progress naa phone lone save avvali</label>
+    <p class="muted" style="margin-top:4px;">Browser data clear ayithe progress povachu — ranks/prizes ki server-signed receipts vastayi.</p>
     <label>🏆 Meeru Ae Exam Kosam Prepare Avthunnaru?</label>
     <select id="r-goal"></select>
     <label>Mee Peru (Full Name)</label>
@@ -963,6 +1139,11 @@ PORTAL_HTML = """<!DOCTYPE html>
       <div class="row" style="flex-wrap:wrap; gap:6px;">
         <button class="btn-alt" style="width:auto; margin:0;" onclick="loadSyllabus()">🗺️ Syllabus Tracker</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="loadPercentile()">📈 Naa Percentile</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadDistrict()">🏙️ District Deep-Dive</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadRevision()">🧠 Revision Planner</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadRank2()">🎯 Rank Predictor</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadMaterials()">📚 Materials Vault</button>
+        <button class="btn-alt" style="width:auto; margin:0;" onclick="loadScoreIntel()">🏆 Score Intelligence</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="loadBookmarks()">🔖 Saved Questions</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="downloadWorksheet()">🖨️ Worksheet</button>
         <button class="btn-alt" style="width:auto; margin:0;" onclick="loadStudyPlan()">📅 7-Day Plan</button>
@@ -1123,7 +1304,7 @@ PORTAL_HTML = """<!DOCTYPE html>
 <script>
 let token = localStorage.getItem('su_portal') || '';
 let GOALS = {}, QUESTIONS = [], cur = 0, score = 0, MOCK = null, mockTimer = null;
-const esc = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+const esc = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');  // 🧼 290X quote-safe
 async function api(path, body) {
   const opt = body ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)} : {};
   const r = await fetch(path, opt); return await r.json();
@@ -1139,6 +1320,7 @@ function rows(list, emptyMsg) {
 }
 async function init() {
   setTheme(localStorage.getItem('su_theme') || '');
+  setAccent(localStorage.getItem('su_accent') || '');
   try {
     const wa = window.Telegram && window.Telegram.WebApp;
     if (wa && wa.initData) {
@@ -1161,7 +1343,22 @@ async function init() {
   (meta.topics || []).forEach(t => { const o = document.createElement('option'); o.value = t; o.textContent = t; ts.appendChild(o); });
   const gl = document.getElementById('r-goal');
   Object.entries(GOALS).forEach(([k, v]) => { const o = document.createElement('option'); o.value = k; o.textContent = v; gl.appendChild(o); });
-  if (token) { flushOffline(); loadHome(); } else { show('view-reg'); }
+  const _slTok = localStorage.getItem('su_stateless') || '';
+  if (_slTok) { token = _slTok; loadStatelessHome(); }
+  else if (token) { flushOffline(); loadHome(); } else { show('view-reg'); }
+}
+async function loadStatelessHome() {
+  const st = (localStorage.getItem('su_stateless') || token || '');
+  if (!st) { show('view-reg'); return; }
+  token = st;  // keep su_portal fallback flow untouched below
+  const d = await api('/api/portal/st270?token=' + encodeURIComponent(st));
+  if (!d.ok) { localStorage.removeItem('su_stateless'); show('view-reg'); return; }
+  show('view-home');
+  const hello = document.getElementById('hello'); if (hello) hello.textContent = '👋 ' + ((d.profile || {}).name || 'Student');
+  const hints = document.getElementById('daily-info'); if (hints) hints.textContent = '🔐 No-VPS mode: mee points/progress mee signed token lone untayi. Daily Quiz & attempts kindha primary buttons tho ne vasthayi.';
+  alert('🔐 Stateless (No-VPS) mode active! Points: ' + (d.points || 0)
+        + ' · Answers: ' + (d.answers || 0)
+        + ' · Accuracy: ' + (d.accuracy || 0) + '%');
 }
 function copyRef() {
   const el = document.getElementById('ref-link');
@@ -1233,6 +1430,16 @@ async function loadReport() {
 }
 async function doRegister() {
   const err = document.getElementById('reg-err'); err.textContent = '';
+  if (document.getElementById('r-stateless') && document.getElementById('r-stateless').checked) {
+    const sd = await api('/api/portal/st270/register', {
+      name: document.getElementById('r-name').value.trim(),
+      phone: document.getElementById('r-phone').value.trim(),
+      district: document.getElementById('r-district').value,
+      goal: document.getElementById('r-goal').value});
+    if (!sd.ok) { err.textContent = '❌ ' + (sd.error || 'Register avvaledu'); return; }
+    token = sd.token; localStorage.setItem('su_stateless', token); localStorage.removeItem('su_portal');
+    return loadStatelessHome();
+  }
   const d = await api('/api/portal/register', {
     name: document.getElementById('r-name').value.trim(),
     phone: document.getElementById('r-phone').value.trim(),
@@ -1243,12 +1450,50 @@ async function doRegister() {
   token = d.token; localStorage.setItem('su_portal', token);
   loadHome();
 }
-function logout() { localStorage.removeItem('su_portal'); token = ''; show('view-reg'); }
-function setTheme(t) {
-  document.body.className = t ? ('theme-' + t) : '';
-  localStorage.setItem('su_theme', t);
-  document.querySelectorAll('.tchip[data-th]').forEach(b => b.classList.toggle('on', (b.dataset.th || '') === t));
+function logout() { localStorage.removeItem('su_portal'); localStorage.removeItem('su_stateless'); token = ''; show('view-reg'); }
+const ACC2 = { '#10b981': '#065f46', '#38bdf8': '#0369a1', '#f59e0b': '#b45309', '#f472b6': '#be185d', '#a78bfa': '#6d28d9', '#facc15': '#a16207' };
+function setAccent(a) {
+  if (a) { document.body.style.setProperty('--acc', a); document.body.style.setProperty('--acc2', ACC2[a] || a); }
+  else { document.body.style.removeProperty('--acc'); document.body.style.removeProperty('--acc2'); }
+  localStorage.setItem('su_accent', a || '');
+  document.querySelectorAll('.asw[data-acc]').forEach(b => b.classList.toggle('on', (b.dataset.acc || '') === (a || '')));
 }
+/* 🎨 300X APPEARANCE ENGINE: theme (+🌓 auto day/night) + font size
+   + calm mode compose on <body>; lang-te/lang-en classes are always
+   preserved (the old setTheme wiped them on every tap). */
+const THEMES300 = ['', 'ocean', 'sunset', 'forest', 'light', 'royal', 'grape', 'rose', 'aurora', 'paper', 'focus', 'auto'];
+function effectiveTheme(t) {
+  if (t === 'auto') { const h = new Date().getHours(); return (h >= 6 && h < 19) ? 'light' : ''; }
+  return THEMES300.includes(t) ? t : '';
+}
+function applyAppearance() {
+  const t = localStorage.getItem('su_theme') || '';
+  const eff = effectiveTheme(t);
+  const fs = localStorage.getItem('su_font') || 'm';
+  const calm = localStorage.getItem('su_calm') === '1';
+  const lang = document.body.classList.contains('lang-te') ? 'lang-te'
+             : document.body.classList.contains('lang-en') ? 'lang-en' : '';
+  document.body.className = [eff ? ('theme-' + eff) : '', fs !== 'm' ? ('font-' + fs) : '',
+                             calm ? 'calm' : '', lang].filter(Boolean).join(' ');
+  document.querySelectorAll('.tchip[data-th]').forEach(b => b.classList.toggle('on', (b.dataset.th || '') === t));
+  document.querySelectorAll('.tchip[data-fs]').forEach(b => b.classList.toggle('on', (b.dataset.fs || 'm') === fs));
+  document.querySelectorAll('.tchip[data-calm]').forEach(b => b.classList.toggle('on', calm));
+  const a = localStorage.getItem('su_accent');
+  if (a) setAccent(a);
+}
+function setTheme(t) {
+  localStorage.setItem('su_theme', THEMES300.includes(t) ? t : '');
+  applyAppearance();
+}
+function setFont(fs) {
+  localStorage.setItem('su_font', ['s', 'm', 'l'].includes(fs) ? fs : 'm');
+  applyAppearance();
+}
+function toggleCalm() {
+  localStorage.setItem('su_calm', localStorage.getItem('su_calm') === '1' ? '0' : '1');
+  applyAppearance();
+}
+setInterval(() => { if (localStorage.getItem('su_theme') === 'auto') applyAppearance(); }, 60000);
 let TOPP = {};
 function showToppers(period) {
   ['week', 'month', 'year'].forEach(k => {
@@ -1529,6 +1774,91 @@ async function loadPercentile() {
   out.innerHTML = d.percentile == null
     ? '<div class="muted">📈 ' + esc(d.note || 'Inka data ledu') + '</div>'
     : '<b>📈 Goal Percentile</b> <span class="chip gold">Top ' + (100 - d.percentile) + '%</span><div class="muted">Rank #' + d.rank + ' / ' + d.students + ' students · Mee best: ' + d.my_best + ' · Top score: ' + d.top + ' (honest estimate — mock scores nunchi)</div>';
+}
+async function addMaterial230() {
+  const body = { title: (document.getElementById('mat-title') || {}).value || '',
+                 file: (document.getElementById('mat-file') || {}).value || '',
+                 goal: (document.getElementById('mat-goal') || {}).value || 'all',
+                 cost: parseInt((document.getElementById('mat-cost') || {}).value || '0', 10) || 0 };
+  const d = await api('/api/admin/materials_add', 'POST', JSON.stringify(body));
+  alert(d.ok ? '✅ Material added: ' + (d.item || {}).title : ('❌ ' + (d.error || 'failed')));
+}
+async function runHarvest230() {
+  if (!confirm('Top harvest target run cheyyala? (production lo real PYQ download avthundi)')) return;
+  const d = await api('/api/admin/harvest_run', 'POST', '{}');
+  alert((d && d.message) || 'done');
+}
+async function loadDistrict() {
+  const out = document.getElementById('adv-out');
+  out.innerHTML = '<div class="muted">Loading district…</div>';
+  const d = await api('/api/portal/district?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  out.innerHTML = '<b>🏙️ ' + esc(d.my_district || 'District') + ' Deep-Dive</b>' +
+    (d.my_rank ? ' <span class="chip gold">Naa rank #' + d.my_rank + ' / ' + d.students_in_district + '</span>' : '') +
+    (d.district_rank ? '<div class="muted">District league rank: <b>#' + d.district_rank + '</b> / ' + d.districts + ' districts · Naa points: ' + d.my_points + '</div>' : '') +
+    (d.champion ? '<div style="margin-top:4px;">👑 District Champion: <b>' + esc(d.champion.name) + '</b> (' + d.champion.points + ' pts)</div>' : '') +
+    (d.goal_champion ? '<div>🎯 Naa Goal Champion: <b>' + esc(d.goal_champion.name) + '</b> (' + d.goal_champion.points + ' pts)' + (d.goal_champion.me ? ' — meeru!' : '') + '</div>' : '') +
+    ((d.chase || []).length ? '<div style="margin-top:6px;"><b>🎯 Overtake Targets</b>' + d.chase.map(c => '<div style="display:flex; justify-content:space-between; margin:3px 0;"><span>' + esc(c.name) + '</span><span class="muted">' + c.points + ' pts · gap ' + c.gap + '</span></div>').join('') + '</div>' : '<div class="muted" style="margin-top:6px;">🏆 Meeru district lo #1 — maintain cheyyandi!</div>') +
+    ((d.board || []).length ? '<div style="margin-top:6px;"><b>🏙️ District League</b>' + d.board.map((r, i) => '<div style="display:flex; justify-content:space-between; margin:3px 0;"><span>#' + (i + 1) + ' ' + esc(r.name) + '</span><span class="muted">' + r.pts + ' pts · ' + r.students + ' students</span></div>').join('') + '</div>' : '');
+}
+async function loadRevision() {
+  const out = document.getElementById('adv-out');
+  out.innerHTML = '<div class="muted">Loading planner…</div>';
+  const d = await api('/api/portal/revision?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  out.innerHTML = '<b>🧠 Smart Revision Planner</b>' +
+    (d.empty ? '<div class="muted" style="margin-top:4px;">🎉 Ivalla revise cheyyalsindi em ledu — okka mock rayandi, plan tayaravthundi!</div>'
+      : (d.plan || []).map(p => '<div style="display:flex; justify-content:space-between; margin:3px 0;"><span>' + p.icon + ' ' + esc(p.label) + '</span>' + (p.count ? '<span class="muted">' + p.count + '</span>' : '') + '</div>').join(''));
+}
+async function loadRank2() {
+  const out = document.getElementById('adv-out');
+  out.innerHTML = '<div class="muted">Loading rank…</div>';
+  const d = await api('/api/portal/rank2?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  const coh = (c, label) => c ? '<div style="margin-top:4px;"><b>' + label + '</b>: Rank <b>#' + c.my_rank + '</b> / ' + c.students + ' · Percentile <b>' + c.percentile + '%</b>' + (c.next ? ' <span class="muted">· Next rank ki ' + c.next.gap + ' pts gap</span>' : ' <span class="muted">· 🏆 Meeru #1!</span>') + '</div>' : '';
+  out.innerHTML = '<b>🎯 Rank Predictor v2</b><div class="muted">Naa points: <b>' + d.my_points + '</b> · Goal: ' + esc(d.goal || '') + '</div>' +
+    coh(d.goal_cohort, '🎓 Naa Goal Cohort') + coh(d.district_cohort, '🏙️ Naa District') + coh(d.overall, '🌐 Overall');
+}
+async function loadMaterials() {
+  const out = document.getElementById('adv-out');
+  out.innerHTML = '<div class="muted">Loading materials…</div>';
+  const d = await api('/api/portal/materials?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  out.innerHTML = '<b>📚 Materials Vault</b> <span class="muted">· ⭐ ' + d.points + ' pts · Goal: ' + esc(d.goal || '') + '</span>' +
+    ((d.items || []).length ? d.items.map(it =>
+      '<div style="display:flex; justify-content:space-between; align-items:center; margin:5px 0; gap:8px;"><span>' + esc(it.title) + (it.subject ? ' <span class="muted">' + esc(it.subject) + '</span>' : '') + '</span>' +
+      (it.owned
+        ? (it.kind === 'file'
+            ? '<a class="btn-alt" style="width:auto; margin:0; padding:2px 10px;" href="/api/portal/material_file?token=' + encodeURIComponent(token) + '&id=' + encodeURIComponent(it.id) + '">⬇️ Download</a>'
+            : '<span class="chip">✅ Unlocked</span>')
+        : '<button class="btn-alt" style="width:auto; margin:0;" onclick="unlockMaterial(\'' + it.id + '\')">🔓 ' + it.cost + ' pts</button>') +
+      '</div>').join('')
+      : '<div class="muted" style="margin-top:4px;">Meeru goal ki materials inka levu — th్వరలో vasthayi!</div>');
+  try {
+    const sg = await api('/api/portal/materials_suggest?token=' + encodeURIComponent(token));
+    if (sg.ok && (sg.suggestions || []).length) {
+      out.innerHTML += '<div style="margin-top:8px;"><b>🤖 Meekosam AI Picks</b>' +
+        sg.suggestions.map(s => '<div class="muted" style="margin:2px 0;">' + esc(s.title) + ' — <span class="muted">' + esc(s.reason || '') + '</span></div>').join('') + '</div>';
+    }
+  } catch (e) {}
+}
+async function unlockMaterial(id) {
+  const d = await api('/api/portal/materials_unlock', 'POST', JSON.stringify({ token: token, id: id }));
+  alert(d.message || (d.ok ? 'Unlocked!' : 'Failed'));
+  if (d.ok) loadMaterials();
+}
+async function loadScoreIntel() {
+  const out = document.getElementById('adv-out');
+  out.innerHTML = '<div class="muted">Loading score intelligence…</div>';
+  const d = await api('/api/portal/score_intel?token=' + encodeURIComponent(token));
+  if (!d.ok) { out.innerHTML = '<div class="muted">' + esc(d.error || '') + '</div>'; return; }
+  const f = (d.forecast || {}).v2 || d.forecast || {};
+  const rk = d.rank || {};
+  out.innerHTML = '<b>🏆 Score Intelligence</b>' +
+    (f.expected_pct != null ? '<div style="margin-top:4px;">🔮 Forecast: <b>' + f.expected_pct + '%</b> <span class="muted">(' + (f.low != null ? f.low + '–' + f.high + '% · ' : '') + esc(f.confidence || '') + ' confidence)</span></div>' : '') +
+    (rk.goal_cohort ? '<div>🎯 Goal rank: <b>#' + rk.goal_cohort.my_rank + '</b> / ' + rk.goal_cohort.students + ' · Percentile ' + rk.goal_cohort.percentile + '%' + (rk.goal_cohort.next ? ' <span class="muted">· next rank ' + rk.goal_cohort.next.gap + ' pts</span>' : '') + '</div>' : '') +
+    (d.weak_section ? '<div>🧩 Weak section: <b>' + esc(d.weak_section.subject) + '</b></div>' : '') +
+    (d.advice ? '<div class="muted" style="margin-top:4px;">' + esc(d.advice) + '</div>' : '');
 }
 async function loadBookmarks() {
   const out = document.getElementById('adv-out');
@@ -2089,6 +2419,7 @@ async function submitMock() {
     const delta = an.delta_vs_prev == null ? '' : ' · Previous kante ' + (an.delta_vs_prev >= 0 ? '+' : '') + an.delta_vs_prev;
     box.insertAdjacentHTML('afterbegin', '<div class="rrow"><b>🔬 Attempt Analysis</b>' + delta +
       (an.weakest ? '<br><span class="muted">Weakest: ' + esc(an.weakest) + ' — ' + (an.wrong_topics || []).map(esc).join(', ') + '</span>' : '') +
+      ((an.sections || []).length ? '<br><span class="muted">🧩 Sections: ' + an.sections.map(s => esc(s.subject) + ' ' + s.correct + '/' + s.total + ' (' + s.accuracy + '%' + (s.budget_sec ? ', ⏱' + Math.round((s.seconds || 0) / 60) + '/' + Math.round(s.budget_sec / 60) + 'm' + (s.over ? ' ⚠️over' : '') : '') + ')').join(' · ') + '</span>' : '') +
       (an.topics || []).map(t => '<br><span class="muted">' + esc(t.topic) + ': ' + t.correct + '/' + t.total + ' (' + t.accuracy + '%)</span>').join('') + '</div>');
   });
   show('view-result');
@@ -2428,7 +2759,7 @@ WEB_EXAM_HTML = """<!DOCTYPE html>
 const CODE = location.pathname.split('/').filter(Boolean).pop().toUpperCase();
 let token = localStorage.getItem('su_exam_' + CODE) || '';
 let pollInt = null, timerInt = null, curPos = 0, qWindow = 40, endsAt = 0;
-const esc = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+const esc = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');  // 🧼 290X quote-safe
 
 async function api(path, body) {
   const opt = body ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)} : {};
@@ -4930,9 +5261,9 @@ All candidates must join today before 9:00 PM!"></textarea>
         }
         box.innerHTML = d.results.map(q => `
           <div style="display:flex; align-items:center; gap:8px; padding:7px 9px; border-radius:6px; background:#050811; margin-bottom:5px; flex-wrap:wrap;">
-            <span style="flex:1; min-width:200px;">${q.q_en || '(Telugu-only question)'}</span>
-            <span class="category-tag" style="font-size:10px;">${q.channel}</span>
-            <span style="font-size:10px; color:#94a3b8;">${q.topic}</span>
+            <span style="flex:1; min-width:200px;">${esc(q.q_en || '(Telugu-only question)')}</span>
+            <span class="category-tag" style="font-size:10px;">${esc(q.channel)}</span>
+            <span style="font-size:10px; color:#94a3b8;">${esc(q.topic)}</span>
             <span style="font-size:10px; color:${q.fresh ? '#34d399' : '#f59e0b'};">${q.fresh ? '✨ FRESH' : '♻️ sent before'}</span>
             <button class="btn btn-accent" style="font-size:10px; padding:3px 10px;" onclick="sendPickedQuestion('${q.id}')">📤 Send</button>
           </div>`).join('');
@@ -5210,7 +5541,7 @@ All candidates must join today before 9:00 PM!"></textarea>
       box.innerHTML = '👀 Preview tayaravthundi…';
       try {
         const r = await fetch('/api/whatsapp/preview?count=2'); const d = await r.json();
-        const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+        const esc = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');  // 🧼 290X quote-safe
         box.innerHTML = `<b style="color:#38bdf8;">👀 Broadcast Preview</b> <span style="color:var(--text-muted);">${d.groups_total} groups ki ilane velthundi (sample ${d.samples.length} groups · emi send avvadhu)</span>` +
           (d.samples || []).map(s => `<div style="background:#050811; border:1px solid var(--border); border-radius:8px; padding:9px 11px; margin-top:7px;"><b>${esc(s.group)}</b> <span style="color:#64748b;">· ${s.style}</span>${s.messages.map(t => `<pre style="white-space:pre-wrap; font-size:11px; color:#cbd5e1; margin:6px 0; font-family:inherit;">${esc(t)}</pre>`).join('')}</div>`).join('');
       } catch (e) { box.innerHTML = '❌ ' + e; }
@@ -5237,7 +5568,7 @@ All candidates must join today before 9:00 PM!"></textarea>
         tr.innerHTML = `
           <td><input type="checkbox" class="wa-group-select-checkbox" data-gid="${g.id}" onchange="updatePlannerSelectionCount()"></td>
           <td>${g.id}</td>
-          <td>${(g.jid || '').endsWith('@newsletter') ? '📣 <span style="background:#7c3aed; color:white; padding:2px 7px; border-radius:12px; font-size:10px; font-weight:700;">CHANNEL</span> ' : ''}<b>${g.name}</b>${waHealthBadge(g.jid)}</td>
+          <td>${(g.jid || '').endsWith('@newsletter') ? '📣 <span style="background:#7c3aed; color:white; padding:2px 7px; border-radius:12px; font-size:10px; font-weight:700;">CHANNEL</span> ' : ''}<b>${esc(g.name)}</b>${waHealthBadge(g.jid)}</td>
           <td>
             <div style="display:flex; align-items:center; gap:6px;">
               <select style="margin:0; padding:4px 8px; font-size:11px; background:#0f172a; border:1px solid #38bdf8; color:#f8fafc; border-radius:6px; font-weight:600;" onchange="updateGroupExamCategory('${g.id}', this.value)">
@@ -6029,7 +6360,7 @@ All candidates must join today before 9:00 PM!"></textarea>
         const realTag = g.real ? ' <span style="color:#10b981; font-size:9px; font-weight:800;" title="Synced from real WhatsApp">✓REAL</span>' : '';
         div.innerHTML = `
           <input type="checkbox" class="bulk-target-wa" value="${g.id}" ${sel ? 'checked' : ''} style="pointer-events:none;">
-          <span style="flex:1;">💬 <b>${g.name}</b> <span style="color:#10b981; font-size:10px; font-weight:700;">[${g.category || 'GENERAL'}]</span>${members}${realTag}</span>
+          <span style="flex:1;">💬 <b>${esc(g.name)}</b> <span style="color:#10b981; font-size:10px; font-weight:700;">[${esc(g.category || 'GENERAL')}]</span>${members}${realTag}</span>
         `;
         div.onclick = () => {
           const cb = div.querySelector('input');
@@ -6744,6 +7075,7 @@ All candidates must join today before 9:00 PM!"></textarea>
           bar('Active today', f.active_today || 0, f.registered || 0) +
           ((d.retention) ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🔁 Retention</h4><div>🆕 Last 7d registered: <b style="color:#e2e8f0;">' + (d.retention.new_7d || 0) + '</b> · 🟢 Active 7d: <b style="color:#e2e8f0;">' + (d.retention.active_7d || 0) + '</b> (' + (d.retention.active_7d_pct || 0) + '% of students)</div>' : '') +
           ((d.churn) ? '<div style="margin-top:5px;">⚠️ At-risk (7d+ inactive): <b style="color:#facc15;">' + (d.churn.at_risk_7d || 0) + '</b> · 💌 Win-back sent: <b style="color:#e2e8f0;">' + (d.churn.winback_sent || 0) + '</b> · 🏆 Result blasts: <b style="color:#e2e8f0;">' + (d.churn.result_blasts || 0) + '</b> <span>(bot auto)</span></div>' : '') +
+          ((d.churn250) ? '<div style="margin-top:3px;">📉 Churn cohorts: 🟢 Active <b style="color:#4ade80;">' + (d.churn250.active || 0) + '</b> · 🟡 Cooling <b style="color:#facc15;">' + (d.churn250.cooling || 0) + '</b> · 🟠 At-risk <b style="color:#fb923c;">' + (d.churn250.at_risk || 0) + '</b> · 🔴 Critical <b style="color:#f87171;">' + (d.churn250.critical || 0) + '</b> <span class="muted">(' + (d.churn250.critical_pct || 0) + '% critical)</span></div>' : '') +
           ((d.bot) ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🤖 Bot Funnel (120X)</h4><div>🔗 Linked: <b style="color:#e2e8f0;">' + (d.bot.linked || 0) + '</b> (' + (d.bot.link_pct || 0) + '% of students) · 🪪 Link claims: <b style="color:#e2e8f0;">' + (d.bot.claims || 0) + '</b> · 🔐 WebApp logins: <b style="color:#e2e8f0;">' + (d.bot.logins || 0) + '</b> · 📬 Bot msgs sent: <b style="color:#e2e8f0;">' + (d.bot.msgs || 0) + '</b></div>' +
           '<div style="margin-top:8px;"><div class="muted" style="font-size:11.5px;">📣 Bot Broadcast (linked students ki Telegram):</div>' +
           '<textarea id="bb-text" rows="2" style="width:100%; margin-top:4px;" placeholder="Ee roju 7 PM ki Grand Mock LIVE! Ready ga undandi 🔥"></textarea>' +
@@ -6752,7 +7084,18 @@ All candidates must join today before 9:00 PM!"></textarea>
           '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🎯 Students by Goal</h4><div>' + chips(d.goals) + '</div>' +
           '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🧪 Attempts by Kind</h4><div>' + chips(d.attempt_kinds) + '</div>' +
           ((d.pyq_gaps || []).length ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">📜 PYQ Coverage Gaps (target 50/channel)</h4>' +
-            (d.pyq_gaps || []).map(g => '<div style="margin-top:3px;">' + (g.channel || g.exam || '?') + ': <b style="color:#facc15;">' + (g.gap != null ? g.gap + ' to go' : '') + '</b> <span>(' + (g.pyq || 0) + ' PYQ now)</span></div>').join('') : '');
+            (d.pyq_gaps || []).map(g => '<div style="margin-top:3px;">' + (g.channel || g.exam || '?') + ': <b style="color:#facc15;">' + (g.gap != null ? g.gap + ' to go' : '') + '</b> <span>(' + (g.pyq || 0) + ' PYQ now)</span></div>').join('') : '') +
+          ((d.harvest_targets230 || []).length ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🚜 Exam Harvest Targets — reasoning/aptitude focus (weight × need)</h4>' +
+            (d.harvest_targets230 || []).map(g => '<div style="margin-top:3px;">' + esc(g.channel + ' · ' + g.subject) + ': <b style="color:#facc15;">' + g.cmd + '</b> <span class="muted">(need ' + g.need + ')</span></div>').join('') +
+            '<button class="btn-alt" style="width:auto; margin-top:6px;" onclick="runHarvest230()">🚜 Run #1 Harvest (production)</button> <span class="muted">sandbox lo dry-run matrame</span>' : '') +
+          '<div style="margin-top:10px;"><b style="font-size:12px;">📚 Materials Vault — add item</b><br>' +
+          '<input id="mat-title" placeholder="Title (eg Reasoning Tricks PDF)" style="width:220px;"> ' +
+          '<input id="mat-file" placeholder="file name (data/materials/) or https link" style="width:240px;"> ' +
+          '<input id="mat-goal" placeholder="goal: railway/ssc/banking/all" style="width:170px;"> ' +
+          '<input id="mat-cost" placeholder="points" style="width:70px;"> ' +
+          '<button class="btn-alt" style="width:auto;" onclick="addMaterial230()">➕ Add Material</button></div>' +
+          ((d.bank_gaps210 || []).length ? '<h4 style="font-size:12px; margin-top:12px; color:#e2e8f0;">🎯 Bank-Gap Harvest Priorities (exam weight × need)</h4>' +
+            (d.bank_gaps210 || []).map(g => '<div style="margin-top:3px;">' + esc(g.channel + ' · ' + g.subject) + ' <span class="muted">(goal ' + esc(g.goal) + ', weight ' + Math.round((g.weight || 0) * 100) + '%)</span>: <b style="color:#facc15;">need ' + g.need + '</b> <span class="muted">(' + g.bank_q + ' bank now · priority ' + g.priority + ')</span></div>').join('') : '');
         const bbg = document.getElementById('bb-goal');
         if (bbg) Object.keys(d.goals || {}).forEach(g => { const o = document.createElement('option'); o.value = g; o.textContent = g; bbg.appendChild(o); });
       } catch (e) { box.textContent = '❌ ' + e; }
@@ -7221,9 +7564,9 @@ All candidates must join today before 9:00 PM!"></textarea>
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td style="font-family:monospace;">${m.uid}</td>
-          <td><b>${m.name}</b>${m.weak_topic ? `<br><span style="font-size:11px; color:#f87171;">🎯 Weak: ${m.weak_topic}</span> <span style="font-size:11px; color:#64748b;">· ${m.accuracy}% acc</span>` : ''}</td>
-          <td>${m.district || '—'}</td>
-          <td><span class="category-tag">${m.exam || '—'}</span></td>
+          <td><b>${esc(m.name)}</b>${m.weak_topic ? `<br><span style="font-size:11px; color:#f87171;">🎯 Weak: ${esc(m.weak_topic)}</span> <span style="font-size:11px; color:#64748b;">· ${m.accuracy}% acc</span>` : ''}</td>
+          <td>${esc(m.district || '—')}</td>
+          <td><span class="category-tag">${esc(m.exam || '—')}</span></td>
           <td style="color:var(--warning); font-weight:800; font-size:14px;">🏆 ${m.points}</td>
           <td>🔥 ${m.streak || 1}d</td>
           <td>${m.college || '—'}</td>
@@ -7899,7 +8242,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Set-Cookie", f"su_auth={tok}; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax")
+        _secure = "; Secure" if (self.headers.get("X-Forwarded-Proto") == "https"
+                                 or _public_base(self).startswith("https://")) else ""
+        self.send_header("Set-Cookie", f"su_auth={tok}; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax{_secure}")
         self.end_headers()
         self.wfile.write(body)
 
@@ -7913,9 +8258,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
             pass
         return body, None
 
+    def _sec_headers(self):
+        # 🛡️ 240X SECURITY HEADERS (baseline): MIME-sniff block,
+        # clickjacking (same-origin framing matrame — preview /
+        # Telegram webview direct navigation ki effect ledu),
+        # referrer hygiene. HSTS production-https venaka enable.
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "SAMEORIGIN")
+        self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
+
     def _send_text(self, body_text, code=200, ctype="text/plain; charset=utf-8"):
         body, enc = self._gz(body_text.encode("utf-8"))
         self.send_response(code)
+        self._sec_headers()
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         if enc:
@@ -7932,12 +8287,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
             code = 500
         body, enc = self._gz(raw.encode("utf-8"))
         self.send_response(code)
+        self._sec_headers()
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         if enc:
             self.send_header("Content-Encoding", enc)
             self.send_header("Vary", "Accept-Encoding")
-        self.send_header("Access-Control-Allow-Origin", "*")
+        # 🔒 280X (F7): allowlist CORS — echo only trusted origins.
+        _co280 = _cors_origin(self.headers.get("Origin", ""))
+        if _co280:
+            self.send_header("Access-Control-Allow-Origin", _co280)
+            self.send_header("Vary", "Origin")
         self.end_headers()
         self.wfile.write(body)
 
@@ -7955,6 +8315,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 return
             body, enc = self._gz(html.encode("utf-8"))
             self.send_response(200)
+            self._sec_headers()
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
             self.send_header("ETag", tag)
@@ -7974,6 +8335,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_header("Vary", "Accept-Encoding")
         self.end_headers()
         self.wfile.write(body)
+
+    def do_OPTIONS(self):
+        # 🔒 280X (F7): preflight answered ONLY for allowlisted origins.
+        _co280 = _cors_origin(self.headers.get("Origin", ""))
+        self.send_response(204 if _co280 else 403)
+        if _co280:
+            self.send_header("Access-Control-Allow-Origin", _co280)
+            self.send_header("Vary", "Origin")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Access-Control-Max-Age", "600")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def do_GET(self):
         try:
@@ -8004,7 +8378,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         # 📱 PWA assets — login అవసరం లేదు (browser install కోసం), IP lock apply అవుతుంది
         if p.path == "/sw.js":
             self._send_text(
-                "const C='studentup-v4';"
+                "const C='studentup-v5';"
                 "self.addEventListener('install',e=>{self.skipWaiting();"
                 "e.waitUntil(caches.open(C).then(c=>c.addAll(['/portal','/','/icon.svg','/manifest.json'])))});"
                 "self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});"
@@ -8127,6 +8501,70 @@ class DashboardHandler(BaseHTTPRequestHandler):
             query = urllib.parse.parse_qs(p.query)
             sy = portal.syllabus_plan(Members(), query.get("token", [""])[0])
             self._send_json({"ok": sy is not None, **(sy or {"error": "syllabus ready ledu"})})
+            return
+        if p.path == "/api/portal/district":
+            query = urllib.parse.parse_qs(p.query)
+            dd = portal.district_deep(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": dd is not None, **(dd or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/revision":
+            query = urllib.parse.parse_qs(p.query)
+            rp = portal.revision_planner(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": rp is not None, **(rp or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/rank2":
+            query = urllib.parse.parse_qs(p.query)
+            rk = portal.rank_predict(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": rk is not None, **(rk or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/materials":
+            query = urllib.parse.parse_qs(p.query)
+            mc = portal.materials_catalog(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": mc is not None, **(mc or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/st270":
+            # 🔐 270X: portable shared-host bundle for one Stateless token.
+            # (student-carried HMAC state; zero server student storage)
+            # Signed claims verify locally; dashboard cookie
+            # not required because the student token itself proves.
+            query = urllib.parse.parse_qs(p.query)
+            _tok270 = query.get("token", [""])[0]
+            try:
+                from core import stateless_client as _sl270
+                _view270 = _sl270.public_view(_tok270)
+            except Exception:
+                _view270 = None
+            if not _view270:
+                self._send_json({"ok": False,
+                                 "error": "invalid/expired token"},
+                                code=401)
+                return
+            self._send_json({"ok": True, "stateless": True,
+                             **_view270})
+            return
+        if p.path == "/api/portal/materials_suggest":
+            query = urllib.parse.parse_qs(p.query)
+            ms = portal.materials_suggest(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": ms is not None, **(ms or {"error": "session expired"})})
+            return
+        if p.path == "/api/portal/material_file":
+            query = urllib.parse.parse_qs(p.query)
+            data, fname = portal.materials_file(Members(), query.get("token", [""])[0], query.get("id", [""])[0])
+            if not data:
+                self._send_json({"ok": False, "error": "file ready ledu / unlock cheyyaledu"}, code=404)
+                return
+            ctype = "application/pdf" if fname.lower().endswith(".pdf") else "application/octet-stream"
+            self.send_response(200)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Disposition", "attachment; filename=" + fname)
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
+        if p.path == "/api/portal/score_intel":
+            query = urllib.parse.parse_qs(p.query)
+            si = portal.score_intelligence(Members(), query.get("token", [""])[0])
+            self._send_json({"ok": si is not None, **(si or {"error": "session expired"})})
             return
         if p.path == "/api/portal/coach":
             query = urllib.parse.parse_qs(p.query)
@@ -8957,13 +9395,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._deny_ip(is_api=True)
             return
 
-        length = int(self.headers.get("Content-Length", 0))
+        try:
+            length = int(self.headers.get("Content-Length", 0) or 0)
+        except Exception:
+            length = 0
+        if length > 5_000_000:      # 🛡️ 240X: payload cap (DoS hygiene)
+            self._send_json({"ok": False, "error": "payload too large"}, code=413)
+            return
         body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
 
         # 🔒 Access lock
         if p.path == "/api/auth/login":
             pw = str(body.get("password", ""))
-            if pw and pw == _dash_password():
+            if pw and hmac.compare_digest(pw, _dash_password()):
                 _log_login_attempt(self._client_ip(), True)
                 self._issue_login_cookie()
             else:
@@ -9101,6 +9545,36 @@ class DashboardHandler(BaseHTTPRequestHandler):
                                          kind=str(body.get("kind") or "mock"))
             self._send_json({"ok": ok, **(info if ok else {"error": info})})
             return
+        if p.path == "/api/portal/materials_unlock":
+            uok, umsg = portal.materials_unlock(Members(), str(body.get("token") or ""), str(body.get("id") or ""))
+            self._send_json({"ok": uok, "message": umsg})
+            return
+        if p.path == "/api/admin/harvest_run":
+            if not self._authed():
+                self._send_json({"ok": False, "error": "admin login kavali"}, code=401)
+                return
+            # 🚜 230X: run top bank-gap harvest target. Production =
+            # real PYQ harvest; SANDBOX/CI env forces dry (no downloads).
+            _dry = bool(os.environ.get("STUDYUP_SANDBOX") or os.environ.get("CI"))
+            res = portal.run_harvest_job(dry=_dry, limit_jobs=1)
+            _t = (res or [{}])[0]
+            self._send_json({"ok": True, "dry": _dry, "job": _t,
+                             "message": ("🚜 Harvest target: " + str(_t.get("channel", "?")) +
+                                         " · " + str(_t.get("subject", "")) +
+                                         (" (DRY — sandbox)" if _dry else " — production run started"))})
+            return
+        if p.path == "/api/admin/materials_add":
+            if not self._authed():
+                self._send_json({"ok": False, "error": "admin login kavali"}, code=401)
+                return
+            item = portal.materials_add(Members(), str(body.get("title") or ""),
+                                        str(body.get("file") or ""),
+                                        str(body.get("goal") or "all"),
+                                        str(body.get("topic") or ""),
+                                        str(body.get("subject") or ""),
+                                        int(body.get("cost") or 0))
+            self._send_json({"ok": True, "item": item})
+            return
         if p.path == "/api/portal/bookmark":
             ok, info = portal.bookmark_toggle(Members(), body.get("token", ""),
                                               body.get("qid", ""))
@@ -9133,6 +9607,77 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": True, **info})
             else:
                 self._send_json({"ok": False, "error": info})
+            return
+        if p.path == "/api/portal/st270/register":
+            if not self._rate_ok("sl270-reg:" + self._client_ip(), 12, 600):
+                self._send_json({"ok": False, "error": "Chala sarlu try chesaru — koncham aagi malli try cheyyandi."}, code=429)
+                return
+            try:
+                from core import stateless_client as _sl270
+                _tok270, _err270 = _sl270.register_student(
+                    body.get("name", ""), body.get("phone", ""),
+                    body.get("district", ""), body.get("goal", "mixed"))
+            except Exception as _ex270:
+                _tok270, _err270 = None, str(_ex270)
+            self._send_json({"ok": bool(_tok270), "stateless": True,
+                             "token": _tok270, "stoken": _tok270,
+                             **({"error": _err270} if _err270 else {})})
+            return
+        if p.path == "/api/portal/st270/answer":
+            try:
+                from core import stateless_client as _sl270
+                _nt270, _res270 = _sl270.record_answer(
+                    body.get("stoken") or body.get("token", ""),
+                    body.get("qid", ""),
+                    body.get("choice", -1),
+                    idx=int(body.get("idx") or body.get("i") or 0)
+                    )
+            except Exception as _ex270:
+                _nt270, _res270 = None, {"ok": False, "error": str(_ex270)}
+            self._send_json({**(_res270 or {}), "stateless": True,
+                             "token": _nt270, "stoken": _nt270})
+            return
+        if p.path == "/api/portal/st270/claims":
+            # 🧾 270X: verify a server-signed claim (verify-only; claims
+            # are ISSUED server-side after contests — never from here).
+            try:
+                from core import stateless_client as _sl270
+                _v270 = _sl270.verify_claim(
+                    str(body.get("claim") or ""),
+                    want_kind=(str(body.get("kind") or "") or None))
+            except Exception:
+                _v270 = None
+            self._send_json({"ok": _v270 is not None, "stateless": True,
+                             "claim": _v270})
+            return
+        if p.path == "/api/portal/st270/attempt/start":
+            try:
+                from core import stateless_client as _sl270
+                _at270, _info270 = _sl270.start_attempt(
+                    body.get("stoken") or body.get("token", ""))
+            except Exception as _ex270:
+                _at270, _info270 = None, str(_ex270)
+            if not _at270:
+                self._send_json({"ok": False,
+                                 "error": _info270 or "invalid token"},
+                                code=401)
+                return
+            self._send_json({"ok": True, "stateless": True,
+                             "attempt_token": _at270, "atoken": _at270,
+                             **(_info270 or {})})
+            return
+        if p.path == "/api/portal/st270/attempt/submit":
+            try:
+                from core import stateless_client as _sl270
+                _nt270, _res270 = _sl270.submit_attempt(
+                    body.get("stoken") or body.get("token", ""),
+                    body.get("atoken") or body.get("attempt_token", ""),
+                    body.get("answers") or {})
+            except Exception as _ex270:
+                _nt270, _res270 = None, {"ok": False,
+                                         "error": str(_ex270)}
+            self._send_json({**(_res270 or {}), "stateless": True,
+                             "token": _nt270, "stoken": _nt270})
             return
         if not self._authed():
             self._send_json({"ok": False, "error": "unauthorized — login required"}, code=401)
