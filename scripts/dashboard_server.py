@@ -2493,14 +2493,22 @@ async function loadStateHub() {
       '<p style="margin-top:10px;"><b>' + (st.state === 'Telangana' ? '🟢' : '🔵') + ' ' + esc(st.state) + '</b></p>' +
       st.exams.map(e =>
         '<div class="rrow"><b>' + esc(e.label) + '</b> <span class="muted">' + e.total + ' Q · PYQ ' + e.pyq + '</span>' +
+        (e.papers_count ? ' <span class="chip">📜 ' + e.papers_count + ' paper sets · ' + e.papers_questions + ' Q</span>' : '') +
         (e.gap_total > 0 ? ' <span class="chip" style="border-color:#f59e0b; color:#f59e0b;">📈 +' + e.gap_total + ' stock kavali</span>' : ' <span class="chip gold">✅ Stock ready</span>') + '<br>' +
         '<button class="btn-alt" style="width:auto; margin-top:5px;" onclick="startMock(\'' + e.goal + '\')">🎯 Mock Test</button> ' +
+        (e.papers || []).slice(0, 2).map(p2 =>
+          '<button class="btn-alt" style="width:auto; margin-top:5px;" onclick="startPaper(\'' + esc(p2.exam) + '\',\'' + esc(p2.year || '') + '\',\'' + esc(p2.paper || '') + '\')">📜 ' + esc(p2.label) + ' (' + p2.count + ')</button>').join(' ') + ' ' +
         (e.subjects || []).filter(s2 => s2.count >= 3).slice(0, 4).map(s2 =>
           '<button class="btn-alt" style="width:auto; margin-top:5px;" onclick="startPractice(\'section\', \'' + s2.subject + '\', \'' + e.goal + '\')">🧩 ' + esc(subNames[s2.subject] || s2.subject) + '</button>').join(' ') +
         '</div>').join('')
     ).join('') +
-    '<p class="muted" style="margin-top:10px;">🎓 Board Exams: ' +
-      (d.academic || []).filter(a => a.total > 0).map(a => esc(a.label) + ' (' + a.total + ')').join(' · ') + '</p>';
+    '<p style="margin-top:10px;"><b>🎓 Board Exams — Subject Tests (420X)</b></p>' +
+    (d.academic || []).filter(a => a.total > 0).map(a =>
+      '<div class="rrow"><b>' + esc(a.label) + '</b> <span class="muted">' + a.total + ' Q</span><br>' +
+      '<button class="btn-alt" style="width:auto; margin-top:5px;" onclick="startPractice(\'board\', \'\', \'' + a.channel + '\')">🎓 Full Board Test</button> ' +
+      (a.subjects || []).map(s2 =>
+        '<button class="btn-alt" style="width:auto; margin-top:5px;" onclick="startPractice(\'board\', \'' + esc(s2.subject) + '\', \'' + a.channel + '\')">🧩 ' + esc(s2.subject) + ' (' + s2.count + ')</button>').join(' ') +
+      '</div>').join('');
   } catch (e) { box.innerHTML = '<p class="muted">Hub load avvaledu.</p>'; }
 }
 

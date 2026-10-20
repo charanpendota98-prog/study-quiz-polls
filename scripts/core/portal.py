@@ -11,6 +11,7 @@ College exams are NEVER listed here — they stay private via code/link.
 import atexit
 import json
 import random
+import re
 import secrets
 import threading
 import time
@@ -111,6 +112,28 @@ def state_hub():
     for q in pool:
         by_channel.setdefault(q.get("channel") or "", []).append(q)
 
+    try:
+        _catalog = paper_catalog()
+    except Exception:
+        _catalog = []
+
+    def _papers_for(goal, chans):
+        # 📜 410X: exam's own paper sets (state hub one-tap attempt).
+        # Strict: exam-key hit + a core channel hit (generic
+        # CURRENT-only sets never leak into a specific exam).
+        keys = GOAL_EXAM_KEYS.get(goal) or ()
+        core = {c for c in (chans or []) if c != "CURRENT"}
+        out = []
+        for row in _catalog:
+            examtxt = f"{row.get('exam', '')} {row.get('label', '')}".lower()
+            key_hit = (not keys) or any(k.lower() in examtxt for k in keys)
+            chan_hit = bool(core & set(row.get("channels") or []))
+            if key_hit and chan_hit:
+                out.append({k: row.get(k, "") for k in
+                            ("exam", "year", "paper", "label",
+                             "count", "size")})
+        return out
+
     def _exam(goal):
         g = GOALS.get(goal) or {}
         chans = g.get("channels") or []
@@ -121,12 +144,17 @@ def state_hub():
             subs[s] = subs.get(s, 0) + 1
         tt, tp = _HUB_TARGETS.get(goal, (100, 25))
         n_pyq = sum(1 for q in qs if q.get("source") == "pyq")
+        papers = _papers_for(goal, chans)
         return {"goal": goal, "label": g.get("label", goal),
                 "total": len(qs),
                 "pyq": n_pyq,
                 "target": {"total": tt, "pyq": tp},
                 "gap_total": max(0, tt - len(qs)),
                 "gap_pyq": max(0, tp - n_pyq),
+                # 📜 410X: previous-paper sets (top 3 + totals)
+                "papers_count": len(papers),
+                "papers_questions": sum(r["count"] for r in papers),
+                "papers": papers[:3],
                 "subjects": [{"subject": s, "count": n}
                              for s, n in sorted(subs.items(),
                                                 key=lambda kv: -kv[1])[:6]]}
@@ -134,10 +162,36 @@ def state_hub():
     return {
         "states": [{"state": name, "exams": [_exam(g) for g in goals]}
                    for name, goals in _STATE_HUB_GOALS],
-        "academic": [{"channel": ch, "label": label,
-                      "total": len(by_channel.get(ch, []))}
+        "academic": [_academic_row(ch, label, by_channel)
                      for ch, label in _ACADEMIC_HUB],
     }
+
+
+def _subj_base(topic) -> str:
+    """Board topic 'Physics — Thermodynamics' -> 'Physics'.
+    Only the top subjects are shown as hub buttons — the total
+    stays the FULL channel count (subjects list is a top-6 view,
+    so its counts can sum below total; never fake equality)."""
+    return re.split(r"\s+[—–-]\s+", str(topic or ""), maxsplit=1)[0].strip()
+
+
+def _academic_row(ch, label, by_channel) -> dict:
+    # 🎓 420X: board subject tests — topics grouped per channel.
+    try:
+        from .question_bank import load_academic_questions
+        items = [q for q in load_academic_questions()
+                 if q.get("channel") == ch]
+    except Exception:
+        items = by_channel.get(ch, [])
+    subs = {}
+    for q in items:
+        s = _subj_base(q.get("topic"))
+        if s:
+            subs[s] = subs.get(s, 0) + 1
+    return {"channel": ch, "label": label, "total": len(items),
+            "subjects": [{"subject": s, "count": n}
+                         for s, n in sorted(subs.items(),
+                                            key=lambda kv: -kv[1])[:6]]}
 
 
 def _now():
@@ -1957,6 +2011,30 @@ def practice_start(members, token, mode="smart", topic="", goal=""):
         if pool:
             picked = random.Random(secrets.token_hex(4)).sample(
                 pool, min(10, len(pool)))
+    if not picked and mode == "board":
+        # 🎓 420X: TS/AP board subject tests (10th/Inter/Diploma/
+        # B.Tech). goal = academic channel (TS_INTER ...), topic =
+        # subject base ('Physics'). STRICT: no matching board
+        # stock -> honest error, never a mixed-bank fallback.
+        chan = (goal or "").strip().upper()
+        if chan not in {c for c, _l in _ACADEMIC_HUB}:
+            return False, ("Board test kosam valid board channel "
+                           "ivvandi (TS_10TH / AP_INTER / TS_BTECH ...).")
+        try:
+            from .question_bank import load_academic_questions
+            items = [q for q in load_academic_questions()
+                     if q.get("channel") == chan]
+        except Exception:
+            items = []
+        if topic:
+            items = [q for q in items
+                     if _subj_base(q.get("topic")).lower()
+                     == topic.strip().lower()]
+        if not items:
+            return False, (f"{chan} {topic or ''} ki inka board "
+                           "questions levu — vere subject try cheyyandi.")
+        picked = random.Random(secrets.token_hex(4)).sample(
+            items, min(10, len(items)))
     if not picked and mode == "section":
         # 🧩 Sectional test: subject (gk/quant/reasoning/english) wise
         try:

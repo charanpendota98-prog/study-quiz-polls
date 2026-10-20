@@ -700,3 +700,45 @@ Q: What is the main purpose of normalization in a database?
 - D: To slow down queries (ప్రశ్నలు నెమ్మది చేయడం)
 Explanation: Normalization organizes tables to reduce redundancy and avoid insertion, deletion and update anomalies.
 Exam: AP B.Tech CSE
+
+## Channel: TS_INTER
+### Topic: Mathematics — Quadratic Equations
+Q: If alpha and beta are the roots of x^2 - 5x + 6 = 0, then alpha + beta is?
+⤷ x^2 - 5x + 6 = 0 యొక్క మూలాలు alpha, beta అయితే alpha + beta ఎంత?
+- A: 5 [correct]
+- B: -5
+- C: 6
+- D: -6
+Explanation: For x^2 - 5x + 6 = 0, sum of roots = -b/a = 5.
+Exam: TS Inter Mathematics
+
+### Topic: Physics — Motion in a Straight Line
+Q: A body starts from rest and moves with uniform acceleration 2 m/s^2. Its velocity after 5 seconds is?
+⤷ విశ్రాంతి నుండి బయలుదేరి 2 m/s^2 ఏకరీతి త్వరణంతో కదిలే వస్తువు 5 సెకన్ల తరువాత వేగం ఎంత?
+- A: 2.5 m/s
+- B: 5 m/s
+- C: 10 m/s [correct]
+- D: 25 m/s
+Explanation: v = u + at = 0 + 2 * 5 = 10 m/s.
+Exam: TS Inter Physics
+
+## Channel: AP_INTER
+### Topic: Chemistry — Atomic Structure
+Q: What is the maximum number of electrons that can be accommodated in the third shell (n = 3) of an atom?
+⤷ పరమాణువు మూడవ కక్ష్య (n = 3) లో గరిష్టంగా ఎన్ని ఎలక్ట్రాన్లు ఉండగలవు?
+- A: 8
+- B: 18 [correct]
+- C: 32
+- D: 2
+Explanation: Maximum electrons in shell n = 2n^2; for n = 3, 2 * 9 = 18.
+Exam: AP Inter Chemistry
+
+### Topic: Botany — Plant Physiology
+Q: Which plant hormone is mainly responsible for cell elongation in shoots?
+⤷ కాండాలలో కణ విస్తరణకు ప్రధానంగా బాధ్యత వహించే మొక్క హార్మోన్ ఏది?
+- A: Abscisic acid (అబ్సిసిక్ ఆమ్లం)
+- B: Ethylene (ఇథిలీన్)
+- C: Auxin (ఆక్సిన్) [correct]
+- D: Cytokinin (సైటోకినిన్)
+Explanation: Auxins promote cell elongation in shoot tips and are involved in phototropism.
+Exam: AP Inter Botany

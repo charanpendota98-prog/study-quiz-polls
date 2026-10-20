@@ -377,3 +377,29 @@ executes standalone-clean (14 checks; the only sandbox fail is
 BOT_TOKEN, by design). `tests/test_advanced400.py` (10) pins
 the whole deploy contract. Suite **945 OK** · finalize
 PASSED.
+
+---
+
+## ADDENDUM — 410X/420X (TS & AP Exam Hub 2.0)
+
+The public/`?go=hub` surface had a hub in name but two dead
+ends. (1) Hubs showed counts and subject chips yet hid the
+exam's own previous papers: `state_hub` now attaches the
+paper-catalog sets each exam actually owns — strict matching
+(exam-key hit + core-channel hit) so RRB, IBPS and generic
+CURRENT-only sets cannot leak into a TSPSC/APPSC row — with
+honest totals and one-tap `startPaper` buttons (410X). (2)
+Board exams were a static stock line nothing could start:
+academic stock now carries subjects per board channel, the
+hub renders Full Board Test + subject chips, and
+`practice_start(mode="board", goal=CHANNEL, topic=subject)` —
+a strict new mode that samples only that channel's academic
+stock through the normal practice/answer engine and returns
+honest errors for unknown channels/subjects instead of a
+mixed-bank fallback. Stock also grew where tests need depth:
+TS and AP Inter 6→8 questions each (new Maths/Physics/
+Chemistry/Botany items, answers pinned); 340X's exact-count
+assertions were updated to the growth contract. `tests/
+test_advanced410.py` (5) and `test_advanced420.py` (6) pin
+ownership, totals, starts and strictness. Suite **960 OK** ·
+finalize PASSED.
