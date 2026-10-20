@@ -1,0 +1,25 @@
+# StudentUp — quiz.studentup.in (400X deploy)
+# Caddy = automatic HTTPS (Let's Encrypt). Install: see docs/GO_LIVE_400X.md
+# Prerequisite: DNS `quiz` A record -> this VM *before* first start
+# (Caddy proves domain ownership over port 80).
+
+quiz.studentup.in {
+	# The dashboard/portal binds 127.0.0.1:5000 on the VM.
+	reverse_proxy 127.0.0.1:5000
+
+	# Long-lived student bursts: no proxy timeouts surprises.
+	# (App itself is ThreadingHTTPServer with a 256-deep queue.)
+
+	encode gzip
+
+	log {
+		output file /var/log/caddy/studentup.log
+	}
+}
+
+# exam/app/portal subdomains (160X): all open the same portal.
+# Uncomment AFTER their A records point at this VM:
+# exam.studentup.in, app.studentup.in, portal.studentup.in {
+# 	reverse_proxy 127.0.0.1:5000
+# 	encode gzip
+# }

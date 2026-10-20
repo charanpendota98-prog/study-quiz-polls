@@ -9,6 +9,12 @@
 #   bash scripts/deploy.sh                 # validate + print next steps
 #   DEPLOY_DIR=/opt/studentup bash scripts/deploy.sh --install
 #   bash scripts/deploy.sh --systemd       # also install systemd units (sudo)
+#
+# 400X: --systemd installs the FULL live stack:
+#   studentup (scheduler) · studentup-bot (interactive bot,
+#   390X paper intake) · studentup-dashboard (portal :5000) ·
+#   studentup-webhook (form webhook :8080)
+# and step [3b] restores the generated bank on fresh checkouts.
 # ============================================================================
 set -euo pipefail
 
@@ -64,6 +70,14 @@ else
 fi
 [ -f "$DEPLOY_DIR/env/.env" ] && chmod 600 "$DEPLOY_DIR/env/.env" || true
 
+# 3b) 400X: restore the generated bank on fresh checkouts/VMs
+# (data/question_bank.json is generated state — tracked canonical
+# sources alone rebuild only the floor; bank_restore tops channels
+# up offline, honestly labelled. Idempotent: safe on every deploy.)
+echo "[3b] Bank restore (400X)…"
+cd "$DEPLOY_DIR/scripts"
+$PY bank_restore.py || echo "  (bank restore note — finalize gate below decides)"
+
 # 4) Rebuild + validate the question bank
 echo "[4/6] Validation gate…"
 cd "$DEPLOY_DIR/scripts"
@@ -94,11 +108,13 @@ if [ "${1:-}" = "--systemd" ]; then
        "$DEPLOY_DIR/deploy/studentup-bot.service" > /etc/systemd/system/studentup-bot.service
   sudo sed "s#/home/ubuntu/studentup#$DEPLOY_DIR#g; s#^User=ubuntu#User=$USER#" \
        "$DEPLOY_DIR/deploy/studentup-webhook.service" > /etc/systemd/system/studentup-webhook.service
+  sudo sed "s#/home/ubuntu/studentup#$DEPLOY_DIR#g; s#^User=ubuntu#User=$USER#" \
+       "$DEPLOY_DIR/deploy/studentup-dashboard.service" > /etc/systemd/system/studentup-dashboard.service
   sudo systemctl daemon-reload
   sudo systemctl enable --now studentup.service studentup-bot.service
-  sudo systemctl enable --now studentup-webhook.service
-  sudo systemctl restart studentup.service
-  echo "  services installed + started (scheduler, bot, webhook)"
+  sudo systemctl enable --now studentup-webhook.service studentup-dashboard.service
+  sudo systemctl restart studentup.service studentup-dashboard.service
+  echo "  services installed + started (scheduler, bot, webhook, dashboard/portal)"
 else
   echo "[6/6] systemd not touched. To install:"
   echo "    sudo bash $DEPLOY_DIR/scripts/deploy.sh --systemd"
