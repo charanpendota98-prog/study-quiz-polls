@@ -226,6 +226,32 @@ for _k, _v in CHANNELS.items():
     _v.setdefault("key", _k)
 PUBLIC_CHANNELS = [k for k, v in CHANNELS.items() if v["public"] and k != "JOBS"]
 
+# 430X: channels defined statically in this file. Runtime CUSTOM channels
+# (channel_router.register_channel — dashboard/bulk imports) are mounted
+# into CHANNELS/PUBLIC_CHANNELS later; they carry base_exam and INHERIT
+# the base exam's question stock + paper blueprint instead of pretending
+# to own a bank of their own.
+BASE_CHANNEL_KEYS = frozenset(CHANNELS.keys())
+
+
+def bank_channel_of(key: str) -> str:
+    """Resolve a channel to the channel whose BANK it draws from.
+
+    Base channels resolve to themselves; a custom channel resolves
+    through its base_exam chain (bounded, cycle-safe). Unknown keys pass
+    through unchanged so honest empty pools stay empty.
+    """
+    seen = set()
+    k = key
+    while k and k not in seen:
+        seen.add(k)
+        info = CHANNELS.get(k) or {}
+        base = info.get("base_exam")
+        if not base or base == k or base not in CHANNELS:
+            return k
+        k = base
+    return k
+
 
 def channel_chat_id(key: str) -> str:
     """

@@ -254,6 +254,31 @@ def _golive_checks():
         checks.append({
             "name": "Daily publish draft (310X)", "status": "warn",
             "detail": f"draft check run avvaledu: {_e310}"})
+    # 📜 430X: Paper Factory readiness — approved papers in the
+    # scraped bank + drafts waiting (strict: TE-pending never counts).
+    try:
+        from core import paperfactory as _pf430
+        _banked430 = 0
+        try:
+            from core.store import load_json as _lj430
+            _sb430 = _lj430(config.DATA / "scraped_bank.json",
+                            {"questions": []})
+            _banked430 = len(_sb430.get("questions") or [])
+        except Exception:
+            _banked430 = 0
+        _drafts430 = _pf430.list_drafts()
+        _open430 = [x for x in _drafts430 if x.get("status") == "draft"]
+        _pend430 = sum(x.get("needs_translation") or 0 for x in _open430)
+        checks.append({
+            "name": "Paper Factory (430X)",
+            "status": "warn" if _open430 else "ok",
+            "detail": (f"{_banked430} approved paper questions banked · "
+                       f"{len(_open430)} drafts open"
+                       + (f" · {_pend430} Telugu pending (bank avvalevu)"
+                          if _pend430 else ""))})
+    except Exception as _e430:
+        checks.append({"name": "Paper Factory (430X)", "status": "warn",
+                       "detail": f"paper factory check run avvaledu: {_e430}"})
     try:
         from core import portal as _p340
         _hub340 = _p340.state_hub()

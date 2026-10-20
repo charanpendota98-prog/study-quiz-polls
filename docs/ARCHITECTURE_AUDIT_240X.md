@@ -403,3 +403,28 @@ assertions were updated to the growth contract. `tests/
 test_advanced410.py` (5) and `test_advanced420.py` (6) pin
 ownership, totals, starts and strictness. Suite **960 OK** ·
 finalize PASSED.
+
+---
+
+## ADDENDUM — 430X (Go-Live Paper Factory + Custom-Channel Inheritance)
+
+Two tails closed. (1) The go-live card knew nothing about
+the Paper Factory: `_golive_checks` now reports approved
+scraped-bank questions, open drafts and Telugu-pending items
+as a 15th check (Telugu-pending is never counted as banked;
+an open draft warns, fail-soft on any factory error).
+(2) Root-caused a latent crash the suite exposed: importing
+`channel_router` (dashboard, WhatsApp pipeline) mounts every
+operator-created channel from `data/custom_channels.json`
+into `config.PUBLIC_CHANNELS`, but those channels owned no
+bank rows and no blueprint — the daily engine could send
+empty rounds for them and the two every-public-channel test
+invariants broke depending on import order. Custom channels
+now INHERIT: `config.bank_channel_of()` resolves a custom channel through
+its `base_exam` chain, `Bank.by_channel` draws the base
+exam's stock, and `blueprint.compose_round` falls back to
+the base exam's paper blueprint. The stock/blueprint/
+options-format invariants now pin the statically defined
+base channels (`config.BASE_CHANNEL_KEYS`), with the
+inheritance itself pinned in `tests/test_advanced430.py`
+(5 tests). Suite **965 OK** · finalize PASSED.

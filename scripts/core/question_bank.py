@@ -313,6 +313,9 @@ class Bank:
         self._sig_set = set(self.shown_sigs.get("sigs", []))
 
     def by_channel(self, channel: str):
+        # 430X: custom channels draw their base exam's stock
+        # (config.bank_channel_of) — never an empty pretend-bank.
+        channel = config.bank_channel_of(channel)
         return [q for q in self.questions if q.get("channel") == channel]
 
     def unused(self, channel: str):

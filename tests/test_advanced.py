@@ -128,7 +128,13 @@ class TestBlueprint(unittest.TestCase):
 
     def test_blueprint_loaded_for_every_public_channel(self):
         bp = blueprint.blueprint()
+        # 430X: runtime CUSTOM channels inherit their base exam's
+        # blueprint/stock (config.bank_channel_of) instead of owning
+        # one — the every-channel-has-a-blueprint invariant therefore
+        # covers the statically defined base channels.
         for ch in config.PUBLIC_CHANNELS:
+            if ch not in config.BASE_CHANNEL_KEYS:
+                continue
             self.assertIn(ch, bp["channels"], ch)
             self.assertAlmostEqual(sum(bp["channels"][ch]["weights"].values()), 1.0, places=2)
 

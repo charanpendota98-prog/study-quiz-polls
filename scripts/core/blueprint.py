@@ -162,7 +162,13 @@ def compose_round(channel: str, pool: list, n: int = 10, rng=None) -> list:
     """
     rng = rng or random.Random()
     bp = blueprint()
-    ch = (bp.get("channels") or {}).get(channel) or {}
+    chans = bp.get("channels") or {}
+    ch = chans.get(channel) or {}
+    if not ch:
+        # 430X: custom channels inherit their base exam's paper
+        # blueprint (channel_router base_exam) instead of silently
+        # degrading to a GK-only round.
+        ch = chans.get(config.bank_channel_of(channel)) or {}
     weights = ch.get("weights") or {"gk": 1.0}
     min_hard = float(ch.get("min_hard_share", 0.3))
     ramp = (bp.get("difficulty_ramp") or {}).get("positions") or []
