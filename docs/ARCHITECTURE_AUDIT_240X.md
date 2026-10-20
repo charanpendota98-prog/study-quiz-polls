@@ -349,3 +349,31 @@ mirroring translate_draft. `tests/test_advanced390.py` (5)
 pins sanitisation, the upload→translate→bank flow, reject
 finality, and honest junk-PDF errors. Suite **940 OK** ·
 finalize PASSED.
+
+---
+
+## ADDENDUM — 400X (go-live deploy perfection)
+
+Merging code is not going live: the deploy layer had four
+real defects that would only surface on the VM. (1) The
+dashboard systemd unit — the only process serving
+quiz.studentup.in — was never installed by deploy.sh;
+`--systemd` now installs all four units. (2) Units launched
+apps with `ExecStart=/usr/bin/python3 scripts/…` from a repo-root
+cwd; units now use absolute ExecStart and
+`WorkingDirectory=…/scripts` for every Python unit, matching
+how the apps resolve `env/.env` (config.ROOT = repo root —
+`scripts/env/.env` lookups could never find the real secrets
+file under the old layout). (3) deploy.sh never ran
+bank_restore: a fresh VM would have served the 321Q floor
+instead of the restored bank — step [3b] now restores on
+every deploy (idempotent). (4) The webhook unit hardcoded
+`WEBHOOK_SECRET=change-me`; secrets live only in `env/.env`.
+Also added: `deploy/Caddyfile` (quiz → 127.0.0.1:5000,
+automatic HTTPS; app port never public) and
+`docs/GO_LIVE_400X.md` — the ordered owner runbook
+(smoke-before-DNS, VM-side secrets only). `_golive_checks`
+executes standalone-clean (14 checks; the only sandbox fail is
+BOT_TOKEN, by design). `tests/test_advanced400.py` (10) pins
+the whole deploy contract. Suite **945 OK** · finalize
+PASSED.

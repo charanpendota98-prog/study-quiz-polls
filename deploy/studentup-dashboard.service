@@ -6,8 +6,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=ubuntu
-WorkingDirectory=/home/ubuntu/studentup
-ExecStart=/usr/bin/python3 scripts/dashboard_server.py
+WorkingDirectory=/home/ubuntu/studentup/scripts
+ExecStart=/usr/bin/python3 /home/ubuntu/studentup/scripts/dashboard_server.py
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1

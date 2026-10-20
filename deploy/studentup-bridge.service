@@ -6,8 +6,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=ubuntu
-WorkingDirectory=/home/ubuntu/studentup
-ExecStart=/usr/bin/node gateway/wa_bridge.js
+WorkingDirectory=/home/ubuntu/studentup/gateway
+ExecStart=/usr/bin/node /home/ubuntu/studentup/gateway/wa_bridge.js
 Restart=always
 RestartSec=5
 
