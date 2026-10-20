@@ -3747,6 +3747,17 @@ HTML_PAGE = """<!DOCTYPE html>
             <span id="pyq-import-msg" style="font-size:12px;"></span>
           </div>
         </details>
+        <details style="margin-top:10px;" open>
+          <summary style="cursor:pointer; font-size:13px; font-weight:700;">📄 Paper Factory Drafts (370X) — official papers, owner approve tharuvatha ne bank</summary>
+          <div class="muted" style="font-size:11px; margin-top:6px;">Server meeda paper file (PDF/TXT) path ichi draft cheyyandi — leda <code>python3 scripts/paper_factory.py make &lt;file&gt;</code>. Draft review: parsed/fresh counts + translation pending honest ga chupisthundi. ✅ Approve = bank loki (scraped_bank), ❌ Reject = draft close.</div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+            <input id="pf-path" placeholder="data/pdf_inbox/TSPSC 2023 Paper-I.pdf" style="flex:2; min-width:220px;">
+            <button class="btn btn-accent" onclick="makePaperDraft()">📄 Draft Cheyyandi</button>
+            <button class="btn btn-outline" onclick="loadPaperDrafts()">🔄 Drafts</button>
+          </div>
+          <div id="pf-list" style="font-size:12px; margin-top:8px; white-space:pre-line;"></div>
+          <div id="pf-msg" style="font-size:12px; margin-top:6px;"></div>
+        </details>
       </div>
 
       <div class="panel-card" style="margin-top:16px;">
@@ -6984,6 +6995,37 @@ All candidates must join today before 9:00 PM!"></textarea>
 
 
 
+    async function makePaperDraft() {
+      const msg = document.getElementById('pf-msg');
+      const path = document.getElementById('pf-path').value.trim();
+      if (!path) { msg.textContent = '⚠️ Paper file path ivvandi.'; return; }
+      try {
+        const d = await (await fetch('/api/papers/make', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({path})})).json();
+        msg.textContent = d.ok ? ('📄 Draft ready: ' + d.draft_id + ' · parsed ' + d.parsed + ' · fresh ' + d.fresh + ' · dup ' + d.duplicates + ' · 📝 translation pending ' + (d.needs_translation || 0)) : ('❌ ' + (d.error || 'failed'));
+        loadPaperDrafts();
+      } catch (e) { msg.textContent = '❌ ' + e; }
+    }
+    async function loadPaperDrafts() {
+      const box = document.getElementById('pf-list');
+      try {
+        const d = await fetch('/api/papers/drafts').then(r => r.json());
+        const rows = (d.drafts || []).map(x => {
+          const m = x.meta || {};
+          const acts = x.status === 'draft' ? ' <button class="btn btn-accent" onclick="paperDraftAct(\'approve\',\'' + x.id + '\')">✅ Approve→Bank</button> <button class="btn btn-outline" onclick="paperDraftAct(\'reject\',\'' + x.id + '\')">❌ Reject</button>' : '';
+          return '📄 ' + x.id + ' · ' + (m.exam || '?') + ' ' + (m.year || '') + ' ' + (m.paper || '') + ' · status: ' + x.status + ' · fresh ' + x.fresh + '/' + x.parsed + acts;
+        });
+        box.textContent = rows.length ? rows.join('\n') : 'Drafts levu — paina path ichi draft cheyyandi.';
+      } catch (e) { box.textContent = '❌ ' + e; }
+    }
+    async function paperDraftAct(act, id) {
+      const msg = document.getElementById('pf-msg');
+      const url = act === 'approve' ? '/api/papers/approve' : '/api/papers/reject';
+      try {
+        const d = await (await fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({draft_id: id})})).json();
+        msg.textContent = d.ok ? ('✅ ' + act + ' done · added ' + (d.added ?? '—') + ' · translation pending ' + (d.translation_pending ?? 0)) : ('❌ ' + (d.error || 'failed'));
+        loadPaperDrafts();
+      } catch (e) { msg.textContent = '❌ ' + e; }
+    }
     async function loadPyqStatus() {
       try {
         const d = await fetch('/api/pyq/status').then(r => r.json());
@@ -9295,6 +9337,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
                              "wp_url": wp_push.push_url()})
             return
 
+        if p.path == "/api/papers/drafts":
+            from core import paperfactory
+            self._send_json({"ok": True,
+                             "drafts": paperfactory.list_drafts()})
+            return
+
         if p.path == "/api/pyq/status":
             import collections as _c
             try:
@@ -10022,6 +10070,31 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
             _threading.Thread(target=_run_pyq, daemon=True).start()
             self._send_json({"ok": True, "started": True, "dry": dry})
+            return
+
+        if p.path == "/api/papers/make":
+            from core import paperfactory
+            from core import config as _cfg
+            raw = str(body.get("path", "")).strip()
+            pth = Path(raw) if raw else None
+            if pth is not None and not pth.is_absolute():
+                pth = _cfg.ROOT / raw
+            res = (paperfactory.make_draft(pth,
+                                            str(body.get("title", "")))
+                   if pth is not None else
+                   {"ok": False, "error": "path ivvandi"})
+            self._send_json(res)
+            return
+
+        if p.path == "/api/papers/approve":
+            from core import paperfactory
+            self._send_json(paperfactory.go_bank(body.get("draft_id", "")))
+            return
+
+        if p.path == "/api/papers/reject":
+            from core import paperfactory
+            self._send_json(paperfactory.reject_draft(
+                body.get("draft_id", "")))
             return
 
         if p.path == "/api/pyq/add_paper":
