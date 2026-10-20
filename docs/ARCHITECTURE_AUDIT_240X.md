@@ -420,8 +420,7 @@ into `config.PUBLIC_CHANNELS`, but those channels owned no
 bank rows and no blueprint — the daily engine could send
 empty rounds for them and the two every-public-channel test
 invariants broke depending on import order. Custom channels
-now INHERIT: `config.BANK_CHANNEL_OF`... precisely
-`config.bank_channel_of()` resolves a custom channel through
+now INHERIT: `config.bank_channel_of()` resolves a custom channel through
 its `base_exam` chain, `Bank.by_channel` draws the base
 exam's stock, and `blueprint.compose_round` falls back to
 the base exam's paper blueprint. The stock/blueprint/
