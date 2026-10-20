@@ -303,3 +303,26 @@ PYQ card → Paper Factory (path → draft → approve/reject) and
 `scripts/paper_factory.py` CLI. `tests/test_advanced370.py`
 (6) pins meta/parse/dedupe/translation-gate/reject. Suite
 **931 OK** · finalize PASSED (1480 Q, 0 errors).
+
+---
+
+## ADDENDUM — 380X (Paper Factory Pro: OCR + translation bridge)
+
+Two gaps closed on the 370X on-ramp. (1) **Scanned papers:**
+extraction gained an optional OCR layer (PyMuPDF render →
+PaddleOCR Telugu → Tesseract tel+eng, 30-page night-batch cap);
+with no OCR stack installed a text-less PDF honestly returns
+`ocr-needed` instead of crashing or faking text — installing
+`pymupdf` + an OCR engine on the VM enables it with zero code
+change. (2) **Translation bridge:** `translate_draft()` runs
+the exam-grade MCQ translator (whole-question unit, number-
+preservation gate in `translator.translate_mcq`) over a
+draft's pending questions; each success is re-validated and
+un-flagged so the next Approve banks it, each failure stays
+parked. Dashboard drafts now show 📝 TE pending counts with a
+🌐 Translate action (`/api/papers/translate`, login-locked
+like every owner route); CLI gains `translate <draft_id>`.
+`tests/test_advanced380.py` (4) pins ocr-needed honesty,
+translate→bank, broken-translator parking, and terminal-draft
+guards with a deterministic stub LLM. Suite **935 OK** ·
+finalize PASSED (1477 Q, 0 errors).

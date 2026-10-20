@@ -30,6 +30,7 @@ from . import config
 from .store import load_json, now_iso, save_json_atomic
 
 MAX_TEXT_CHARS = 2_000_000
+OCR_MAX_PAGES = 30          # night-batch safety cap for scanned papers
 
 _EXAM_HINTS = (
     ("tspsc", "TSPSC"), ("appsc", "APPSC"), ("ssc", "SSC"),
@@ -75,7 +76,116 @@ def extract_text(path) -> tuple:
     except Exception:
         pass  # not installed / failed -> native fallback
     from . import collector
-    return (collector.pdf_to_text(p) or "")[:MAX_TEXT_CHARS], "native"
+    text = (collector.pdf_to_text(p) or "")
+    if text.strip():
+        return text[:MAX_TEXT_CHARS], "native"
+    # 📷 Scanned/image paper (no text layer) -> optional OCR layer.
+    ocr_text, ocr_name = _ocr_pdf(p)
+    if ocr_text.strip():
+        return ocr_text[:MAX_TEXT_CHARS], ocr_name
+    return "", "ocr-needed"
+
+
+def _ocr_pdf(p) -> tuple:
+    """380X OCR layer for scanned papers. Engine order: PaddleOCR
+    (te_PP-OCRv5 class, best Telugu) -> Tesseract (tel+eng).
+    Pages rendered via PyMuPDF when present. Night-batch extra,
+    never a dependency: ANY failure -> ('', ''), never raises."""
+    try:
+        import fitz  # PyMuPDF
+        doc = fitz.open(str(p))
+    except Exception:
+        return "", ""
+    import tempfile
+    pngs = []
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            for i, page in enumerate(doc):
+                if i >= OCR_MAX_PAGES:
+                    break
+                fp = str(Path(td) / f"p{i}.png")
+                page.get_pixmap(dpi=200).save(fp)
+                pngs.append(fp)
+            if not pngs:
+                return "", ""
+            text = _ocr_paddle(pngs)
+            if text.strip():
+                return text, "ocr-paddle"
+            text = _ocr_tesseract(pngs)
+            if text.strip():
+                return text, "ocr-tesseract"
+    except Exception:
+        return "", ""
+    return "", ""
+
+
+def _ocr_paddle(pngs) -> str:
+    try:
+        from paddleocr import PaddleOCR
+    except Exception:
+        return ""
+    try:
+        try:
+            ocr = PaddleOCR(lang="te")
+        except Exception:
+            ocr = PaddleOCR(use_angle_cls=True, lang="te")
+        lines = []
+        for fp in pngs:
+            try:
+                res = ocr.ocr(fp)
+            except Exception:
+                res = ocr.predict(fp)
+            lines.extend(_paddle_lines(res))
+        return "\n".join(lines)
+    except Exception:
+        return ""
+
+
+def _paddle_lines(res) -> list:
+    """Extract text lines from PaddleOCR v2/v3 result shapes."""
+    out = []
+
+    def walk(x, depth=0):
+        if depth > 6:
+            return
+        if isinstance(x, dict):
+            for key in ("rec_texts", "texts"):
+                v = x.get(key)
+                if isinstance(v, list):
+                    out.extend(str(t) for t in v if str(t).strip())
+            for v in x.values():
+                if isinstance(v, (list, tuple, dict)):
+                    walk(v, depth + 1)
+        elif isinstance(x, (list, tuple)):
+            if (len(x) == 2 and isinstance(x[1], (list, tuple))
+                    and x[1] and isinstance(x[1][0], str)):
+                out.append(x[1][0])
+                return
+            for y in x:
+                walk(y, depth + 1)
+
+    walk(res)
+    return out
+
+
+def _ocr_tesseract(pngs) -> str:
+    try:
+        import pytesseract
+        from PIL import Image
+    except Exception:
+        return ""
+    parts = []
+    for fp in pngs:
+        try:
+            try:
+                parts.append(pytesseract.image_to_string(
+                    Image.open(fp), lang="tel+eng"))
+            except Exception:
+                parts.append(pytesseract.image_to_string(
+                    Image.open(fp), lang="eng"))
+        except Exception:
+            continue
+    return "\n".join(parts)
 
 
 def parse_questions(text: str, meta: dict, source_file: str = "") -> list:
@@ -191,8 +301,10 @@ def make_draft(path, title: str = "") -> dict:
     text, extractor = extract_text(p)
     if not text.strip():
         return {"ok": False, "error": "PDF nunchi text raledu "
-                "(scanned image PDF ayithe OCR kavali — 380X roadmap).",
-                "extractor": extractor, "meta": meta}
+                "(scanned image PDF ayithe OCR kavali — VM lo "
+                "paddleocr/pymupdf install cheste automatic).",
+                "extractor": extractor,
+                "ocr_needed": extractor == "ocr-needed", "meta": meta}
     qs = parse_questions(text, meta, title or p.name)
     from .question_bank import q_signature
     bank_sigs = _bank_signatures()
@@ -223,11 +335,64 @@ def make_draft(path, title: str = "") -> dict:
 
 def list_drafts() -> list:
     d = _load_drafts()
-    return [{"id": k, "file": v.get("file"), "status": v.get("status"),
-             "parsed": v.get("parsed", 0),
-             "fresh": len(v.get("questions") or []),
-             "meta": v.get("meta"), "created": v.get("created")}
-            for k, v in (d.get("drafts") or {}).items()]
+    out = []
+    for k, v in (d.get("drafts") or {}).items():
+        qs = v.get("questions") or []
+        pending = v.get("needs_translation")
+        if pending is None:
+            pending = sum(1 for q in qs if q.get("translation_pending"))
+        out.append({"id": k, "file": v.get("file"),
+                    "status": v.get("status"),
+                    "parsed": v.get("parsed", 0), "fresh": len(qs),
+                    "needs_translation": pending,
+                    "meta": v.get("meta"), "created": v.get("created")})
+    return out
+
+
+def translate_draft(draft_id: str, llm=None) -> dict:
+    """380X: run the exam-grade translator over a draft's pending
+    questions. A success is re-validated and un-flagged (so the
+    next go_bank banks it); a failure keeps the question parked —
+    never faked, never silently banked."""
+    d = _load_drafts()
+    draft = (d.get("drafts") or {}).get(draft_id)
+    if not draft:
+        return {"ok": False, "error": "Draft dorakaledu."}
+    if draft.get("status") in ("banked", "rejected"):
+        return {"ok": False,
+                "error": f"Draft {draft.get('status')} — "
+                         "translate avvadu."}
+    from .question_bank import validate_question
+    from .translator import translate_mcq
+    done = still = 0
+    for q in draft.get("questions") or []:
+        if not q.get("translation_pending"):
+            continue
+        try:
+            tx = translate_mcq(q.get("q_en", ""),
+                               q.get("options_en") or [],
+                               q.get("explanation_en", ""), llm)
+        except Exception:
+            tx = None
+        if tx:
+            cand = dict(q)
+            cand.update({"q_te": tx["q_te"],
+                         "options_te": tx["options_te"],
+                         "explanation_te": tx.get("explanation_te", "")})
+            cand.pop("translation_pending", None)
+            cand["needs_translation"] = False
+            if not validate_question(cand):
+                q.clear()
+                q.update(cand)
+                done += 1
+                continue
+        still += 1
+    draft["needs_translation"] = sum(
+        1 for q in draft.get("questions") or []
+        if q.get("translation_pending"))
+    save_json_atomic(_drafts_path(), d)
+    return {"ok": True, "draft_id": draft_id, "translated": done,
+            "still_pending": still}
 
 
 def go_bank(draft_id: str, by: str = "owner") -> dict:

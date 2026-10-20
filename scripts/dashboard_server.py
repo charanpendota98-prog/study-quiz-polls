@@ -7011,18 +7011,18 @@ All candidates must join today before 9:00 PM!"></textarea>
         const d = await fetch('/api/papers/drafts').then(r => r.json());
         const rows = (d.drafts || []).map(x => {
           const m = x.meta || {};
-          const acts = x.status === 'draft' ? ' <button class="btn btn-accent" onclick="paperDraftAct(\'approve\',\'' + x.id + '\')">✅ Approve→Bank</button> <button class="btn btn-outline" onclick="paperDraftAct(\'reject\',\'' + x.id + '\')">❌ Reject</button>' : '';
-          return '📄 ' + x.id + ' · ' + (m.exam || '?') + ' ' + (m.year || '') + ' ' + (m.paper || '') + ' · status: ' + x.status + ' · fresh ' + x.fresh + '/' + x.parsed + acts;
+          const acts = x.status === 'draft' ? ' <button class="btn btn-accent" onclick="paperDraftAct(\'approve\',\'' + x.id + '\')">✅ Approve→Bank</button>' + (x.needs_translation ? ' <button class="btn btn-outline" onclick="paperDraftAct(\'translate\',\'' + x.id + '\')">🌐 Translate</button>' : '') + ' <button class="btn btn-outline" onclick="paperDraftAct(\'reject\',\'' + x.id + '\')">❌ Reject</button>' : '';
+          return '📄 ' + x.id + ' · ' + (m.exam || '?') + ' ' + (m.year || '') + ' ' + (m.paper || '') + ' · status: ' + x.status + ' · fresh ' + x.fresh + '/' + x.parsed + (x.needs_translation ? ' · 📝 TE pending ' + x.needs_translation : '') + acts;
         });
         box.textContent = rows.length ? rows.join('\n') : 'Drafts levu — paina path ichi draft cheyyandi.';
       } catch (e) { box.textContent = '❌ ' + e; }
     }
     async function paperDraftAct(act, id) {
       const msg = document.getElementById('pf-msg');
-      const url = act === 'approve' ? '/api/papers/approve' : '/api/papers/reject';
+      const url = act === 'approve' ? '/api/papers/approve' : (act === 'translate' ? '/api/papers/translate' : '/api/papers/reject');
       try {
         const d = await (await fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({draft_id: id})})).json();
-        msg.textContent = d.ok ? ('✅ ' + act + ' done · added ' + (d.added ?? '—') + ' · translation pending ' + (d.translation_pending ?? 0)) : ('❌ ' + (d.error || 'failed'));
+        msg.textContent = d.ok ? ('✅ ' + act + ' done · added ' + (d.added ?? '—') + ' · translated ' + (d.translated ?? '—') + ' · pending ' + (d.still_pending ?? d.translation_pending ?? 0)) : ('❌ ' + (d.error || 'failed'));
         loadPaperDrafts();
       } catch (e) { msg.textContent = '❌ ' + e; }
     }
@@ -10084,6 +10084,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
                    if pth is not None else
                    {"ok": False, "error": "path ivvandi"})
             self._send_json(res)
+            return
+
+        if p.path == "/api/papers/translate":
+            from core import paperfactory
+            self._send_json(paperfactory.translate_draft(
+                body.get("draft_id", "")))
             return
 
         if p.path == "/api/papers/approve":

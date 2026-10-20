@@ -13,6 +13,7 @@ flagged in the draft.
 Usage:
   python3 scripts/paper_factory.py make <file.pdf|file.txt> [--title "TSPSC Group-II 2023 Paper-I.pdf"]
   python3 scripts/paper_factory.py list
+  python3 scripts/paper_factory.py translate <draft_id>
   python3 scripts/paper_factory.py approve <draft_id>
   python3 scripts/paper_factory.py reject <draft_id>
 """
@@ -31,6 +32,8 @@ def main():
     mk.add_argument("file")
     mk.add_argument("--title", default="")
     sub.add_parser("list")
+    tr = sub.add_parser("translate")
+    tr.add_argument("draft_id")
     ap2 = sub.add_parser("approve")
     ap2.add_argument("draft_id")
     rj = sub.add_parser("reject")
@@ -42,6 +45,8 @@ def main():
         res = paperfactory.make_draft(args.file, args.title)
     elif args.cmd == "list":
         res = {"ok": True, "drafts": paperfactory.list_drafts()}
+    elif args.cmd == "translate":
+        res = paperfactory.translate_draft(args.draft_id)
     elif args.cmd == "approve":
         res = paperfactory.go_bank(args.draft_id)
     else:
