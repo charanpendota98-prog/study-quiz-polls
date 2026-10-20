@@ -680,6 +680,18 @@ class Bot:
             else:
                 self.tg.send_message(chat_id, NB.howto_text(), buttons=NB.buttons())
             return
+        if kind == "pf" and uid and str(uid) in self._staff_ids():
+            # 📄 390X Paper Factory inline actions (staff-only; the
+            # paperfactory gates re-check every transition).
+            from core import paperbot as PB
+            act, _, did = value.partition(":")
+            self.tg.send_message(chat_id, PB.handle_action(act, did, by=str(uid)))
+            if act == "bank":
+                try:
+                    self.bank = Bank()
+                except Exception:
+                    pass
+            return
         if kind == "arena" and uid:
             from core import arena
             act, _, arg = value.partition(":")
@@ -1325,6 +1337,21 @@ class Bot:
             from core import notebook as NB
             doc = msg.get("document") or {}
             fname = (doc.get("file_name") or "").lower()
+            # 📄 390X: official paper PDF (or /paper-caption .txt)
+            # -> Paper Factory draft + inline approve buttons.
+            if doc and (fname.endswith(".pdf") or
+                        (fname.endswith(".txt") and low.startswith("/paper"))):
+                from core import paperbot as PB
+                try:
+                    raw = self.tg.download_file(doc.get("file_id", ""),
+                                                max_bytes=20_000_000)
+                except Exception as e:
+                    self.tg.send_message(chat_id, f"⚠️ paper download failed: {e}")
+                    return
+                txt_out, btn = PB.make_from_upload(
+                    doc.get("file_name") or "paper.pdf", raw)
+                self.tg.send_message(chat_id, txt_out, buttons=btn)
+                return
             blob = None
             if doc and (fname.endswith(".txt") or fname.endswith(".json") or fname.endswith(".md")):
                 try:
@@ -2198,6 +2225,9 @@ class Bot:
                 self.tg.send_message(chat_id, txt, buttons=btn)
             else:
                 self.tg.send_message(chat_id, jobradar.radar_text(self.members, uid), buttons=jobradar.radar_buttons(self.members, uid))
+        elif low.startswith("/papers") and uid and str(uid) in self._staff_ids():
+            from core import paperbot as PB
+            self.tg.send_message(chat_id, PB.list_text())
         elif low.startswith("/notebook") and uid and str(uid) in self._staff_ids():
             from core import notebook as NB
             parts = text.split()

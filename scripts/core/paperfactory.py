@@ -405,6 +405,8 @@ def go_bank(draft_id: str, by: str = "owner") -> dict:
         return {"ok": False, "error": "Draft dorakaledu."}
     if draft.get("status") == "banked":
         return {"ok": False, "error": "Ee draft already bank loki vellindi."}
+    if draft.get("status") == "rejected":
+        return {"ok": False, "error": "Rejected draft bank avvadu."}
     bank_file = config.DATA / "scraped_bank.json"
     cur = load_json(bank_file, {"questions": []})
     cur_qs = cur.get("questions") or []

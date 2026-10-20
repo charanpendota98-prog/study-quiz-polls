@@ -326,3 +326,26 @@ like every owner route); CLI gains `translate <draft_id>`.
 translate→bank, broken-translator parking, and terminal-draft
 guards with a deterministic stub LLM. Suite **935 OK** ·
 finalize PASSED (1477 Q, 0 errors).
+
+---
+
+## ADDENDUM — 390X (Bot Paper Factory)
+
+The Paper Factory is now reachable where the owner already
+works: the Telegram bot. Staff DM a paper PDF (or a .txt with
+a /paper caption) → `core/paperbot.py` saves it to
+`data/pdf_inbox/` (basename-sanitised, never clobbers), builds
+the 370X draft, and replies with gate-honest counts plus
+inline buttons — ✅ Bank / 🌐 Translate (only when pending) /
+❌ Reject (`pf:{act}:{draft_id}`, sized under Telegram's
+64-byte callback cap). Callbacks are staff-gated and simply
+dispatch into paperfactory; a successful bank reloads the
+bot's in-memory bank (same pattern as the Notebook import).
+`/papers` lists drafts with TE-pending counts. One real hole
+was closed on the way: `go_bank` banked 0 questions and
+reported success on a REJECTED draft (buttons on an old
+message could still act) — rejected is now terminal there too,
+mirroring translate_draft. `tests/test_advanced390.py` (5)
+pins sanitisation, the upload→translate→bank flow, reject
+finality, and honest junk-PDF errors. Suite **940 OK** ·
+finalize PASSED.
