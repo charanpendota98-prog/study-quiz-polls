@@ -25,10 +25,14 @@ class TestAcademicGrowth(unittest.TestCase):
         cls.items = load_academic_questions()
 
     def test_six_per_board_channel(self):
+        # 420X: TS/AP Inter grew 6 -> 8 (subject-test stock);
+        # the contract is now "at least 6 everywhere, 72 total".
         c = Counter(q["channel"] for q in self.items)
         for ch in BOARD:
-            self.assertEqual(c[ch], 6, f"{ch} stock 6 undali")
-        self.assertEqual(len(self.items), 68)
+            self.assertGreaterEqual(c[ch], 6, f"{ch} stock >=6 undali")
+        self.assertEqual(c["TS_INTER"], 8)
+        self.assertEqual(c["AP_INTER"], 8)
+        self.assertEqual(len(self.items), 72)
 
     def test_new_questions_present_and_valid(self):
         by_q = {q["q_en"]: q for q in self.items}
