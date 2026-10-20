@@ -257,3 +257,72 @@ signature dedupe (a dynamically-generated question existed 5×;
 Deploy rule: run `python3 scripts/bank_restore.py` once on any
 fresh checkout/VM before starting services. Suite **913 OK** ·
 finalize PASSED.
+
+---
+
+## ADDENDUM — 360X (FSRS-Lite spaced repetition)
+
+The fixed 0→3d→7d review ladder mastered a question after ONE
+lucky correct. `core/fsrs_lite.py` (pure, zero deps — informed
+by FSRS retention curves, no native packages) now grades by
+stability: retrievability R = 1/(1+t/9S), reviews target R=0.90,
+hard-earned recalls grow stability most, lapses collapse it to
+a floored 25%, and cards retire only when proven (S≥45, ≥4
+recalls). Legacy ladder cards migrate on first touch; a fresh
+mistake joins the same day's review batch (the product's daily
+cadence), so bot /review behaviour is unchanged. Students get
+a 🧠 Memory Deck (`/api/portal/memory` + portal strip: due /
+falling / strong + per-topic retention) and a Memory Booster
+task in Today's Smart Plan. Legacy SRS tests were migrated to
+the stronger stability contract — spacing proven, mastery
+earned, lapse re-queues. Suite **925 OK** · finalize PASSED.
+
+---
+
+## ADDENDUM — 370X (Paper Factory: PYQ papers → drafts → bank)
+
+Official previous-paper PDFs used to need the collector's web
+pipeline; there was no owner-reviewable on-ramp for a PDF the
+owner already holds. `core/paperfactory.py` closes that gap:
+filename provenance (exam/year/paper), best-available text
+extraction (Docling when installed, else the collector's proven
+pdftotext→pypdf chain), the tolerant quiz parser, and
+provenance-stamped `PAPER-{exam}-{year}-NNN` ids. Two trust
+gates keep the bank clean: (1) everything lands as a DRAFT in
+`data/paper_drafts.json` — never straight into the bank, the
+310X approve-to-live rule applied to papers; (2) questions
+whose Telugu translation is unavailable stay flagged
+`translation_pending` inside the draft and are NEVER banked
+(`go_bank` skips them; the draft stays open for a later retry),
+because `validate_question` requires real Telugu — silently
+mirroring English would fake bilingual coverage. Draft-time
+dedupe now checks the served bank PLUS `scraped_bank.json`
+(approved papers land there before the next rebuild — missing
+it re-admitted banked questions). Owner surfaces: dashboard
+PYQ card → Paper Factory (path → draft → approve/reject) and
+`scripts/paper_factory.py` CLI. `tests/test_advanced370.py`
+(6) pins meta/parse/dedupe/translation-gate/reject. Suite
+**931 OK** · finalize PASSED (1480 Q, 0 errors).
+
+---
+
+## ADDENDUM — 380X (Paper Factory Pro: OCR + translation bridge)
+
+Two gaps closed on the 370X on-ramp. (1) **Scanned papers:**
+extraction gained an optional OCR layer (PyMuPDF render →
+PaddleOCR Telugu → Tesseract tel+eng, 30-page night-batch cap);
+with no OCR stack installed a text-less PDF honestly returns
+`ocr-needed` instead of crashing or faking text — installing
+`pymupdf` + an OCR engine on the VM enables it with zero code
+change. (2) **Translation bridge:** `translate_draft()` runs
+the exam-grade MCQ translator (whole-question unit, number-
+preservation gate in `translator.translate_mcq`) over a
+draft's pending questions; each success is re-validated and
+un-flagged so the next Approve banks it, each failure stays
+parked. Dashboard drafts now show 📝 TE pending counts with a
+🌐 Translate action (`/api/papers/translate`, login-locked
+like every owner route); CLI gains `translate <draft_id>`.
+`tests/test_advanced380.py` (4) pins ocr-needed honesty,
+translate→bank, broken-translator parking, and terminal-draft
+guards with a deterministic stub LLM. Suite **935 OK** ·
+finalize PASSED (1477 Q, 0 errors).

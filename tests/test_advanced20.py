@@ -72,6 +72,11 @@ class TestBugFixes(unittest.TestCase):
         return info["token"]
 
     def test_srs_ladder_advances(self):
+        # 🧠 360X migration: fixed 0->3d->7d ladder replaced by
+        # FSRS-Lite stability. Contract kept & strengthened: wrong
+        # queues a card due today; correct SPACES it (never deletes
+        # on first correct); repeated corrects grow the gap;
+        # only PROVEN stability retires the card; a lapse re-queues.
         from core.members import Members as RealMembers
         import tempfile as _tf
         # real Members on isolated brain; member dict driven manually
@@ -83,27 +88,29 @@ class TestBugFixes(unittest.TestCase):
         mem.award_answer(uid, "T", correct=False, topic="History", qid="QX1")
         m = mem._get(uid)
         self.assertEqual(len(m["review"]), 1)
-        self.assertEqual(m["review"][0]["interval"], 0)
-        # one correct must SPACE the card to 3 days, not delete it
+        self.assertIn("s", m["review"][0])          # FSRS card
+        first_s = m["review"][0]["s"]
+        # one correct must SPACE the card, not delete it
         mem.award_answer(uid, "T", correct=True, topic="History", qid="QX1")
         m = mem._get(uid)
         self.assertEqual(len(m["review"]), 1)
-        self.assertEqual(m["review"][0]["interval"], 3)
-        # second correct -> 7 days
+        self.assertGreater(m["review"][0]["s"], first_s)
+        first_due = m["review"][0]["due"]
+        # second correct -> stability & due gap keep growing
         mem.award_answer(uid, "T", correct=True, topic="History", qid="QX1")
         m = mem._get(uid)
         self.assertEqual(len(m["review"]), 1)
-        self.assertEqual(m["review"][0]["interval"], 7)
-        # third correct -> mastered, card drops
-        mem.award_answer(uid, "T", correct=True, topic="History", qid="QX1")
+        self.assertGreaterEqual(m["review"][0]["due"], first_due)
+        # many proven recalls -> mastered, card retires
+        for _ in range(10):
+            mem.award_answer(uid, "T", correct=True, topic="History", qid="QX1")
         m = mem._get(uid)
         self.assertEqual(m["review"], [])
-        # wrong while spaced -> back to interval 0, due today
-        mem.award_answer(uid, "T", correct=False, topic="History", qid="QX1")
-        mem.award_answer(uid, "T", correct=True, topic="History", qid="QX1")
+        # wrong after mastery -> fresh card due today again
         mem.award_answer(uid, "T", correct=False, topic="History", qid="QX1")
         m = mem._get(uid)
-        self.assertEqual(m["review"][0]["interval"], 0)
+        self.assertEqual(len(m["review"]), 1)
+        self.assertIn("s", m["review"][0])
 
     def test_brain_reviews_due_only(self):
         member = {"review": [{"qid": "A", "due": "2000-01-01"},

@@ -99,8 +99,10 @@ class TestPapersMode(unittest.TestCase):
         self.assertTrue(ok, info)
         st = portal.state(mem, info["token"])
         self.assertTrue(st["papers"])
-        self.assertEqual(st["today_plan"]["total"], 4)
+        # 🧠 360X: Smart Plan gained the Memory Booster task (5 total).
+        self.assertEqual(st["today_plan"]["total"], 5)
         self.assertIn("daily", [t["key"] for t in st["today_plan"]["tasks"]])
+        self.assertIn("memory", [t["key"] for t in st["today_plan"]["tasks"]])
 
     def test_full_paper_attempt_roundtrip(self):
         mem = _Members()
