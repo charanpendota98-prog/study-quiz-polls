@@ -156,7 +156,9 @@ class TestExamFlow(unittest.TestCase):
 
     def test_frontend_and_pyq_coverage(self):
         src = DASH.read_text(encoding="utf-8")
-        html = src.split('PORTAL_HTML = """', 1)[1].split('"""', 1)[0]
+        # 450X: PORTAL_HTML raw string ayindi (r""" — JS \' escapes
+        # Python vadhili pettadaniki); extraction kuda adi telusukovali.
+        html = src.split('PORTAL_HTML = r"""', 1)[1].split('"""', 1)[0]
         self.assertLess(html.index('id="r-goal"'), html.index('id="r-name"'),
                         "Registration lo exam select FIRST ravali")
         for needle in ("sec-exams", "sec-quiz", "scrollDoor", "goal-chips",

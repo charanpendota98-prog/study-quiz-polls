@@ -930,7 +930,7 @@ async function doLogin() {
 </body>
 </html>"""
 
-PORTAL_HTML = """<!DOCTYPE html>
+PORTAL_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -3014,7 +3014,7 @@ function startPolling() {
 """
 
 
-HTML_PAGE = """<!DOCTYPE html>
+HTML_PAGE = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -7325,6 +7325,30 @@ All candidates must join today before 9:00 PM!"></textarea>
       } catch (e) { box.textContent = '❌ ' + e; }
     }
 
+    // 🎓 450X: ee rendu functions PORTAL page lo matrame unde — admin
+    // Portal-Analytics buttons (Run Harvest / Add Material) click
+    // cheste ReferenceError vachedi. Ippudu admin page lone, admin
+    // fetch style (146 direct fetch calls) tho define chesam.
+    async function addMaterial230() {
+      const body = { title: (document.getElementById('mat-title') || {}).value || '',
+                     file: (document.getElementById('mat-file') || {}).value || '',
+                     goal: (document.getElementById('mat-goal') || {}).value || 'all',
+                     cost: parseInt((document.getElementById('mat-cost') || {}).value || '0', 10) || 0 };
+      try {
+        const r = await fetch('/api/admin/materials_add', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+        const d = await r.json();
+        alert(d.ok ? '✅ Material added: ' + ((d.item || {}).title || body.title) : ('❌ ' + (d.error || 'failed')));
+      } catch (e) { alert('❌ ' + e); }
+    }
+    async function runHarvest230() {
+      if (!confirm('Top harvest target run cheyyala? (production lo real PYQ download avthundi)')) return;
+      try {
+        const r = await fetch('/api/admin/harvest_run', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+        const d = await r.json();
+        alert((d && d.message) || (d && d.error) || 'done');
+      } catch (e) { alert('❌ ' + e); }
+    }
+
     async function searchAdminStudents() {
       const box = document.getElementById('pt-students');
       const q = (document.getElementById('pt-q') || {}).value || '';
@@ -7716,7 +7740,7 @@ All candidates must join today before 9:00 PM!"></textarea>
           <td style="font-size:11px; color:var(--text-muted); max-width:200px; overflow:hidden; text-overflow:ellipsis;">${membersList}</td>
           <td>
             <a href="${link}" target="_blank" class="btn btn-outline" style="padding:3px 8px; font-size:11px; text-decoration:none;">🔗 Join Link</a>
-            <button class="btn btn-accent" style="padding:3px 8px; font-size:11px; margin-left:4px;" onclick="viewSquadModal('${code}', '${s.name.replace(/'/g, "\\'")}', '${link}', '${qrUrl}', '${s.leader}')">📱 View Scannable QR</button>
+            <button class="btn btn-accent" style="padding:3px 8px; font-size:11px; margin-left:4px;" onclick="viewSquadModal('${code}', '${s.name.replace(/'/g, "\'")}', '${link}', '${qrUrl}', '${s.leader}')">📱 View Scannable QR</button>
           </td>
         `;
         tbody.appendChild(tr);

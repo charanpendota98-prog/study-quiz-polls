@@ -458,3 +458,29 @@ scoring, callback size limits, real Bot message/callback
 routing with a registration gate, and the go-live row; the
 430X count pin moved 15 -> 16. Suite **976 OK** ·
 finalize PASSED.
+
+**450X addendum — Dashboard perfection audit.** The worst
+mistake class found so far: `PORTAL_HTML` and `HTML_PAGE`
+were plain (non-raw) Python strings, so Python consumed
+every `\'` escape the JS authors wrote. The served inline
+scripts of BOTH the student portal (`downloadKey` history
+button) and the admin dashboard (`paperDraftAct` buttons)
+had hard syntax errors — the whole page script was dead in
+the browser while every HTTP smoke still returned 200.
+Both constants are now `r"""` raw strings (the raw file
+text was always node-clean; the value was the bug), the
+single pre-doubled escape (squad `viewSquadModal` name) was
+kept at exactly one backslash, and admin
+Portal-Analytics buttons `runHarvest230`/`addMaterial230`
+— previously defined only in the portal page, a guaranteed
+ReferenceError on click — now live in the admin page in its
+own fetch style. Verified live: served admin (211,680-char)
+and portal JS both pass `node --check`; all four page
+constants (HTML_PAGE, PORTAL_HTML, WEB_EXAM_HTML,
+LOGIN_PAGE) parse clean and every onclick handler is
+defined in its own page.
+`tests/test_advanced450.py` pins the raw-string prefixes,
+the exact historically-broken lines, per-page handler
+closure, and node syntax when node exists; the examflow
+frontend extraction moved to `PORTAL_HTML = r"""`. Suite
+**982 OK (skipped=1)** · finalize PASSED (1447 Q, 0 errors).
