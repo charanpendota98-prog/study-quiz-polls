@@ -279,6 +279,25 @@ def _golive_checks():
     except Exception as _e430:
         checks.append({"name": "Paper Factory (430X)", "status": "warn",
                        "detail": f"paper factory check run avvaledu: {_e430}"})
+    # 🎓 440X: Board subject tests readiness — the same academic
+    # stock must be playable on the portal (420X) AND in Telegram
+    # via /boards; an empty board warns instead of looking live.
+    try:
+        from core import boardbot as _bb440
+        _r440 = _bb440.readiness()
+        checks.append({
+            "name": "Board Bot Tests (440X)",
+            "status": "ok" if _r440.get("ready") else "warn",
+            "detail": (f"{_r440.get('boards', 0)} board channels · "
+                       f"{_r440.get('questions', 0)} academic questions · "
+                       f"{_r440.get('subjects', 0)} subject tests live on "
+                       "portal + Telegram /boards"
+                       + (f" · ⚠️ stock pending: "
+                          f"{', '.join(_r440.get('empty') or [])}"
+                          if _r440.get("empty") else ""))})
+    except Exception as _e440:
+        checks.append({"name": "Board Bot Tests (440X)", "status": "warn",
+                       "detail": f"board bot check run avvaledu: {_e440}"})
     try:
         from core import portal as _p340
         _hub340 = _p340.state_hub()
