@@ -43,9 +43,9 @@ class GoLivePaperFactory(unittest.TestCase):
         return next(c for c in r["checks"]
                     if c["name"] == "Paper Factory (430X)")
 
-    def test_row_present_and_checks_15(self):
+    def test_row_present_and_checks_16(self):
         r = dash._golive_checks()
-        self.assertEqual(len(r["checks"]), 15)
+        self.assertEqual(len(r["checks"]), 16)
         row = self._row()
         self.assertIn("banked", row["detail"])
 

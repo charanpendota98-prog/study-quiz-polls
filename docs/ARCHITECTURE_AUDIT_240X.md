@@ -428,3 +428,59 @@ options-format invariants now pin the statically defined
 base channels (`config.BASE_CHANNEL_KEYS`), with the
 inheritance itself pinned in `tests/test_advanced430.py`
 (5 tests). Suite **965 OK** · finalize PASSED.
+
+---
+
+## ADDENDUM — 440X (Bot Board Subject Tests)
+
+420X made board tests playable on the portal, but a student who
+lives in Telegram could not reach them. New pure module
+`core/boardbot.py` (no Telegram imports, fully unit-testable)
+is the bot-side remote control for the SAME honest stock:
+`/boards` -> board channel -> subject chips -> an inline-button
+test, one question at a time. Strictness mirrors 420X exactly:
+a run draws only its own channel's academic stock, a subject
+run only that subject, and unknown channels/subjects fail
+honestly — never a mixed-bank fallback. Every served question
+passes the 280X `poll_safe` shield before snapshotting, so the
+stored answer_index always matches the displayed (balanced)
+option order. Scoring is exactly-once: callbacks carry the
+question index, repeat/stale taps and other users' taps are
+refused, and each first answer flows through
+`members.award_answer` — the same points, topic stats, brain
+and FSRS revision pipeline as bot polls. Registration-first
+gating matches /quiz. The go-live card gains a 16th check,
+"Board Bot Tests (440X)", reporting board channels, academic
+questions and subject-test depth (empty board warns).
+`tests/test_advanced440.py` (11 tests) pins catalog honesty,
+strict stock, poll_safe answer integrity, exactly-once
+scoring, callback size limits, real Bot message/callback
+routing with a registration gate, and the go-live row; the
+430X count pin moved 15 -> 16. Suite **976 OK** ·
+finalize PASSED.
+
+**450X addendum — Dashboard perfection audit.** The worst
+mistake class found so far: `PORTAL_HTML` and `HTML_PAGE`
+were plain (non-raw) Python strings, so Python consumed
+every `\'` escape the JS authors wrote. The served inline
+scripts of BOTH the student portal (`downloadKey` history
+button) and the admin dashboard (`paperDraftAct` buttons)
+had hard syntax errors — the whole page script was dead in
+the browser while every HTTP smoke still returned 200.
+Both constants are now `r"""` raw strings (the raw file
+text was always node-clean; the value was the bug), the
+single pre-doubled escape (squad `viewSquadModal` name) was
+kept at exactly one backslash, and admin
+Portal-Analytics buttons `runHarvest230`/`addMaterial230`
+— previously defined only in the portal page, a guaranteed
+ReferenceError on click — now live in the admin page in its
+own fetch style. Verified live: served admin (211,680-char)
+and portal JS both pass `node --check`; all four page
+constants (HTML_PAGE, PORTAL_HTML, WEB_EXAM_HTML,
+LOGIN_PAGE) parse clean and every onclick handler is
+defined in its own page.
+`tests/test_advanced450.py` pins the raw-string prefixes,
+the exact historically-broken lines, per-page handler
+closure, and node syntax when node exists; the examflow
+frontend extraction moved to `PORTAL_HTML = r"""`. Suite
+**982 OK (skipped=1)** · finalize PASSED (1447 Q, 0 errors).

@@ -138,6 +138,7 @@ HELP = (
     "5️⃣ ఆదివారం 9 AM 🏟 Grand Test · నెల చివరి ఆదివారం 🏆 Mega · సోమవారం League/Squad/Arena boards.\n"
     "6️⃣ /wallet — points = application filing discounts + study materials @ StudentUp centre.\n"
     "7️⃣ /report weekly report card · /review missed Qs · /me · /rank · /invite (+20 per friend).\n"
+    "8️⃣ /boards — 🎓 TS/AP board subject tests (10th/Inter/Diploma/B.Tech) inline buttons tho.\n"
     "ప్రశ్నలు ఎప్పుడూ repeat అవ్వవు · real exam-paper sources · Telugu + English.\n"
 )
 
@@ -691,6 +692,20 @@ class Bot:
                     self.bank = Bank()
                 except Exception:
                     pass
+            return
+        if kind == "bb" and uid:
+            # 🎓 440X Board subject tests (portal 420X stock, bot
+            # inline flow). Registration-first like /quiz — boardbot
+            # scores each tap exactly once via members.award_answer.
+            from core import boardbot as BB
+            if not self.members.is_registered(uid):
+                self.members.start_registration(uid, username="")
+                self.tg.send_message(chat_id, FIRST_TIME_ASK)
+                return
+            for _txt440, _btn440 in BB.dispatch(
+                    self.members, uid, value,
+                    username=self._name(cq.get("from", {}))):
+                self.tg.send_message(chat_id, _txt440, buttons=_btn440)
             return
         if kind == "arena" and uid:
             from core import arena
@@ -2225,6 +2240,17 @@ class Bot:
                 self.tg.send_message(chat_id, txt, buttons=btn)
             else:
                 self.tg.send_message(chat_id, jobradar.radar_text(self.members, uid), buttons=jobradar.radar_buttons(self.members, uid))
+        elif low.startswith("/boards") and uid:
+            # 🎓 440X: TS/AP board subject tests — portal 420X stock,
+            # bot inline flow (board channel → subject chips → test).
+            from core import boardbot as BB
+            if getattr(config, "REQUIRE_REGISTRATION", True) \
+                    and not self.members.is_registered(uid):
+                self.members.start_registration(uid, username=self._name(who))
+                self.tg.send_message(chat_id, FIRST_TIME_ASK)
+                return
+            self.tg.send_message(chat_id, BB.menu_text(),
+                                 buttons=BB.menu_buttons())
         elif low.startswith("/papers") and uid and str(uid) in self._staff_ids():
             from core import paperbot as PB
             self.tg.send_message(chat_id, PB.list_text())
